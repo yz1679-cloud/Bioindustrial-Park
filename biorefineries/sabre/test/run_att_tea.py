@@ -1,7 +1,7 @@
 """Run the ATT preliminary TEA (H2 MSP) and export results."""
 import argparse
 
-from biorefineries.sabre.analyses._att_tea import export_att_tea
+from biorefineries.sabre.analyses.att.tea import export_att_tea
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

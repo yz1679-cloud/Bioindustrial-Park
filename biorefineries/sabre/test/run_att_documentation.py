@@ -1,7 +1,7 @@
 """Export the ATT master documentation workbook, CSV files and README."""
 import argparse
 
-from biorefineries.sabre.analyses._att_documentation import export_att_documentation
+from biorefineries.sabre.analyses.att.reporting import export_att_documentation
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

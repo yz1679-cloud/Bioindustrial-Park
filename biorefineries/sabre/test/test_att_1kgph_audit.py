@@ -2,7 +2,7 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses._att_1kgph_audit import build_att_1kgph_audit
+from biorefineries.sabre.analyses.att.validation import build_att_1kgph_audit
 
 
 class TestATT1kgphAudit(unittest.TestCase):

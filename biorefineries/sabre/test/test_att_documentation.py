@@ -2,7 +2,7 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses._att_documentation import build_att_documentation
+from biorefineries.sabre.analyses.att.reporting import build_att_documentation
 
 
 class TestATTDocumentation(unittest.TestCase):

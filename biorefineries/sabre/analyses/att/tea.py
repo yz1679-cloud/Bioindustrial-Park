@@ -6,7 +6,7 @@ cost; FOC = 4 % of FCI) through a thin subclass that adds only what the
 frozen unit models do not carry:
 
 - extra installed capital: out-of-model equipment estimates from
-  _att_inventory (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum),
+  att.inventory (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum),
   the preliminary PSA estimate and the U3K reciprocating-compressor
   correction (att_tea.yaml capex);
 - extra annual operating cost: purge-neutralization H2SO4, estimated
@@ -22,8 +22,8 @@ Prices and capital assumptions: data/att_tea.yaml.
 import biosteam as bst
 
 from biorefineries.sabre._tea import SaBReTEA
-from biorefineries.sabre.analyses import _att_inventory as inv
-from biorefineries.sabre.analyses._att_lca import _h2so4_kgph
+from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att.lca import _h2so4_kgph
 from biorefineries.sabre.utils import OPERATING_DAYS_PER_YEAR, load_assumptions
 
 __all__ = (
@@ -369,7 +369,7 @@ def get_att_lime_price_cases(sys, estimates):
 
 def get_att_p1_power_cases(sys, estimates):
     """P1 electricity: BioSTEAM ScrewPress basis vs SaBRe press basis (TEA and GWP deltas)."""
-    from biorefineries.sabre.analyses import _att_lca as lca
+    from biorefineries.sabre.analyses.att import lca
 
     hours = sys.operating_hours
     dry = inv._dry_feed_kgph(sys)

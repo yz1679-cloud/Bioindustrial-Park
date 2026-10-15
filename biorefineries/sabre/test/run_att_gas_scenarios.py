@@ -2,7 +2,7 @@
 import argparse
 import os
 
-from biorefineries.sabre.analyses._att_gas_scenarios import export_att_gas_scenario_comparison
+from biorefineries.sabre.analyses.att.scenarios import export_att_gas_scenario_comparison
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

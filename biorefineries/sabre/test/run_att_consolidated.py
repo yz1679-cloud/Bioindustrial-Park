@@ -1,7 +1,7 @@
 """Export the consolidated ATT process/TEA/GWP100 results."""
 import argparse
 
-from biorefineries.sabre.analyses._att_consolidated import export_att_consolidated_results
+from biorefineries.sabre.analyses.att.reporting import export_att_consolidated_results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

@@ -3,8 +3,8 @@ import os
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses import _att_experiment as exp
-from biorefineries.sabre.analyses._att_final import build_att_final_results
+from biorefineries.sabre.analyses.att import experiment as exp
+from biorefineries.sabre.analyses.att.final import build_att_final_results
 
 
 class TestATTExperiment(unittest.TestCase):

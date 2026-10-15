@@ -1,6 +1,6 @@
 """Regression tests for graph-derived ATT external Na boundary."""
 import unittest
-from biorefineries.sabre.analyses._att_na_recycle import read_only_att_na_probe
+from biorefineries.sabre.analyses.att.validation import read_only_att_na_probe
 
 class FakeStream:
     def __init__(self, ID, naoh=0):

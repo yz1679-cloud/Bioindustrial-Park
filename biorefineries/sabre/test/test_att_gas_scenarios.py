@@ -2,7 +2,7 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses._att_gas_scenarios import build_att_gas_scenario_tables
+from biorefineries.sabre.analyses.att.scenarios import build_att_gas_scenario_tables
 
 
 class TestATTGasScenarios(unittest.TestCase):

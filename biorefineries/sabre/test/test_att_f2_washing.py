@@ -1,5 +1,5 @@
 import unittest
-from biorefineries.sabre.analyses._att_f2_washing import wash_balance
+from biorefineries.sabre.analyses.att.mass_energy import wash_balance
 
 BASE=dict(dry_insolubles=1.0,retained_water=.4,retained_naoh=.14,retained_na2co3=.033,filtrate_water=3.,filtrate_naoh=1.04,filtrate_na2co3=.244,target_moisture=.25)
 

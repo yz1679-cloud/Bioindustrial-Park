@@ -1,7 +1,7 @@
 """Export the ATT research-stage inventory, LCI and TEA cost inputs."""
 import argparse
 
-from biorefineries.sabre.analyses._att_inventory import export_att_inventory
+from biorefineries.sabre.analyses.att.inventory import export_att_inventory
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

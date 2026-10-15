@@ -2,7 +2,7 @@
 from __future__ import annotations
 import unittest
 
-from biorefineries.sabre.analyses._att_na_recycle import (
+from biorefineries.sabre.analyses.att.validation import (
     sodium_kgph, composition, get_stream_sodium, native_unit_sodium_ledger,
     read_only_att_na_probe, MW_NA,
 )

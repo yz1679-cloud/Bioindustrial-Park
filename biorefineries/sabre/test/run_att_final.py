@@ -1,7 +1,7 @@
 """Export the final ATT results (experimental data, lab screening LCA, industrial TEA/LCA, comparisons)."""
 import argparse
 
-from biorefineries.sabre.analyses._att_final import export_att_final_results
+from biorefineries.sabre.analyses.att.final import export_att_final_results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

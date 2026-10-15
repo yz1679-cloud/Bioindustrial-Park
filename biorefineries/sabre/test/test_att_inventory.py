@@ -1,7 +1,7 @@
-"""Consistency checks of the ATT research-stage inventory (_att_inventory)."""
+"""Consistency checks of the ATT research-stage inventory (att.inventory)."""
 import unittest
 
-from biorefineries.sabre.analyses import _att_inventory as inv
+from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.systems._att_system import create_att_system
 from biorefineries.sabre.utils import load_assumptions
 
@@ -107,7 +107,7 @@ class TestATTInventory(unittest.TestCase):
 
     def test_energy_summary_uses_own_system(self):
         # A later system must not change the reported utilities of this one.
-        from biorefineries.sabre.analyses._att_energy import get_att_energy_summary
+        from biorefineries.sabre.analyses.att.mass_energy import get_att_energy_summary
         before = get_att_energy_summary(self.sys)["U2_utility_heat_kJph"]
         _simulate(2.0)
         after = get_att_energy_summary(self.sys)["U2_utility_heat_kJph"]

@@ -1,9 +1,9 @@
-"""Preliminary ATT TEA (_att_tea): MSP accounting and consistency."""
+"""Preliminary ATT TEA (att.tea): MSP accounting and consistency."""
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses import _att_inventory as inv
-from biorefineries.sabre.analyses import _att_tea as tea_mod
+from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att import tea as tea_mod
 
 
 class TestATTTEA(unittest.TestCase):

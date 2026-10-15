@@ -1,9 +1,9 @@
-"""GWP100 of the frozen ATT model (_att_lca): accounting and conversions."""
+"""GWP100 of the frozen ATT model (att.lca): accounting and conversions."""
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses import _att_inventory as inv
-from biorefineries.sabre.analyses import _att_lca as lca
+from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att import lca
 
 
 class TestATTGWP(unittest.TestCase):

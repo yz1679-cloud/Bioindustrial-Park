@@ -46,7 +46,7 @@ def main(argv=None):
         p.error('--delta-t-min must be nonnegative')
 
     from biorefineries.sabre.systems._att_system import create_att_system
-    from biorefineries.sabre.analyses._att_heat_integration import (
+    from biorefineries.sabre.analyses.att.heat_integration import (
         get_heat_utility_audit, format_heat_utility_audit,
         get_att_heat_recovery_assessment, format_att_heat_recovery_assessment,
         get_att_pinch_targets, design_att_heat_exchanger_network,

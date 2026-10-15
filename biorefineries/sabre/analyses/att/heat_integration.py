@@ -53,6 +53,9 @@ from dataclasses import dataclass
 import math
 from typing import Iterable, Optional
 
+# Shared with the energy accounting (same definitions as before the merge).
+from biorefineries.sabre.analyses.att.mass_energy import _positive_heat_utility_kJph, _units_of
+
 __all__ = (
     "HeatStream",
     "get_hot_streams",
@@ -124,14 +127,6 @@ class HeatStream:
 # ---------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------
-
-def _positive_heat_utility_kJph(unit) -> float:
-    """Return total positive BioSTEAM heat-utility duty [kJ/h]."""
-    return sum(
-        max(float(hu.duty), 0.0)
-        for hu in unit.heat_utilities
-    )
-
 
 def _negative_heat_utility_magnitude_kJph(unit) -> float:
     """Return magnitude of total negative BioSTEAM heat-utility duty [kJ/h]."""
@@ -1138,15 +1133,6 @@ def _tq_intervals(unit_id, kind, stream, T_from, T_to, n, *, vle, provenance):
                 f"{unit_id} {temperatures[i]:.1f}->{temperatures[i+1]:.1f} K",
                 provenance))
     return intervals
-
-
-def _units_of(sys):
-    """Units of *this* system by ID. Unlike ``sys.flowsheet.unit`` this is not
-    affected by other systems built later in the same flowsheet registry."""
-    from types import SimpleNamespace
-    if not hasattr(sys, "units"):  # minimal test stand-ins
-        return sys.flowsheet.unit
-    return SimpleNamespace(**{unit.ID: unit for unit in (*sys.units, *getattr(sys, "facilities", ()))})
 
 
 def _c1_liquor_heating_kJph(u) -> float:

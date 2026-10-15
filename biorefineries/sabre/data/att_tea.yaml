@@ -1,6 +1,6 @@
 # Model Assumptions: ATT preliminary TEA (research stage)
 #
-# Read by biorefineries/sabre/analyses/_att_tea.py. Financial assumptions are
+# Read by biorefineries/sabre/analyses/att/tea.py. Financial assumptions are
 # the SaBRe defaults in tea.yaml (SaBReTEA); this file only adds ATT-specific
 # prices and capital items. The frozen process model is not modified.
 
@@ -40,7 +40,7 @@ tea:
     electricity_note: "BioSTEAM default PowerUtility price on the modeled unit power; estimated agitator and EC1 vacuum power added."
 
   capex:
-    # Out-of-model equipment from _att_inventory.get_att_cost_estimates
+    # Out-of-model equipment from att.inventory.get_att_cost_estimates
     # (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum) is added.
     PSA:
       status: PRELIMINARY (not a correlation or vendor quote)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import unittest
 
-from biorefineries.sabre.analyses._att_c1_aqueous_reference import (
+from biorefineries.sabre.analyses.att.thermodynamics import (
     AQUEOUS_SALT_HF_KJ_PER_KMOL, correct_reaction_enthalpy)
 
 class AqueousReferenceTests(unittest.TestCase):

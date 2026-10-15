@@ -1,13 +1,13 @@
 """
 Side-by-side TEA and LCA contribution analysis of the three selected
-element-balanced gas-yield scenarios (_att_final.GAS_SCENARIOS): Gas-C
+element-balanced gas-yield scenarios (att.final.GAS_SCENARIOS): Gas-C
 (baseline, uniform_redox_scaling), Gas-Cprime (uniform_co2_free) and Gas-A
 (h2_measured_ch4_max). "Gas-A" is unrelated to TEA Case A (CaCO3 filter cake
 disposed).
 
 Reporting only. Each scenario is simulated separately at the SaBRe reference
-scale and evaluated with the existing functions of _att_inventory, _att_tea,
-_att_lca and _att_documentation; no process, closure, price, financial or
+scale and evaluated with the existing functions of att.inventory, att.tea,
+att.lca and att.reporting; no process, closure, price, financial or
 emission-factor input is changed. The MSP breakdown levelizes the columns of
 SaBReTEA's own cash-flow table at the solved MSP (NPV = 0), so its components
 sum to the MSP. Writes att_final/gas_scenario_comparison/.
@@ -17,11 +17,11 @@ import warnings
 
 import numpy as np
 
-from biorefineries.sabre.analyses import _att_documentation as doc
-from biorefineries.sabre.analyses import _att_final as fin
-from biorefineries.sabre.analyses import _att_inventory as inv
-from biorefineries.sabre.analyses import _att_lca as lca
-from biorefineries.sabre.analyses import _att_tea as tea_mod
+from biorefineries.sabre.analyses.att import reporting as rep
+from biorefineries.sabre.analyses.att import final as fin
+from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att import lca
+from biorefineries.sabre.analyses.att import tea as tea_mod
 from biorefineries.sabre.utils import load_assumptions
 
 __all__ = ("build_att_gas_scenario_tables", "export_att_gas_scenario_comparison")
@@ -157,17 +157,17 @@ def _evaluate(label, method, note):
 
     # TEA: Case A first, reference last (reference prices stay on the system).
     case_a = tea_mod.evaluate_att_tea(sys, est, caco3=dict(fraction=0.0))
-    out["opex_detail_A"] = doc._opex_detail(sys, case_a)
+    out["opex_detail_A"] = rep._opex_detail(sys, case_a)
     out["opex_table_A"] = tea_mod._opex_table(sys, case_a)
     out["dcf_A"], out["dcf_checks_A"], out["dcf_basis_A"] = _dcf_breakdown(sys, case_a)
     out["msp_A"] = case_a["msp"]
     ref = tea_mod.evaluate_att_tea(sys, est)
-    out["opex_detail"] = doc._opex_detail(sys, ref)
+    out["opex_detail"] = rep._opex_detail(sys, ref)
     out["opex_table"] = tea_mod._opex_table(sys, ref)
     out["dcf"], out["dcf_checks"], out["dcf_basis"] = _dcf_breakdown(sys, ref)
     out["msp"] = ref["msp"]
     out["capex"] = tea_mod._capex_table(sys, ref)
-    out["capex_detail"] = doc._capex_detail(sys, ref)
+    out["capex_detail"] = rep._capex_detail(sys, ref)
     t = ref["tea"]
     out["tea_totals"] = dict(FCI=t.FCI, WC=t.working_capital, TCI=t.TCI, FOC=t.FOC, VOC=t.VOC, sales=t.sales,
                              add_OPEX=t._annual_unit_add_opex(), extra_VOC=t.extra_VOC,
@@ -441,7 +441,7 @@ def _msp_breakdown(R):
 
 
 def _msp_simple(R):
-    """Existing _att_tea._opex_table view (annual cost / annual H2 + remainder) and its reconciliation."""
+    """Existing att.tea._opex_table view (annual cost / annual H2 + remainder) and its reconciliation."""
     rows = []
     for sid in IDS:
         r = R[sid]
@@ -655,31 +655,31 @@ def _assumptions(R):
     rows = [
         ("Scenarios", "Gas-C (BASELINE): uniform_redox_scaling, s = 0.5998; Gas-Cprime: uniform_co2_free; Gas-A: "
                       "h2_measured_ch4_max. Selected element-balanced gas-yield scenarios, not physical bounds.",
-         "att.yaml; _att_final.GAS_SCENARIOS"),
+         "att.yaml; att.final.GAS_SCENARIOS"),
         ("Gas-A vs TEA Case A", "Gas-A is a gas-yield scenario. TEA Case A = CaCO3 filter cake disposed at tea.yaml "
-                                "disposal_solid (no sales).", "_att_tea.evaluate_att_tea(caco3=dict(fraction=0))"),
+                                "disposal_solid (no sales).", "att.tea.evaluate_att_tea(caco3=dict(fraction=0))"),
         ("Experimental input", "Ni-CatATT only (att.yaml reactor.cases)", "att_experiment.yaml row 8"),
         ("Scale", f"{scale['wet_feed_t_per_day']:.0f} wet t/d = {scale['dry_feed_t_per_day']:.1f} dry t/d; "
                   f"{scale['operating_hours_per_year']:.0f} h/yr; identical for all scenarios", "feedstock.yaml"),
         ("Simulation", "Each scenario: separate full-scale BioSTEAM simulation (create_att_system(u2_gas_closure=...)); "
-                       "equipment, utilities and electricity from that simulation", "_att_gas_scenarios._evaluate"),
+                       "equipment, utilities and electricity from that simulation", "att.scenarios._evaluate"),
         ("Financial", f"IRR {fin_['IRR']}, income tax {fin_['income_tax']}, {fin_['depreciation']}, duration "
                       f"{fin_['duration']}, loan {fin_['finance_fraction']} of FCI at {fin_['finance_interest']} for "
                       f"{fin_['finance_years']} yr, WC {fin_['WC_over_FCI']} FCI, FOC {fin_['foc_frac_of_fci']} FCI",
          "tea.yaml"),
         ("FCI", "FCI = installed equipment cost incl. TEA-only estimates (PSA anchor, vessels, EC1 evaporator); no "
-                "indirect capital (SaBRe convention)", "_att_tea.ATTTEA"),
+                "indirect capital (SaBRe convention)", "att.tea.ATTTEA"),
         ("MSP breakdown", "Levelized from SaBReTEA's cash-flow table at the solved MSP: component = PV(component) / "
                           "PV(H2 kg). VOC items use the VOC profile, disposal (negative sales) the sales profile, FOC "
                           "its profile; capital = PV(FCI + WC - loan), financing = PV(debt service), tax = PV(tax).",
-         "_att_gas_scenarios._dcf_breakdown"),
+         "att.scenarios._dcf_breakdown"),
         ("Utilities in TEA", "U2 natural gas priced as fuel = duty / 0.90 x USD/MJ (agent cost plus adjustment, no "
                              "double count); LP steam and cooling water at BioSTEAM agent prices (boiler fuel and tower "
                              "power not priced again); electricity = modeled units + agitator/EC1 vacuum estimate",
-         "_att_tea._voc_items"),
+         "att.tea._voc_items"),
         ("Utilities in LCA", "U2 natural gas = duty / 0.90; LP steam = boiler natural gas, duty / 0.80; cooling = "
                              "cooling-tower and CW-pump electricity; combustion and upstream supply separated",
-         "_att_lca.apply_att_gwp"),
+         "att.lca.apply_att_gwp"),
         ("TEA/LCA steam basis", "TEA prices LP steam at the BioSTEAM agent price; LCA charges boiler natural gas "
                                 "(0.80). Each is counted once in its own analysis.", "documented asymmetry"),
         ("CaCO3 cake in LCA", "Baseline GWP (all scenarios) has no CaCO3 cake burden or credit, consistent with the TEA "
@@ -873,10 +873,10 @@ def build_att_gas_scenario_tables():
 _README = """# ATT gas-yield scenarios: detailed TEA and LCA
 
 Generated by `biorefineries/sabre/test/run_att_gas_scenarios.py`
-(`biorefineries/sabre/analyses/_att_gas_scenarios.py`). Reporting only: the
+(`biorefineries/sabre/analyses/att/scenarios.py`). Reporting only: the
 three selected element-balanced gas-yield scenarios are simulated separately
-at the SaBRe reference scale and evaluated with the existing `_att_tea`,
-`_att_lca`, `_att_inventory` and `_att_documentation` functions.
+at the SaBRe reference scale and evaluated with the existing `att.tea`,
+`att.lca`, `att.inventory` and `att.reporting` functions.
 
 - **Gas-C (BASELINE):** `uniform_redox_scaling`, s = 0.5998.
 - **Gas-Cprime:** `uniform_co2_free` (alternative scenario).

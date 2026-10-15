@@ -18,7 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
-MODULE_NAME = 'biorefineries.sabre.analyses._att_heat_integration'
+MODULE_NAME = 'biorefineries.sabre.analyses.att.heat_integration'
 
 
 def stream(T, H):
@@ -52,7 +52,7 @@ class TestATTHeatIntegration(unittest.TestCase):
     # Preserve the original three structural checks.
     def test_module_imported_from_analyses(self):
         self.assertEqual(self.mod.__name__, MODULE_NAME)
-        self.assertEqual(Path(self.mod.__file__).name, '_att_heat_integration.py')
+        self.assertEqual(Path(self.mod.__file__).name, 'heat_integration.py')
 
     def test_public_functions_have_valid_signatures(self):
         functions = {n: f for n, f in vars(self.mod).items()

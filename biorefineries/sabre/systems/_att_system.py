@@ -6,7 +6,7 @@ from biorefineries.sabre.utils import (
     load_assumptions,
     get_feedstock_type_params,
 )
-from biorefineries.sabre.analyses._att_f2_washing import wash_balance
+from biorefineries.sabre.analyses.att.mass_energy import wash_balance
 from biorefineries.sabre.units._att import (
     ATTReactor,
     CausticizationReactor,

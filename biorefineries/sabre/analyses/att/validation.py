@@ -1,24 +1,45 @@
-"""
-ATT process mass and energy audit at the original 1 kg dry Sargassum/h basis.
+"""ATT diagnostic audits (read-only; never used by the process model).
 
-Runs the frozen ATT model (create_att_system, active U2 closure) at exactly
-1 kg/h dry feed in its own flowsheet registry and extracts streams, balances
-and energy flows with the existing _att_inventory and _att_documentation
-helpers. A full-scale (SaBRe reference) run is used only for the comparison
-sheet. Writes att_documentation/1kgph_audit/. Nothing is written elsewhere and
-no model, LCA or TEA setting is changed.
+- 1 kg/h process mass and energy audit: runs the frozen ATT model
+  (create_att_system, active U2 closure) at exactly 1 kg/h dry feed in its
+  own flowsheet registry and extracts streams, balances and energy flows with
+  the existing inventory and reporting helpers. A full-scale (SaBRe
+  reference) run is used only for the comparison sheet. Writes
+  att_documentation/1kgph_audit/. Nothing is written elsewhere and no model,
+  LCA or TEA setting is changed.
+- Sodium (Na) ledger: per-unit Na balances and the external Na balance
+  across the actual graph of ``sys.units``. Run only after convergence.
 """
+from __future__ import annotations
+
+import math
 import os
 import re
 import warnings
+from collections.abc import Mapping
 
 import biosteam as bst
 
-from biorefineries.sabre.analyses import _att_documentation as doc
-from biorefineries.sabre.analyses import _att_inventory as inv
+from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att import reporting as rep
 from biorefineries.sabre.utils import load_assumptions
 
-__all__ = ("simulate_att_1kgph", "build_att_1kgph_audit", "export_att_1kgph_audit")
+__all__ = (
+    "simulate_att_1kgph",
+    "build_att_1kgph_audit",
+    "export_att_1kgph_audit",
+    "number",
+    "composition",
+    "sodium_kgph",
+    "get_stream_sodium",
+    "native_unit_sodium_ledger",
+    "read_only_att_na_probe",
+)
+
+
+# ==========================================================================
+# 1 kg/h process mass and energy audit
+# ==========================================================================
 
 WORKBOOK = "ATT_1kgph_Process_Mass_Energy_Audit.xlsx"
 _ATT = load_assumptions("att.yaml")["att"]
@@ -164,7 +185,7 @@ def _energy(sys):
     """Unit-level energy audit in kJ/h and kW (actual 1 kg/h simulation)."""
     burner = float(_ATT["energy_sources"]["natural_gas"]["burner_efficiency"])
     boiler = float(_LCA["natural_gas"]["boiler_efficiency"])
-    notes = {u: doc._UNIT_INFO.get(u, ("", ""))[0] for u in doc._UNIT_INFO}
+    notes = {u: rep._UNIT_INFO.get(u, ("", ""))[0] for u in rep._UNIT_INFO}
     balance = {r["unit"]: r for r in inv.get_att_unit_energy_balance(sys)}
     dry = inv._dry_feed_kgph(sys)
     rows = []
@@ -215,7 +236,7 @@ def _utilities(sys, estimates):
 
 
 def _energy_detail(sys):
-    rows = doc._energy_accounts(sys)
+    rows = rep._energy_accounts(sys)
     dry = inv._dry_feed_kgph(sys)
     for r in rows:
         if r["unit"] == "MJ/kg dry":
@@ -314,7 +335,7 @@ def _checks(sys, warnings_list):
 
 
 def _sources():
-    rows = [dict(item=k, reference=v, role="configuration") for k, v in doc.FILES.items()]
+    rows = [dict(item=k, reference=v, role="configuration") for k, v in rep.FILES.items()]
     rows += [
         dict(item="Flowsheet", reference="biorefineries/sabre/systems/_att_system.py (create_att_system)", role="model"),
         dict(item="ATT units (U2, C1, EC1, M2)", reference="biorefineries/sabre/units/_att.py", role="model"),
@@ -322,7 +343,7 @@ def _sources():
              role="model"),
         dict(item="Chemicals (Char, CharN, CharS, feed pseudo-components)", reference="biorefineries/sabre/_chemicals.py",
              role="model"),
-        dict(item="Extraction functions", reference="biorefineries/sabre/analyses/_att_inventory.py, _att_documentation.py",
+        dict(item="Extraction functions", reference="biorefineries/sabre/analyses/att/inventory.py, att.reporting.py",
              role="analysis"),
         dict(item="UCLA experimental data", reference="ATT Inputs and Assumptions_261005.xlsx, sheet 'Experimental results'",
              role="experiment"),
@@ -360,33 +381,33 @@ def build_att_1kgph_audit():
     params = [dict(Parameter=r["parameter"], Value=r["value"], Unit=r["unit"], Process_unit=r["process_unit"],
                    Description=r["description"], Source_category=r["source_category"],
                    Source=f"{r['exact_source']} | {r['file_key']}", Status=r["assumption_status"], Notes=r["notes"])
-              for r in doc._register_rows()
+              for r in rep._register_rows()
               if r["section"] in ("Feedstock", "Preparation", "ATT reaction", "Gas treatment", "Downstream", "Energy")]
-    units = doc._units_table(small, [])
+    units = rep._units_table(small, [])
     for r in units:
         r["note_1kgph"] = "1 kg/h sizes/costs are BioSTEAM minimum-size artifacts; not for TEA"
     tables = {
         "01_Basis_Experiment": _basis(small),
         "02_Process_Parameters": params,
         "03_Units": units,
-        "03b_Connectivity": doc._connectivity(small),
+        "03b_Connectivity": rep._connectivity(small),
         "04_Stream_Inventory": streams,
         "05_Stream_Components": components,
         "06_Mass_Balance_Summary": _mass_summary(small),
         "06b_Total_Element_Balances": [dict(r, unit=r["unit"].replace("kg/kg dry", "kg/h").replace(
-            "kg C/kg dry", "kg C/h")) for r in doc._mass_balance(small)],
+            "kg C/kg dry", "kg C/h")) for r in rep._mass_balance(small)],
         "07_NaOH_Carbonate": ([dict(item=r["item"], value=r["value"], unit=r["unit"].replace("kg/kg dry", "kg/h"))
                                for r in inv.get_att_sodium_calcium_ledger(small)]
                               + [dict(item=f"{r['stream']}: NaOH/(NaOH+H2O) | NaOH/total | Na2CO3/total",
                                       value=f"{r['NaOH_over_NaOH_plus_H2O']:.4g} | {r['NaOH_over_total_mixture']:.4g} | "
                                             f"{r['Na2CO3_over_total_mixture']:.4g}", unit=r["note"])
-                                 for r in doc._naoh_extra(small)]),
+                                 for r in rep._naoh_extra(small)]),
         "08_Water_Balance": [dict(group=r["group"], item=r["item"], kg_per_h=r["kg_per_kg_dry"])
                              for r in inv.get_att_water_balance(small)],
         "09_Unit_Energy_Balance": _energy(small),
         "09b_Energy_Accounts": _energy_detail(small),
         "10_Utilities_Fuel": _utilities(small, estimates),
-        "11_Products_Residues": [dict(r, kg_per_h=r.pop("kg_per_kg_dry")) for r in doc._products(small)],
+        "11_Products_Residues": [dict(r, kg_per_h=r.pop("kg_per_kg_dry")) for r in rep._products(small)],
         "13_Sources": _sources(),
     }
     # Full-scale reference run for the comparison only (separate system object).
@@ -420,7 +441,7 @@ def _same_flows(sys, fingerprint, rtol=1e-12):
 _README = """# ATT 1 kg/h process mass and energy audit
 
 Generated by `biorefineries/sabre/test/run_att_1kgph_audit.py`
-(`biorefineries/sabre/analyses/_att_1kgph_audit.py`).
+(`biorefineries/sabre/analyses/att/validation.py`).
 
 ## How the data were obtained
 
@@ -467,3 +488,118 @@ def export_att_1kgph_audit(out_dir=os.path.join("att_documentation", "1kgph_audi
     with open(os.path.join(out_dir, "README.md"), "w", encoding="utf-8") as f:
         f.write(_README.replace("{sheets}", sheets))
     return tables
+
+
+# ==========================================================================
+# Sodium (Na) ledger
+# ==========================================================================
+
+MW_NA = 22.98976928  # g/mol
+MW_NAOH = 39.997  # g/mol
+MW_NA2CO3 = 105.9888
+NAOH_NA_FRACTION = MW_NA / MW_NAOH
+CARBONATE_NA_FRACTION = 2 * MW_NA / MW_NA2CO3
+COMPONENTS = ('NaOH', 'Na2CO3', 'Water')
+
+
+def number(value, name, nonnegative=True):
+    try:
+        v = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'{name}: expected finite numeric value') from exc
+    if not math.isfinite(v) or (nonnegative and v < 0):
+        raise ValueError(f'{name}: expected finite nonnegative value')
+    return v
+
+
+def composition(values):
+    if not isinstance(values, Mapping) or set(values) != set(COMPONENTS):
+        raise ValueError('Composition requires exactly NaOH, Na2CO3, Water')
+    return {k: number(values[k], k) for k in COMPONENTS}
+
+
+def sodium_kgph(values):
+    d = composition(values)
+    return d['NaOH'] * NAOH_NA_FRACTION + d['Na2CO3'] * CARBONATE_NA_FRACTION
+
+
+def get_stream_sodium(stream):
+    """Stream Na ledger: species-based and elemental cross-check (if available)."""
+    naoh = number(stream.imass['NaOH'], 'stream NaOH')
+    carbonate = number(stream.imass['Na2CO3'], 'stream Na2CO3')
+    comp = {'NaOH': naoh, 'Na2CO3': carbonate, 'Water': 0.0}
+    species_na = sodium_kgph(comp)
+    atomic = None
+    if hasattr(stream, 'get_atomic_flow'):
+        atomic = number(stream.get_atomic_flow('Na'), 'atomic Na') * MW_NA
+    extra = atomic - species_na if atomic is not None else None
+    return {'id': str(stream.ID), 'naoh_kgph': naoh, 'na2co3_kgph': carbonate,
+            'explicit_species_na_kgph': species_na,
+            'all_chemicals_atomic_na_kgph': atomic,
+            'other_Na_in_other_species_or_thermo_kgph': extra}
+
+
+def native_unit_sodium_ledger(unit, *, tolerance_kgph=1e-7):
+    """READ ONLY; no simulation or changes performed here."""
+    ins = [get_stream_sodium(s) for s in unit.ins]
+    outs = [get_stream_sodium(s) for s in unit.outs]
+    in_na = sum((r['all_chemicals_atomic_na_kgph'] if r['all_chemicals_atomic_na_kgph'] is not None else r['explicit_species_na_kgph']) for r in ins)
+    out_na = sum((r['all_chemicals_atomic_na_kgph'] if r['all_chemicals_atomic_na_kgph'] is not None else r['explicit_species_na_kgph']) for r in outs)
+    err = out_na - in_na
+    return {'unit_id': str(unit.ID), 'input_streams': ins, 'output_streams': outs,
+            'na_in_kgph': in_na, 'na_out_kgph': out_na, 'na_balance_residual_kgph': err,
+            'balance_pass': abs(err) <= max(tolerance_kgph, abs(in_na)*1e-7)}
+
+
+def read_only_att_na_probe(sys):
+    """Audit all simulated process units, including optional W2.
+
+    The boundary is the actual graph of ``sys.units``, not a hard-coded
+    list of historic 18 unit IDs. An internal stream is never counted as
+    an external product, even if its BioSTEAM source/sink is unusual.
+    Run only after convergence; this function is read-only.
+    """
+    process_units = list(sys.units)
+    if not process_units:
+        raise ValueError('No process units found in simulated ATT system')
+    unit_ids = [str(unit.ID) for unit in process_units]
+    if len(set(unit_ids)) != len(unit_ids):
+        raise ValueError('Duplicate process unit IDs in sodium audit')
+    ledger = [native_unit_sodium_ledger(unit) for unit in process_units]
+
+    inlet_streams = {}
+    outlet_streams = {}
+    for unit in process_units:
+        for stream in unit.ins:
+            inlet_streams[id(stream)] = stream
+        for stream in unit.outs:
+            outlet_streams[id(stream)] = stream
+
+    # Identity sets determine the boundary. Internal connections cancel.
+    # Do not depend on globally registered stream.source / stream.sink:
+    # they can include units outside the audited system.
+    external_feeds = [stream for key, stream in inlet_streams.items()
+                      if key not in outlet_streams]
+    external_products = [stream for key, stream in outlet_streams.items()
+                         if key not in inlet_streams]
+
+    def na_mass(stream):
+        record = get_stream_sodium(stream)
+        return (record['all_chemicals_atomic_na_kgph']
+                if record['all_chemicals_atomic_na_kgph'] is not None
+                else record['explicit_species_na_kgph'])
+
+    in_na = sum(na_mass(s) for s in external_feeds)
+    out_na = sum(na_mass(s) for s in external_products)
+    return {
+        'stage': 'READ_ONLY_ACTUAL_BIOSTEAM_NA_LEDGER_GRAPH_BOUNDARY',
+        'audited_unit_ids': unit_ids,
+        'audited_unit_count': len(process_units),
+        'unit_ledger': ledger,
+        'all_unit_Na_balances_pass': all(x['balance_pass'] for x in ledger),
+        'external_feed_streams': [get_stream_sodium(s) for s in external_feeds],
+        'external_product_streams': [get_stream_sodium(s) for s in external_products],
+        'external_Na_in_kgph': in_na, 'external_Na_out_kgph': out_na,
+        'external_Na_residual_kgph': out_na-in_na,
+        'total_external_Na_balance_pass': abs(out_na-in_na) <= max(1e-7, abs(in_na)*1e-7),
+    }

@@ -31,7 +31,7 @@ from biosteam.units.design_tools import PressureVessel
 from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
 from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
 
-from biorefineries.sabre.analyses._att_u2_energy import get_att_u2_gas_basis
+from biorefineries.sabre.analyses.att.thermodynamics import get_att_u2_gas_basis
 from biorefineries.sabre.utils import (
     OPERATING_DAYS_PER_YEAR, OPERATING_HOURS_PER_YEAR, get_scale_feed_kgph, load_assumptions,
 )
@@ -992,7 +992,7 @@ def get_att_unit_energy_balance(sys):
 
 def get_att_utility_consistency_check(sys):
     """Duplicated utilities and consistency of the reporting functions."""
-    from biorefineries.sabre.analyses._att_energy import get_att_energy_summary
+    from biorefineries.sabre.analyses.att.mass_energy import get_att_energy_summary
 
     u = _units(sys)
     unit_hus = [hu for unit in sys.units for hu in unit.heat_utilities]

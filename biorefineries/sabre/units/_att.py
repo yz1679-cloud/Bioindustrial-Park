@@ -1032,7 +1032,7 @@ class CausticizationReactor(bst.Unit):
         # infinite-dilution aqueous-ion standards, NOT by molten NaOH Hf.
         # Concentrated-solution enthalpy is NOT included; its effect is
         # bounded at about -40 to +300 kJ/h (att.yaml c1_energy_basis_status).
-        from biorefineries.sabre.analyses._att_c1_aqueous_reference import from_reactor_streams
+        from biorefineries.sabre.analyses.att.thermodynamics import from_reactor_streams
         aqueous_reference = from_reactor_streams(carbonate_solution, lime, slurry)
         heat_duty_kJph = aqueous_reference.phase_reference_corrected_delta_kJph
         # The recorded in/out enthalpies and formation term must use the
@@ -1499,7 +1499,7 @@ class ATTHeatRecovery(bst.Facility):
         pass
 
     def _design(self):
-        from biorefineries.sabre.analyses._att_heat_integration import (
+        from biorefineries.sabre.analyses.att.heat_integration import (
             design_att_heat_exchanger_network, _process_side_duties,
             _baseline_heating_utilities, _units_of,
         )

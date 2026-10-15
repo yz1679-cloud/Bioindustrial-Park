@@ -2,7 +2,7 @@
 import argparse
 import os
 
-from biorefineries.sabre.analyses._att_1kgph_audit import export_att_1kgph_audit
+from biorefineries.sabre.analyses.att.validation import export_att_1kgph_audit
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

@@ -2,7 +2,7 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses._att_consolidated import build_att_consolidated_results
+from biorefineries.sabre.analyses.att.reporting import build_att_consolidated_results
 
 
 class TestATTConsolidated(unittest.TestCase):

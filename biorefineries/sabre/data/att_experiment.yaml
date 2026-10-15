@@ -4,7 +4,7 @@
 # sheets "Experimental results" and "Assumptions for energy analysis".
 # Each value carries its sheet!cell reference. Presentation slides are NOT a
 # source for this file. Verified against the workbook by
-# biorefineries/sabre/analyses/_att_experiment.verify_att_experiment_workbook.
+# biorefineries/sabre/analyses/att/experiment.py:verify_att_experiment_workbook.
 
 source_workbook:
   file_name: "ATT Inputs and Assumptions_261005.xlsx"

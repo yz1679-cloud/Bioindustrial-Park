@@ -21,7 +21,7 @@ are checked to sum to it. Factors and assumptions: data/att_lca.yaml.
 """
 import biosteam as bst
 
-from biorefineries.sabre.analyses import _att_inventory as inv
+from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.utils import load_assumptions
 
 __all__ = (

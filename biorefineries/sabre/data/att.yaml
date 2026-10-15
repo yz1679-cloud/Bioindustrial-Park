@@ -153,7 +153,7 @@ att:
       # below (Hess's law) instead of the per-pseudo-component Hf, which imply
       # 17.76 MJ/kg daf with borrowed Glucan Hf values.
       feed_HHV_MJ_per_kg_daf: 16.9
-      # U2 energy sensitivity (analyses/_att_u2_energy.py), user decision
+      # U2 energy sensitivity (analyses/att/thermodynamics.py), user decision
       # 2026-10-09. CONDITIONAL ENGINEERING SENSITIVITY RANGE under the
       # active gas closure; not a statistical confidence interval. U2 inlet
       # fixed; excludes the gas closure itself, NaOH conversion, heat-loss
@@ -398,7 +398,7 @@ att:
     used_in_current_heat_recovery: false
 
   # Research-stage TEA/LCA inventory (user decisions 2026-10-09). Read by
-  # biorefineries/sabre/analyses/_att_inventory.py. The heat-integration
+  # biorefineries/sabre/analyses/att/inventory.py. The heat-integration
   # scenario is excluded; the baseline utilities are reported as simulated.
   inventory:
     reference_scale:

@@ -2,7 +2,7 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses._att_u2_energy import (
+from biorefineries.sabre.analyses.att.thermodynamics import (
     get_att_u2_gas_basis, evaluate_att_u2_variant,
     get_att_u2_energy_breakdown, get_att_u2_energy_uncertainty,
 )

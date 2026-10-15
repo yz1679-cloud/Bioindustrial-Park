@@ -1,6 +1,6 @@
 # Model Assumptions: ATT GWP100 life-cycle assessment (research stage)
 #
-# Read by biorefineries/sabre/analyses/_att_lca.py. All activity data come
+# Read by biorefineries/sabre/analyses/att/lca.py. All activity data come
 # from the frozen ATT process model (commit cc2bc316, H2-priority U2 closure,
 # SaBRe reference scale). Editing this file never changes the process model.
 
