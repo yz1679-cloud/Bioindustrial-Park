@@ -13,21 +13,22 @@ scenarios.
 
 ## Installation
 
-Tested with Python 3.12 and the versions in `requirements-att.txt`. From a
+Tested with Python 3.12, biosteam 2.53.11 and thermosteam 0.53.5. From a
 clone of the repository:
 
 ```
 git clone https://github.com/yz1679-cloud/Bioindustrial-Park.git
 cd Bioindustrial-Park
-git checkout att-model-refactor
+git checkout sabre
 python -m venv .venv
 .venv\Scripts\activate            # Windows  (Linux/macOS: source .venv/bin/activate)
 pip install -e .
-pip install -r biorefineries/sabre/requirements-att.txt
 ```
 
-`pip install -e .` (editable) is recommended. The process flow diagrams also
-need the Graphviz `dot` program (https://graphviz.org/download/) on the PATH.
+`pip install -e .` (editable) is recommended. Optional extras for the report
+tools: `openpyxl` (Excel export) and `matplotlib` and `graphviz` (process flow
+diagrams; the diagrams also need the Graphviz `dot` program,
+https://graphviz.org/download/, on the PATH).
 
 ## Run
 
