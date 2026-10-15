@@ -2,14 +2,20 @@
 UCLA ATT experimental reference dataset and laboratory-scale screening LCA.
 
 All experimental values come from data/att_experiment.yaml, a cell-referenced
-transcription of "ATT Inputs and Assumptions_261005.xlsx" (checked against the
-workbook by verify_att_experiment_workbook when the file is available). The
-workbook reports LCA inputs (functional unit, emission factors, boundary) but
-no GWP results; the laboratory LCA here is a clearly labeled screening
-estimate built only from measured inputs plus a thermodynamic lower bound for
-heating. It is NOT comparable with the industrial LCA without harmonization.
+transcription of "ATT Inputs and Assumptions_261005.xlsx". The raw cell values
+of that workbook are packaged verbatim in data/att_experiment_raw/ and
+verify_att_experiment_workbook checks the transcription (and the copy of the
+Ni-CatATT yields in att.yaml) against them, so no file outside the package is
+needed. The workbook reports LCA inputs (functional unit, emission factors,
+boundary) but no GWP results; the laboratory LCA here is a clearly labeled
+screening estimate built only from measured inputs plus a thermodynamic lower
+bound for heating. It is NOT comparable with the industrial LCA without
+harmonization.
 """
+import csv
+import hashlib
 import os
+from pathlib import Path
 
 import thermosteam as tmo
 
@@ -19,6 +25,7 @@ __all__ = (
     "get_att_experimental_gas_yields",
     "get_att_experimental_conditions",
     "get_att_experimental_conversions",
+    "load_att_raw_sheet",
     "verify_att_experiment_workbook",
     "get_att_lab_screening_lca",
     "build_att_experiment_tables",
@@ -26,6 +33,7 @@ __all__ = (
 
 EXP = load_assumptions("att_experiment.yaml")
 _FEEDSTOCK = load_assumptions("feedstock.yaml")
+_RAW_DIR = Path(__file__).resolve().parents[2] / "data" / EXP["source_workbook"]["raw_data_dir"]
 GASES = ("H2", "CH4", "CO", "CO2")
 _MW = {"H2": 2.01588, "CH4": 16.04246, "CO": 28.0101, "CO2": 44.0095, "Gas4": 28.0101}
 _E = {"H2": 2, "CH4": 8, "CO": 2, "CO2": 0}
@@ -106,28 +114,60 @@ def get_att_experimental_conversions(case="Ni-CatATT", model_daf_frac=None):
     return rows
 
 
+def load_att_raw_sheet(sheet):
+    """Raw cell values of one source-workbook sheet as {cell: value} (packaged CSV)."""
+    path = _RAW_DIR / EXP["source_workbook"]["raw_sheets"][sheet]
+    cast = {"int": int, "float": float, "str": str}
+    with open(path, newline="", encoding="utf-8") as f:
+        return {r["cell"]: cast[r["type"]](r["value"]) for r in csv.DictReader(f)}
+
+
 def verify_att_experiment_workbook(path=None):
-    """Compare data/att_experiment.yaml with the source workbook cell by cell."""
-    path = path or EXP["source_workbook"]["local_path"]
-    if not os.path.exists(path):
-        return [dict(check="Source workbook available", value=path, status="NOT AVAILABLE (YAML used as transcribed)")]
-    import openpyxl
-    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    """
+    Check data/att_experiment.yaml, and the Ni-CatATT yields copied into
+    att.yaml, cell by cell (exact equality) against the packaged raw data.
+    With ``path`` (or the ATT_SOURCE_WORKBOOK environment variable) the
+    packaged raw data are also checked against the original workbook.
+    """
+    raw1, raw2 = load_att_raw_sheet(_SHEET1), load_att_raw_sheet(_SHEET2)
     rows = []
     er = EXP["experimental_results"]
-    ws = wb[_SHEET1]
     for case, d in er["cases"].items():
         for k, col in er["column_cells"].items():
             cell = f"{col}{d['row']}"
-            got = ws[cell].value
-            ok = got == d[k] if isinstance(d[k], str) else abs(float(got) - float(d[k])) <= 1e-12 * max(1.0, abs(float(d[k])))
-            rows.append(dict(check=f"{_SHEET1}!{cell} ({case} {k})", value=str(got), status="PASS" if ok else "FAIL"))
-    ws2 = wb[_SHEET2]
+            got = raw1.get(cell)
+            rows.append(dict(check=f"{_SHEET1}!{cell} ({case} {k})", value=str(got),
+                             status="PASS" if got == d[k] else "FAIL"))
     for group in ("feedstock", "process", "emission_factors"):
         for k, d in EXP["energy_analysis"][group].items():
-            got = ws2[d["cell"]].value
-            ok = (got == d["value"]) if isinstance(d["value"], str) else abs(float(got) - float(d["value"])) < 1e-12
-            rows.append(dict(check=f"{_SHEET2}!{d['cell']} ({k})", value=str(got), status="PASS" if ok else "FAIL"))
+            got = raw2.get(d["cell"])
+            rows.append(dict(check=f"{_SHEET2}!{d['cell']} ({k})", value=str(got),
+                             status="PASS" if got == d["value"] else "FAIL"))
+    # The process model reads its U2 yields from att.yaml; they must equal the raw data.
+    case = load_assumptions("att.yaml")["att"]["reactor"]["cases"]["Ni-CatATT"]
+    row = er["cases"]["Ni-CatATT"]["row"]
+    model_copy = {**case["gas_yield_mmol_per_g_daf"], **case["ignored_reported_gas_yields_mmol_per_g_daf"]}
+    for gas, value in model_copy.items():
+        cell = f"{er['column_cells'][gas]}{row}"
+        rows.append(dict(check=f"att.yaml Ni-CatATT {gas} = {_SHEET1}!{cell}", value=str(value),
+                         status="PASS" if value == raw1.get(cell) else "FAIL"))
+    path = path or os.environ.get("ATT_SOURCE_WORKBOOK")
+    if path:
+        rows += _verify_raw_against_workbook(path, {_SHEET1: raw1, _SHEET2: raw2})
+    return rows
+
+
+def _verify_raw_against_workbook(path, raw):
+    """Packaged raw cells vs the original workbook (optional; workbook not distributed)."""
+    import openpyxl
+    sha = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    rows = [dict(check="Original workbook SHA-256", value=sha,
+                 status="PASS" if sha == EXP["source_workbook"]["sha256"] else "FAIL")]
+    wb = openpyxl.load_workbook(path, data_only=True)
+    for sheet, cells in raw.items():
+        found = {c.coordinate: c.value for r in wb[sheet].iter_rows() for c in r if c.value is not None}
+        rows.append(dict(check=f"Packaged raw data = original workbook, sheet {sheet!r}", value=f"{len(found)} cells",
+                         status="PASS" if found == cells else "FAIL"))
     return rows
 
 

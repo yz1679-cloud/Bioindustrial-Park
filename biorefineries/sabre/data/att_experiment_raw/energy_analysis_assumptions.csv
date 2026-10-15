@@ -1,0 +1,93 @@
+cell,type,value
+A1,str,ATT of Sargassum: inputs and assumptions for the energy analysis
+A3,str,1. Feedstock
+A4,str,Parameter
+B4,str,Value
+C4,str,Unit
+D4,str,Source
+A5,str,"Moisture, as harvested"
+B5,int,85
+C5,str,wt%
+A6,str,Ash
+B6,float,17.2
+C6,str,wt% dry
+A7,str,HHV used in the model
+B7,float,16.9
+C7,str,MJ/kg daf
+D7,str,literature 15.7-19.5
+A9,str,2. Process
+A10,str,Parameter
+B10,str,Value
+C10,str,Unit
+D10,str,Source
+A11,str,Functional unit
+B11,int,1
+C11,str,t wet seaweed
+A12,str,Sargassum moisture content
+B12,int,50
+C12,str,%
+D12,str,assumed (mechanical dewatering)
+A13,str,ATT temperature
+B13,int,500
+C13,str,C
+A14,str,NaOH : seaweed (daf)
+B14,int,1
+C14,str,g/g
+A15,str,NaOH converted to Na2CO3
+B15,int,100
+C15,str,%
+A16,str,Ca(OH)2 : Na2CO3 in causticizing
+B16,float,1.1
+C16,str,mol/mol
+D16,str,commercial causticizing
+A17,str,Causticizing efficiency
+B17,int,85
+C17,str,%
+D17,str,commercial causticizing
+A18,str,Water for Na2CO3 dissolution
+B18,int,3
+C18,str,kg/kg Na2CO3
+D18,str,commercial causticizing
+A19,str,Water left in recovered NaOH
+B19,int,50
+C19,str,wt%
+D19,str,assumed
+A20,str,Heat loss
+B20,int,5
+C20,str,% of duty
+D20,str,Gracia-Monforte et al. 2026
+A21,str,Heat recovery from hot products
+B21,int,0
+C21,str,%
+A23,str,3. Emission factors
+A24,str,Item
+B24,str,Value
+C24,str,Unit
+D24,str,Source
+A25,str,NaOH
+B25,float,1.12
+C25,str,kg CO2e/kg
+D25,str,0.63-2.16
+A26,str,Ca(OH)2 from limestone
+B26,float,0.91
+C26,str,kg CO2e/kg
+D26,str,0.59-1.00
+A27,str,Ca(OH)2 from steel slag
+B27,int,0
+C27,str,kg CO2e/kg
+D27,str,"0-0.10, assumed"
+A28,str,Natural gas heat
+B28,float,0.056
+C28,str,kg CO2/MJ
+D28,str,IPCC 2006; burner eff. 0.90
+A29,str,Marine fuel
+B29,float,3.2
+C29,str,kg CO2/kg
+D29,str,LHV 41 MJ/kg
+A30,str,Engine waste heat
+B30,int,0
+C30,str,kg CO2/MJ
+D30,str,assumed
+A32,str,4. Boundary
+A33,str,"Included: ATT reactor, CO2 capture on Ca(OH)2, NaOH regeneration loop, process heat, NaOH and Ca(OH)2 make-up."
+A34,str,"Not included: harvesting and transport, pumping and mixing power, H2 compression, capital goods, REE refining, CaCO3 product credit."

@@ -2,13 +2,20 @@
 #
 # Primary source: "ATT Inputs and Assumptions_261005.xlsx" (collaborators),
 # sheets "Experimental results" and "Assumptions for energy analysis".
-# Each value carries its sheet!cell reference. Presentation slides are NOT a
-# source for this file. Verified against the workbook by
+# Every non-empty cell value of both sheets is kept verbatim in the package
+# under data/att_experiment_raw/ (see its README.md); the workbook itself is
+# not distributed. Each value below carries its sheet!cell reference and is
+# checked cell by cell against the packaged raw data by
 # biorefineries/sabre/analyses/att/experiment.py:verify_att_experiment_workbook.
+# Presentation slides are NOT a source for this file.
 
 source_workbook:
   file_name: "ATT Inputs and Assumptions_261005.xlsx"
-  local_path: "C:/Users/zhouy/Downloads/ATT Inputs and Assumptions_261005.xlsx"
+  sha256: "879812409893953d1692507437197ba8f62c0e218bdf37fe979df051e19b9c9c"
+  raw_data_dir: "att_experiment_raw"   # relative to biorefineries/sabre/data/
+  raw_sheets:
+    "Experimental results": "experimental_results.csv"
+    "Assumptions for energy analysis": "energy_analysis_assumptions.csv"
 
 experimental_results:
   sheet: "Experimental results"
