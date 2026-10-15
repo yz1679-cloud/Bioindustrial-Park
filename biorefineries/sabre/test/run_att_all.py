@@ -8,17 +8,16 @@ works). Each step runs in its own Python process, exactly as when the runners
 are called one by one, with ATT_OUTPUTS_DIR set to the output root (default
 att_outputs/ at the repository root). Order:
 
- 1 experimental      measured data, lab screening LCA
- 2 baseline_1kg      1 kg/h mass and energy audit
- 3 inventory         full-scale mass/energy inventory
- 4 tea               MSP           (read by the cross-checks of 6, 7 and 9)
- 5 lca               GWP100        (read by the cross-checks of 6, 7 and 9)
- 6 consolidated      full-scale summary
- 7 final             comparison workbook incl. D7 gas scenarios (C sheets -> summary)
- 8 gas_scenarios     Gas-C / Gas-Cprime / Gas-A TEA and LCA (QC 14 checks against D7 of 7)
- 9 documentation     master model documentation
-10 heat_integration  heat-recovery screening and HEN report (JSON)
-11 diagram_svg/png   process flow diagrams
+ 1 baseline_1kg      1 kg/h mass and energy audit
+ 2 inventory         full-scale mass/energy inventory
+ 3 tea               MSP           (read by the cross-checks of 5, 6 and 8)
+ 4 lca               GWP100        (read by the cross-checks of 5, 6 and 8)
+ 5 consolidated      full-scale summary
+ 6 final             comparison workbook incl. D7 gas scenarios (C sheets -> summary)
+ 7 gas_scenarios     Gas-C / Gas-Cprime / Gas-A TEA and LCA (QC 14 checks against D7 of 7)
+ 8 documentation     master model documentation
+ 9 heat_integration  heat-recovery screening and HEN report (JSON)
+10 diagram_svg/png   process flow diagrams
 
 The scenarios run after final because their QC compares with final's D7.
 Then the ATT unit tests (unless --skip-tests) and a tally of every exported
@@ -44,7 +43,6 @@ if str(_ROOT) not in sys.path:  # run as a script without the package installed
 from biorefineries.sabre.analyses.att.paths import PROJECT_ROOT, SUBDIRS, outputs_root  # noqa: E402
 
 STEPS = (
-    ("experimental", "run_att_experiment", ()),
     ("baseline_1kg", "run_att_1kgph_audit", ()),
     ("inventory", "run_att_inventory", ()),
     ("tea", "run_att_tea", ()),

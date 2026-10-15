@@ -1,33 +1,27 @@
-"""Final ATT results: experimental data intact, ratio-preserving baseline, lab LCA labeled."""
+"""Final ATT results: measured yields intact, ratio-preserving baseline."""
 import re
 import unittest
 import warnings
 from pathlib import Path
 
-from biorefineries.sabre.analyses.att import experiment as exp
+from biorefineries.sabre.utils import load_assumptions
 from biorefineries.sabre.analyses.att.final import build_att_final_results
 
 
 class TestATTExperiment(unittest.TestCase):
 
     def test_measured_yields_unchanged(self):
-        d = exp.EXP["experimental_results"]["cases"]["Ni-CatATT"]
+        d = load_assumptions("att.yaml")["att"]["reactor"]["cases"]["Ni-CatATT"]["gas_yield_mmol_per_g_daf"]
         self.assertEqual(d["H2"], 66.72842505487348)
         self.assertEqual(d["CH4"], 8.768738649553573)
         self.assertEqual(d["CO"], 0.1648486662946429)
         self.assertEqual(d["CO2"], 0.1865389341517857)
 
     def test_data_files_have_no_absolute_paths(self):
-        data = Path(exp.__file__).resolve().parents[2] / "data"
+        data = Path(__file__).resolve().parents[1] / "data"
         for f in data.rglob("*"):
             if f.suffix in (".yaml", ".csv", ".md"):
                 self.assertIsNone(re.search(r"\b[A-Za-z]:[\\/]|/Users/|/home/", f.read_text(encoding="utf-8")), f.name)
-
-    def test_lab_lca_is_labeled_screening(self):
-        rows = exp.get_att_lab_screening_lca()
-        results = [r for r in rows if r["category"] == "Result" and r["item"].startswith("Screening")]
-        self.assertTrue(results and all("SCREENING" in r["status"] for r in results))
-        self.assertTrue(any(r["status"] == "NOT REPORTED" for r in rows))
 
 
 class TestATTFinal(unittest.TestCase):

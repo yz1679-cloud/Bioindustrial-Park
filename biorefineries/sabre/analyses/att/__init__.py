@@ -10,9 +10,6 @@ Process-level helpers (called by the model itself)
     thermodynamics   U2 gas basis/reaction energy; C1 aqueous enthalpy reference
     heat_integration heat-recovery screening, pinch targets, HXR network design
 
-Experimental data (laboratory scale, kept separate from the plant model)
-    experiment       UCLA dataset, conversions, workbook verification, lab screening LCA
-
 Full-scale analyses (frozen BioSTEAM model)
     inventory        material/energy inventory, LCI, cost inputs
     tea              minimum H2 selling price (SaBReTEA)
@@ -21,7 +18,7 @@ Full-scale analyses (frozen BioSTEAM model)
 
 Reporting
     reporting        consolidated results; master documentation package
-    final            final results (experimental, screening LCA, plant, comparisons)
+    final            final results (plant, gas-yield comparisons)
 
 Diagnostics (read-only audits)
     validation       1 kg/h mass/energy audit; sodium ledger

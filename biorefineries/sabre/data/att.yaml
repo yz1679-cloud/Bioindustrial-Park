@@ -6,6 +6,37 @@
 # gas yields. See reactor.material_balance for the derivation.
 #
 att:
+  # ---------------------------------------------------------------------
+  # DATA SOURCES (where the numbers in this file come from)
+  # ---------------------------------------------------------------------
+  data_sources:
+    workbook:
+      file_name: "ATT Inputs and Assumptions_261005.xlsx"
+      sha256: "879812409893953d1692507437197ba8f62c0e218bdf37fe979df051e19b9c9c"
+      provider: "UCLA ATT collaborators (unpublished; redistribution needs their permission)"
+      sheets: ["Experimental results", "Assumptions for energy analysis"]
+      note: "The workbook is not distributed. Values taken from it are given below with their sheet!cell reference. Workbook values that the model does not use (yields of the ATT, CatATT and Ni-ATT cases, 3.6 g steam per run, workbook ash 17.2 wt % and moisture 85 wt %) are intentionally not copied. Presentation slides are NOT a source."
+    sections:
+      reactor.cases.Ni-CatATT: "Workbook, sheet 'Experimental results', row 8 (gas yields H2/CH4/CO/CO2 and ignored Gas 4); loading 1 g NaOH per 0.5 g daf is advisor-confirmed."
+      reactor.target_temperature_K: "Workbook 'Experimental results' footnote (500 C) and energy-analysis sheet B13."
+      reactor.material_balance (naoh_to_na2co3_conversion): "Workbook, energy-analysis sheet B15 (100 %)."
+      reactor.material_balance (gas closure): "Model decisions by the user, 2026-10-09 to 2026-10-12 (explained in the comments there); the measured yields are never modified."
+      reactor.heat_loss_fraction, downstream.heat_loss_fraction: "Workbook, energy-analysis sheet B20 (5 %; cited there as Gracia-Monforte et al. 2026)."
+      reactor.energy_basis.feed_HHV, feed_energy_reference: "Workbook, energy-analysis sheet B7 (16.9 MJ/kg daf; literature range 15.7-19.5, D7). Not a measured HHV of the SaBRe feed."
+      reactor.energy_basis.sensitivity_feed_HHV_MJ_per_kg_daf.primary_composition_consistent: "Thornton / Channiwala-Parikh correlations on the model daf composition."
+      feed_preparation: "Moisture target 50 wt % from workbook B12 (assumed); press to 75 wt % plus thermal dryer D0 is the user-confirmed process design of 2026-10-09. Feedstock composition, ash and moisture come from feedstock.yaml (SaBRe database), not from the workbook."
+      feed_preparation.dryer.equipment_specific_energy_MJ_per_kg_water: "Danish Energy Agency (1998), tabulated by DryingMate A/S (Teknologisk Institut)."
+      gas_treatment: "Provisional engineering assumptions (condenser, dryer, PSA, compressor); not collaborator-confirmed."
+      downstream.dissolution_water_kg_per_kg_Na2CO3, causticization_conversion, lime_equiv: "Workbook, energy-analysis sheet B18, B17, B16 ('commercial causticizing')."
+      downstream.recycle_naoh_wt_frac: "Workbook B19 ('water left in recovered NaOH', 50 wt %), applied as NaOH/(NaOH + H2O) by user decision 2026-10-09."
+      downstream.whole_liquor_recycle_fraction: "Source reports '95 % NaOH recycling' without defining a separator; interpreted as 95 % whole-liquor recycle (provisional engineering baseline)."
+      downstream.filter cake moistures: "F1 30 wt %: literature-supported engineering baseline. F2 25 wt %: CaCO3/lime-filtration literature review."
+      downstream (EC1 and C1 property data): "Published data cited in the comments there: Olsson (NaOH-water enthalpy), Wu et al. 2020, Morey and Burlew 1964, Ghaffari et al. 2025, Silcock / Qin et al. 2015 (Na2CO3 solubility), General Chemical soda-ash guide; implemented in _naoh_properties.py."
+      energy_sources: "Workbook, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat)."
+      heat_recovery: "BioSTEAM defaults and engineering assumptions; the HEN scenarios are optional and unverified where marked."
+      inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors from the collaborators' workbook (energy-analysis sheet B25-B28); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
+      inventory.cost_estimates: "Engineering estimates (TEA input only)."
+      inventory.reference_scale: "SaBRe common plant scale (feedstock.yaml, tea.yaml)."
   # Definition differences between the source workbook
   # (ATT Inputs and Assumptions_261005.xlsx) and this model, recorded so
   # they are not silently re-interpreted. "model_value" is what is used.

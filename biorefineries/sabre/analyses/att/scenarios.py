@@ -658,7 +658,7 @@ def _assumptions(R):
          "att.yaml; att.final.GAS_SCENARIOS"),
         ("Gas-A vs TEA Case A", "Gas-A is a gas-yield scenario. TEA Case A = CaCO3 filter cake disposed at tea.yaml "
                                 "disposal_solid (no sales).", "att.tea.evaluate_att_tea(caco3=dict(fraction=0))"),
-        ("Experimental input", "Ni-CatATT only (att.yaml reactor.cases)", "att_experiment.yaml row 8"),
+        ("Experimental input", "Ni-CatATT only (att.yaml reactor.cases)", "att.yaml data_sources (workbook row 8)"),
         ("Scale", f"{scale['wet_feed_t_per_day']:.0f} wet t/d = {scale['dry_feed_t_per_day']:.1f} dry t/d; "
                   f"{scale['operating_hours_per_year']:.0f} h/yr; identical for all scenarios", "feedstock.yaml"),
         ("Simulation", "Each scenario: separate full-scale BioSTEAM simulation (create_att_system(u2_gas_closure=...)); "
@@ -707,7 +707,7 @@ def _qc(R, rerun):
                          status="PASS" if ok else "FAIL"))
 
     att = load_assumptions("att.yaml")["att"]
-    exp = load_assumptions("att_experiment.yaml")["experimental_results"]["cases"]["Ni-CatATT"]
+    exp = att["reactor"]["cases"]["Ni-CatATT"]["gas_yield_mmol_per_g_daf"]
     add("all", "Baseline closure (att.yaml)", att["reactor"]["material_balance"]["gas_closure_method"],
         "uniform_redox_scaling", att["reactor"]["material_balance"]["gas_closure_method"] == "uniform_redox_scaling")
     add(_BASE, "Gas-C scale factor s", round(R[_BASE]["U2"]["s"], 4), 0.5998, abs(R[_BASE]["U2"]["s"] - 0.5998) < 5e-5)
@@ -720,7 +720,7 @@ def _qc(R, rerun):
     for sid in IDS:
         r = R[sid]
         msp, msp_a, gwp = _EXPECTED[sid]
-        add(sid, "Experimental yields = att_experiment.yaml Ni-CatATT",
+        add(sid, "Measured yields = att.yaml reactor.cases Ni-CatATT",
             r["U2"]["measured"], "unchanged", all(r["U2"]["measured"][g] == exp[g] for g in ("H2", "CH4", "CO", "CO2")))
         add(sid, "Reference MSP [USD/kg H2] ~ expected", round(r["msp"], 4), msp, abs(r["msp"] - msp) < 0.006)
         add(sid, "TEA Case A MSP [USD/kg H2] ~ expected", round(r["msp_A"], 4), msp_a, abs(r["msp_A"] - msp_a) < 0.006)

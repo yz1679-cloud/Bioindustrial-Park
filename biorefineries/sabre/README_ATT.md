@@ -2,14 +2,12 @@
 
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
-(Sargassum Biorefinery) framework in BioSTEAM. It provides the laboratory
-experimental dataset, a 1 kg dry/h baseline, a full-scale plant
-(15,000 wet t/d) with material, element, Na, water and energy balances, a
+(Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (15,000 wet t/d) with material, element, Na, water and energy balances, a
 preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, gas-yield
-scenarios, and a comparison of laboratory and plant results.
+scenarios.
 
-> **Data availability.** `data/att_experiment.yaml`
-> and the measured gas yields in `data/att.yaml` are unpublished laboratory
+> **Data availability.** The measured gas yields and the workbook values in
+> `data/att.yaml` are unpublished laboratory
 > data of the UCLA collaborators. They may only be redistributed or made public
 > with the collaborators' permission. See [Data sources](#data-sources).
 
@@ -47,7 +45,6 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 
 | Command (`python -m biorefineries.sabre.test.<runner>`) | Output (`att_outputs/…`) |
 |---|---|
-| `run_att_experiment` | `experimental/` |
 | `run_att_1kgph_audit` | `baseline_1kg/` |
 | `run_att_inventory` | `full_scale/mass_energy/` |
 | `run_att_tea` | `full_scale/tea/` |
@@ -70,7 +67,6 @@ Unit tests: `python -m unittest discover -s biorefineries/sabre/test -t . -p "te
 
 ```
 att_outputs/
-├── experimental/            measured gas yields, conditions, conversions (A1-A3), lab screening LCA (B1)
 ├── baseline_1kg/            1 kg dry/h mass and energy audit
 ├── full_scale/
 │   ├── mass_energy/         streams, mass/element/water/Na-Ca balances, unit energy, utilities, LCI
@@ -96,7 +92,6 @@ biorefineries/sabre/
 ├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1-M2
 ├── analyses/att/                  analyses (see analyses/att/__init__.py)
 │   ├── mass_energy.py  thermodynamics.py  heat_integration.py   process-level helpers
-│   ├── experiment.py                                              laboratory data only
 │   ├── inventory.py  tea.py  lca.py  scenarios.py                 full-scale analyses
 │   ├── reporting.py  final.py                                     consolidated results, documentation, comparison
 │   ├── validation.py                                              read-only audits (1 kg/h, Na ledger)
@@ -110,8 +105,7 @@ biorefineries/sabre/
 
 | File | Content | Source |
 |---|---|---|
-| `data/att_experiment.yaml` | cell-referenced transcription of the experimental data and the collaborators' assumptions | UCLA collaborators (unpublished), "ATT Inputs and Assumptions_261005.xlsx" |
-| `data/att.yaml` | process specification, U2 baseline yields (copy of the Ni-CatATT measurements), unit settings, heat recovery | user-confirmed design basis, literature, engineering assumptions (each entry states its basis) |
+| `data/att.yaml` | process specification, U2 baseline yields, unit settings, heat recovery | collaborators' workbook "ATT Inputs and Assumptions_261005.xlsx" (unpublished), user-confirmed design basis, literature, engineering assumptions; `data_sources` records the origin of each section |
 | `data/att_tea.yaml`, `data/tea.yaml` | prices, capital items, financial assumptions | literature and SaBRe database |
 | `data/att_lca.yaml` | GWP100 characterization factors | collaborators, GREET 2022, NETL, literature |
 | `data/feedstock.yaml`, `data/preprocessing.yaml` | Sargassum composition, scale, press | SaBRe database |

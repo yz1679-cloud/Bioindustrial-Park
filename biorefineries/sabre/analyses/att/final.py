@@ -1,24 +1,20 @@
 """
-Final ATT results: (A) original UCLA experimental data, (B) laboratory-scale
-screening LCA, (C) industrial-scale BioSTEAM material/energy/TEA/LCA with the
-baseline U2 closure (att.yaml), and (D) comparisons. Reuses att.experiment,
+Final ATT results: (C) industrial-scale BioSTEAM material/energy/TEA/LCA with
+the baseline U2 closure (att.yaml), and (D) gas-yield comparisons. Reuses
 att.reporting, att.inventory and att.thermodynamics.
 Writes ATT_Final_Results.xlsx (all sheets), README.md and the D CSVs to
-att_outputs/comparison/, the C CSVs to att_outputs/full_scale/summary/ and,
-separately, the A/B CSVs to att_outputs/experimental/.
+att_outputs/comparison/ and the C CSVs to att_outputs/full_scale/summary/.
 """
 import os
 import warnings
 
 from biorefineries.sabre.analyses.att import reporting as rep
-from biorefineries.sabre.analyses.att import experiment as exp
 from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.analyses.att import tea as tea_mod
 from biorefineries.sabre.analyses.att.thermodynamics import evaluate_att_u2_variant, get_att_u2_energy_uncertainty
 from biorefineries.sabre.utils import load_assumptions
 
-__all__ = ("build_att_final_results", "export_att_final_results",
-           "build_att_experimental_results", "export_att_experimental_results")
+__all__ = ("build_att_final_results", "export_att_final_results")
 
 _ATT = load_assumptions("att.yaml")["att"]
 METHODS = ("uniform_redox_scaling", "h2_priority", "experimental_fixed", "h2_measured_ch4_max", "uniform_co2_free")
@@ -91,48 +87,6 @@ def _s_feasibility(sys):
     return rows
 
 
-def _lab_vs_model(sys_small, lab_rows, ref):
-    U2 = inv._units(sys_small)["U2"]
-    daf = float(U2._daf_sargassum_kgph)
-    s = inv._streams(sys_small)
-    case = _ATT["reactor"]["cases"]["Ni-CatATT"]
-    q_lab = next(r["amount_per_run"] for r in lab_rows if r["item"] == "Total heat, lower bound") / 0.5  # kJ/g = MJ/kg
-    rows = [
-        ("NaOH charged per kg daf", 2.0, float(U2.ins[0].imass["NaOH"]) / daf, "kg/kg daf", "same loading"),
-        ("NaOH consumed per kg daf", 2.0, float(s["fresh_naoh_solid"].F_mass) / daf, "kg/kg daf",
-         "lab single pass; model recovers 78 % (makeup only)"),
-        ("Ca(OH)2 per kg daf", 0.0, float(s["lime"].F_mass) / daf, "kg/kg daf", "lab has no causticization"),
-        ("Water/steam into reactor per kg daf", 7.2, float(U2.ins[0].imass["Water"]) / daf, "kg/kg daf",
-         "lab flow-through steam; model = 50 % moisture + recycle-liquor water"),
-        ("H2 at reactor outlet per kg daf", float(case["gas_yield_mmol_per_g_daf"]["H2"]) * 2.01588e-3,
-         float(U2.outs[0].imass["H2"]) / daf, "kg/kg daf", "model = s x measured"),
-        ("Reactor heat per kg daf", q_lab, U2._utility_heat_duty_kJph / daf / 1e3, "MJ/kg daf",
-         "lab: theoretical lower bound (no reaction heat); model: U2 utility incl. reaction and 5 % loss"),
-        ("Electricity per kg daf (full scale)", float("nan"),
-         ref.power_utility.rate / float(inv._units(ref)["U2"]._daf_sargassum_kgph), "kWh/kg daf",
-         "lab not reported; model value from the full-scale run (1 kg/h has minimum-size artifacts)"),
-    ]
-    return [dict(quantity=a, laboratory=b, model_1kgph=c, unit=d, note=e) for a, b, c, d, e in rows]
-
-
-def _lca_comparison(lab_rows, ind):
-    total = next(r for r in ind["05_gwp100"] if r["view"] == "by input" and r["item"].startswith("TOTAL"))
-    lab = {r["item"]: r["GWP_g_CO2e_per_g_H2"] for r in lab_rows if r["category"] == "Result"}
-    return [
-        dict(case="Laboratory screening: NaOH + heat by natural gas (lower bound)",
-             GWP_kgCO2e_per_kg_H2=lab["Screening GWP: NaOH + heat by natural gas"],
-             boundary="single run, single-pass NaOH, theoretical heat only; excludes furnace losses, N2, catalyst",
-             comparable="NO (different boundary, no recovery loop, heat lower bound)"),
-        dict(case="Laboratory screening: NaOH + heat by electricity (lower bound)",
-             GWP_kgCO2e_per_kg_H2=lab["Screening GWP: NaOH + heat by electricity"],
-             boundary="as above, 100 % efficient electric heating", comparable="NO"),
-        dict(case="Industrial BioSTEAM baseline (cradle-to-gate, partial: no collection/transport)",
-             GWP_kgCO2e_per_kg_H2=total["GWP_kgCO2e_per_kg_H2"],
-             boundary="P1-D0 preparation, U2, U3/PSA, NaOH recovery with causticization, utilities, waste treatment",
-             comparable="reference industrial result"),
-    ]
-
-
 def _gas_scenarios():
     """Full-scale results of the selected element-balanced gas-yield scenarios."""
     from biorefineries.sabre.analyses.att import lca
@@ -193,22 +147,6 @@ def _gas_scenarios():
     return rows
 
 
-def _differences():
-    rows = [
-        ("Feed basis", "0.5 g daf per run (ash not reported)", "1,990 dry t/d, SaBRe ash 34.53 %, moisture 86.73 %"),
-        ("Gas yields", "measured H2, CH4, CO, CO2", "s x measured (s = 0.5998), element- and redox-closed"),
-        ("Water", "3.6 g steam per run (7.2 g/g daf), flow-through", "feed moisture 50 % + recycle liquor water"),
-        ("NaOH", "1 g per run, single pass", "2 kg/kg daf charged, 78 % recovered, makeup only"),
-        ("Carrier/catalyst", "N2 50 mL/min; Ni-soaked feed + Ni/ZrO2", "no carrier; catalyst not modeled"),
-        ("Heat", "electric furnace (energy not reported)", "natural-gas furnace (U2), steam (D0, C1, EC1)"),
-        ("Downstream", "none", "gas cooling, drying, PSA, H2 compression, causticization, evaporation"),
-        ("LCA boundary", "screening: NaOH + heat lower bound", "cradle-to-gate excl. collection/transport"),
-        ("Functional unit", "g H2 measured per run", "kg H2 product (PSA, 20 bar)"),
-        ("Allocation", "none", "none (no CaCO3, CH4 or off-gas credit)"),
-    ]
-    return [dict(aspect=a, laboratory_experiment=b, industrial_model=c) for a, b, c in rows]
-
-
 def _unvalidated():
     return [dict(item=a, status=b, effect=c) for a, b, c in (
         ("U2 feed HHV 16.9 MJ/kg daf (literature, not measured)", "UNVALIDATED", "U2 utility 8.1-9.7 MJ/kg dry range"),
@@ -229,9 +167,6 @@ def build_att_final_results():
     warnings.filterwarnings("ignore")
     systems = {m: _small(m) for m in METHODS}
     base_small = systems["uniform_redox_scaling"]
-    daf_frac = float(inv._units(base_small)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(base_small)
-    A = exp.build_att_experiment_tables(daf_frac)
-    lab = A.pop("B1_Lab_Screening_LCA")
     ind = rep.build_att_consolidated_results()
     ref = tea_mod.create_att_tea_system()
     check = inv.check_att_inventory(ref)
@@ -252,10 +187,6 @@ def build_att_final_results():
                               unc["secondary_sensitivity_range_literature_HHV_kJph"]["external_heating"]])),
               dict(item="Excluded from range", value="; ".join(unc["excluded_from_range"]))]
     tables = {
-        "A1_Experimental_Gas_Yields": A["A1_Experimental_Gas_Yields"],
-        "A2_Experimental_Conditions": A["A2_Experimental_Conditions"],
-        "A3_Experimental_Conversions": A["A3_Conversions_NiCatATT"],
-        "B1_Lab_Screening_LCA": lab,
         "C1_Process_Materials": ind["01_process_materials"],
         "C2_Mass_Element_Audit": audit,
         "C3_Unit_Energy_Balance": inv.get_att_unit_energy_balance(ref),
@@ -273,9 +204,6 @@ def build_att_final_results():
         "C14_Unvalidated_Assumptions": _unvalidated(),
         "D1_Gas_Yields_and_Ratios": _gas_comparison(systems),
         "D2_Scale_Factor_Feasibility": _s_feasibility(base_small),
-        "D3_Lab_vs_Model_Material_Energy": _lab_vs_model(base_small, lab, ref),
-        "D4_LCA_Lab_vs_Industrial": _lca_comparison(lab, ind),
-        "D5_Boundary_Differences": _differences(),
         "D6_Key_Findings": ind["00_key_findings"],
         "D7_Gas_Yield_Scenarios": _gas_scenarios(),
     }
@@ -288,22 +216,15 @@ Generated by `python -m biorefineries.sabre.test.run_att_final`
 (`biorefineries/sabre/analyses/att/final.py`).
 
 This folder holds the complete comparison workbook `ATT_Final_Results.xlsx`
-(all sheets A-D) and the D1-D7 CSVs. The A/B sheets are also written as CSV
-to `../experimental/`, the C sheets to `../full_scale/summary/`.
+(sheets C and D) and the D1, D2, D6 and D7 CSVs. The C sheets are also
+written as CSV to `../full_scale/summary/`.
 
-- **A (sheets A1-A3):** original UCLA data transcribed in
-  `biorefineries/sabre/data/att_experiment.yaml` with sheet!cell references.
-- **B (B1):** laboratory screening LCA per run and per g measured H2. The
-  workbook reports no LCA results; B1 uses measured inputs, the collaborators'
-  emission factors and a thermodynamic lower bound for heating. Not comparable
-  with C (see D4, D5).
 - **C (C1-C14):** industrial BioSTEAM model at the SaBRe scale (15,000 wet t/d,
   330 d/yr) with the baseline U2 closure: all four measured gases x s
   (s = 0.5998), element- and redox-closed. Model gas yields are engineering
   predictions, not measurements.
-- **D (D1-D7):** experimental vs simulated gas yields and ratios, scale-factor
-  feasibility, lab vs model material/energy, lab vs industrial LCA,
-  boundary differences, key findings, and D7: selected element-balanced
+- **D (D1, D2, D6, D7):** measured vs simulated gas yields and ratios,
+  scale-factor feasibility, key findings, and D7: selected element-balanced
   gas-yield scenarios at full scale: Gas-C (uniform_redox_scaling, s = 0.5998,
   baseline), Gas-Cprime (uniform_co2_free) and Gas-A (h2_measured_ch4_max,
   H2-prioritized). Gas-Cprime and Gas-A set char = 0 and exceed the measured
@@ -345,11 +266,10 @@ def _write_tables(out_dir, workbook, tables, csv_names):
 
 def export_att_final_results(out_dir=None, summary_dir=None):
     """
-    ATT_Final_Results.xlsx with all sheets (A-D), README.md and the D1-D7
+    ATT_Final_Results.xlsx with all sheets (C-D), README.md and the D
     comparison CSVs go to ``out_dir`` (default att_outputs/comparison). The
     full-scale sheets C1-C14 are written as CSV to ``summary_dir`` (default
     att_outputs/full_scale/summary; ``out_dir`` when only ``out_dir`` is given).
-    The experimental sheets A1-A3 and B1 are CSVs of export_att_experimental_results.
     """
     import pandas as pd
     from biorefineries.sabre.analyses.att.paths import output_dir
@@ -367,49 +287,3 @@ def export_att_final_results(out_dir=None, summary_dir=None):
     sheets = "\n".join(f"- `{name}` ({len(rows)} rows)" for name, rows in tables.items())
     with open(os.path.join(out_dir, "README.md"), "w", encoding="utf-8") as f:
         f.write(_README.replace("{sheets}", sheets))
-
-
-def build_att_experimental_results():
-    """Sheets A1-A3 and B1 exactly as in ATT_Final_Results.xlsx (1 kg/h baseline only for the daf fraction)."""
-    warnings.filterwarnings("ignore")
-    small = _small("uniform_redox_scaling")
-    daf_frac = float(inv._units(small)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(small)
-    A = exp.build_att_experiment_tables(daf_frac)
-    return {
-        "A1_Experimental_Gas_Yields": A["A1_Experimental_Gas_Yields"],
-        "A2_Experimental_Conditions": A["A2_Experimental_Conditions"],
-        "A3_Experimental_Conversions": A["A3_Conversions_NiCatATT"],
-        "B1_Lab_Screening_LCA": A["B1_Lab_Screening_LCA"],
-    }
-
-
-_README_EXPERIMENTAL = """# ATT experimental results (laboratory scale)
-
-Generated by `python -m biorefineries.sabre.test.run_att_experiment`
-(`biorefineries/sabre/analyses/att/final.py:export_att_experimental_results`).
-Laboratory data only; the industrial-scale model results are in `../full_scale/`
-and the side-by-side comparison in `../comparison/ATT_Final_Results.xlsx`.
-
-- **A1-A3:** UCLA measured gas yields, conditions and unit conversions
-  (`data/att_experiment.yaml`; A3 "model basis" rows use the daf fraction of the
-  1 kg/h model feed).
-- **B1:** laboratory screening LCA per run and per g measured H2 (lower bound,
-  partial boundary; not comparable with the industrial LCA).
-
-## Sheets
-
-{sheets}
-"""
-
-
-def export_att_experimental_results(out_dir=None):
-    """A1-A3 and B1 as CSV plus ATT_Experimental_Results.xlsx (default att_outputs/experimental)."""
-    from biorefineries.sabre.analyses.att.paths import output_dir
-
-    out_dir = os.fspath(out_dir or output_dir("experimental"))
-    tables = build_att_experimental_results()
-    _write_tables(out_dir, "ATT_Experimental_Results.xlsx", tables, list(tables))
-    sheets = "\n".join(f"- `{name}` ({len(rows)} rows)" for name, rows in tables.items())
-    with open(os.path.join(out_dir, "README.md"), "w", encoding="utf-8") as f:
-        f.write(_README_EXPERIMENTAL.replace("{sheets}", sheets))
-    return tables
