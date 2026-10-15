@@ -491,10 +491,13 @@ def _checks(sys, result, fingerprint):
     return out
 
 
-def export_att_tea(out_dir="att_tea"):
-    """Baseline MSP, CAPEX/OPEX tables, sensitivity and checks to CSV/Excel."""
+def export_att_tea(out_dir=None):
+    """Baseline MSP, CAPEX/OPEX tables, sensitivity and checks to CSV/Excel (default att_outputs/full_scale/tea)."""
     import os
     import pandas as pd
+    from biorefineries.sabre.analyses.att.paths import output_dir
+
+    out_dir = os.fspath(out_dir or output_dir("tea"))
 
     sys = create_att_tea_system()
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]

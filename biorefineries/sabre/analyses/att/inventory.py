@@ -1285,11 +1285,13 @@ def build_att_inventory_tables():
     }
 
 
-def export_att_inventory(out_dir, tables=None):
-    """Write each table as CSV and all tables to one Excel workbook."""
+def export_att_inventory(out_dir=None, tables=None):
+    """Write each table as CSV and all tables to one Excel workbook (default att_outputs/full_scale/mass_energy)."""
     import os
     import pandas as pd
+    from biorefineries.sabre.analyses.att.paths import output_dir
 
+    out_dir = os.fspath(out_dir or output_dir("mass_energy"))
     tables = tables or build_att_inventory_tables()
     os.makedirs(out_dir, exist_ok=True)
     with pd.ExcelWriter(os.path.join(out_dir, "att_inventory.xlsx")) as writer:

@@ -81,3 +81,10 @@ docs/_templates/*
 ehthumbs.db
 Thumbs.db
 surfaces
+
+# SaBRe ATT #
+#############
+# Generated results; regenerate with python -m biorefineries.sabre.test.run_att_all
+att_outputs/
+# Raw experimental input data (not generated results)
+!biorefineries/sabre/data/att_experiment_raw/*.csv

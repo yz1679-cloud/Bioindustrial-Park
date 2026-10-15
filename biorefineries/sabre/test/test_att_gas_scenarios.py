@@ -13,7 +13,12 @@ class TestATTGasScenarios(unittest.TestCase):
         cls.t = build_att_gas_scenario_tables()
 
     def test_all_qc_checks_pass(self):
-        failed = [r for r in self.t["14_QC_Checks"] if r["status"] != "PASS"]
+        # The D7 cross-checks need comparison/D7 from run_att_final; without it they are NOT CHECKED, never PASS.
+        qc = self.t["14_QC_Checks"]
+        not_checked = [r for r in qc if r["status"].startswith("NOT CHECKED")]
+        self.assertTrue(all(r["check"].startswith("Equals comparison/D7") for r in not_checked), not_checked)
+        self.assertIn(len(not_checked), (0, 12))
+        failed = [r for r in qc if r["status"] != "PASS" and r not in not_checked]
         self.assertEqual(failed, [])
 
     def test_headline_results(self):

@@ -482,10 +482,13 @@ def check_att_lca(sys, applied, contributions, utilities):
                  status="PASS" if abs(b - d) <= 1e-9 * max(1.0, abs(d)) else "FAIL") for a, b, d in checks]
 
 
-def export_att_lca(out_dir="att_lca"):
-    """Run the baseline, scenarios and checks; write CSV files and one workbook."""
+def export_att_lca(out_dir=None):
+    """Run the baseline, scenarios and checks; write CSV files and one workbook (default att_outputs/full_scale/lca)."""
     import os
     import pandas as pd
+    from biorefineries.sabre.analyses.att.paths import output_dir
+
+    out_dir = os.fspath(out_dir or output_dir("lca"))
 
     sys = create_att_lca_system()
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]

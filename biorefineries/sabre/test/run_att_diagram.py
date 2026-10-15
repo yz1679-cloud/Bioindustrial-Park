@@ -4,18 +4,20 @@ import os
 
 import biosteam as bst
 
+from biorefineries.sabre.analyses.att.paths import output_dir
 from biorefineries.sabre.systems._att_system import create_att_system
 
 KINDS = ("cluster", "thorough", "surface", "minimal")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=os.path.join("att_final", "diagrams"), help="output directory")
+    parser.add_argument("--out", default=None, help="output directory (default att_outputs/documentation/diagrams)")
     parser.add_argument("--format", default="svg", help="svg, png or pdf")
     parser.add_argument("--dry-feed", type=float, default=1.0, help="dry Sargassum basis [kg/h]")
     parser.add_argument("--dark", action="store_true", help="use the dark theme instead of light")
     parser.add_argument("--heat-integration", action="store_true", help="include the HXR facility")
     args = parser.parse_args()
+    args.out = os.fspath(args.out or output_dir("diagrams"))
 
     os.makedirs(args.out, exist_ok=True)
     if args.dark:

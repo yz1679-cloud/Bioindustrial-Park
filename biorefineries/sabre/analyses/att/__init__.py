@@ -25,4 +25,7 @@ Reporting
 
 Diagnostics (read-only audits)
     validation       1 kg/h mass/energy audit; sodium ledger
+
+Output locations
+    paths            default result folders under att_outputs/ (repository root)
 """
