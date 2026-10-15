@@ -1,0 +1,455 @@
+# Alkaline Thermal Treatment (ATT) assumptions
+# Baseline process case: Ni-CatATT.
+# Raw Sargassum composition/moisture/ash are called from SaBRe feedstock.yaml.
+#
+# U2 basis (2026-10-09): full C/H/O/N/S/Na/Ca closure with redox-reconciled
+# gas yields. See reactor.material_balance for the derivation.
+#
+att:
+  # Definition differences between the source workbook
+  # (ATT Inputs and Assumptions_261005.xlsx) and this model, recorded so
+  # they are not silently re-interpreted. "model_value" is what is used.
+  basis_discrepancies:
+    ash_and_moisture:
+      workbook: "Ash 17.2 wt% dry; moisture as harvested 85 wt% (energy-analysis sheet)"
+      model_value: "feedstock.yaml pelagic: ash 34.53 wt% dry, moisture 86.73 wt%"
+      decision: "User decision 2026-10-09: use the SaBRe database values."
+      impact: "daf per kg dry is 0.655 (database) instead of 0.828 (workbook), so gas, NaOH and Na2CO3 flows per kg dry are ~21% lower than with the workbook ash."
+    feed_dewatering:
+      workbook: "Sargassum moisture content 50 % 'assumed (mechanical dewatering)'; collaborator flowsheet (2026-09-28) has no biomass dryer"
+      model_value: "P1 screw press to 75 wt% moisture, then D0 thermal drying to 50 wt% (wet basis)"
+      decision: "User-confirmed original process design 2026-10-09: D0 is required; mechanical dewatering alone is not assumed to reach 50 wt%."
+    naoh_loading:
+      workbook: "Experimental sheet: 0.5 g seaweed + 1 g NaOH (seaweed mass basis not stated); energy-analysis sheet: NaOH:seaweed (daf) = 1 g/g"
+      model_value: "2 kg NaOH / kg daf"
+      decision: "Advisor-confirmed basis (1 g NaOH per 0.5 g daf); retained."
+    ec1_concentration_target:
+      workbook: "'Water left in recovered NaOH' = 50 wt% (a water fraction)"
+      model_value: "NaOH = 50 wt% of the total recycle liquor (NaOH + Na2CO3 + water); water is then ~41 wt%"
+      decision: "User decision 2026-10-09: not binding. Model evaporates only the excess water so that NaOH/(NaOH + H2O) = 50 wt% after the fresh solid-NaOH makeup (Na2CO3 is mostly crystalline and excluded)."
+
+  feed_preparation:
+    feedstock_type: pelagic
+    # Original process design (user-confirmed 2026-10-09; wet basis):
+    # P1 mechanical dewatering to ~75 wt% moisture, then D0 thermal drying
+    # to 50 wt% before U2. D0 is a required unit; mechanical dewatering
+    # alone is not assumed to reach 50 wt%.
+    press_cake_moisture_wt_frac: 0.75
+    att_sargassum_moisture_wt_frac: 0.5
+    dryer_temperature_K: 343.15
+    dryer:
+      baseline_model: bst.DrumDryer
+      baseline_status: "Modeling choice (ATT_PROCESS.xlsx); retained as the baseline."
+      # The D0 heat utility is an ASSUMED THERMAL DUTY: an ideal heat balance
+      # (drying air leaving at dryer_temperature_K and 80 % RH, no losses),
+      # ~3.0 MJ/kg water evaporated. It is not the heat input of real dryer
+      # equipment, which is reported separately from the typical specific
+      # heat use below and is not used in the baseline utilities.
+      thermal_duty_basis: ideal_heat_balance
+      # Typical specific heat use of dryer equipment [MJ/kg water evaporated]:
+      # Danish Energy Agency (1998), tabulated by DryingMate A/S
+      # (Teknologisk Institut). Heat-pump values are electricity.
+      equipment_specific_energy_MJ_per_kg_water:
+        drum_contact: [3.2, 6.5]
+        belt_conveyor: [4.0, 6.0]
+        superheated_steam: [2.5, 2.5]
+        heat_pump_electric: [0.5, 1.1]
+    fresh_naoh_form: solid
+    fresh_naoh_wt_frac: 1.0
+    fresh_naoh_temperature_K: 298.15
+  reactor:
+    target_temperature_K: 773.15
+    heat_loss_fraction: 0.05
+    legacy_heat_duty_kJ_per_kg_dry_sargassum: 10423.77
+    baseline_case: Ni-CatATT
+    cases:
+      Ni-CatATT:
+        naoh_kg_per_kg_daf: 2.0
+        naoh_loading_basis: 'Advisor-confirmed baseline: 1 g NaOH per 0.5 g daf seaweed (equivalent to 2 kg NaOH
+          per kg daf seaweed).'
+        gas_yield_mmol_per_g_daf:
+          H2: 66.72842505487348
+          CH4: 8.768738649553573
+          CO: 0.1648486662946429
+          CO2: 0.1865389341517857
+        gas_yield_basis: Absolute Ni-CatATT experimental yields from ATT Inputs and Assumptions_261005.xlsx, Experimental
+          results.
+        ignored_reported_gas_yields_mmol_per_g_daf:
+          Gas4: 0.09166974330357144
+        ignored_gas_status: Gas 4 was clarified by the collaborator as CO measured on the second GC column and negligible;
+          it is ignored. The main Excel CO column is retained.
+        excluded_baseline_gas_species:
+        - C2H4
+        - C2H6
+        - N2
+        - H2S
+        experimental_condition_note: Excel reports 500 C, 1 h hold, N2 50 mL/min and steam 0.03 mL/min for the laboratory
+          experiment. N2 is treated only as a laboratory condition and is not scaled as a process feed or process
+          product in the current baseline.
+    material_balance:
+      # Workbook assumption (energy-analysis sheet), retained.
+      naoh_to_na2co3_conversion: 1.0
+      # The measured yields above are kept unchanged as data. They carry
+      # 204 mmol available electrons per g daf (2 per H2, 8 per CH4, 2 per
+      # CO), while the SaBRe daf feed can supply only ~148 (consistent with
+      # the workbook HHV of 16.9 MJ/kg daf). NaOH, water and carbonate carry
+      # no reducing power, so no residue composition or steam yield can close
+      # the balance with the measured absolute yields; all four
+      # experimental cases exceed the feed capacity. GC measures gas
+      # COMPOSITION directly, whereas absolute yields also depend on carrier
+      # flow, collection window and sample-mass normalization (a common-mode
+      # error).
+      #
+      # Baseline (user decision 2026-10-12): uniform_redox_scaling. All four
+      # measured gases are scaled by ONE factor s, so the experimental gas
+      # ratios are preserved exactly. With the C, H and O balances and the
+      # char formula, s is unique (the maximum feasible s = 0.5998 with 100 %
+      # NaOH conversion; lower conversion leaves more C as char and lowers s).
+      # Model yields are engineering predictions, NOT measurements; the
+      # measured yields above are never modified.
+      # Previous baseline 2026-10-10 to 2026-10-12: h2_priority. The study's primary
+      # result is H2; the workbook (Experimental results sheet) reports CH4,
+      # CO and CO2 in the same table, but they are not complete product
+      # yields: CO2 is mostly captured by NaOH, and liquids, char and
+      # carbonate were not quantified. The measured H2 is kept (it uses ~90 %
+      # of the feed's available electrons) and the remaining C, H and O close
+      # as char, product water and one closure gas. The electron budget
+      # forces the closure gas to be fully oxidized carbon: CH4 or CO as the
+      # closure species give a negative char amount. The closure CO2 is an
+      # unmeasured closure product, NOT experimental data, and contradicts
+      # the reported gas-phase CO2 (0.19) and CH4 (8.77 mmol/g daf).
+      gas_closure_method: uniform_redox_scaling
+      h2_priority_closure_gas: CO2
+      # Comparison scenario: h2_priority (measured H2 kept, CH4/CO not
+      # imposed, closure CO2).
+      comparison_gas_closure_method: h2_priority
+      # Selected element-balanced gas-yield scenarios (user decision
+      # 2026-10-12; reported alongside the baseline Gas-C, NOT the baseline;
+      # selected feasible modeling scenarios, not global physical bounds).
+      # Both set char = 0 (residue char was not measured):
+      #  - Gas-A, h2_measured_ch4_max: measured H2 and CO; maximum feasible
+      #    CH4 (~2.35 mmol/g daf, feed N retained in the residue); CO2 ~10
+      #    (vs 0.19 measured). Unrelated to TEA Case A (CaCO3 cake disposal).
+      #  - Gas-Cprime, uniform_co2_free: H2, CH4, CO x s (s ~0.748); CO2 by
+      #    carbon closure (~5.8 vs 0.19 measured).
+      # experimental_fixed (available, NOT the baseline; 2026-10-12): all four
+      # measured gases kept exactly; C closes on char and H on water; the O
+      # balance cannot close (outlet O short by ~33 mmol/g daf = half the
+      # redox excess of the measured gases plus char) and is reported as an
+      # unresolved residual, not assigned to any species. U2 mass therefore
+      # does not close (~-7 % of the U2 inlet) and the U2 duty is on a
+      # non-conserving basis. Select with create_att_system(u2_gas_closure=
+      # "experimental_fixed").
+      # Unconverted carbon leaves as char (chemical 'Char', CH0.5O0.1; feed
+      # N and S as 'CharN'/'CharS').
+      char_species: Char
+      heteroatom_species:
+        N: CharN
+        S: CharS
+      enforce_full_elemental_balance: true
+    energy_basis:
+      # Duty = Hnet(outlets) - Hnet(inlet), i.e. includes reaction enthalpy.
+      # The feed organics' formation enthalpy is re-referenced to the HHV
+      # below (Hess's law) instead of the per-pseudo-component Hf, which imply
+      # 17.76 MJ/kg daf with borrowed Glucan Hf values.
+      feed_HHV_MJ_per_kg_daf: 16.9
+      # U2 energy sensitivity (analyses/_att_u2_energy.py), user decision
+      # 2026-10-09. CONDITIONAL ENGINEERING SENSITIVITY RANGE under the
+      # active gas closure; not a statistical confidence interval. U2 inlet
+      # fixed; excludes the gas closure itself, NaOH conversion, heat-loss
+      # fraction and recycle effects. External heating per kg dry feed,
+      # primary HHV range: h2_priority baseline 8.94-10.42 MJ (central 9.87);
+      # uniform_redox_scaling comparison (s = 0.5998) 8.08-9.65 MJ (9.06).
+      sensitivity_feed_HHV_MJ_per_kg_daf:
+        primary_composition_consistent: [16.3, 18.1]   # Thornton / Channiwala-Parikh on the model daf composition
+        secondary_literature: [15.7, 19.5]
+      # The dissolved NaOH in the recycle liquor is corrected to the NaOH(aq)
+      # electrolyte enthalpy (ThermoSTEAM treats it as subcooled molten NaOH).
+      not_included: "Dissolution enthalpy of the small amount of dissolved Na2CO3 in the recycle liquor."
+    sensitivity_plan:
+      naoh_loading: Planned sensitivity parameter; baseline is 2 kg NaOH/kg daf.
+      individual_gas_yields: Planned sensitivity parameters around the reported Ni-CatATT yields.
+  gas_treatment:
+    # STEP 7.5 U3 baseline.
+    #
+    # U3 is implemented primarily with native BioSTEAM units:
+    #   U3C Flash -> U3D Splitter -> U3P Splitter -> U3K IsothermalCompressor
+    #
+    # The numerical values below are explicit PROVISIONAL engineering
+    # assumptions so the complete flowsheet can run. Replace them when
+    # UCLA/collaborator gas-treatment specifications are available.
+    condenser_temperature_K: 313.15
+    condenser_pressure_Pa: 101325.0
+    condenser_status: "Provisional 40 C, 1 atm condensation baseline; not collaborator-confirmed."
+
+    # U3D native molecular-sieve dehydration baseline. The Water split is
+    # still a reduced-order process specification because collaborator dew-point
+    # / dryer-cycle data are not yet available. BioSTEAM's MolecularSieve
+    # equipment correlation is ethanol/water based, so its ATT gas-service
+    # cost/utility results remain provisional.
+    dryer_water_to_dry_gas_fraction: 0.0
+    dryer_status: "Native BioSTEAM MolecularSieve with reduced-order Water split; ATT-specific dryer performance/cost remains provisional."
+
+    # U3P uses a native component Splitter as an idealized PSA surrogate.
+    # H2 recovery is provisional; all non-H2 gases are sent to tail gas.
+    # This gives an ideal-purity H2 product and intentionally does not yet
+    # represent PSA adsorbent/cycle/power/capital correlations.
+    psa_h2_recovery: 0.90
+    psa_non_h2_to_product_fraction: 0.0
+    psa_status: "Provisional ideal-selectivity PSA surrogate; H2 recovery/purity require collaborator confirmation."
+
+    # U3K native isothermal H2-product compressor.
+    # Sale/delivery pressure and efficiency are provisional placeholders.
+    h2_product_pressure_Pa: 2000000.0
+    h2_compressor_efficiency: 0.70
+    h2_compressor_status: "Provisional 2 MPa product pressure and 70% isothermal efficiency; final H2 delivery specification unresolved."
+
+    # Tail gas is retained as an explicit stream for later combustion and
+    # heat-recovery modeling. No combustion credit is applied in Step 7.5.
+    tail_gas_combustion_status: "Not yet implemented; tail gas composition/LHV are reported for the next heat-recovery step."
+
+  downstream:
+    # Dissolution before F1.
+    dissolution_water_kg_per_kg_Na2CO3: 3.0
+
+    # C1 causticization.
+    causticization_conversion: 0.85
+    lime_equiv: 1.1
+    causticization_temperature_K: 363.15
+    # C1 energy basis (2026-10-09): Hnet with 298.15 K infinite-dilution
+    # aqueous-ion Hf for NaOH/Na2CO3; liquor sensible heat from BioSTEAM.
+    # Concentrated-solution terms are NOT modelled; bounded instead:
+    #  - liquor sensible heat 28->90 C: BioSTEAM 1681 kJ/h vs 1664-1757 from
+    #    handbook Na2CO3(aq) Cp (General Chemical soda-ash guide, Fig. 2-5);
+    #  - molten-salt phase offset of dissolved salts at 298 K: +1 kJ/h net;
+    #  - NaOH(aq) relative enthalpy at outlet (17.6 wt%, Olsson): +16 kJ/h;
+    #  - Na2CO3(aq) relative enthalpy at inlet (25 wt%; NBS + soda-ash guide
+    #    Fig. 2-1): +70 to +190 kJ/h; outlet Na2CO3: -30 to 0 kJ/h;
+    #  - reaction heat-capacity change 25->90 C: about +/-100 kJ/h.
+    # Net: about -40 to +300 kJ/h on the 1700 kJ/h process duty (-2 to +18 %),
+    # i.e. -0.2 to +1.2 % of total plant heating (25.7 MJ/h per kg/h dry feed),
+    # smaller than the U2 HHV sensitivity width (~1.6 MJ/h). Documented as a
+    # limitation; no concentrated-solution property model is used.
+    c1_energy_basis_status: "Infinite-dilution aqueous reference; concentrated-solution enthalpy not modelled, bounded at -40 to +300 kJ/h (<1.2 % of plant heat)."
+
+    # Solid-liquid separation baseline. Active Step 7.3 units use native
+    # BioSTEAM filters. Insoluble solids are retained ideally for now, while
+    # the wet cake carries representative mother liquor (Water + Na2CO3 +
+    # NaOH) rather than pure water. Solute loss is therefore calculated
+    # dynamically from the cake-moisture target and liquid composition.
+    filtration_solids_recovery: 1.0
+    cake_liquid_model: proportional_mother_liquor_entrainment
+    f1_filter_type: PressureFilter
+    f2_filter_type: RotaryVacuumFilter
+
+    # F1 and F2 use different wet-cake moisture assumptions because the
+    # cake matrices are different.
+    #
+    # F1: ash + discarded biomass residue. 30 wt% is retained as the
+    # current literature-supported engineering baseline.
+    f1_cake_moisture_wt_frac: 0.30
+
+    # F2: CaCO3 + residual Ca(OH)2 mineral cake. 25 wt% is the revised
+    # baseline from the CaCO3/lime-filtration literature review.
+    f2_cake_moisture_wt_frac: 0.25
+
+    # Step 7.13: hypothetical wash-displacement model; disabled reproduces baseline.
+    # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
+    f2_washing:
+      enabled: false
+      wash_ratio_kg_per_kg_dry_cake: 1.0
+      displacement_factor: 1.0
+      temperature_K: 363.15
+
+    # Whole-liquor purge/recycle.
+    #
+    # The source reports "95% NaOH recycling" but does not define a
+    # selective NaOH/Na2CO3 separator. The engineering baseline therefore
+    # interprets this provisionally as 95% whole-liquor recycle and 5% purge.
+    # This parameter should be sensitivity-tested after steady-state
+    # carbonate buildup is quantified.
+    whole_liquor_recycle_fraction: 0.95
+
+    # EC1 (single-effect vacuum evaporator, 90 C) followed by M2 (fresh
+    # solid NaOH dissolved into the concentrate). EC1 evaporates only the
+    # water in excess of what keeps the recycle liquor at
+    # NaOH/(NaOH + H2O) = recycle_naoh_wt_frac after the makeup; it
+    # evaporates nothing if the liquor already holds less water (user
+    # decision 2026-10-09: minimum evaporation, the 50 % definition is not
+    # binding). Na2CO3 above its solubility crystallizes as anhydrous
+    # Na2CO3 and is recycled with the slurry. Boiling pressure, duty and
+    # solubility: biorefineries.sabre._naoh_properties.
+    recycle_naoh_wt_frac: 0.50
+    recycle_naoh_concentration_basis: naoh_plus_water
+    concentration_temperature_K: 363.15
+    # EC1 property-model validation (2026-10-09; details in
+    # biorefineries/sabre/_naoh_properties.py). Baseline (90 C) results:
+    # pressure 17.2 kPa (+/-7-12 %, from boiling-point agreement within
+    # 1.5-2.5 K); process duty 8404 kJ/h = pure-water latent heat 7917 +
+    # heat of concentration 434 (+/-~90) + Na2CO3 crystallization 53 (+/-53),
+    # i.e. about +/-1.7 %. Na2CO3 solubility in concentrated NaOH rests on a
+    # single source (Wu et al. 2020) and is not independently validated; its
+    # energy impact is < 10 kJ/h. Cross-check (2026-10-09): Morey & Burlew
+    # (1964) put NaOH(s) + Na2CO3(s) co-saturation at 90 C at
+    # NaOH/(NaOH+H2O) = 0.749, so no NaOH(s) forms at x <= 0.50. Ghaffari et
+    # al. (2025, 85 C) and Silcock/Qin et al. (2015, 100 C) bracket the
+    # Na2CO3.H2O branch (<= 15 wt% NaOH): model within -5 to +11 %. No 90 C
+    # data exist for the anhydrous branch (17-50 wt% NaOH); 100 C data
+    # suggest the model may be ~1.5-2x high at 19-35 wt% and up to ~2.6x low
+    # near 50 wt% (crystals +/-0.02 kg/h, < 10 kJ/h). Solid identity in
+    # that branch (Na2CO3 vs Na2CO3.H2O) is unresolved.
+    ec1_validation_status: "NaOH-H2O vapor pressure and enthalpy validated against independent data; Na2CO3 solubility validated only in the Na2CO3.H2O branch (<=15 wt% NaOH); anhydrous branch near 50 wt% NaOH single-source, not independently validated."
+
+    # Heat loss as a fraction of process heating duty (workbook: 5 %),
+    # applied to C1 and EC1.
+    heat_loss_fraction: 0.05
+  energy_sources:
+    natural_gas:
+      emission_factor_kgCO2e_per_MJ_fuel: 0.056
+      burner_efficiency: 0.9
+    engine_waste_heat:
+      emission_factor_kgCO2e_per_MJ_heat: 0.0
+    marine_fuel:
+      emission_factor_kgCO2e_per_L: 3.2
+      LHV_MJ_per_kg: 41.0
+  heat_recovery:
+    residue_cooling_target_temperature_K: 363.15
+    residue_cooler_rigorous_vle: false
+    solid_cooler_estimate_pressure_drop: false
+    gas_path_status: U2 gas/steam leaves the reactor hot and goes directly to U3 gas treatment; no pre-U3 gas cooling
+      is included in the current stage.
+    gas_energy_diagnostic_species:
+    - H2
+    - CH4
+    - CO
+    hydrogen_disposition: product
+    hydrogen_energy_credit_status: H2 is a saleable product and is not credited as process fuel. Only future PSA
+      tail gas combustion may provide a process-heat credit.
+    integration_method: BioSTEAM HeatExchangerNetwork / HXprocess
+    minimum_approach_temperature_K: 5.0
+    minimum_approach_temperature_status: BioSTEAM default/design assumption; must be verified before final TEA
+    hydrogen_product_species:
+    - H2
+    future_tail_gas_fuel_species:
+    - CH4
+    - CO
+    future_U3_sequence: condense and dry gas -> PSA H2 separation -> compress H2 product -> burn remaining combustible
+      tail gas; include heat exchangers as needed
+
+    # ------------------------------------------------------------------
+    # Heat-exchanger-network (HEN) design: OPTIMIZATION SCENARIOS ONLY.
+    # The baseline flowsheet and its utilities are unchanged; recovered
+    # heat is reported next to them, never in place of them.
+    # ------------------------------------------------------------------
+    heat_exchanger_network:
+      # Heat integration is an OPTIONAL SCENARIO (create_att_system
+      # heat_integration=True). The baseline flowsheet has no heat recovery
+      # and its utilities are never changed by this section.
+      status: "Optional scenario; baseline utilities unchanged."
+      delta_T_min_K: 10.0
+      # Matches that cannot exchange heat directly (hot gas or hot solids
+      # -> evaporator; hot solids -> any sink) go through an intermediate
+      # medium (e.g. raised steam), which costs one more approach temperature.
+      intermediate_loop_extra_approach_K: 10.0
+      # Credited in the scenario: only matches whose temperature feasibility
+      # is verified on process T-Q curves and that do not depend on an
+      # assumed dryer design (U3HX/RC1/EC1 vapor -> EC1 and C1). Matches
+      # into D0 are evaluated for an alternative dryer and never credited.
+      credited_match_basis: temperature_verified
+      # Energy boundary: recovered heat is bounded by what the process
+      # streams can absorb (EC1 boiling duty; C1 carbonate-liquor preheating
+      # from its inlet to 90 C). Heat-loss allowances, C1 lime heating and
+      # reaction enthalpy always stay with the external utility.
+      # Implementation: utility bookkeeping (verified match duties scale the
+      # units' heat utilities); no exchanger units or streams are inserted
+      # in the flowsheet and exchanger capital is not costed.
+      ec1_temperature_scenarios:
+        baseline_90C:
+          ec1_temperature_K: 363.15
+          status: "Baseline."
+        ec1_115C:
+          ec1_temperature_K: 388.15
+          status: "Evaluated, not adopted: no advantage over 90 C with a low-temperature belt dryer (2026-10-09). Na2CO3 solubility above 90 C is extrapolated from 363.15 K data."
+      # Alternative dryer evaluated for heat integration only. The baseline
+      # DrumDryer is not integrated because the model does not define the
+      # temperature at which it accepts heat.
+      dryer_heat_acceptance:
+        belt_hot_air:
+          kind: sensible
+          T_in_K: 298.15
+          T_out_K: 363.15
+          status: "UNVERIFIED alternative: low-temperature belt dryer, drying air heated from 25 C to 90 C, using the D0 assumed thermal duty."
+      # Order-of-magnitude overall heat-transfer coefficients for area
+      # estimates only [W/m2/K]; UNVERIFIED.
+      overall_U_W_per_m2_K:
+        gas_sensible: 50.0
+        gas_condensing: 300.0
+        hot_solids: 50.0
+        steam_to_boiling_liquor: 1000.0
+        condensing_vapor_to_air: 40.0
+        condensing_vapor_to_liquid: 800.0
+  feed_energy_reference:
+    HHV_MJ_per_kg_daf_baseline: 16.9
+    HHV_MJ_per_kg_daf_lower: 15.7
+    HHV_MJ_per_kg_daf_upper: 19.5
+    basis: dry ash-free Sargassum
+    status: literature-based reference reported in the Excel energy-analysis assumptions; not a measured HHV for
+      the modeled SaBRe feed
+    used_in_current_heat_recovery: false
+
+  # Research-stage TEA/LCA inventory (user decisions 2026-10-09). Read by
+  # biorefineries/sabre/analyses/_att_inventory.py. The heat-integration
+  # scenario is excluded; the baseline utilities are reported as simulated.
+  inventory:
+    reference_scale:
+      basis: "SaBRe common plant scale: feedstock.yaml scale.wet_feed_ton_per_day with the pelagic moisture fraction; tea.yaml operating_days."
+      status: "Project-wide SaBRe assumption reused for comparability with the other SaBRe pathways; not an ATT-specific design decision."
+    # U2 gas closure (user decision 2026-10-10; reactor.material_balance).
+    u2_closure:
+      baseline: "uniform_redox_scaling: all four measured gases x s (s = 0.5998, unique); experimental gas ratios preserved; element- and redox-closed. Model yields are engineering predictions, not measurements."
+      comparison: "h2_priority: measured H2 kept; CH4/CO not imposed; closure CO2 (previous baseline). experimental_fixed: measured gases unchanged, O balance open (experimental comparison only)."
+    # Fate of every external stream: [direction, category, note].
+    stream_fates:
+      att_sargassum_feed: [input, feedstock, "Pelagic Sargassum as harvested (wet)."]
+      dryer_air: [input, ambient_air, "D0 drying air; no burden."]
+      dryer_backup_fuel: [input, fuel, "Not used in the baseline (zero flow)."]
+      dissolution_water: [input, process_water, "D1 dissolution water."]
+      lime: [input, reagent, "Ca(OH)2, stoichiometric x lime_equiv."]
+      fresh_naoh_solid: [input, reagent, "Solid NaOH makeup (M2)."]
+      h2_product: [output, main_product, "PSA H2 compressed to the U3K outlet pressure."]
+      u3_tail_gas: [output, coproduct_offgas, "PSA off-gas, assumed collected (100 %): mainly CH4 with unrecovered H2, CO and CO2 in the baseline. Final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
+      caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
+      ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
+      liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
+      press_liquid: [output, wastewater, "P1 press liquid, modeled as pure water (dissolved solids not modeled)."]
+      u3_condensate: [output, wastewater, "U3 gas condensate."]
+      u3_dryer_removed_water: [output, wastewater, "U3D removed water."]
+      ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]
+      dryer_exhaust: [output, air_emission, "Drying air and water vapor; no GHG."]
+      dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
+    lca:
+      impact: "GWP100, kg CO2e"
+      # Collaborators' emission-factor table (primary source; do not replace
+      # without a clear reason). Natural gas: att.energy_sources.natural_gas.
+      emission_factors:
+        NaOH: {value: 1.12, range: [0.63, 2.16], unit: kg CO2e/kg NaOH, source: "ATT collaborators' emission-factor table", boundary: cradle-to-gate}
+        CaOH2_limestone: {value: 0.91, range: [0.59, 1.00], unit: kg CO2e/kg Ca(OH)2, source: "ATT collaborators' emission-factor table", boundary: cradle-to-gate}
+        CaOH2_steel_slag: {value: 0.0, range: [0.0, 0.10], unit: kg CO2e/kg Ca(OH)2, source: "ATT collaborators' emission-factor table (assumed)", boundary: cradle-to-gate}
+        electricity: {value: 0.449, range: [0.3, 0.9], unit: kg CO2e/kWh, source: "GREET 2022 US mix, as used in biorefineries/HP/process_settings.py (BioSTEAM project)", boundary: "grid, production = consumption", status: "Location-dependent placeholder; replace with the plant's grid factor. Range indicative (gas- to oil-dominated grids)."}
+      ca_oh2_baseline_source: CaOH2_limestone
+      # Steam is generated in a natural-gas boiler: fuel = steam heat / efficiency.
+      steam_boiler_efficiency: 0.80
+      steam_boiler_efficiency_range: [0.80, 0.90]
+      steam_boiler_efficiency_source: "BioSTEAM BoilerTurbogenerator default boiler_efficiency (0.80)."
+      # Cooling-water electricity from the BioSTEAM CoolingTower correlation
+      # (Humbird et al. 2011): tower 1598 kW per 557183 kmol/h, pump 1021 kW
+      # per 609624 kmol/h of circulating water.
+      cooling_water_kW_per_kmolph: [0.0028680, 0.0016748]
+    # Engineering estimates for equipment that has no BioSTEAM cost in the
+    # model (TEA input only; no effect on mass or energy balances).
+    cost_estimates:
+      C1: {method: bst.MixTank, tau_h: 2.0, note: "Agitated causticizer; residence time typical of kraft recausticizing (~1.5-3 h), assumed."}
+      M2: {method: bst.MixTank, tau_h: 0.5, note: "NaOH makeup dissolving tank, assumed."}
+      U2_vessel: {method: "BioSTEAM PressureVessel (vertical)", tau_h: 1.0, density_kg_per_m3: 1200.0, fill_fraction: 0.8, length_to_diameter: 3.0, material: Inconel-600, note: "No ATT reaction-time data; 1 h on the inlet volume, assumed. Elevated-temperature allowable stress not modeled."}
+      EC1: {method: "Seider et al. forced-circulation evaporator correlation (A in ft2, <= 8000 ft2 per unit, CE 500)", U_W_per_m2_K: 1000.0, vessel_holdup_h: 0.25, vessel_fill_fraction: 0.5, liquor_density_kg_per_m3: 1300.0, note: "U from heat_recovery overall_U steam_to_boiling_liquor. Carbon-steel correlation; nickel tubes for caustic service not applied (cost likely low). Condenser: bst.HXutility; vacuum: BioSTEAM vacuum-system correlation."}
+      U3P: {method: none, note: "MISSING: no BioSTEAM PSA correlation. Use a literature line item (e.g. Spath et al. 2005, NREL/TP-510-37408) or a vendor quote."}

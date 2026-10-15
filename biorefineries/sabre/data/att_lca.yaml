@@ -1,0 +1,119 @@
+# Model Assumptions: ATT GWP100 life-cycle assessment (research stage)
+#
+# Read by biorefineries/sabre/analyses/_att_lca.py. All activity data come
+# from the frozen ATT process model (commit cc2bc316, H2-priority U2 closure,
+# SaBRe reference scale). Editing this file never changes the process model.
+
+lca:
+  impact_key: GWP100
+  impact_units: kg*CO2e
+  method: "IPCC GWP100 as embodied in the source factors (no re-characterization)"
+  functional_unit: "1 kg H2 at the plant gate (PSA product, 20 bar); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
+  secondary_unit: "1 kg dry Sargassum processed"
+  boundary: "Cradle-to-plant-gate. Sargassum is waste biomass with zero production burden; its collection and transport are a pending boundary component."
+  allocation: "None. All burdens assigned to H2; no CaCO3, CH4 or off-gas credits in the baseline."
+  energy_basis: LHV
+  water_density_kg_per_m3: 1000.0   # wastewater volume = mass / 1000 kg/m3
+
+  emission_factors:
+    NaOH:
+      value: 1.12
+      range: [0.63, 2.16]
+      unit: kg CO2e/kg NaOH (100 %)
+      source: "ATT collaborators' emission-factor table (workbook 'Assumptions for energy analysis')"
+      boundary: cradle-to-gate
+    CaOH2_limestone:
+      value: 0.91
+      range: [0.59, 1.00]
+      unit: kg CO2e/kg Ca(OH)2
+      source: "ATT collaborators' emission-factor table"
+      boundary: cradle-to-gate (limestone calcination and hydration)
+    CaOH2_steel_slag:
+      value: 0.0
+      range: [0.0, 0.10]
+      unit: kg CO2e/kg Ca(OH)2
+      source: "ATT collaborators' emission-factor table (scenario assumption)"
+      boundary: "cut-off: slag burden assigned to steel; processing assumed negligible"
+    natural_gas_combustion:
+      value: 0.056
+      unit: kg CO2/MJ fuel (LHV)
+      source: "ATT collaborators (IPCC 2006 default 56.1 t CO2/TJ on a net calorific value basis)"
+      boundary: onsite combustion, CO2 only
+    natural_gas_upstream:
+      value: 0.0199
+      range: [0.0066, 0.0199]
+      unit: kg CO2e/MJ fuel
+      source: "DOE/NETL-2019/2039, Life Cycle Analysis of Natural Gas Extraction and Power Generation (value as provided; report table not retrieved in this review)"
+      boundary: extraction, processing and transmission to a large end user
+      note: "NETL 2020 supply-chain update: 14.1 (10.0-19.2) g CO2e/MJ. GREET factor used in this repository (biorefineries/HP, lactic): 0.33-0.40 kg CO2e/kg CH4 = 6.6-8.0 g CO2e/MJ LHV (lower bound of the range). LHV/HHV basis of the NETL value not confirmed; on an HHV basis the LHV-equivalent value would be ~11 % higher."
+    electricity:
+      value: 0.449
+      range: [0.30, 0.90]
+      unit: kg CO2e/kWh
+      source: "GREET 2022 US mix, as used in biorefineries/HP/process_settings.py (SaBRe/BioSTEAM project)"
+      boundary: grid consumption mix
+      note: "Location-dependent; range indicative (gas- to oil-dominated grids) until the plant location is fixed."
+    water_supply:
+      value: 0.46
+      unit: kg CO2e/m3
+      source: "Zib et al. 2021, J. Clean. Prod. 321, 128815 (https://doi.org/10.1016/j.jclepro.2021.128815); value as provided (paywalled, not rechecked)"
+      boundary: operational energy of US drinking-water supply
+    wastewater_treatment:
+      value: 0.38
+      unit: kg CO2e/m3
+      source: "Zib et al. 2021 (as above); value as provided"
+      boundary: operational energy of US wastewater treatment (process CH4/N2O not included)
+    H2SO4:
+      value: 0.04447
+      unit: kg CO2e/kg H2SO4 (100 %)
+      source: "GREET, as used in biorefineries/lactic/_process_settings.py (project)"
+      boundary: cradle-to-gate
+    inert_landfill:
+      value: 0.02205
+      unit: kg CO2e/kg waste
+      source: "EPA WARM v15 (May 2019), Fly Ash chapter, Exhibit 8-4: landfilling 0.02 MTCO2E/short ton (https://www.epa.gov/sites/default/files/2019-06/documents/warm_v15_construction_materials.pdf)"
+      boundary: "transport to landfill and landfill machinery; inert, no landfill CH4"
+      note: "Screening proxy for mineral waste only; char degradation in the ash/char cake not covered."
+    marine_fuel:
+      value: 3.2
+      unit: kg CO2/kg fuel
+      source: "ATT collaborators' emission-factor table (LHV 41 MJ/kg)"
+      boundary: combustion; used only in the optional collection/transport scenario
+
+  natural_gas:
+    burner_efficiency: 0.90       # U2 direct firing (att.yaml energy_sources)
+    boiler_efficiency: 0.80       # LP steam (att.yaml inventory.lca)
+    note: "Fuel (LHV) = delivered heat / efficiency, applied once to the BioSTEAM heat-utility duty (which already includes the 5 % process heat loss)."
+
+  # Alkaline purge neutralization (no flowsheet change).
+  neutralization:
+    streams: [liquor_purge]
+    reagent: H2SO4
+    endpoint: "pH ~8.3: OH- -> H2O and CO3-- -> HCO3- (1 H+ each); no CO2 released"
+    H_plus_per_mol: {NaOH: 1, Na2CO3: 1}
+
+  waste_management:
+    wastewater_streams: [press_liquid, u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
+    landfill_streams: [ash_residue_cake]
+
+  coproduct:
+    CaCO3_treatment: none            # none | substitution
+    CaCO3_substitution_CF: null      # kg CO2e avoided per kg CaCO3 (required for 'substitution')
+
+  offgas:
+    treatment: "UNRESOLVED: assumed collected; final fate (combustion, utilization or venting) not modeled; no CH4 emission, combustion CO2 or credit counted in GWP"
+
+  collection_transport:
+    status: pending
+    marine_fuel_kg_per_t_wet: null   # set to include; no SaBRe data available
+    note: "No collection distance or fuel-use data in the SaBRe project (tea.yaml has collection costs only). Excluded until data are provided; results are partial-boundary."
+
+  scenarios:
+    baseline: {lime_source: CaOH2_limestone}
+    steel_slag_lime: {lime_source: CaOH2_steel_slag}
+
+  sensitivity_factors: [NaOH, CaOH2_limestone, natural_gas_upstream, electricity]
+
+  # Indicative magnitudes for the data-gap table only (not used in results).
+  indicative_gwp100:
+    CH4_non_fossil: {value: 27.0, source: "IPCC AR6 WG1 Table 7.15"}

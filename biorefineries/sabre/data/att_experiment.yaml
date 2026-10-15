@@ -1,0 +1,59 @@
+# UCLA ATT experimental reference data (transcribed, never modified)
+#
+# Primary source: "ATT Inputs and Assumptions_261005.xlsx" (collaborators),
+# sheets "Experimental results" and "Assumptions for energy analysis".
+# Each value carries its sheet!cell reference. Presentation slides are NOT a
+# source for this file. Verified against the workbook by
+# biorefineries/sabre/analyses/_att_experiment.verify_att_experiment_workbook.
+
+source_workbook:
+  file_name: "ATT Inputs and Assumptions_261005.xlsx"
+  local_path: "C:/Users/zhouy/Downloads/ATT Inputs and Assumptions_261005.xlsx"
+
+experimental_results:
+  sheet: "Experimental results"
+  units: "gas yields in mmol per g daf (dry ash-free) seaweed"
+  conditions:
+    text: "500 C, 1 h hold, N2 50 mL/min, steam 0.03 mL/min (3.6 g over the run). Cat = 10 wt% Ni/ZrO2 downstream of the sample. Ni- = Ni-soaked Sargassum."
+    cell: A10
+  # case: [seaweed g, NaOH g, water g, H2, CH4, CO, Gas 4, CO2, description]
+  cases:
+    ATT:       {row: 5, seaweed_g: 0.5, naoh_g: 1, water_g: 3.6, H2: 39.64052453124999, CH4: 11.78803271019345, CO: 0, Gas4: 0.1273135007440476, CO2: 0.3335236011904762, description: "Seaweed + NaOH"}
+    CatATT:    {row: 6, seaweed_g: 0.5, naoh_g: 1, water_g: 3.6, H2: 57.01437513857888, CH4: 10.07901787574404, CO: 0.5730725241815475, Gas4: 0.1069177771577381, CO2: 0, description: "Seaweed + NaOH + ex-situ catalyst"}
+    Ni-ATT:    {row: 7, seaweed_g: 0.5, naoh_g: 1, water_g: 3.6, H2: 53.72972321614586, CH4: 9.284789352678573, CO: 0, Gas4: 0.09911903459821433, CO2: 0.4237475465029762, description: "Ni soaked seaweed + NaOH"}
+    Ni-CatATT: {row: 8, seaweed_g: 0.5, naoh_g: 1, water_g: 3.6, H2: 66.72842505487348, CH4: 8.768738649553573, CO: 0.1648486662946429, Gas4: 0.09166974330357144, CO2: 0.1865389341517857, description: "Ni soaked seaweed + NaOH + ex-situ catalyst"}
+  column_cells: {seaweed_g: B, naoh_g: C, water_g: D, H2: E, CH4: F, CO: G, Gas4: H, CO2: I, description: J}
+  notes:
+    - "Seaweed mass basis (wet/dry/daf) not stated in the sheet; advisor-confirmed as 0.5 g daf (att.yaml basis_discrepancies.naoh_loading)."
+    - "Gas 4: CO measured on a second GC column, negligible (collaborator); ignored in the model."
+    - "Not reported: solid residue/char, liquid products, carbonate, catalyst mass, Ni loading, gas-volume method, replicates."
+
+energy_analysis:
+  sheet: "Assumptions for energy analysis"
+  feedstock:
+    moisture_as_harvested_wt_pct: {value: 85, cell: B5}
+    ash_wt_pct_dry: {value: 17.2, cell: B6}
+    HHV_MJ_per_kg_daf: {value: 16.9, cell: B7, note: "literature 15.7-19.5 (D7)"}
+  process:
+    functional_unit: {value: 1, unit: "t wet seaweed (C11)", cell: B11}
+    sargassum_moisture_pct: {value: 50, cell: B12, note: "assumed (mechanical dewatering) (D12)"}
+    ATT_temperature_C: {value: 500, cell: B13}
+    NaOH_to_seaweed_daf_g_per_g: {value: 1, cell: B14}
+    NaOH_converted_to_Na2CO3_pct: {value: 100, cell: B15}
+    CaOH2_to_Na2CO3_mol_per_mol: {value: 1.1, cell: B16, note: "commercial causticizing"}
+    causticizing_efficiency_pct: {value: 85, cell: B17, note: "commercial causticizing"}
+    water_for_Na2CO3_dissolution_kg_per_kg: {value: 3, cell: B18, note: "commercial causticizing"}
+    water_left_in_recovered_NaOH_wt_pct: {value: 50, cell: B19, note: "assumed"}
+    heat_loss_pct_of_duty: {value: 5, cell: B20, note: "Gracia-Monforte et al. 2026"}
+    heat_recovery_from_hot_products_pct: {value: 0, cell: B21}
+  emission_factors:
+    NaOH: {value: 1.12, unit: "kg CO2e/kg", range: "0.63-2.16", cell: B25}
+    CaOH2_limestone: {value: 0.91, unit: "kg CO2e/kg", range: "0.59-1.00", cell: B26}
+    CaOH2_steel_slag: {value: 0, unit: "kg CO2e/kg", range: "0-0.10, assumed", cell: B27}
+    natural_gas_heat: {value: 0.056, unit: "kg CO2/MJ", note: "IPCC 2006; burner eff. 0.90", cell: B28}
+    marine_fuel: {value: 3.2, unit: "kg CO2/kg", note: "LHV 41 MJ/kg", cell: B29}
+    engine_waste_heat: {value: 0, unit: "kg CO2/MJ", note: "assumed", cell: B30}
+  boundary:
+    included: {value: "ATT reactor, CO2 capture on Ca(OH)2, NaOH regeneration loop, process heat, NaOH and Ca(OH)2 make-up.", cell: A33}
+    not_included: {value: "harvesting and transport, pumping and mixing power, H2 compression, capital goods, REE refining, CaCO3 product credit.", cell: A34}
+  results_reported: "None. The workbook contains LCA inputs (functional unit, emission factors, boundary) but no GWP results."

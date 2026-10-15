@@ -1,0 +1,52 @@
+# Model Assumptions: Preprocessing
+
+press:
+  cake_solids_wt_frac: 0.15
+  solids_capture_frac: 0.98
+  solubles_to_pressate_frac: 1.0
+
+  power_kWh_per_dry_ton_TS: 5.0
+
+  capex_model: scaled_anchor
+  basis: dry_tph
+  ref_capacity_tph_dry: 0.953 # cannot match back to source
+  ref_capacity_tph_wet: 15 # originally 50, cannot match back to source
+  capex_installed_ref_usd: 3100000.0
+  scale_exponent: 0.60
+  F_BM: 1.0 # capex already installed
+
+  sources:
+    capex:
+      citation: "City of Bellingham Biosolids Facility Planning Report, TM 12: Solids Screening, Thickening, and Dewatering Technology Evaluation (2021)"
+      note: 
+        original: "Installed screw press system anchor based on municipal screw press dewatering cost tables; adapted to this model using dry-solids throughput scaling."
+        added: "cannot find original value basis, changed to 17.5 for ref_capacity_tph_wet based on Tables 4-11 and 4-13 from https://cob.org/wp-content/uploads/TM-12-Screening-Thickening-and-Dewatering.pdf, 9.3 million for 3, so 3.1 million for 1 (matches capex here). 1,050 lb TS/hr per unit, 2.4-4.5% TS for feed (assumed 3%, 1050/2204.62/0.03 is about 15.9)."
+    performance:
+      citation: "Vincent Corporation seaweed pressing notes; supported by brown macroalgae dewatering literature"
+      note: "Sargassum-specific pressing data indicate cake solids around 26–29 wt% TS; 27 wt% TS selected as central baseline. The screw press in Table 4-11 as noted above indicates ~18% solids in the cake."
+    power:
+      citation: "HUBER screw press case study (2023)"
+      note: "Use ~5 kWh/t dry solids for press-only electricity. Larger values such as ~20 kWh/t DS correspond to total system electricity including pumps and auxiliaries."
+
+mill:
+  loss_frac: 0.03
+
+  power_kWh_per_dry_ton_dry: 25.0
+
+  capex_model: inl_hammermill_anchor
+  ref_capacity_dry_ton_per_hr: 10.0
+  purchase_cost_ref_usd: 206400.0
+  scale_exponent: 0.6
+  F_BM: 1.8 # bare-module/install factor
+
+  sources:
+    power:
+      citation: "Oyedeji et al. (2020); NREL FY11 grinding basis"
+      note: "Herbaceous biomass coarse grinding typically falls in the ~11–28 kWh/t range; 25 kWh/t selected as a defensible central proxy for dried Sargassum."
+    capex:
+      citation: "INL hammer mill cost anchor"
+      url: "https://inldigitallibrary.inl.gov/sites/sti/sti/7323596.pdf"
+      note: "Hammer mill purchase cost anchor $206,400 used for capacity scaling with exponent 0.6 and install factor."
+    loss:
+      citation: "INL preprocessing/logistics accounting"
+      note: "Dry matter loss across preprocessing is typically on the order of ~1–5%; 3% selected as central baseline."
