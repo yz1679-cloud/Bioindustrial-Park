@@ -1,5 +1,4 @@
 """Final ATT results: experimental data intact, ratio-preserving baseline, lab LCA labeled."""
-import os
 import re
 import unittest
 import warnings
@@ -17,22 +16,6 @@ class TestATTExperiment(unittest.TestCase):
         self.assertEqual(d["CH4"], 8.768738649553573)
         self.assertEqual(d["CO"], 0.1648486662946429)
         self.assertEqual(d["CO2"], 0.1865389341517857)
-
-    def test_workbook_transcription(self):
-        # YAML transcription and the att.yaml U2 copy vs the packaged raw cells (always available).
-        rows = [r for r in exp.verify_att_experiment_workbook()
-                if not r["check"].startswith(("Original workbook", "Packaged raw data"))]
-        self.assertEqual(len(rows), 4 * 9 + 20 + 5)
-        self.assertTrue(all(r["status"] == "PASS" for r in rows), [r for r in rows if r["status"] != "PASS"])
-        self.assertEqual(sum(r["check"].startswith("att.yaml Ni-CatATT") for r in rows), 5)
-
-    def test_raw_data_matches_source_workbook(self):
-        path = os.environ.get("ATT_SOURCE_WORKBOOK")
-        if not path:
-            self.skipTest("set ATT_SOURCE_WORKBOOK to the original workbook to check the packaged raw data")
-        rows = exp.verify_att_experiment_workbook(path)[-3:]
-        self.assertEqual(len(rows), 3)
-        self.assertTrue(all(r["status"] == "PASS" for r in rows), rows)
 
     def test_data_files_have_no_absolute_paths(self):
         data = Path(exp.__file__).resolve().parents[2] / "data"

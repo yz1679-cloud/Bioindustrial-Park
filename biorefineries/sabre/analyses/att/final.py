@@ -255,7 +255,6 @@ def build_att_final_results():
         "A1_Experimental_Gas_Yields": A["A1_Experimental_Gas_Yields"],
         "A2_Experimental_Conditions": A["A2_Experimental_Conditions"],
         "A3_Experimental_Conversions": A["A3_Conversions_NiCatATT"],
-        "A4_Workbook_Verification": A["A4_Workbook_Verification"],
         "B1_Lab_Screening_LCA": lab,
         "C1_Process_Materials": ind["01_process_materials"],
         "C2_Mass_Element_Audit": audit,
@@ -292,11 +291,8 @@ This folder holds the complete comparison workbook `ATT_Final_Results.xlsx`
 (all sheets A-D) and the D1-D7 CSVs. The A/B sheets are also written as CSV
 to `../experimental/`, the C sheets to `../full_scale/summary/`.
 
-- **A (sheets A1-A4):** original UCLA data transcribed in
-  `biorefineries/sabre/data/att_experiment.yaml` with sheet!cell references and
-  verified (A4), together with the U2 yields in att.yaml, against the raw cell
-  values of "ATT Inputs and Assumptions_261005.xlsx" packaged in
-  `biorefineries/sabre/data/att_experiment_raw/`.
+- **A (sheets A1-A3):** original UCLA data transcribed in
+  `biorefineries/sabre/data/att_experiment.yaml` with sheet!cell references.
 - **B (B1):** laboratory screening LCA per run and per g measured H2. The
   workbook reports no LCA results; B1 uses measured inputs, the collaborators'
   emission factors and a thermodynamic lower bound for heating. Not comparable
@@ -353,7 +349,7 @@ def export_att_final_results(out_dir=None, summary_dir=None):
     comparison CSVs go to ``out_dir`` (default att_outputs/comparison). The
     full-scale sheets C1-C14 are written as CSV to ``summary_dir`` (default
     att_outputs/full_scale/summary; ``out_dir`` when only ``out_dir`` is given).
-    The experimental sheets A1-A4 and B1 are CSVs of export_att_experimental_results.
+    The experimental sheets A1-A3 and B1 are CSVs of export_att_experimental_results.
     """
     import pandas as pd
     from biorefineries.sabre.analyses.att.paths import output_dir
@@ -374,7 +370,7 @@ def export_att_final_results(out_dir=None, summary_dir=None):
 
 
 def build_att_experimental_results():
-    """Sheets A1-A4 and B1 exactly as in ATT_Final_Results.xlsx (1 kg/h baseline only for the daf fraction)."""
+    """Sheets A1-A3 and B1 exactly as in ATT_Final_Results.xlsx (1 kg/h baseline only for the daf fraction)."""
     warnings.filterwarnings("ignore")
     small = _small("uniform_redox_scaling")
     daf_frac = float(inv._units(small)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(small)
@@ -383,7 +379,6 @@ def build_att_experimental_results():
         "A1_Experimental_Gas_Yields": A["A1_Experimental_Gas_Yields"],
         "A2_Experimental_Conditions": A["A2_Experimental_Conditions"],
         "A3_Experimental_Conversions": A["A3_Conversions_NiCatATT"],
-        "A4_Workbook_Verification": A["A4_Workbook_Verification"],
         "B1_Lab_Screening_LCA": A["B1_Lab_Screening_LCA"],
     }
 
@@ -398,8 +393,6 @@ and the side-by-side comparison in `../comparison/ATT_Final_Results.xlsx`.
 - **A1-A3:** UCLA measured gas yields, conditions and unit conversions
   (`data/att_experiment.yaml`; A3 "model basis" rows use the daf fraction of the
   1 kg/h model feed).
-- **A4:** cell-by-cell verification of the YAML transcription and of the U2
-  yields in att.yaml against the packaged raw data `data/att_experiment_raw/`.
 - **B1:** laboratory screening LCA per run and per g measured H2 (lower bound,
   partial boundary; not comparable with the industrial LCA).
 
@@ -410,7 +403,7 @@ and the side-by-side comparison in `../comparison/ATT_Final_Results.xlsx`.
 
 
 def export_att_experimental_results(out_dir=None):
-    """A1-A4 and B1 as CSV plus ATT_Experimental_Results.xlsx (default att_outputs/experimental)."""
+    """A1-A3 and B1 as CSV plus ATT_Experimental_Results.xlsx (default att_outputs/experimental)."""
     from biorefineries.sabre.analyses.att.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("experimental"))

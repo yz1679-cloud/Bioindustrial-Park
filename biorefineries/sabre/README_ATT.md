@@ -8,7 +8,7 @@ experimental dataset, a 1 kg dry/h baseline, a full-scale plant
 preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, gas-yield
 scenarios, and a comparison of laboratory and plant results.
 
-> **Data availability.** `data/att_experiment_raw/`, `data/att_experiment.yaml`
+> **Data availability.** `data/att_experiment.yaml`
 > and the measured gas yields in `data/att.yaml` are unpublished laboratory
 > data of the UCLA collaborators. They may only be redistributed or made public
 > with the collaborators' permission. See [Data sources](#data-sources).
@@ -70,7 +70,7 @@ Unit tests: `python -m unittest discover -s biorefineries/sabre/test -t . -p "te
 
 ```
 att_outputs/
-├── experimental/            measured gas yields, conditions, conversions, data verification (A1-A4), lab screening LCA (B1)
+├── experimental/            measured gas yields, conditions, conversions (A1-A3), lab screening LCA (B1)
 ├── baseline_1kg/            1 kg dry/h mass and energy audit
 ├── full_scale/
 │   ├── mass_energy/         streams, mass/element/water/Na-Ca balances, unit energy, utilities, LCI
@@ -110,9 +110,8 @@ biorefineries/sabre/
 
 | File | Content | Source |
 |---|---|---|
-| `data/att_experiment_raw/*.csv` | every cell value of the two sheets of "ATT Inputs and Assumptions_261005.xlsx" | UCLA collaborators (unpublished); see its README |
-| `data/att_experiment.yaml` | cell-referenced transcription of the experimental data and the collaborators' assumptions | as above; checked cell by cell against the raw CSVs |
-| `data/att.yaml` | process specification, U2 baseline yields (copy of the Ni-CatATT measurements, checked against the raw data), unit settings, heat recovery | user-confirmed design basis, literature, engineering assumptions (each entry states its basis) |
+| `data/att_experiment.yaml` | cell-referenced transcription of the experimental data and the collaborators' assumptions | UCLA collaborators (unpublished), "ATT Inputs and Assumptions_261005.xlsx" |
+| `data/att.yaml` | process specification, U2 baseline yields (copy of the Ni-CatATT measurements), unit settings, heat recovery | user-confirmed design basis, literature, engineering assumptions (each entry states its basis) |
 | `data/att_tea.yaml`, `data/tea.yaml` | prices, capital items, financial assumptions | literature and SaBRe database |
 | `data/att_lca.yaml` | GWP100 characterization factors | collaborators, GREET 2022, NETL, literature |
 | `data/feedstock.yaml`, `data/preprocessing.yaml` | Sargassum composition, scale, press | SaBRe database |

@@ -8,7 +8,7 @@ works). Each step runs in its own Python process, exactly as when the runners
 are called one by one, with ATT_OUTPUTS_DIR set to the output root (default
 att_outputs/ at the repository root). Order:
 
- 1 experimental      measured data, A4 data verification, lab screening LCA
+ 1 experimental      measured data, lab screening LCA
  2 baseline_1kg      1 kg/h mass and energy audit
  3 inventory         full-scale mass/energy inventory
  4 tea               MSP           (read by the cross-checks of 6, 7 and 9)
@@ -59,7 +59,6 @@ STEPS = (
 )
 # Exported tables whose status column holds check results.
 QC_TABLES = (
-    "experimental/A4_Workbook_Verification.csv",
     "baseline_1kg/14_Limitations_Checks.csv",
     "full_scale/mass_energy/17_stream_sanity_check.csv",
     "full_scale/mass_energy/22_utility_consistency.csv",
