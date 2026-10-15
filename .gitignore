@@ -31,6 +31,12 @@ docs/_build/*
 docs/_static/*
 docs/_templates/*
 
+# Claude code #
+###############
+CLAUDE.md
+.claude
+docs
+
 # Data/results #
 ################
 *.xlsx
