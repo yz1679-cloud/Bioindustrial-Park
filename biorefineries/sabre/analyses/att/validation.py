@@ -343,7 +343,7 @@ def _sources():
              role="model"),
         dict(item="Chemicals (Char, CharN, CharS, feed pseudo-components)", reference="biorefineries/sabre/_chemicals.py",
              role="model"),
-        dict(item="Extraction functions", reference="biorefineries/sabre/analyses/att/inventory.py, att.reporting.py",
+        dict(item="Extraction functions", reference="biorefineries/sabre/analyses/att/inventory.py, att/reporting.py",
              role="analysis"),
         dict(item="UCLA experimental data", reference="ATT Inputs and Assumptions_261005.xlsx, sheet 'Experimental results'",
              role="experiment"),

@@ -914,7 +914,7 @@ def _overview(sys, result, gwp_total):
         dict(item="H2 product", value=float(s["h2_product"].imass["H2"]) / dry, note="kg/kg dry"),
         dict(item="MSP reference / Case A", value=f"{result['msp']:.3f} / see MSP sheet", note="USD/kg H2"),
         dict(item="GWP100 (partial boundary)", value=gwp_total, note="kg CO2e/kg H2; collection/transport excluded"),
-        dict(item="Modules", value="att.inventory -> att.lca, att.tea -> att.reporting -> att.reporting",
+        dict(item="Modules", value="att.inventory -> att.lca, att.tea -> att.reporting (consolidated results, then documentation)",
              note="biorefineries/sabre/analyses"),
         dict(item="Data origin labels", value="frozen BioSTEAM system | analysis function | configuration input",
              note="see data_origin / source columns"),
