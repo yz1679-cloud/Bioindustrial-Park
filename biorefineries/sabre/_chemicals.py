@@ -33,11 +33,33 @@ def _structural_solid(ID: str, formula: str, Hf_cal: float,
     return chemical
 
 
+_ATOMIC_MASS = {"C": 12.011, "H": 1.008, "O": 15.999, "N": 14.007, "S": 32.06}
+
+
+def char_Hf_from_HHV(atoms: dict) -> float:
+    """Hf [J/mol] of a C/H/O char via Hess's law and the Channiwala & Parikh
+    (2002, Fuel 81, 1051-1063) HHV correlation; combustion products are
+    CO2(g), H2O(l) and SO2(g) with ThermoSTEAM's Hf values."""
+    MW = sum(_ATOMIC_MASS[e] * n for e, n in atoms.items())
+    wt = {e: 100.0 * _ATOMIC_MASS[e] * atoms.get(e, 0.0) / MW for e in _ATOMIC_MASS}
+    HHV_MJ_per_kg = (0.3491 * wt["C"] + 1.1783 * wt["H"] + 0.1005 * wt["S"]
+                     - 0.1034 * wt["O"] - 0.0151 * wt["N"])
+    Hf_products = (-393474.0 * atoms.get("C", 0.0)
+                   - 285825.0 * atoms.get("H", 0.0) / 2.0
+                   - 296810.0 * atoms.get("S", 0.0))
+    return Hf_products + HHV_MJ_per_kg * MW * 1e3
+
+
 def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
-                     include_dilute_acid: bool = False):
+                     include_dilute_acid: bool = False, include_att: bool = False):
     """
     Parameters
     ----------
+    include_att : bool
+        If True, also include the chemicals used only by the alkaline
+        thermal treatment (ATT) pathway (Char, CharN, CharS, CO, C2H4, C2H6,
+        H2, Na2CO3, CaOH2, CaCO3). Kept behind its own flag so the chemical
+        sets (and hence the results) of the other SaBRe pathways are unchanged.
     include_hp3 : bool
         If True, also construct and include the chemicals used only by
         the EnzymaticPress/3-HP-from-Sargassum pathway (Glucose,
@@ -267,14 +289,42 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
     for _nutrient in (KH2PO4, MagnesiumSulfate):
         _nutrient.copy_models_from(Water, ["mu"])
 
+    # ATT-only chemicals (include_att), listed below at the same positions
+    # as in the ATT model.
+    att_char = att_gases = att_hydrogen = att_salts = ()
+    if include_att:
+        # ATT (U2) char residue. No ultimate analysis of ATT char is available,
+        # so the carbonaceous part uses a generic ~500 C char formula; U2 results
+        # are insensitive to it because any plausible char carries ~4.2-4.4
+        # available electrons per C. Cp ~1 J/g/K is a typical biochar value.
+        # Feed N and S are retained in the char as element-basis species
+        # (Hf = 0) because no N- or S-containing ATT products were measured.
+        Char = _structural_solid("Char", "CH0.5O0.1",
+                                 char_Hf_from_HHV({"C": 1, "H": 0.5, "O": 0.1}) / _cal2joule,
+                                 Cp=1.0, rho=1500)
+        CharN = _structural_solid("CharN", "N", 0.0, Cp=1.0, rho=1500)
+        CharS = _structural_solid("CharS", "S", 0.0, Cp=1.0, rho=1500)
+        CO = bst.Chemical("CO", search_ID="CarbonMonoxide", phase="g")
+        C2H4 = bst.Chemical("C2H4", search_ID="Ethylene", phase="g")
+        C2H6 = bst.Chemical("C2H6", search_ID="Ethane", phase="g")
+        H2 = bst.Chemical("H2", search_ID="Hydrogen", phase="g")
+        Na2CO3 = bst.Chemical("Na2CO3", search_ID="SodiumCarbonate")
+        CaOH2 = bst.Chemical("CaOH2", search_ID="CalciumHydroxide", phase="s")
+        CaCO3 = bst.Chemical("CaCO3", search_ID="CalciumCarbonate", phase="s")
+        # Dissolved salt in the recycle liquor: same volume treatment as NaOH above.
+        Na2CO3.V.l.add_model(tmo.functional.rho_to_V(1e5, Na2CO3.MW), top_priority=True)
+        att_char, att_gases, att_hydrogen = (Char, CharN, CharS), (CO, C2H4, C2H6), (H2,)
+        att_salts = (Na2CO3, CaOH2, CaCO3)
+
     chems = bst.Chemicals([
         Water,
         Ash, Protein, Lignin, Glucan, Xylan, Mannan, Galactan, Arabinan,
         Alginate, Fucoidan, Mannitol, OtherSolids,
-        CH4, CO2, H2S, Oxygen, Nitrogen,
+        *att_char,
+        CH4, CO2, *att_gases, H2S, *att_hydrogen, Oxygen, Nitrogen,
         AceticAcid, PropionicAcid, ButyricAcid, ValericAcid, HexanoicAcid,
         MicrobialOil, CellMass,
-        Ammonia, KH2PO4, NaOH, MagnesiumSulfate,
+        Ammonia, KH2PO4, NaOH, *att_salts, MagnesiumSulfate,
         *hp3_chemicals,
         *acid_chemicals,
     ])

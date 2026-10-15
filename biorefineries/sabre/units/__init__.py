@@ -31,6 +31,11 @@
 .. autoclass:: biorefineries.sabre.units.CaHPCrystallizer
 .. autoclass:: biorefineries.sabre.units.CrystalCentrifuge
 .. autoclass:: biorefineries.sabre.units.DiluteAcidReactor
+.. autoclass:: biorefineries.sabre.units.ATTReactor
+.. autoclass:: biorefineries.sabre.units.CausticizationReactor
+.. autoclass:: biorefineries.sabre.units.NaOHEvaporator
+.. autoclass:: biorefineries.sabre.units.NaOHMakeupMixer
+.. autoclass:: biorefineries.sabre.units.ATTHeatRecovery
 """
 from . import _ad
 from . import _preprocessing
@@ -39,6 +44,7 @@ from . import _vfa
 from . import _microbial_oil
 from . import _3hp
 from . import _dilute_acid
+from . import _att
 
 from ._ad import *
 from ._preprocessing import *
@@ -47,9 +53,10 @@ from ._vfa import *
 from ._microbial_oil import *
 from ._3hp import *
 from ._dilute_acid import *
+from ._att import *
 
 __all__ = (
     *_ad.__all__, *_preprocessing.__all__, *_biostimulant.__all__,
     *_vfa.__all__, *_microbial_oil.__all__, *_3hp.__all__,
-    *_dilute_acid.__all__,
+    *_dilute_acid.__all__, *_att.__all__,
 )

@@ -1,0 +1,100 @@
+# Model Assumptions: ATT preliminary TEA (research stage)
+#
+# Read by biorefineries/sabre/analyses/att/tea.py. Financial assumptions are
+# the SaBRe defaults in tea.yaml (SaBReTEA); this file only adds ATT-specific
+# prices and capital items. The frozen process model is not modified.
+
+tea:
+  basis: "SaBReTEA with tea.yaml financial assumptions; ATT model with the active U2 closure (att.yaml) at the SaBRe reference scale"
+  cost_year_note: "Equipment from BioSTEAM correlations at CEPCI 567.5 (BioSTEAM default, 2017), as in the other SaBRe pathways. Material prices are of mixed years, recorded below; no escalation applied."
+  product: h2_product   # MSP solved on this stream
+
+  prices:   # USD per kg of stream unless noted
+    NaOH:
+      value: 0.35
+      range: [0.35, 0.526]
+      source: "tea.yaml price.naoh (SaBRe baseline; no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py."
+    CaOH2:
+      value: 0.240
+      range: [0.235, 0.350]
+      year: 2024
+      source: "Original reference (commit 1473af06): USGS MCS 2025 estimate for 2024 (240 USD/t), later revised. USGS MCS 2026 (https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf): hydrated lime 234.6 (2023), 274.2 (2024), 280 (2025e) USD/t. Average value at plant (f.o.b.), transport NOT included. The high bound adds an assumed delivery allowance."
+    CaOH2_updated:
+      value: 0.280
+      year: 2025
+      source: "USGS MCS 2026, hydrated lime 2025 estimate 280 USD/t, average value at plant (f.o.b.), transport NOT included."
+    H2SO4:
+      value: 0.0948
+      source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, att_lca.yaml endpoint)"
+    process_water:
+      value: 0.000441
+      source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
+    wastewater_streams: [press_liquid, u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
+    solid_waste_streams: [ash_residue_cake]
+    # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
+    CaCO3_cake: 0.0          # coproduct; revenue to be set later
+    offgas: 0.0              # fate pending; collection/treatment cost not included
+    natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
+    steam_note: "LP steam at the BioSTEAM default agent price, which covers generation; boiler natural gas is not priced separately (no double counting)."
+    cooling_note: "Cooling water at the BioSTEAM default price, which covers tower operation; cooling-tower electricity is not priced separately."
+    electricity_note: "BioSTEAM default PowerUtility price on the modeled unit power; estimated agitator and EC1 vacuum power added."
+
+  capex:
+    # Out-of-model equipment from att.inventory.get_att_cost_estimates
+    # (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum) is added.
+    PSA:
+      status: PRELIMINARY (not a correlation or vendor quote)
+      anchor_installed_cost_usd: 45000000.0
+      anchor_capacity_t_H2_per_day: 203.4
+      exponent: 0.6
+      range_factor: [0.5, 1.5]
+      source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed."
+    U3K:
+      compressor_type: Reciprocating
+      reason: "BioSTEAM selected screw compressors (bounds 10-750 hp) for 16,800 hp; reciprocating is the conventional H2 service and within its correlation bounds. TEA-only replacement of the U3K cost; power unchanged."
+
+  # Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
+  # content of the cake (not the wet cake). The sold share of the cake is
+  # not disposed; the unsold share is disposed at tea.yaml disposal_solid.
+  caco3_coproduct:
+    marketable_fractions: [0.0, 0.10, 0.25, 0.50, 1.0]
+    price_usd_per_t_CaCO3: [250.0, 50.0]
+    price_note: "250 USD/t: preliminary commodity-price illustration given by the user, not a selling price for this impure product. 50 USD/t: illustrative low value for low-grade use (assumption, unverified)."
+    handling_usd_per_t_CaCO3: [0.0, 50.0]
+    handling_note: "Additional drying/washing/handling cost per t CaCO3 sold: 0 (optimistic) or 50 USD/t (placeholder assumption; no purification plant designed)."
+
+  # PSA off-gas (mainly CH4 + unrecovered H2, CO, CO2): fate unresolved; no reliable handling cost;
+  # explicit placeholders per t of off-gas. Reference: 0.
+  offgas_handling_usd_per_t: [0.0, 10.0, 25.0]
+  offgas_note: "Placeholder collection/flaring/venting cost; no equipment designed. Off-gas carries the model CH4 (s x reported); final fate unresolved."
+
+  cost_year:
+    reference_CE: 567.5
+    reference_note: "BioSTEAM default CEPCI (2017), used by all SaBRe pathways."
+    comparison_CE: 800.0
+    comparison_note: "Approximate 2024 CEPCI (monthly values ~800 in 2024, Chemical Engineering, https://www.chemengonline.com/cepci). Escalates BioSTEAM correlations and the inventory equipment estimates only; the PSA anchor (year unknown) and all prices are not escalated."
+
+  limitations:
+    - "FCI = installed equipment cost (SaBRe convention): no separate engineering, construction, contingency or other indirect capital; see FCI sensitivity."
+    - "PSA capital is a preliminary review-based estimate (+/-50 %), not a correlation or vendor quote."
+    - "Equipment at CEPCI 567.5 (2017) while chemical prices are 2024-2025; utility prices are BioSTEAM defaults (older basis)."
+    - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
+    - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
+    - "P1 electricity follows BioSTEAM ScrewPress (37.2 kWh per t of total wet feed); alternative reported, not adopted."
+    - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
+    - "No lime regeneration (kiln) or alternative lime sourcing in the economics."
+
+  sensitivities:
+    PSA_capex_factor: [0.5, 1.5]
+    CaOH2_price: [0.235, 0.350]
+    NaOH_price: [0.35, 0.526]
+    natural_gas_price_factor: [0.7, 1.3]
+    electricity_price_factor: [0.7, 1.3]
+    FCI_factor: [0.7, 1.3]
+    # P1 power (frozen model: BioSTEAM ScrewPress 37.2 kWh per t of TOTAL wet
+    # feed = 280 kWh/t dry for Sargassum). Alternatives per t DRY solids:
+    P1_power_kWh_per_t_dry:
+      perry_dry_basis: 37.2     # same Perry value applied per dry tonne
+      sabre_press: 5.0          # preprocessing.yaml press.power_kWh_per_dry_ton_TS (HUBER)
+    # P1 capital alternative: SaBRe press anchor (preprocessing.yaml), installed
+    P1_sabre_anchor: {installed_usd: 3100000.0, ref_dry_tph: 0.953, exponent: 0.6}

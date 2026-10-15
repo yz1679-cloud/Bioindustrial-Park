@@ -88,3 +88,6 @@ docs
 ehthumbs.db
 Thumbs.db
 surfaces
+
+# SaBRe ATT generated results (regenerate with python -m biorefineries.sabre.test.run_att_all)
+att_outputs/

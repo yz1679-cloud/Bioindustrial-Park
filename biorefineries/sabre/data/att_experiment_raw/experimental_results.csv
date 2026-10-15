@@ -1,0 +1,54 @@
+cell,type,value
+A1,str,ATT of Sargassum: experimental results
+A3,str,1. Gas yields (mmol per g daf (dry ash free) seaweed)
+A4,str,Case
+B4,str,Seaweed (g)
+C4,str,NaOH (g)
+D4,str,Water (g)
+E4,str,H2 (mmol/g daf)
+F4,str,CH4 (mmol/g daf)
+G4,str,CO (mmol/g daf)
+H4,str,Gas 4 (mmol/g daf)
+I4,str,CO2 (mmol/g daf)
+J4,str,Description
+A5,str,ATT
+B5,float,0.5
+C5,int,1
+D5,float,3.6
+E5,float,39.64052453124999
+F5,float,11.78803271019345
+G5,int,0
+H5,float,0.1273135007440476
+I5,float,0.3335236011904762
+J5,str,Seaweed + NaOH
+A6,str,CatATT
+B6,float,0.5
+C6,int,1
+D6,float,3.6
+E6,float,57.01437513857888
+F6,float,10.07901787574404
+G6,float,0.5730725241815475
+H6,float,0.1069177771577381
+I6,int,0
+J6,str,Seaweed + NaOH + ex-situ catalyst
+A7,str,Ni-ATT
+B7,float,0.5
+C7,int,1
+D7,float,3.6
+E7,float,53.72972321614586
+F7,float,9.284789352678573
+G7,int,0
+H7,float,0.09911903459821433
+I7,float,0.4237475465029762
+J7,str,Ni soaked seaweed + NaOH
+A8,str,Ni-CatATT
+B8,float,0.5
+C8,int,1
+D8,float,3.6
+E8,float,66.72842505487348
+F8,float,8.768738649553573
+G8,float,0.1648486662946429
+H8,float,0.09166974330357144
+I8,float,0.1865389341517857
+J8,str,Ni soaked seaweed + NaOH + ex-situ catalyst
+A10,str,"500 C, 1 h hold, N2 50 mL/min, steam 0.03 mL/min (3.6 g over the run). Cat = 10 wt% Ni/ZrO2 downstream of the sample. Ni- = Ni-soaked Sargassum."
