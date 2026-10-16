@@ -142,7 +142,7 @@ def _register_rows():
         "kg/kg daf", "U2", "NaOH loading", EXP, "Workbook: 0.5 g seaweed + 1 g NaOH; advisor-confirmed daf basis",
         "att.yaml:att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf", "Experimental; basis advisor-confirmed",
         affects="Process, LCA, TEA")
-    add("ATT reaction", "Fresh NaOH form", Y("att.yaml", "att.feed_preparation.fresh_naoh_form"), "-", "M2",
+    add("ATT reaction", "Fresh NaOH form", Y("att.yaml", "att.feed_preparation.fresh_naoh_form"), "-", "M1",
         "Makeup NaOH physical form", ENG, NV, "att.yaml:att.feed_preparation.fresh_naoh_form", "Specified")
     for gas in ("H2", "CH4", "CO", "CO2"):
         add("ATT reaction", f"Reported {gas} yield (Ni-CatATT)",
@@ -226,14 +226,14 @@ def _register_rows():
     add("Downstream", "EC1 temperature", Y("att.yaml", f"{ds}.concentration_temperature_K"), "K", "EC1",
         "Boiling temperature (pressure from Olsson correlation)", ENG, "User decision 2026-10-09 (90 C baseline)",
         f"att.yaml:{ds}.concentration_temperature_K", "Specified")
-    add("Downstream", "EC1/M2 concentration target", Y("att.yaml", f"{ds}.recycle_naoh_wt_frac"),
-        "NaOH/(NaOH+H2O)", "EC1, M2", "Binary basis after makeup", EXP,
+    add("Downstream", "EC1/M1 concentration target", Y("att.yaml", f"{ds}.recycle_naoh_wt_frac"),
+        "NaOH/(NaOH+H2O)", "EC1, M1", "Binary basis after makeup", EXP,
         "Workbook 'Water left in recovered NaOH 50 wt%'; basis per user decision 2026-10-09",
         f"att.yaml:{ds}.recycle_naoh_wt_frac", "Specified", affects="Process, LCA, TEA")
-    add("Downstream", "NaOH(aq) properties", "Olsson et al. 1997", "-", "EC1, M2, U2",
+    add("Downstream", "NaOH(aq) properties", "Olsson et al. 1997", "-", "EC1, U2",
         "Vapor pressure and enthalpy of NaOH(aq)", LIT, "Olsson, Jernqvist, Aly, Int. J. Thermophys. 18 (1997) 779",
         "biorefineries/sabre/_naoh_properties.py", "Validated (boiling points, Cp, dilution heat)")
-    add("Downstream", "Na2CO3 solubility in NaOH", "Wu et al. 2020", "-", "EC1, M2", "Salting-out at 90 C", LIT,
+    add("Downstream", "Na2CO3 solubility in NaOH", "Wu et al. 2020", "-", "EC1", "Salting-out at 90 C", LIT,
         "Wu, Liu, Wu, ACS Omega 5 (2020) 4875", "biorefineries/sabre/_naoh_properties.py",
         "Single-source near 50 wt% NaOH", uncertainty="<10 kJ/h per kg/h dry feed")
     for name, eta, src in (("U2 burner efficiency", Y("att.yaml", "att.energy_sources.natural_gas.burner_efficiency"),
@@ -299,7 +299,6 @@ _UNIT_INFO = {
     "F2": ("Remove CaCO3 cake (rotary vacuum filter)", "att.yaml:att.downstream.f2_*"),
     "SP1": ("Split liquor: 95 % recycle, 5 % purge", "att.yaml:att.downstream.whole_liquor_recycle_fraction"),
     "EC1": ("Evaporate excess water at 90 C (vacuum, single effect)", "att.yaml:att.downstream.concentration_*, recycle_naoh_*"),
-    "M2": ("Dissolve fresh solid NaOH; Na2CO3 salting-out", "att.yaml:att.downstream.recycle_naoh_wt_frac"),
 }
 _ATTRS = ("T", "P", "moisture_content", "conversion", "lime_equiv", "target_temperature_K", "heat_loss_fraction",
           "eta", "compressor_type", "gas_closure_method", "closure_gas_ID", "naoh_kg_per_kg_daf",
@@ -330,7 +329,7 @@ def _units_table(sys, estimates):
             cost_correlation=cost_spec or ("BioSTEAM unit _cost" if u.purchase_cost > 0 else
                                            "no model cost (see TEA-only estimates)"),
             sizing_costing_source="native BioSTEAM" if u.purchase_cost > 0 else
-            ("custom estimate (att.yaml inventory.cost_estimates)" if u.ID in ("C1", "M2", "EC1") else
+            ("custom estimate (att.yaml inventory.cost_estimates)" if u.ID in ("C1", "EC1") else
              ("preliminary PSA estimate (att_tea.yaml)" if u.ID == "U3P" else "no equipment (junction)")),
             configuration=cfg, data_origin=ORIGIN_SYS))
     for r in estimates:
@@ -400,7 +399,7 @@ def _naoh_extra(sys):
     s = inv._streams(sys)
     u = inv._units(sys)
     rows = []
-    for ID in ("naoh_recycle", "ec1_concentrate", "liquor_to_concentrator", "naoh_carbonate_liquor",
+    for ID in ("naoh_recycle", "liquor_to_concentrator", "naoh_carbonate_liquor",
                "carbonate_solution", "liquor_purge"):
         st = next((x for unit in sys.units for x in (*unit.ins, *unit.outs) if x.ID == ID), None)
         if st is None:
@@ -409,7 +408,7 @@ def _naoh_extra(sys):
         rows.append(dict(stream=ID, NaOH_over_NaOH_plus_H2O=naoh / (naoh + w) if naoh + w else float("nan"),
                          NaOH_over_total_mixture=naoh / float(st.F_mass) if st.F_mass else float("nan"),
                          Na2CO3_over_total_mixture=c / float(st.F_mass) if st.F_mass else float("nan"),
-                         note="binary basis is the EC1/M2 target"))
+                         note="binary basis is the EC1 target (after the fresh NaOH makeup in M1)"))
     rows.append(dict(stream="SP1 purge fraction", NaOH_over_NaOH_plus_H2O=float("nan"), NaOH_over_total_mixture=float("nan"),
                      Na2CO3_over_total_mixture=float("nan"),
                      note=f"purge = {1 - Y('att.yaml', 'att.downstream.whole_liquor_recycle_fraction'):.2f} of liquor"))
@@ -422,9 +421,9 @@ def _naoh_extra(sys):
 
 def _crystallization_audit(sys):
     """
-    Na2CO3 salting-out in EC1 and M2: inlet/outlet phases, solubility limit
+    Na2CO3 salting-out in EC1: inlet/outlet phases, solubility limit
     recomputed independently from the Wu et al. (2020) 363.15 K data
-    (_naoh_properties), unit mass balances and the Na2CO3 recycle fate.
+    (_naoh_properties), the unit mass balances and the Na2CO3 recycle fate.
     Values in kg/h at the reference scale and per 1 kg/h dry feed.
     """
     from biorefineries.sabre import _naoh_properties as _naoh
@@ -433,94 +432,75 @@ def _crystallization_audit(sys):
     u = inv._units(sys)
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
-    EC1, M2, U2 = u["EC1"], u["M2"], u["U2"]
+    EC1, U2 = u["EC1"], u["U2"]
     nan = float("nan")
     rows = []
 
-    def add(section, item, ec1, m2, unit, basis, per_kg_dry=True):
+    def add(section, item, ec1, unit, basis, per_kg_dry=True):
         scale = (lambda v: v / dry if isinstance(v, float) and v == v else nan) if per_kg_dry else (lambda v: nan)
-        rows.append(dict(section=section, item=item, EC1=ec1, M2=m2, unit=unit,
-                         EC1_per_kg_per_h_dry_feed=scale(ec1), M2_per_kg_per_h_dry_feed=scale(m2), basis=basis))
+        rows.append(dict(section=section, item=item, EC1=ec1, unit=unit,
+                         EC1_per_kg_per_h_dry_feed=scale(ec1), basis=basis))
 
     def phases(stream):
         total = float(stream.imass["Na2CO3"])
         solid = _solid_na2co3_kgph(stream)
         return total, solid, total - solid
 
-    # Inlets and outlets.
-    ec1_in, m2_in, m2_fresh = EC1.ins[0], M2.ins[0], M2.ins[1]
-    ec1_out, ec1_cond, m2_out = EC1.outs[0], EC1.outs[1], M2.outs[0]
+    # Inlet and outlet.
+    ec1_in, ec1_out, ec1_cond = EC1.ins[0], EC1.outs[0], EC1.outs[1]
     e_tot, e_sol, e_dis = phases(ec1_in)
-    m_tot, m_sol, m_dis = phases(m2_in)
     eo_tot, eo_sol, eo_dis = phases(ec1_out)
-    mo_tot, mo_sol, mo_dis = phases(m2_out)
     S = "1 Na2CO3 in and out"
-    add(S, "Na2CO3 entering the unit (total)", e_tot, m_tot, "kg/h", "inlet stream (EC1: SP1 liquor; M2: EC1 slurry)")
-    add(S, "  of which already solid in the inlet", e_sol, m_sol, "kg/h", "inlet solid phase")
-    add(S, "  of which dissolved in the inlet", e_dis, m_dis, "kg/h", "inlet liquid phase")
-    add(S, "Additional Na2CO3 precipitated in the unit", eo_sol - e_sol, mo_sol - m_sol, "kg/h",
-        "outlet solid - inlet solid")
-    add(S, "Na2CO3 dissolved in the outlet", eo_dis, mo_dis, "kg/h", "outlet liquid phase")
-    add(S, "Total solid Na2CO3 leaving the unit", eo_sol, mo_sol, "kg/h", "outlet solid phase")
-    add(S, "Model attribute: crystals (EC1) / salted out (M2)", EC1._na2co3_crystals_kgph,
-        M2._na2co3_salted_out_kgph, "kg/h", "EC1._na2co3_crystals_kgph; M2._na2co3_salted_out_kgph")
+    add(S, "Na2CO3 entering the unit (total)", e_tot, "kg/h", "inlet stream (SP1 liquor)")
+    add(S, "  of which already solid in the inlet", e_sol, "kg/h", "inlet solid phase")
+    add(S, "  of which dissolved in the inlet", e_dis, "kg/h", "inlet liquid phase")
+    add(S, "Additional Na2CO3 precipitated in the unit", eo_sol - e_sol, "kg/h", "outlet solid - inlet solid")
+    add(S, "Na2CO3 dissolved in the outlet", eo_dis, "kg/h", "outlet liquid phase")
+    add(S, "Total solid Na2CO3 leaving the unit", eo_sol, "kg/h", "outlet solid phase")
+    add(S, "Model attribute: crystals", EC1._na2co3_crystals_kgph, "kg/h", "EC1._na2co3_crystals_kgph")
 
     # Conditions and solubility limit, recomputed from the correlation.
     ec1_w, ec1_naoh = float(ec1_out.imass["l", "Water"]), float(ec1_out.imass["l", "NaOH"])
-    m2_w, m2_naoh = float(m2_out.imass["l", "Water"]), float(m2_out.imass["l", "NaOH"])
-    T_sol = _naoh._SOLUBILITY_T_K
     m_ec1 = ec1_naoh / _MW_NAOH * 1e3 / ec1_w
-    m_m2 = m2_naoh / _MW_NAOH * 1e3 / m2_w
     sat_ec1, solid_ec1 = _naoh.na2co3_solubility_mol_per_kg_water(m_ec1, float(ec1_out.T),
                                                                   EC1.allow_na2co3_solubility_extrapolation)
-    sat_m2, solid_m2 = _naoh.na2co3_solubility_mol_per_kg_water(m_m2, T_sol)
     lim_ec1 = sat_ec1 * ec1_w * _MW_NA2CO3 / 1e3
-    lim_m2 = sat_m2 * m2_w * _MW_NA2CO3 / 1e3
     S = "2 Conditions and solubility limit"
-    add(S, "Outlet temperature", float(ec1_out.T) - 273.15, float(m2_out.T) - 273.15, "C",
-        "EC1: fixed 90 C boiling; M2: adiabatic dissolution of solid NaOH", per_kg_dry=False)
-    add(S, "Temperature used for the solubility", float(ec1_out.T) - 273.15, T_sol - 273.15, "C",
-        f"Wu et al. data at {T_sol - 273.15:.0f} C; M2 uses them within +/-{M2.solubility_temperature_band_K} K "
-        f"(equilibrated: {M2._na2co3_equilibrated})", per_kg_dry=False)
-    add(S, "Pressure", EC1._operating_pressure_Pa / 1e3, float(m2_out.P) / 1e3, "kPa",
-        "EC1: water vapor pressure over NaOH(aq) (Olsson et al. 1997); M2: 1 atm", per_kg_dry=False)
-    add(S, "Water in the outlet liquor", ec1_w, m2_w, "kg/h", "EC1 evaporates to the water limit; M2 adds no water")
-    add(S, "Water evaporated", float(ec1_cond.F_mass), 0.0, "kg/h", "EC1 condensate")
-    add(S, "NaOH in the outlet liquor", ec1_naoh, m2_naoh, "kg/h", "M2 adds fresh solid NaOH")
-    add(S, "NaOH/(NaOH + H2O) in the outlet", ec1_naoh / (ec1_naoh + ec1_w), m2_naoh / (m2_naoh + m2_w), "-",
-        "binary basis (recycle target 0.50 after M2)", per_kg_dry=False)
-    add(S, "NaOH molality in the outlet", m_ec1, m_m2, "mol/kg H2O", "used in the solubility correlation",
-        per_kg_dry=False)
-    add(S, "Na2CO3 saturation molality", sat_ec1, sat_m2, "mol/kg H2O",
+    add(S, "Outlet temperature", float(ec1_out.T) - 273.15, "C", "fixed boiling temperature", per_kg_dry=False)
+    add(S, "Pressure", EC1._operating_pressure_Pa / 1e3, "kPa",
+        "water vapor pressure over NaOH(aq) (Olsson et al. 1997)", per_kg_dry=False)
+    add(S, "Water in the outlet liquor", ec1_w, "kg/h", "EC1 evaporates to the water limit")
+    add(S, "Water evaporated", float(ec1_cond.F_mass), "kg/h", "EC1 condensate")
+    add(S, "NaOH in the outlet liquor", ec1_naoh, "kg/h", "recovered NaOH; the fresh makeup is added in M1")
+    add(S, "NaOH/(NaOH + H2O) in the outlet", ec1_naoh / (ec1_naoh + ec1_w), "-",
+        "binary basis; the recycle target (0.50) applies after the fresh NaOH makeup in M1", per_kg_dry=False)
+    add(S, "NaOH molality in the outlet", m_ec1, "mol/kg H2O", "used in the solubility correlation", per_kg_dry=False)
+    add(S, "Na2CO3 saturation molality", sat_ec1, "mol/kg H2O",
         "Wu et al. (2020), 363.15 K, log-linear between (5.96, 1.44) and (24.08, 0.10) mol/kg", per_kg_dry=False)
-    add(S, "Na2CO3 saturation", sat_ec1 * _MW_NA2CO3 / 10.0, sat_m2 * _MW_NA2CO3 / 10.0, "g/100 g H2O",
-        "same", per_kg_dry=False)
-    add(S, "Stable solid at saturation", solid_ec1, solid_m2, "-", "branch of the correlation", per_kg_dry=False)
-    add(S, "Solubility limit in the outlet liquor", lim_ec1, lim_m2, "kg Na2CO3/h", "saturation x outlet water")
-    add(S, "Recomputed solid = Na2CO3 in - limit (if positive)", max(e_tot - lim_ec1, 0.0),
-        max(m_tot - lim_m2, 0.0), "kg/h", "independent recalculation")
-    add(S, "Crystallization enthalpy", EC1._crystallization_heat_kJph,
-        -_naoh.NA2CO3_DISSOLUTION_kJ_per_mol * M2._na2co3_salted_out_kgph / _MW_NA2CO3 * 1e3, "kJ/h",
-        "EC1: in the evaporator duty; M2: in the adiabatic balance")
+    add(S, "Na2CO3 saturation", sat_ec1 * _MW_NA2CO3 / 10.0, "g/100 g H2O", "same", per_kg_dry=False)
+    add(S, "Stable solid at saturation", solid_ec1, "-", "branch of the correlation", per_kg_dry=False)
+    add(S, "Solubility limit in the outlet liquor", lim_ec1, "kg Na2CO3/h", "saturation x outlet water")
+    add(S, "Recomputed solid = Na2CO3 in - limit (if positive)", max(e_tot - lim_ec1, 0.0), "kg/h",
+        "independent recalculation")
+    add(S, "Crystallization enthalpy", EC1._crystallization_heat_kJph, "kJ/h", "in the evaporator duty")
 
     # Unit mass balances.
     S = "3 Mass balances"
-    add(S, "Na2CO3: in - (dissolved out + solid out)", e_tot - eo_tot, m_tot - mo_tot, "kg/h", "should be 0")
-    add(S, "NaOH: in - out", float(ec1_in.imass["NaOH"]) - ec1_naoh,
-        float(m2_in.imass["NaOH"]) + float(m2_fresh.imass["NaOH"]) - m2_naoh, "kg/h", "M2 includes fresh NaOH")
-    add(S, "Water: in - (out + evaporated)", float(ec1_in.imass["Water"]) - ec1_w - float(ec1_cond.F_mass),
-        float(m2_in.imass["Water"]) - m2_w, "kg/h", "should be 0")
-    add(S, "Total mass: in - out", float(ec1_in.F_mass) - float(ec1_out.F_mass) - float(ec1_cond.F_mass),
-        float(m2_in.F_mass) + float(m2_fresh.F_mass) - float(m2_out.F_mass), "kg/h", "should be 0")
-    add(S, "Fresh solid NaOH added", 0.0, float(m2_fresh.imass["NaOH"]), "kg/h", "M2 makeup")
+    add(S, "Na2CO3: in - (dissolved out + solid out)", e_tot - eo_tot, "kg/h", "should be 0")
+    add(S, "NaOH: in - out", float(ec1_in.imass["NaOH"]) - ec1_naoh, "kg/h", "should be 0")
+    add(S, "Water: in - (out + evaporated)", float(ec1_in.imass["Water"]) - ec1_w - float(ec1_cond.F_mass), "kg/h",
+        "should be 0")
+    add(S, "Total mass: in - out", float(ec1_in.F_mass) - float(ec1_out.F_mass) - float(ec1_cond.F_mass), "kg/h",
+        "should be 0")
+    add(S, "Fresh solid NaOH added in M1", float(s["fresh_naoh_solid"].imass["NaOH"]), "kg/h", "M1 makeup")
 
     # Fate of the Na2CO3.
     S = "4 Na2CO3 recycle and losses"
     u2_in = float(U2.ins[0].imass["Na2CO3"])
     for item, v, basis in (
-        ("Na2CO3 recycled to U2 with the liquor (M2 -> M1 -> U2)", mo_tot, "all M2 outlet Na2CO3, solid + dissolved"),
-        ("  of which solid crystals", mo_sol, "crystals are not separated"),
-        ("  of which dissolved", mo_dis, ""),
+        ("Na2CO3 recycled to U2 with the liquor (EC1 -> M1 -> U2)", eo_tot, "all EC1 outlet Na2CO3, solid + dissolved"),
+        ("  of which solid crystals", eo_sol, "crystals are not separated"),
+        ("  of which dissolved", eo_dis, ""),
         ("Na2CO3 in the U2 feed", u2_in, "M1 outlet (M1 merges phases; Na2CO3 mass unchanged)"),
         ("Na2CO3 formed in U2 (NaOH + CO2)", float(U2.outs[1].imass["Na2CO3"]) - u2_in, "U2 residue - U2 feed"),
         ("Loss: Na2CO3 in ash/char cake (F1)", float(s["ash_residue_cake"].imass["Na2CO3"]), "entrained liquor"),
@@ -528,45 +508,30 @@ def _crystallization_audit(sys):
         ("Loss: Na2CO3 in liquor purge (SP1)", float(s["liquor_purge"].imass["Na2CO3"]),
          "purge is upstream of EC1: dissolved Na2CO3 only, no crystals"),
     ):
-        rows.append(dict(section=S, item=item, EC1=nan, M2=v, unit="kg/h", EC1_per_kg_per_h_dry_feed=nan,
-                         M2_per_kg_per_h_dry_feed=v / dry, basis=basis))
+        add(S, item, v, "kg/h", basis)
     losses = sum(float(s[ID].imass["Na2CO3"]) for ID in ("ash_residue_cake", "caco3_cake", "liquor_purge"))
-    rows.append(dict(section=S, item="Recycled / (recycled + lost)", EC1=nan, M2=mo_tot / (mo_tot + losses), unit="-",
-                     EC1_per_kg_per_h_dry_feed=nan, M2_per_kg_per_h_dry_feed=nan, basis="Na2CO3 basis"))
+    add(S, "Recycled / (recycled + lost)", eo_tot / (eo_tot + losses), "-", "Na2CO3 basis", per_kg_dry=False)
 
-    # Verification of the reported per-1-kg/h-dry values and the method.
+    # Verification of the per-1-kg/h-dry values and the method.
     S = "5 Verification"
     from biorefineries.sabre.systems._att_system import create_att_system
     small = inv._simulate(create_att_system(dry_sargassum_kgph=1.0), 1.0)
-    su = inv._units(small)
-    small_values = (su["EC1"]._na2co3_crystals_kgph, su["M2"]._na2co3_salted_out_kgph,
-                    su["EC1"]._na2co3_crystals_kgph + su["M2"]._na2co3_salted_out_kgph)
-    reported = (("EC1 precipitation", (eo_sol - e_sol) / dry, 0.211), ("M2 precipitation", (mo_sol - m_sol) / dry, 0.015),
-                ("Total solids leaving M2", mo_sol / dry, 0.226))
-    for (item, v, ref), v_small in zip(reported, small_values):
-        same = abs(v - v_small) <= 1e-6 * max(abs(v), 1e-12)
-        rows.append(dict(section=S, item=f"{item} [kg/h at 1 kg/h dry feed]", EC1=nan, M2=nan, unit="kg/kg dry",
-                         EC1_per_kg_per_h_dry_feed=v if item.startswith("EC1") else nan,
-                         M2_per_kg_per_h_dry_feed=v if not item.startswith("EC1") else nan,
-                         basis=f"converged model {v:.5f} (reference scale) = {v_small:.5f} (1 kg/h simulation): "
-                               f"{'PASS' if same else 'FAIL'}. Previously reported {ref} came from a quick run with "
-                               f"BioSTEAM's default recycle tolerance ({(v / ref - 1) * 100:+.1f} %); corrected."))
-    checks = (("EC1 solid = recomputed from correlation", eo_sol, max(e_tot - lim_ec1, 0.0)),
-              ("M2 solid = recomputed from correlation", mo_sol, max(m_tot - lim_m2, 0.0)),
-              ("EC1 precipitated + M2 precipitated = solids leaving M2", (eo_sol - e_sol) + (mo_sol - m_sol), mo_sol),
-              ("Na2CO3 balance EC1 + M2 closes", e_tot - mo_tot, 0.0))
-    for item, a, b in checks:
-        rows.append(dict(section=S, item=item, EC1=a, M2=b, unit="kg/h", EC1_per_kg_per_h_dry_feed=nan,
-                         M2_per_kg_per_h_dry_feed=nan,
-                         basis="PASS" if abs(a - b) <= 1e-9 * max(1.0, abs(b)) else "FAIL"))
-    rows.append(dict(section=S, item="Method", EC1=nan, M2=nan, unit="", EC1_per_kg_per_h_dry_feed=nan,
-                     M2_per_kg_per_h_dry_feed=nan,
-                     basis="CALCULATED, not imposed: solid = Na2CO3 present - solubility limit, with the limit from "
-                           "the Wu et al. (2020, ACS Omega 5, 4875-4889) 363.15 K saturation data in "
-                           "_naoh_properties.na2co3_solubility_mol_per_kg_water (anhydrous Na2CO3 branch). The "
-                           "amounts follow from the simulated water, NaOH and Na2CO3 flows; no precipitation amount "
-                           "is a fixed input. Limitations: single source near 50 wt% NaOH, solid identity (Na2CO3 vs "
-                           "Na2CO3.H2O) unresolved, crystals recycled to U2 (not separated)."))
+    v = (eo_sol - e_sol) / dry
+    v_small = inv._units(small)["EC1"]._na2co3_crystals_kgph
+    same = abs(v - v_small) <= 1e-6 * max(abs(v), 1e-12)
+    add(S, "EC1 precipitation [kg/h at 1 kg/h dry feed]", v, "kg/kg dry",
+        f"converged model {v:.5f} (reference scale) = {v_small:.5f} (1 kg/h simulation): "
+        f"{'PASS' if same else 'FAIL'}", per_kg_dry=False)
+    for item, a_, b_ in (("EC1 solid = recomputed from correlation", eo_sol, max(e_tot - lim_ec1, 0.0)),
+                         ("Na2CO3 balance of EC1 closes", e_tot - eo_tot, 0.0)):
+        add(S, item, a_, "kg/h", "PASS" if abs(a_ - b_) <= 1e-9 * max(1.0, abs(b_)) else "FAIL", per_kg_dry=False)
+    add(S, "Method", nan, "",
+        "CALCULATED, not imposed: solid = Na2CO3 present - solubility limit, with the limit from "
+        "the Wu et al. (2020, ACS Omega 5, 4875-4889) 363.15 K saturation data in "
+        "_naoh_properties.na2co3_solubility_mol_per_kg_water (anhydrous Na2CO3 branch). The "
+        "amounts follow from the simulated water, NaOH and Na2CO3 flows; no precipitation amount "
+        "is a fixed input. Limitations: single source near 50 wt% NaOH, solid identity (Na2CO3 vs "
+        "Na2CO3.H2O) unresolved, crystals recycled to U2 (not separated).", per_kg_dry=False)
     return rows
 
 
@@ -1151,7 +1116,7 @@ traceability only: no model, LCA or TEA parameter is changed.
 ## Modeling framework
 
 - **Process model (frozen):** `biorefineries/sabre/systems/_att_system.py` builds the
-  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1-M2
+  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
   with custom units in `biorefineries/sabre/units/_att.py`. U2 scales all four
   measured gases by one factor s (uniform_redox_scaling, s = 0.5998), preserving
   the measured gas ratios and closing C, H, O with char and water; the measured
@@ -1209,7 +1174,7 @@ def export_att_documentation(out_dir=None):
     out_dir = os.fspath(out_dir or output_dir("documentation"))
     tables = build_att_documentation()
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, WORKBOOK)) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, WORKBOOK), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)
@@ -1561,7 +1526,7 @@ def export_att_consolidated_results(out_dir=None):
     out_dir = os.fspath(out_dir or output_dir("summary"))
     tables = build_att_consolidated_results()
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, "att_consolidated_results.xlsx")) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, "att_consolidated_results.xlsx"), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)

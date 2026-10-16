@@ -283,11 +283,11 @@ def get_att_gwp_by_unit(sys, applied):
             value, basis = cf[hu.agent.ID]
             g += hu.duty * value if basis == "kJ" else hu.flow * hu.agent.MW * value
         totals[unit.ID] = g * hours
-    totals["M2"] += s["fresh_naoh_solid"].get_impact(KEY) * hours
+    totals["M1"] += s["fresh_naoh_solid"].get_impact(KEY) * hours
     totals["C1"] += s["lime"].get_impact(KEY) * hours
     totals["D1"] += s["dissolution_water"].get_impact(KEY) * hours
     items = {item.name: item.impact() for item in sys.process_impact_items[KEY]}
-    totals["C1 + M2 + EC1 (auxiliary electricity)"] = items.pop(
+    totals["C1 + EC1 (auxiliary electricity)"] = items.pop(
         "Electricity: outside unit models (agitators, EC1 vacuum)")
     totals["Waste management (off-flowsheet)"] = sum(items.values())
     total_yr = sys.get_net_impact(KEY)
@@ -516,7 +516,7 @@ def export_att_lca(out_dir=None):
                        status="PASS" if unchanged else "FAIL"))
     tables["08_checks"] = checks
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, "att_lca_gwp100.xlsx")) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, "att_lca_gwp100.xlsx"), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)

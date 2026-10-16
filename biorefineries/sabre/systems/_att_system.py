@@ -11,7 +11,6 @@ from biorefineries.sabre.units._att import (
     ATTReactor,
     CausticizationReactor,
     NaOHEvaporator,
-    NaOHMakeupMixer,
     ATTHeatRecovery,
     aqueous_naoh_enthalpy_correction_kJph,
 )
@@ -238,7 +237,7 @@ def create_att_system(
     # --------------------------------------------------------------
     # Initial recycle guess for sequential-modular convergence
     #
-    # With solid NaOH makeup located downstream of U2, an exactly empty
+    # With the NaOH recovered downstream of U2, an exactly empty
     # recycle stream would send zero NaOH to the first U2 pass. That would
     # generate zero Na2CO3, D1 would add zero dissolution water, and F1
     # could not satisfy a 30 wt% water cake while retaining representative
@@ -277,24 +276,44 @@ def create_att_system(
     # --------------------------------------------------------------
     # M1 - ATT feed preparation
     #
-    # The recycle liquor (M2 outlet) already contains both recovered
-    # NaOH and the required fresh SOLID NaOH makeup. M1 therefore only
-    # combines the conditioned Sargassum with this recycle liquor.
+    # M1 combines the conditioned Sargassum with the recycle liquor (EC1
+    # concentrate) and the fresh SOLID NaOH makeup, which dissolves in the
+    # water of the wet feed. Fresh NaOH = gross requirement minus the NaOH
+    # recovered in the recycle liquor; no water is added.
     # --------------------------------------------------------------
     M1 = bst.Mixer(
         "M1",
         ins=(
             D0 - 0,
             naoh_recycle,
+            fresh_naoh_solid,
         ),
         outs=("att_feed",),
     )
 
-    # M1 is adiabatic, so the true U2 feed enthalpy is ThermoSTEAM's value
-    # plus the electrolyte correction of the NaOH(aq) recycle liquor
-    # (ThermoSTEAM treats dissolved NaOH as subcooled molten NaOH).
     @M1.add_specification(run=True)
-    def set_u2_aqueous_naoh_correction():
+    def adjust_solid_naoh_makeup():
+        required_naoh_kgph = required_gross_naoh_kgph()
+        recovered_naoh_kgph = float(naoh_recycle.imass["NaOH"])
+        fresh_naoh_kgph = max(required_naoh_kgph - recovered_naoh_kgph, 0.0)
+
+        fresh_naoh_solid.empty()
+        fresh_naoh_solid.imass["NaOH"] = fresh_naoh_kgph
+        fresh_naoh_solid.phase = "s"
+        fresh_naoh_solid.T = _ATT_FEED_PREP["fresh_naoh_temperature_K"]
+        fresh_naoh_solid.P = 101325.0
+
+        M1._required_gross_naoh_kgph = required_naoh_kgph
+        M1._recovered_naoh_kgph = recovered_naoh_kgph
+        M1._fresh_naoh_makeup_kgph = fresh_naoh_kgph
+
+        # M1 is adiabatic, so the true U2 feed enthalpy is ThermoSTEAM's
+        # value plus the electrolyte correction of the NaOH(aq) recycle
+        # liquor (ThermoSTEAM treats dissolved NaOH as subcooled molten
+        # NaOH). The fresh NaOH enters as a solid, whose enthalpy is the
+        # same in ThermoSTEAM and in reality; its heat of solution only
+        # raises the true feed temperature, not the feed enthalpy, so it
+        # needs no correction.
         U2.aqueous_feed_enthalpy_correction_kJph = (
             aqueous_naoh_enthalpy_correction_kJph(naoh_recycle)
         )
@@ -859,7 +878,7 @@ def create_att_system(
     # EC1 - Recycle-liquor evaporator (single effect, vacuum, 90 C)
     #
     # Only the water in excess of what the target concentration allows
-    # after the M2 makeup is evaporated:
+    # after the fresh NaOH makeup (added in M1) is evaporated:
     #
     #     water_max = gross NaOH * (1 - x) / x,   x = NaOH/(NaOH + H2O)
     #
@@ -878,7 +897,7 @@ def create_att_system(
     EC1 = NaOHEvaporator(
         "EC1",
         ins=SP1 - 0,
-        outs=("ec1_concentrate", "ec1_condensate"),
+        outs=(naoh_recycle, "ec1_condensate"),
         T=ec1_T,
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
         allow_na2co3_solubility_extrapolation=abs(ec1_T - baseline_ec1_T) > 0.5,
@@ -892,34 +911,6 @@ def create_att_system(
             * (1.0 - target_naoh_wt_frac)
             / target_naoh_wt_frac
         )
-
-    # --------------------------------------------------------------
-    # M2 - Fresh solid-NaOH makeup, dissolved after EC1
-    #
-    # Fresh NaOH = gross requirement - NaOH recovered through SP1. No
-    # water is added. The heat of solution warms the recycle liquor.
-    # --------------------------------------------------------------
-    M2 = NaOHMakeupMixer(
-        "M2",
-        ins=(EC1 - 0, fresh_naoh_solid),
-        outs=naoh_recycle,
-    )
-
-    @M2.add_specification(run=True)
-    def adjust_solid_naoh_makeup():
-        required_naoh_kgph = required_gross_naoh_kgph()
-        recovered_naoh_kgph = float(M2.ins[0].imass["NaOH"])
-        fresh_naoh_kgph = max(required_naoh_kgph - recovered_naoh_kgph, 0.0)
-
-        fresh_naoh_solid.empty()
-        fresh_naoh_solid.imass["NaOH"] = fresh_naoh_kgph
-        fresh_naoh_solid.phase = "s"
-        fresh_naoh_solid.T = _ATT_FEED_PREP["fresh_naoh_temperature_K"]
-        fresh_naoh_solid.P = 101325.0
-
-        M2._required_gross_naoh_kgph = required_naoh_kgph
-        M2._recovered_naoh_kgph = recovered_naoh_kgph
-        M2._fresh_naoh_makeup_kgph = fresh_naoh_kgph
 
     # --------------------------------------------------------------
     # System
@@ -942,7 +933,6 @@ def create_att_system(
         *([W2] if W2 is not None else []),
         SP1,
         EC1,
-        M2,
     ]
 
     HXR = ATTHeatRecovery("HXR") if heat_integration else None
@@ -957,6 +947,12 @@ def create_att_system(
         # unaccelerated fixed-point method for robust positive-flow
         # convergence.
         method="fixedpoint",
+        # The tear stream is the EC1 concentrate (recovered NaOH only); the
+        # fresh NaOH makeup in M1 closes the loop. BioSTEAM's default
+        # tolerances (1 kmol/h, 1 %) are far too loose at the 1 kg/h basis
+        # and would stop the iteration before the makeup has converged.
+        molar_tolerance=1e-9,
+        relative_molar_tolerance=1e-7,
         facilities=(HXR,) if heat_integration else (),
     )
     if heat_integration:

@@ -238,7 +238,7 @@ def get_att_chemical_ledger(sys):
     dry = _dry_feed_kgph(sys)
     s = _streams(sys)
     u = _units(sys)
-    recycle = u["M2"].outs[0]
+    recycle = u["EC1"].outs[0]
     to_U2 = u["U2"].ins[0]
     cake, purge, ash = s["caco3_cake"], s["liquor_purge"], s["ash_residue_cake"]
 
@@ -358,7 +358,7 @@ def get_att_cost_estimates(sys):
     u = _units(sys)
     rows = []
     with _scratch_flowsheet():
-        for ID, feed in (("C1", u["C1"].outs[0]), ("M2", u["M2"].outs[0])):
+        for ID, feed in (("C1", u["C1"].outs[0]),):
             tank = bst.MixTank(f"{ID}_estimate", ins=feed.copy(), tau=est[ID]["tau_h"])
             tank.simulate()
             rows.append(dict(unit=ID, item=f"{ID} agitated tank", purchase_cost=tank.purchase_cost,
@@ -846,7 +846,7 @@ def get_att_sodium_calcium_ledger(sys):
     dry = _dry_feed_kgph(sys)
     s = _streams(sys)
     u = _units(sys)
-    U2, C1, M2 = u["U2"], u["C1"], u["M2"]
+    U2, C1, EC1 = u["U2"], u["C1"], u["EC1"]
     to_U2, residue = U2.ins[0], U2.outs[1]
     C1_in = C1.ins[0]
     C1_out = C1.outs[0]
@@ -859,11 +859,11 @@ def get_att_sodium_calcium_ledger(sys):
         ("Effective NaOH recovery = 1 - makeup / gross", 1.0 - makeup / gross),
         ("U2: NaOH consumed", gross - float(residue.imass["NaOH"])),
         ("U2: Na2CO3 formed", float(residue.imass["Na2CO3"] - to_U2.imass["Na2CO3"])),
-        ("U2: Na2CO3 recycled in (EC1/M2 crystals and liquor)", float(to_U2.imass["Na2CO3"])),
+        ("U2: Na2CO3 recycled in (EC1 crystals and liquor)", float(to_U2.imass["Na2CO3"])),
         ("C1: Na2CO3 in", float(C1_in.imass["Na2CO3"])),
         ("C1: Na2CO3 converted", float(C1_in.imass["Na2CO3"] - C1_out.imass["Na2CO3"])),
         ("C1: NaOH formed", float(C1_out.imass["NaOH"] - C1_in.imass["NaOH"])),
-        ("M2: Na2CO3 salted out (recycled as solid)", float(getattr(M2, "_na2co3_salted_out_kgph", 0.0))),
+        ("EC1: Na2CO3 crystallized (recycled as solid)", float(EC1._na2co3_crystals_kgph)),
         ("Loss: NaOH in CaCO3 cake", float(s["caco3_cake"].imass["NaOH"])),
         ("Loss: Na2CO3 in CaCO3 cake", float(s["caco3_cake"].imass["Na2CO3"])),
         ("Loss: NaOH in liquor purge", float(s["liquor_purge"].imass["NaOH"])),
@@ -948,9 +948,6 @@ def _documented_enthalpy_residual(unit):
     if unit.ID == "EC1":
         return (None, "Duty from the Olsson NaOH(aq) enthalpy (latent + concentration + crystallization); "
                       "native stream enthalpy treats NaOH as molten")
-    if unit.ID == "M2":
-        return (None, "No utility; outlet held at 90 C. NaOH dissolution heat (exothermic) not credited: "
-                      "conservative")
     if kind == "MolecularSieve":
         return (None, "Adsorbent regeneration heat, not carried by process streams (BioSTEAM MolecularSieve)")
     if kind == "IsothermalCompressor":
@@ -1150,7 +1147,7 @@ ASSUMPTION_REGISTER = (
      "-40 to +300 kJ/kg dry (<1.2 % of plant heat)", "LOW"),
     ("2 engineering", "EC1 Na2CO3 solubility", "Wu et al. 2020 at 90 C; anhydrous branch single-source",
      "<10 kJ/kg dry effect", "LOW"),
-    ("2 engineering", "Missing costs", "C1, M2 tanks; U2 vessel (Inconel, tau 1 h); EC1 evaporator/condenser/vacuum",
+    ("2 engineering", "Missing costs", "C1 tank; U2 vessel (Inconel, tau 1 h); EC1 evaporator/condenser/vacuum",
      "BioSTEAM correlations; att.yaml inventory.cost_estimates", "MEDIUM (U2 vessel uncertain)"),
     ("2 engineering", "Plant scale", "SaBRe common 15000 wet t/d, 330 d/yr", "feedstock.yaml, tea.yaml",
      "HIGH for TEA"),
@@ -1294,7 +1291,7 @@ def export_att_inventory(out_dir=None, tables=None):
     out_dir = os.fspath(out_dir or output_dir("mass_energy"))
     tables = tables or build_att_inventory_tables()
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, "att_inventory.xlsx")) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, "att_inventory.xlsx"), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)

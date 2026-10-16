@@ -34,7 +34,7 @@ class TestATTDocumentation(unittest.TestCase):
     def test_every_unit_and_stream_documented(self):
         units = {r["unit_ID"] for r in self.t["03_Equipment_Operating"]}
         for ID in ("P1", "D0", "M1", "U2", "U3HX", "U3C", "U3D", "U3P", "U3K", "RC1", "D1", "F1", "C1", "F2",
-                   "SP1", "EC1", "M2"):
+                   "SP1", "EC1"):
             self.assertIn(ID, units)
         streams = {r["stream"] for r in self.t["04_Connectivity"]}
         self.assertEqual(streams, {r["stream"] for r in self.t["05_Stream_Inventory_Long"]})

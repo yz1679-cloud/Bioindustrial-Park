@@ -39,7 +39,7 @@ _AREAS = {
     "U3D": "Gas cooling and drying (U3HX, U3C, U3D)", "U3P": "PSA (U3P)", "U3K": "H2 compression (U3K)",
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
-    "EC1": "NaOH evaporation (EC1)", "M2": "NaOH makeup (M2)",
+    "EC1": "NaOH evaporation (EC1)",
 }
 _ANNUAL = {"kg": (1e-3, "t/yr"), "MJ": (1e-6, "TJ/yr"), "kWh": (1e-3, "MWh/yr"), "m3": (1.0, "m3/yr"),
            "USD": (1e-6, "MUSD/yr"), "kg CO2e": (1e-3, "t CO2e/yr"), "kg C": (1e-3, "t C/yr"),
@@ -918,7 +918,7 @@ def export_att_gas_scenario_comparison(out_dir=None):
     out_dir = os.fspath(out_dir or output_dir("gas_scenarios"))
     tables = build_att_gas_scenario_tables()
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, "ATT_Gas_Scenarios_Detailed_TEA_LCA.xlsx")) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, "ATT_Gas_Scenarios_Detailed_TEA_LCA.xlsx"), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             for col in df.columns:

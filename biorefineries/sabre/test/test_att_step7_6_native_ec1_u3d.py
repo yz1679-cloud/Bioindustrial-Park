@@ -67,7 +67,7 @@ assert recycle["EC1_effect_count"] == 1
 assert 10e3 < recycle["EC1_operating_pressure_Pa"] < 25e3
 assert u3["U3D_unit_type"] == "MolecularSieve"
 
-# Recycle basis: NaOH/(NaOH + H2O) = 0.50 after the M2 makeup.
+# Recycle basis: NaOH/(NaOH + H2O) = 0.50 after the fresh NaOH makeup in M1.
 assert abs(recycle["EC1_recycle_NaOH_wt_frac_NaOH_water_basis"] - 0.50) < 1e-8
 assert abs(recycle["fresh_NaOH_makeup_water_kgph"]) < 1e-12
 assert abs(

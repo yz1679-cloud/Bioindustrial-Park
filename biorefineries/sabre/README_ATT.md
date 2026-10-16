@@ -89,8 +89,8 @@ separate folders; they meet only in `comparison/`.
 ```
 biorefineries/sabre/
 ├── units/_att.py                  ATT units: ATTReactor (U2), CausticizationReactor (C1),
-│                                  NaOHEvaporator (EC1), NaOHMakeupMixer (M2), ATTHeatRecovery (HXR)
-├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1-M2
+│                                  NaOHEvaporator (EC1), ATTHeatRecovery (HXR)
+├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
 ├── analyses/att/                  analyses (see analyses/att/__init__.py)
 │   ├── mass_energy.py  thermodynamics.py  heat_integration.py   process-level helpers
 │   ├── inventory.py  tea.py  lca.py  scenarios.py                 full-scale analyses

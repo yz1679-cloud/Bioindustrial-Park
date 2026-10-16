@@ -1,4 +1,4 @@
-"""NaOH(aq) property model and the EC1 evaporator / M2 makeup mixer."""
+"""NaOH(aq) property model and the EC1 evaporator / M1 fresh NaOH makeup."""
 import unittest
 import warnings
 
@@ -102,7 +102,7 @@ class TestNaOHProperties(unittest.TestCase):
             naoh.na2co3_solubility_mol_per_kg_water(10.0, 333.15)
 
 
-class TestEC1M2Flowsheet(unittest.TestCase):
+class TestEC1Flowsheet(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
@@ -113,13 +113,16 @@ class TestEC1M2Flowsheet(unittest.TestCase):
         cls.u = cls.sys.flowsheet.unit
 
     def test_evaporates_only_excess_water(self):
-        EC1, M2 = self.u.EC1, self.u.M2
-        gross = M2._required_gross_naoh_kgph
+        EC1, M1 = self.u.EC1, self.u.M1
+        gross = M1._required_gross_naoh_kgph
         self.assertAlmostEqual(EC1.outs[0].imass["Water"], gross, places=9)  # 50 %: water = NaOH
-        recycle = M2.outs[0]
-        x = recycle.imass["NaOH"] / (recycle.imass["NaOH"] + recycle.imass["Water"])
-        self.assertAlmostEqual(x, 0.5, places=12)
-        self.assertAlmostEqual(recycle.imass["NaOH"], gross, places=9)
+        recycle, fresh = M1.ins[1], M1.ins[2]
+        self.assertIs(recycle, EC1.outs[0])
+        naoh_total = recycle.imass["NaOH"] + fresh.imass["NaOH"]
+        x = naoh_total / (naoh_total + recycle.imass["Water"])
+        self.assertAlmostEqual(x, 0.5, places=6)
+        self.assertAlmostEqual(naoh_total, gross, places=6)
+        self.assertAlmostEqual(M1.outs[0].imass["NaOH"], gross, places=6)
 
     def test_operating_pressure_is_electrolyte_vapor_pressure(self):
         EC1 = self.u.EC1
@@ -129,14 +132,12 @@ class TestEC1M2Flowsheet(unittest.TestCase):
         self.assertGreater(EC1.T - EC1._condensation_temperature_K, 20.0)
 
     def test_carbonate_crystallizes_and_species_conserved(self):
-        EC1, M2 = self.u.EC1, self.u.M2
+        EC1 = self.u.EC1
         feed, conc, cond = EC1.ins[0], EC1.outs[0], EC1.outs[1]
         for ID in ("Water", "NaOH", "Na2CO3"):
             self.assertAlmostEqual(conc.imass[ID] + cond.imass[ID], feed.imass[ID], places=10)
         self.assertGreater(conc.imass["s", "Na2CO3"], 0.0)
         self.assertEqual(float(conc.imass["s", "NaOH"]), 0.0)
-        out = M2.outs[0]
-        self.assertAlmostEqual(out.imass["NaOH"], conc.imass["NaOH"] + M2.ins[1].imass["NaOH"], places=10)
 
     def test_ec1_duty_closes_enthalpy_balance(self):
         EC1 = self.u.EC1
@@ -151,34 +152,28 @@ class TestEC1M2Flowsheet(unittest.TestCase):
         self.assertAlmostEqual(EC1._heat_duty_kJph, expected, delta=1.0)
         self.assertAlmostEqual(EC1._utility_heat_duty_kJph, 1.05 * EC1._heat_duty_kJph, delta=1e-6)
 
-    def test_m2_is_adiabatic(self):
-        M2 = self.u.M2
-        h = naoh.solution_enthalpy_kJ_per_kg
-        liquor, fresh = M2.ins
-        out = M2.outs[0]
-        W = liquor.imass["Water"]
-        N1, N2 = liquor.imass["NaOH"], out.imass["NaOH"]
-        H_in = (N1 + W) * h(N1 / (N1 + W), liquor.T) + fresh.imass["NaOH"] * naoh.solid_naoh_enthalpy_kJ_per_kg(fresh.T)
-        H_out = (N2 + W) * h(N2 / (N2 + W), out.T)
-        carbonate = liquor.imass["Na2CO3"] / 105.988 * liquor.chemicals["Na2CO3"].Cn("s", 0.5 * (liquor.T + out.T)) * (out.T - liquor.T)
-        crystallization = M2._na2co3_salted_out_kgph / 105.988 * 26.7e3   # kJ/h, endothermic
-        self.assertAlmostEqual(H_out + carbonate + crystallization, H_in, delta=1e-3)
-
-    def test_m2_salts_out_na2co3_to_saturation(self):
-        M2 = self.u.M2
-        out = M2.outs[0]
-        self.assertTrue(M2._na2co3_equilibrated)
-        self.assertGreater(M2._na2co3_salted_out_kgph, 0.0)
+    def test_ec1_salts_out_na2co3_to_saturation(self):
+        EC1 = self.u.EC1
+        out = EC1.outs[0]
+        self.assertGreater(EC1._na2co3_crystals_kgph, 0.0)
         W = out.imass["l", "Water"]
         m_naoh = out.imass["l", "NaOH"] / 39.997 * 1e3 / W
         m_sat, solid = naoh.na2co3_solubility_mol_per_kg_water(m_naoh, 363.15)
         self.assertEqual(solid, "Na2CO3")
         self.assertAlmostEqual(out.imass["l", "Na2CO3"], m_sat * W * 105.988 / 1e3, places=9)
         # EC1 feed liquor is undersaturated (no Na2CO3 crystallization upstream of EC1).
-        feed = self.u.EC1.ins[0]
+        feed = EC1.ins[0]
         m_feed = feed.imass["NaOH"] / 39.997 * 1e3 / feed.imass["Water"]
         m_sat_feed, _ = naoh.na2co3_solubility_mol_per_kg_water(m_feed, 363.15)
         self.assertLess(feed.imass["Na2CO3"] / 105.988 * 1e3 / feed.imass["Water"], m_sat_feed)
+
+    def test_fresh_naoh_makeup_closes_the_loop(self):
+        M1, U2 = self.u.M1, self.u.U2
+        recycle, fresh = M1.ins[1], M1.ins[2]
+        self.assertGreater(fresh.imass["NaOH"], 0.0)
+        self.assertEqual(float(fresh.F_mass), float(fresh.imass["NaOH"]))  # pure NaOH, no water
+        self.assertAlmostEqual(recycle.imass["NaOH"] + fresh.imass["NaOH"], M1._required_gross_naoh_kgph, places=6)
+        self.assertAlmostEqual(U2.ins[0].imass["NaOH"], M1._required_gross_naoh_kgph, places=6)
 
     def test_u2_feed_naoh_correction_is_applied(self):
         U2 = self.u.U2

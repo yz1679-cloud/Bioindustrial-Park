@@ -11,7 +11,6 @@ __all__ = (
     "close_att_u2_balance",
     "CausticizationReactor",
     "NaOHEvaporator",
-    "NaOHMakeupMixer",
     "aqueous_naoh_enthalpy_correction_kJph",
     "ATTHeatRecovery",
 )
@@ -1153,7 +1152,7 @@ class CausticizationReactor(bst.Unit):
         ] = self._utility_thermal_power_kW
 
 # ======================================================================
-# NaOH-Na2CO3-H2O recycle liquor: EC1 evaporator and M2 makeup mixer
+# NaOH-Na2CO3-H2O recycle liquor: EC1 evaporator
 # ======================================================================
 _MW_NAOH = 39.997      # g/mol
 _MW_NA2CO3 = 105.988   # g/mol
@@ -1376,97 +1375,6 @@ class NaOHEvaporator(bst.Unit):
             "Na2CO3 solubility extrapolated from 90 C": "-",
             "Process heat duty": "kJ/hr", "Condenser duty": "kJ/hr",
         }
-
-
-class NaOHMakeupMixer(bst.Unit):
-    """
-    M2: adiabatic dissolution of fresh solid NaOH into the EC1 concentrate.
-
-    The outlet temperature follows from the NaOH(aq) enthalpy model,
-    including the heat released by dissolving the solid NaOH. The higher
-    NaOH concentration salts out Na2CO3: dissolved Na2CO3 is re-equilibrated
-    with the 363.15 K solubility data (used within +/-2 K of 90 C; otherwise
-    held at the inlet amount and flagged), and its crystallization enthalpy
-    enters the adiabatic balance.
-
-    ins: [0] EC1 slurry concentrate, [1] fresh solid NaOH.
-    """
-
-    #: Outlet temperatures within this band of 363.15 K use the 90 C data.
-    solubility_temperature_band_K = 2.0
-
-    line = "NaOH makeup mixer"
-    _N_ins = 2
-    _N_outs = 1
-
-    def _run(self):
-        liquor, fresh = self.ins
-        out = self.outs[0]
-        water, naoh_in, carbonate = _liquor_masses(liquor, self.ID)
-        fresh_naoh = float(fresh.imass["NaOH"])
-        if float(fresh.F_mass) - fresh_naoh > 1e-12:
-            raise RuntimeError(f"{self.ID}: fresh makeup must be pure NaOH.")
-        crystals = _solid_na2co3_kgph(liquor)
-        naoh_out = naoh_in + fresh_naoh
-        h = _naoh.solution_enthalpy_kJ_per_kg
-        T_liquor, T_fresh = float(liquor.T), float(fresh.T)
-
-        H_in = (
-            (naoh_in + water) * h(naoh_in / (naoh_in + water), T_liquor)
-            + fresh_naoh * _naoh.solid_naoh_enthalpy_kJ_per_kg(T_fresh)
-        )
-        x_out = naoh_out / (naoh_out + water)
-        crystallization_kJ_per_kg = -_naoh.NA2CO3_DISSOLUTION_kJ_per_mol / _MW_NA2CO3 * 1e3
-
-        def solve_T(extra_crystals):
-            def residual(T):
-                return (
-                    (naoh_out + water) * h(x_out, T)
-                    + _na2co3_sensible_kJph(carbonate, T_liquor, T, liquor.chemicals)
-                    + extra_crystals * crystallization_kJ_per_kg
-                    - H_in
-                )
-            # Near saturation the cold solid can cool the liquor; the upper
-            # bound is the 204 C limit of the enthalpy correlation.
-            return brentq(residual, T_liquor - 40.0, 477.15)
-
-        def equilibrium_crystals(T):
-            if abs(T - 363.15) > self.solubility_temperature_band_K:
-                return None
-            m_naoh = naoh_out / _MW_NAOH * 1e3 / water
-            m_sat, solid = _naoh.na2co3_solubility_mol_per_kg_water(m_naoh, 363.15)
-            if solid != "Na2CO3":
-                return None
-            return carbonate - min(carbonate, m_sat * water * _MW_NA2CO3 / 1e3)
-
-        from scipy.optimize import brentq
-        T_out = solve_T(0.0)
-        new_crystals = crystals
-        equilibrated = False
-        for _ in range(3):
-            eq = equilibrium_crystals(T_out)
-            if eq is None:
-                break
-            new_crystals, equilibrated = eq, True
-            T_out = solve_T(new_crystals - crystals)
-        boiling_margin = _naoh.water_vapor_pressure_Pa(x_out, T_out) - 101325.0
-        if boiling_margin > 0.0:
-            raise RuntimeError(
-                f"{self.ID}: makeup dissolution would boil the liquor at 1 atm."
-            )
-
-        out.empty()
-        out.phases = ("l", "s")
-        out.imass["l", "Water"] = water
-        out.imass["l", "NaOH"] = naoh_out
-        out.imass["l", "Na2CO3"] = carbonate - new_crystals
-        out.imass["s", "Na2CO3"] = new_crystals
-        out.T = T_out
-        out.P = 101325.0
-        self._outlet_naoh_wt_frac_naoh_water = x_out
-        self._dissolution_temperature_rise_K = T_out - T_liquor
-        self._na2co3_salted_out_kgph = new_crystals - crystals
-        self._na2co3_equilibrated = equilibrated
 
 
 class ATTHeatRecovery(bst.Facility):

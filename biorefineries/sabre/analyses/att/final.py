@@ -251,7 +251,7 @@ def _write_tables(out_dir, workbook, tables, csv_names):
     import pandas as pd
 
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, workbook)) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, workbook), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             if name in csv_names:

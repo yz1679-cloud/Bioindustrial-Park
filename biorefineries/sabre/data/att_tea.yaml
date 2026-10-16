@@ -41,7 +41,7 @@ tea:
 
   capex:
     # Out-of-model equipment from att.inventory.get_att_cost_estimates
-    # (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum) is added.
+    # (C1 tank, U2 vessel, EC1 evaporator/condenser/vacuum) is added.
     PSA:
       status: PRELIMINARY (not a correlation or vendor quote)
       anchor_installed_cost_usd: 45000000.0

@@ -34,7 +34,6 @@
 .. autoclass:: biorefineries.sabre.units.ATTReactor
 .. autoclass:: biorefineries.sabre.units.CausticizationReactor
 .. autoclass:: biorefineries.sabre.units.NaOHEvaporator
-.. autoclass:: biorefineries.sabre.units.NaOHMakeupMixer
 .. autoclass:: biorefineries.sabre.units.ATTHeatRecovery
 """
 from . import _ad

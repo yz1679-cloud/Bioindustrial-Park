@@ -1183,12 +1183,12 @@ def get_att_recycle_summary(sys):
 
     The baseline uses:
         F2 -> SP1 whole-liquor split -> EC1 vacuum evaporator (excess
-           water only, Na2CO3 salting-out) -> M2 solid-NaOH makeup
-           -> M1 recycle
+           water only, Na2CO3 salting-out) -> M1 (with the fresh
+           solid-NaOH makeup) -> U2
 
     SP1 applies the same split to NaOH, residual Na2CO3, water, and any
     other dissolved components. EC1 removes only the water in excess of
-    NaOH/(NaOH + H2O) = target after the M2 makeup.
+    NaOH/(NaOH + H2O) = target after the fresh NaOH makeup (added in M1).
     """
 
     u = _units_of(sys)
@@ -1200,8 +1200,8 @@ def get_att_recycle_summary(sys):
     recovered_liquor = u.SP1.outs[0]
     purge = u.SP1.outs[1]
     ec1_concentrate = u.EC1.outs[0]
-    fresh_naoh_solid = u.M2.ins[1]
-    recycle = u.M2.outs[0]
+    fresh_naoh_solid = u.M1.ins[2]
+    recycle = u.EC1.outs[0]
     removed_water = u.EC1.outs[1]
     u2_feed = u.U2.ins[0]
 
@@ -1316,8 +1316,11 @@ def get_att_recycle_summary(sys):
             component_mass(recycle, "Water"),
         "EC1_recycle_NaOH_wt_frac_total_liquor":
             total_naoh_wt_frac(recycle),
+        # Recycle liquor plus the fresh NaOH makeup added in M1.
         "EC1_recycle_NaOH_wt_frac_NaOH_water_basis":
-            naoh_water_basis_wt_frac(recycle),
+            (component_mass(recycle, "NaOH") + component_mass(fresh_naoh_solid, "NaOH"))
+            / (component_mass(recycle, "NaOH") + component_mass(fresh_naoh_solid, "NaOH")
+               + component_mass(recycle, "Water")),
         "EC1_removed_water_kgph":
             component_mass(removed_water, "Water"),
 
@@ -1333,7 +1336,7 @@ def get_att_recycle_summary(sys):
         "gross_NaOH_target_kgph":
             float(
                 getattr(
-                    u.M2,
+                    u.M1,
                     "_required_gross_naoh_kgph",
                     component_mass(u2_feed, "NaOH"),
                 )

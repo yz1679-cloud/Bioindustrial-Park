@@ -120,7 +120,7 @@ class TestATTCostEstimates(unittest.TestCase):
         scale = inv.get_att_reference_scale()
         sys = _simulate(scale["dry_feed_kgph"])
         rows = {r["item"]: r for r in inv.get_att_cost_estimates(sys)}
-        for item in ("C1 agitated tank", "M2 agitated tank", "U2 reactor vessel",
+        for item in ("C1 agitated tank", "U2 reactor vessel",
                      "EC1 forced-circulation evaporator", "EC1 condenser"):
             self.assertGreater(rows[item]["purchase_cost"], 0.0, item)
         self.assertNotEqual(rows["PSA unit"]["purchase_cost"], rows["PSA unit"]["purchase_cost"])  # NaN: missing

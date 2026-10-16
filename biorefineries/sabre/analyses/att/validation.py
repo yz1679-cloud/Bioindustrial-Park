@@ -156,7 +156,7 @@ def _mass_summary(sys):
     add("D0 water evaporated", float(s["dryer_exhaust"].imass["Water"]))
     add("NaOH gross into U2", float(U2.ins[0].imass["NaOH"]))
     add("Fresh NaOH makeup", float(s["fresh_naoh_solid"].imass["NaOH"]))
-    add("Recycled NaOH (M2 outlet minus makeup)", float(u["M2"].outs[0].imass["NaOH"]) - float(s["fresh_naoh_solid"].imass["NaOH"]))
+    add("Recycled NaOH (EC1 concentrate)", float(u["EC1"].outs[0].imass["NaOH"]))
     add("Water into U2", float(U2.ins[0].imass["Water"]), note="no separate steam feed")
     add("D1 dissolution water", float(s["dissolution_water"].F_mass))
     add("U2 gas outlet (total)", float(gas.F_mass))
@@ -338,7 +338,7 @@ def _sources():
     rows = [dict(item=k, reference=v, role="configuration") for k, v in rep.FILES.items()]
     rows += [
         dict(item="Flowsheet", reference="biorefineries/sabre/systems/_att_system.py (create_att_system)", role="model"),
-        dict(item="ATT units (U2, C1, EC1, M2)", reference="biorefineries/sabre/units/_att.py", role="model"),
+        dict(item="ATT units (U2, C1, EC1)", reference="biorefineries/sabre/units/_att.py", role="model"),
         dict(item="NaOH(aq) properties", reference="biorefineries/sabre/_naoh_properties.py (Olsson 1997; Wu 2020)",
              role="model"),
         dict(item="Chemicals (Char, CharN, CharS, feed pseudo-components)", reference="biorefineries/sabre/_chemicals.py",
@@ -361,7 +361,7 @@ def _limitations():
         "all four x s, ratios preserved) and closes C/H/O with char and water.",
         "Feed composition is the SaBRe database composition, not an analysis of the UCLA sample.",
         "P1 electricity follows BioSTEAM ScrewPress 37.2 kWh per t total wet feed (alternative 5 kWh/t dry pending).",
-        "Cost-estimate equipment (C1/M2 tanks, EC1 vacuum) power is included in the utility table only as an estimate.",
+        "Cost-estimate equipment (C1 tank, EC1 vacuum) power is included in the utility table only as an estimate.",
     )]
 
 
@@ -481,7 +481,7 @@ def export_att_1kgph_audit(out_dir=None):
     out_dir = os.fspath(out_dir or output_dir("baseline_1kg"))
     tables = build_att_1kgph_audit()
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, WORKBOOK)) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, WORKBOOK), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)

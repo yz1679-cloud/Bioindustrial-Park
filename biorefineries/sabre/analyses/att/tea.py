@@ -6,7 +6,7 @@ cost; FOC = 4 % of FCI) through a thin subclass that adds only what the
 frozen unit models do not carry:
 
 - extra installed capital: out-of-model equipment estimates from
-  att.inventory (C1/M2 tanks, U2 vessel, EC1 evaporator/condenser/vacuum),
+  att.inventory (C1 tank, U2 vessel, EC1 evaporator/condenser/vacuum),
   the preliminary PSA estimate and the U3K reciprocating-compressor
   correction (att_tea.yaml capex);
 - extra annual operating cost: purge-neutralization H2SO4, estimated
@@ -570,7 +570,7 @@ def export_att_tea(out_dir=None):
                        expected=1.0, status="PASS" if same else "FAIL"))
     tables["05_checks"] = checks
     os.makedirs(out_dir, exist_ok=True)
-    with pd.ExcelWriter(os.path.join(out_dir, "att_tea_msp.xlsx")) as writer:
+    with pd.ExcelWriter(os.path.join(out_dir, "att_tea_msp.xlsx"), engine="openpyxl") as writer:
         for name, rows in tables.items():
             df = pd.DataFrame(rows)
             df.to_csv(os.path.join(out_dir, f"{name}.csv"), index=False)

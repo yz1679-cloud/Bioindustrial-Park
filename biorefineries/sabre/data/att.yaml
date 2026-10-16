@@ -88,6 +88,8 @@ att:
     fresh_naoh_form: solid
     fresh_naoh_wt_frac: 1.0
     fresh_naoh_temperature_K: 298.15
+    # Fresh solid NaOH is added in M1 and dissolves in the water of the wet
+    # feed (there is no separate makeup mixer).
   reactor:
     target_temperature_K: 773.15
     heat_loss_fraction: 0.05
@@ -301,8 +303,8 @@ att:
     # carbonate buildup is quantified.
     whole_liquor_recycle_fraction: 0.95
 
-    # EC1 (single-effect vacuum evaporator, 90 C) followed by M2 (fresh
-    # solid NaOH dissolved into the concentrate). EC1 evaporates only the
+    # EC1 (single-effect vacuum evaporator, 90 C). Fresh solid NaOH is added
+    # in M1 with the feed. EC1 evaporates only the
     # water in excess of what keeps the recycle liquor at
     # NaOH/(NaOH + H2O) = recycle_naoh_wt_frac after the makeup; it
     # evaporates nothing if the liquor already holds less water (user
@@ -446,7 +448,7 @@ att:
       dryer_backup_fuel: [input, fuel, "Not used in the baseline (zero flow)."]
       dissolution_water: [input, process_water, "D1 dissolution water."]
       lime: [input, reagent, "Ca(OH)2, stoichiometric x lime_equiv."]
-      fresh_naoh_solid: [input, reagent, "Solid NaOH makeup (M2)."]
+      fresh_naoh_solid: [input, reagent, "Solid NaOH makeup (dissolved in M1)."]
       h2_product: [output, main_product, "PSA H2 compressed to the U3K outlet pressure."]
       u3_tail_gas: [output, coproduct_offgas, "PSA off-gas, assumed collected (100 %): mainly CH4 with unrecovered H2, CO and CO2 in the baseline. Final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
@@ -480,7 +482,6 @@ att:
     # model (TEA input only; no effect on mass or energy balances).
     cost_estimates:
       C1: {method: bst.MixTank, tau_h: 2.0, note: "Agitated causticizer; residence time typical of kraft recausticizing (~1.5-3 h), assumed."}
-      M2: {method: bst.MixTank, tau_h: 0.5, note: "NaOH makeup dissolving tank, assumed."}
       U2_vessel: {method: "BioSTEAM PressureVessel (vertical)", tau_h: 1.0, density_kg_per_m3: 1200.0, fill_fraction: 0.8, length_to_diameter: 3.0, material: Inconel-600, note: "No ATT reaction-time data; 1 h on the inlet volume, assumed. Elevated-temperature allowable stress not modeled."}
       EC1: {method: "Seider et al. forced-circulation evaporator correlation (A in ft2, <= 8000 ft2 per unit, CE 500)", U_W_per_m2_K: 1000.0, vessel_holdup_h: 0.25, vessel_fill_fraction: 0.5, liquor_density_kg_per_m3: 1300.0, note: "U from heat_recovery overall_U steam_to_boiling_liquor. Carbon-steel correlation; nickel tubes for caustic service not applied (cost likely low). Condenser: bst.HXutility; vacuum: BioSTEAM vacuum-system correlation."}
       U3P: {method: none, note: "MISSING: no BioSTEAM PSA correlation. Use a literature line item (e.g. Spath et al. 2005, NREL/TP-510-37408) or a vendor quote."}

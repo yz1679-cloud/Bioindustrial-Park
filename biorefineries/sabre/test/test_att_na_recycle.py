@@ -67,7 +67,7 @@ class TestNative(unittest.TestCase):
         u1=Unit('P1',[feed],[midway])
         u2=Unit('D0',[midway],[final])
         # Pass-through units named like the current ATT flowsheet.
-        names=('P1','D0','M1','U2','U3HX','U3C','U3D','U3P','U3K','RC1','D1','F1','C1','F2','SP1','EC1','M2')
+        names=('P1','D0','M1','U2','U3HX','U3C','U3D','U3P','U3K','RC1','D1','F1','C1','F2','SP1','EC1')
         registry=Obj(); setattr(registry,'P1',u1); setattr(registry,'D0',u2)
         prev=final
         for name in names[2:]:
