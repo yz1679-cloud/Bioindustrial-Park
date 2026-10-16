@@ -56,6 +56,46 @@ feedstock_type:
         held at the global baseline; moisture_frac assumed equal to pelagic
         pending a literature source.
 
+  # --- NLR Sargassum preprint (Wiatrowski et al., Research Square 2026,
+  # doi 10.21203/rs.3.rs-11088425/v1), pelagic Sargassum from Puerto Rico.
+  # Dry-basis composition from Table 1 and Tables S-5/S-6, mapped to the model
+  # pseudo-components: Glucan = glucose + mannose + galactose + xylose +
+  # glucosamine; Fucoidan = fucose; Mannitol; Alginate = guluronic +
+  # glucuronic + mannuronic acid; Protein = N x 4.92; OtherSolids = the
+  # unidentified remainder incl. FAME (its C/H/O/N formula is fitted to the
+  # measured CHN in _chemicals.py). Reported on a dry basis; the preprint does
+  # not state an anhydro correction, so none is applied.
+  nlr_fresh:
+    moisture_frac: 0.857          # 14.3 % solids as harvested (Table 2)
+    ash_wt_frac_dry: 0.361
+    vs_ts: 0.639
+    dry_composition:
+      Ash: 0.3610
+      Glucan: 0.0818
+      Fucoidan: 0.0252
+      Mannitol: 0.0538
+      Alginate: 0.1575
+      Protein: 0.0618
+      OtherSolids: 0.2589
+    source:
+      key: wiatrowski2026_preprint
+      note: "Table 1, 'Fresh Sargassum (frozen)': ash 36.1, protein 6.18, carbohydrates 16.09, uronic acids 15.74 %; CHN 26.94/3.34/1.26 %. Moisture from Table 2 (14.3 % solids)."
+  nlr_pressed:
+    moisture_frac: 0.763          # 23.7 % solids after the 15 psi screw press (Table 2)
+    ash_wt_frac_dry: 0.3207
+    vs_ts: 0.6793
+    dry_composition:
+      Ash: 0.3207
+      Glucan: 0.0949
+      Fucoidan: 0.0289
+      Mannitol: 0.0251
+      Alginate: 0.1774
+      Protein: 0.0571
+      OtherSolids: 0.2959
+    source:
+      key: wiatrowski2026_preprint
+      note: "Table 1, 'Pressed Solids (15 psi)': ash 32.07, protein 5.71, carbohydrates 14.89, uronic acids 17.74 %; CHN 31.36/3.88/1.16 %. Moisture from Table 2 (23.7 % solids). Used as the presscake of the ATT-integration case and as the cake composition of the ATT-only case. The 40 psi sample (ash 28.54, CHN 31.76/3.89/1.27) has a lower electron capacity (138 vs 149 mmol e-/g daf, O by difference) and does not close the electron balance with the experimental team's gas slate."
+
 policies:
   solids_loading_target_ts_wt_frac: 0.15
   solids_loading_target_ts_wt_frac_max: 0.20

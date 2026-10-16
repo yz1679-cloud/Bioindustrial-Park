@@ -88,8 +88,8 @@ def _basis(sys):
     add("Feed", "Wet Sargassum as harvested", float("nan"), float(s["att_sargassum_feed"].F_mass), "kg/h",
         "moisture 0.8673 (SaBRe database)")
     add("NaOH", "NaOH", 1.0, float(feed.imass["NaOH"]), "g (experiment) | kg/h (model)", "")
-    add("NaOH", "NaOH : daf", 1.0 / 0.5, float(feed.imass["NaOH"]) / daf, "kg/kg daf",
-        "att.yaml reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf = 2.0")
+    add("NaOH", "NaOH : daf", 1.0, float(feed.imass["NaOH"]) / daf, "kg/kg daf",
+        "att.yaml reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf = 1.0 (experimental team Excel)")
     steam_g_per_g_daf = 3.6 / 0.5
     water_u2 = float(feed.imass["Water"])
     add("Water/steam", "Steam over the run (3.6 g per 0.5 g daf)", steam_g_per_g_daf, steam_g_per_g_daf * daf,
@@ -105,7 +105,7 @@ def _basis(sys):
         mol_h = float(y[gas]) * daf  # mmol/g x kg/h = mol/h
         model = float(U2.outs[0].imol[gas]) * 1e3
         add("Gas yield", f"{gas}", float(y[gas]), model / daf, "mmol/g daf",
-            f"MEASURED; model value = element-balanced {U2.gas_closure_method} prediction" +
+            "SPECIFIED (experimental team); CO2 includes the carbon not otherwise assigned" +
             f" | experiment-equivalent {mol_h:.4f} mol/h = {mol_h * _MW[gas] / 1e3:.6f} kg/h at 1 kg/h dry")
     add("Gas yield", "H2 product after PSA (90 %)", float("nan"), float(s["h2_product"].imass["H2"]), "kg/h", "")
     add("Conditions", "Temperature / hold", "500 C, 1 h", f"{_ATT['reactor']['target_temperature_K'] - 273.15:.0f} C",
@@ -152,7 +152,7 @@ def _mass_summary(sys):
     add("daf Sargassum", float(U2._daf_sargassum_kgph))
     add("Ash", float(feed.imass["Ash"]))
     add("Feed moisture", float(feed.imass["Water"]))
-    add("P1 press liquid (water removed)", float(s["press_liquid"].F_mass))
+    add("P1 juice (biostimulant coproduct)", float(s["biostimulant_juice"].F_mass) if "biostimulant_juice" in s else 0.0)
     add("D0 water evaporated", float(s["dryer_exhaust"].imass["Water"]))
     add("NaOH gross into U2", float(U2.ins[0].imass["NaOH"]))
     add("Fresh NaOH makeup", float(s["fresh_naoh_solid"].imass["NaOH"]))
@@ -163,7 +163,7 @@ def _mass_summary(sys):
     for ID in ("H2", "CO2", "Water", "CH4", "CO"):
         add(f"  U2 gas {ID}", float(gas.imass[ID]))
     add("U2 residue outlet (total)", float(residue.F_mass))
-    for ID in ("Na2CO3", "Ash", "Char", "CharN", "CharS", "NaOH"):
+    for ID in ("Na2CO3", "Ash", "NaOH"):
         add(f"  U2 residue {ID}", float(residue.imass[ID]))
     add("H2 before PSA", float(gas.imass["H2"]))
     add("H2 product after PSA", float(s["h2_product"].imass["H2"]))
@@ -297,7 +297,7 @@ def _comparison(small, ref):
                          relative_difference=diff, explanation=expl))
     rows.append(dict(parameter="Equipment sizes and purchase costs", actual_1kgph_simulation=float("nan"),
                      full_scale_normalized_per_kg_dry=float("nan"), relative_difference=float("nan"),
-                     explanation="Not comparable: minimum sizes, parallel units (P1 115 presses, U3K 3 compressors, "
+                     explanation="Not comparable: minimum sizes, parallel units (U3K 3 compressors, "
                                  "F2 9 filters at full scale); costs are not linear in capacity"))
     return rows
 
@@ -355,10 +355,10 @@ def _limitations():
         "at 1 kg/h reflect BioSTEAM minimum sizes and are not representative of a plant.",
         "The experimental steam (3.6 g per 0.5 g daf, flow-through) is not a model feed; U2 water is feed moisture plus "
         "recycle-liquor water.",
-        "Reported gas yields are shown as experimental values; the balanced U2 uses the active closure (baseline: "
-        "all four x s, ratios preserved) and closes C/H/O with char and water.",
-        "Feed composition is the SaBRe database composition, not an analysis of the UCLA sample.",
-        "P1 electricity follows BioSTEAM ScrewPress 37.2 kWh per t total wet feed (alternative 5 kWh/t dry pending).",
+        "U2 takes the specified gas yields of the experimental team; carbon not otherwise assigned leaves as CO2 and "
+        "oxygen closes with water. Unidentified products are not tracked.",
+        "Feed composition is the NLR preprint composition, not an analysis of the UCLA sample.",
+        "P1 (ATT-only case) uses municipal-press cost and power (5 kWh per dry t); the BioSTEAM ScrewPress is the reported alternative.",
         "Cost-estimate equipment (C1 tank, EC1 vacuum) power is included in the utility table only as an estimate.",
     )]
 
@@ -410,8 +410,9 @@ def build_att_1kgph_audit():
     }
     # Full-scale reference run for the comparison only (separate system object).
     from biorefineries.sabre.systems._att_system import create_att_system
-    scale = inv.get_att_reference_scale()
-    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]), scale["dry_feed_kgph"])
+    scale = inv.get_att_reference_scale("att_only")
+    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration="att_only"),
+                        scale["dry_feed_kgph"])
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
     aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
     a, b = aux(estimates, small), aux(inv.get_att_cost_estimates(ref), ref)

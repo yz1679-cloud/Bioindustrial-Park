@@ -31,6 +31,7 @@
 .. autoclass:: biorefineries.sabre.units.CaHPCrystallizer
 .. autoclass:: biorefineries.sabre.units.CrystalCentrifuge
 .. autoclass:: biorefineries.sabre.units.DiluteAcidReactor
+.. autoclass:: biorefineries.sabre.units.ATTPress
 .. autoclass:: biorefineries.sabre.units.ATTReactor
 .. autoclass:: biorefineries.sabre.units.CausticizationReactor
 .. autoclass:: biorefineries.sabre.units.NaOHEvaporator

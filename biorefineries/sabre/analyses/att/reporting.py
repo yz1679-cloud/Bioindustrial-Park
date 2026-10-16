@@ -83,25 +83,24 @@ def _register_rows():
                       uncertainty_or_limitation=uncertainty, collaborator_confirmation_needed=confirm))
 
     fs = "feedstock.yaml"
-    add("Feedstock", "Feedstock type", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
-        "SaBRe feedstock type", SDB, "SaBRe feedstock.yaml", "att.yaml:att.feed_preparation.feedstock_type",
-        "User decision 2026-10-09 (database values)")
-    add("Feedstock", "Moisture as harvested", Y(fs, "feedstock_type.pelagic.moisture_frac"), "kg/kg wet", "feed",
-        "Initial wet-basis moisture", SDB, Y(fs, "feedstock_type.pelagic.source.note") + " (key milledge2020)",
-        "feedstock.yaml:feedstock_type.pelagic.moisture_frac", "Database value",
-        "Workbook: 85 wt% (not used)", "Process, LCA, TEA", uncertainty="Sample-specific moisture not measured")
-    add("Feedstock", "Ash", Y(fs, "feedstock_type.pelagic.ash_wt_frac_dry"), "kg/kg dry", "feed",
-        "Ash content (dry basis)", SDB, Y(fs, "feedstock_type.pelagic.source.note") + " (key milledge2020)",
-        "feedstock.yaml:feedstock_type.pelagic.ash_wt_frac_dry", "Database value; user decision 2026-10-09",
-        "Workbook: 17.2 wt% dry (not used)", "Process, LCA, TEA",
-        uncertainty="daf/dry 0.655 vs 0.828 with workbook ash", confirm="Yes (UCLA sample ash)")
-    add("Feedstock", "VS/TS", Y(fs, "feedstock_type.pelagic.vs_ts"), "-", "feed", "Volatile solids / total solids",
-        SDB, Y(fs, "feedstock_type.pelagic.source.note"), "feedstock.yaml:feedstock_type.pelagic.vs_ts",
-        "Database value", "Not used by the ATT model")
-    for comp, v in Y(fs, "dry_composition").items():
+    add("Feedstock", "Feedstock type (ATT-only)", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
+        "NLR preprint fresh Sargassum", SDB, "NLR preprint (Wiatrowski et al.)", "att.yaml:att.feed_preparation.feedstock_type",
+        "ATT-only case; 15,000 wet t/d of fresh Sargassum")
+    add("Feedstock", "Feedstock type (integrated)", Y("att.yaml", "att.feed_preparation.integrated_feedstock_type"), "-",
+        "feed", "NLR preprint pressed Sargassum", SDB, "NLR preprint (Wiatrowski et al.)",
+        "att.yaml:att.feed_preparation.integrated_feedstock_type",
+        "Integrated case: presscake of the biostimulant plant, no P1")
+    ftype = Y("att.yaml", "att.feed_preparation.feedstock_type")
+    add("Feedstock", "Moisture as harvested", Y(fs, f"feedstock_type.{ftype}.moisture_frac"), "kg/kg wet", "feed",
+        "Initial wet-basis moisture", SDB, "NLR preprint", f"feedstock.yaml:feedstock_type.{ftype}.moisture_frac",
+        "Preprint value", affects="Process, LCA, TEA")
+    add("Feedstock", "Ash", Y(fs, f"feedstock_type.{ftype}.ash_wt_frac_dry"), "kg/kg dry", "feed",
+        "Ash content (dry basis)", SDB, "NLR preprint", f"feedstock.yaml:feedstock_type.{ftype}.ash_wt_frac_dry",
+        "Preprint value", affects="Process, LCA, TEA")
+    for comp, v in Y(fs, f"feedstock_type.{ftype}.dry_composition").items():
         add("Feedstock", f"Dry composition: {comp}", v, "kg/kg dry", "feed", "SaBRe pseudo-component", SDB,
-            NV + " (no citation in feedstock.yaml dry_composition)", f"feedstock.yaml:dry_composition.{comp}",
-            "Database structural baseline", affects="Process, LCA, TEA",
+            "NLR preprint, mapped to pseudo-components", f"feedstock.yaml:feedstock_type.{ftype}.dry_composition.{comp}",
+            "Preprint-based", affects="Process, LCA, TEA",
             uncertainty="OtherSolids (29 % dry) modeled as glucan-like C6H10O5", confirm="Yes (CHNS-O of sample)")
     add("Scale", "Wet feed capacity", Y(fs, "scale.wet_feed_ton_per_day"), "t wet/d", "plant",
         "SaBRe common plant scale", SDB, "SaBRe project assumption", "feedstock.yaml:scale.wet_feed_ton_per_day",
@@ -110,9 +109,9 @@ def _register_rows():
         "SaBRe project assumption", "tea.yaml:operating_days", "Project-wide assumption",
         "7920 h/yr", "LCA, TEA")
     add("Preparation", "P1 press-cake moisture", Y("att.yaml", "att.feed_preparation.press_cake_moisture_wt_frac"),
-        "kg/kg wet", "P1", "Mechanical dewatering outlet moisture", ENG, "User-confirmed process design 2026-10-09",
+        "kg/kg wet", "P1", "Mechanical dewatering outlet moisture", ENG, "NLR preprint, screw press on fresh Sargassum",
         "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac", "Specified",
-        affects="Process, LCA, TEA", uncertainty="Press performance on Sargassum not measured")
+        affects="Process, LCA, TEA", uncertainty="Preprint pilot result")
     add("Preparation", "D0 outlet moisture", Y("att.yaml", "att.feed_preparation.att_sargassum_moisture_wt_frac"),
         "kg/kg wet", "D0", "Thermal drying target before U2", ENG, "Workbook 'assumed (mechanical dewatering)'; "
         "user-confirmed D0 requirement 2026-10-09", "att.yaml:att.feed_preparation.att_sargassum_moisture_wt_frac",
@@ -124,11 +123,11 @@ def _register_rows():
         "att.yaml:att.feed_preparation.dryer.thermal_duty_basis", "Specified",
         "Equipment specific-energy ranges reported, not used", "Process, LCA, TEA",
         uncertainty="Real drum dryers 3.2-6.5 MJ/kg water vs ~3.0 ideal")
-    add("Preparation", "P1 power", 37.2, "kWh/t total wet feed", "P1", "BioSTEAM ScrewPress kWh_per_bmt applied "
-        "to total inlet mass", BSD, "BioSTEAM ScrewPress.kWh_per_bmt (Perry's Handbook 18-126)",
-        "biosteam/units/solids_separation.py ScrewPress", "BioSTEAM default",
-        "= 280 kWh/t dry for Sargassum", "Process, LCA, TEA", "Baseline (alternative 5 kWh/t dry pending)",
-        "Likely overestimate for 13 % solids feed", "No (user decision pending)")
+    add("Preparation", "P1 power", Y("att.yaml", "att.feed_preparation.press.power_kWh_per_dry_ton"),
+        "kWh/t dry solids", "P1", "Municipal biosolids screw press (ATT-only case)", ENG,
+        "HUBER municipal screw press, 5 kWh per dry t", "att.yaml:att.feed_preparation.press.power_kWh_per_dry_ton",
+        "Specified", "BioSTEAM ScrewPress alternative: 37.2 kWh/t total wet feed (see P1 comparison in the TEA tables)",
+        "Process, LCA, TEA", "Baseline")
     add("ATT reaction", "U2 temperature", Y("att.yaml", "att.reactor.target_temperature_K"), "K", "U2",
         "ATT reactor temperature", EXP, "Workbook 'Experimental results' footnote (500 C)",
         "att.yaml:att.reactor.target_temperature_K", "Experimental condition")
@@ -139,29 +138,25 @@ def _register_rows():
         "att.yaml:att.inventory.cost_estimates.U2_vessel.tau_h", "Experimental hold time used for sizing",
         affects="TEA")
     add("ATT reaction", "NaOH : daf Sargassum", Y("att.yaml", "att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf"),
-        "kg/kg daf", "U2", "NaOH loading", EXP, "Workbook: 0.5 g seaweed + 1 g NaOH; advisor-confirmed daf basis",
-        "att.yaml:att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf", "Experimental; basis advisor-confirmed",
+        "kg/kg daf", "U2", "NaOH loading", EXP, "Experimental team Excel (energy and exergy calculation)",
+        "att.yaml:att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf", "Experimental team value",
         affects="Process, LCA, TEA")
     add("ATT reaction", "Fresh NaOH form", Y("att.yaml", "att.feed_preparation.fresh_naoh_form"), "-", "M1",
         "Makeup NaOH physical form", ENG, NV, "att.yaml:att.feed_preparation.fresh_naoh_form", "Specified")
     for gas in ("H2", "CH4", "CO", "CO2"):
-        add("ATT reaction", f"Reported {gas} yield (Ni-CatATT)",
+        add("ATT reaction", f"Specified {gas} yield (Ni-CatATT)",
             Y("att.yaml", f"att.reactor.cases.Ni-CatATT.gas_yield_mmol_per_g_daf.{gas}"), "mmol/g daf", "U2",
-            "Measured gas yield", EXP, "ATT Inputs and Assumptions_261005.xlsx, sheet 'Experimental results'",
+            "Gas yield specified to U2", EXP, "Experimental team Excel (energy and exergy calculation)",
             f"att.yaml:att.reactor.cases.Ni-CatATT.gas_yield_mmol_per_g_daf.{gas}",
-            "MEASURED (never modified); model uses s x measured (baseline uniform_redox_scaling)",
-            "Model value is an engineering prediction, not a measurement",
+            "Specified; CO2 is topped up with the carbon not otherwise assigned",
+            "Closes the electron balance (see U2 balance checks)",
             "Process, LCA, TEA",
-            uncertainty="Reported gases exceed feed electrons 1.38x; s = 0.5998",
             confirm="Yes (gas quantification)")
-    add("ATT reaction", "Gas 4 (ignored)", Y("att.yaml", "att.reactor.cases.Ni-CatATT.ignored_reported_gas_yields_mmol_per_g_daf.Gas4"),
-        "mmol/g daf", "U2", "CO on second GC column", EXP, Y("att.yaml", "att.reactor.cases.Ni-CatATT.ignored_gas_status"),
-        "att.yaml:att.reactor.cases.Ni-CatATT.ignored_reported_gas_yields_mmol_per_g_daf.Gas4", "Ignored")
-    add("ATT reaction", "U2 gas closure", Y("att.yaml", "att.reactor.material_balance.gas_closure_method"), "-", "U2",
-        "All four measured gases x one factor s; C/H/O closed by char and water", ENG, "User decision 2026-10-12",
-        "att.yaml:att.reactor.material_balance.gas_closure_method", "Model specification",
-        "Alternatives: h2_priority (comparison), experimental_fixed (experimental comparison, O open)",
-        "Process, LCA, TEA", uncertainty="s is a reconciliation factor fixed by conservation, not measured")
+    add("ATT reaction", "U2 gas method", Y("att.yaml", "att.reactor.material_balance.gas_closure_method"), "-", "U2",
+        "Specified gas yields; water from the oxygen balance; checks on NaOH capacity for CO2, electrons, mass, energy",
+        ENG, "User decision 2026-10-16", "att.yaml:att.reactor.material_balance.gas_closure_method",
+        "Model specification", "No all-element tracking: unidentified products are not modeled",
+        "Process, LCA, TEA")
     add("ATT reaction", "NaOH -> Na2CO3 conversion", Y("att.yaml", "att.reactor.material_balance.naoh_to_na2co3_conversion"),
         "-", "U2", "SPECIFIED conversion (not measured)", ENG, "Workbook energy-analysis sheet: 100 %",
         "att.yaml:att.reactor.material_balance.naoh_to_na2co3_conversion", "Specified (workbook)",
@@ -292,7 +287,7 @@ def _register_rows():
 # ---------------------------------------------------------------------------
 
 _UNIT_INFO = {
-    "P1": ("Mechanical dewatering of wet Sargassum (screw press)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
+    "P1": ("Mechanical dewatering of wet Sargassum (municipal-type screw press; ATT-only case)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
     "D0": ("Thermal drying to 50 wt% moisture (steam drum dryer)", "att.yaml:att.feed_preparation.*"),
     "M1": ("Mix dried feed with recycled NaOH liquor", "-"),
     "U2": ("Alkaline thermal treatment at 500 C; NG-fired (auxiliary HXutility furnace)", "att.yaml:att.reactor.*"),
@@ -310,7 +305,7 @@ _UNIT_INFO = {
     "EC1": ("Evaporate excess water at 90 C (vacuum, single effect)", "att.yaml:att.downstream.concentration_*, recycle_naoh_*"),
 }
 _ATTRS = ("T", "P", "moisture_content", "conversion", "lime_equiv", "target_temperature_K", "heat_loss_fraction",
-          "eta", "compressor_type", "gas_closure_method", "closure_gas_ID", "naoh_kg_per_kg_daf",
+          "eta", "compressor_type", "gas_closure_method", "naoh_kg_per_kg_daf",
           "naoh_to_na2co3_conversion", "feed_HHV_MJ_per_kg_daf", "vessel_material", "tau", "V")
 
 
@@ -535,23 +530,21 @@ def _products(sys):
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     rows = []
-    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge", "press_liquid",
+    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge", "biostimulant_juice",
                "u3_condensate", "u3_dryer_removed_water", "ec1_condensate", "dryer_exhaust"):
+        if ID not in s:
+            continue
         st = s[ID]
         F = float(st.F_mass)
         for comp, m in zip(st.chemicals.IDs, st.mass):
             if m > 0:
                 rows.append(dict(stream=ID, fate=Y("att.yaml", f"att.inventory.stream_fates.{ID}")[1], component=comp,
                                  kg_per_kg_dry=float(m) / dry, mass_fraction=float(m) / F,
-                                 basis="ELEMENT-BALANCED MODEL"))
-    for r in inv.get_att_experimental_gas_yield_scenario(sys):
-        rows.append(dict(stream="EXPERIMENTAL GAS-YIELD SCENARIO", fate="product accounting only", component=r["item"],
-                         kg_per_kg_dry=r["U2_outlet_kg_per_kg_dry"], mass_fraction=float("nan"),
-                         basis=r["status"]))
+                                 basis="MODEL (specified gas yields)"))
     U2gas = inv._units(sys)["U2"].outs[0]
     rows.append(dict(stream="H2 before PSA (U2 gas)", fate="model", component="H2",
                      kg_per_kg_dry=float(U2gas.imass["H2"]) / dry, mass_fraction=float("nan"),
-                     basis=f"ELEMENT-BALANCED MODEL ({inv._units(sys)['U2'].gas_closure_method})"))
+                     basis="MODEL (specified gas yields)"))
     return rows
 
 
@@ -842,7 +835,7 @@ def _gaps_and_inconsistencies(lca_gaps):
          "(46.7 kg CO2e/kg H2); superseded by att_lca (55.0)."),
         ("TEA Case A vs LCA baseline", "Case A disposes the CaCO3 cake; LCA baseline treats it as a burden-free "
          "coproduct; Case-A-consistent LCA = baseline + 0.76 kg CO2e/kg H2."),
-        ("P1 power basis", "BioSTEAM 37.2 kWh/t total wet feed (280 kWh/t dry) vs SaBRe 5 kWh/t dry; pending decision."),
+        ("P1 power basis", "Municipal press 5 kWh/t dry adopted; BioSTEAM ScrewPress (37.2 kWh/t total wet feed) reported as the alternative."),
         ("feedstock.yaml dry_composition", "no citation in the file."),
     ]
     rows += [dict(type="Inconsistency / traceability", item=a, status="documented, not changed", magnitude=float("nan"),
@@ -865,16 +858,16 @@ def _yaml_register():
 
 
 def _overview(sys, result, gwp_total):
-    scale = inv.get_att_reference_scale()
+    scale = inv.get_att_reference_scale(tea_mod._configuration(sys))
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     return [
         dict(item="Purpose", value="Research-stage ATT (alkaline thermal treatment) H2 process: mass/energy, GWP100, TEA",
              note="Documentation package; no model changes"),
-        dict(item="Frozen model", value=f"{inv._units(sys)['U2'].gas_closure_method}, element-balanced U2 "
-                                        f"(s = {inv._units(sys)['U2']._gas_scale_factor:.4f}; user decision 2026-10-12)",
+        dict(item="Model", value=f"{tea_mod._configuration(sys)} case, U2 with specified gas yields "
+                                 "(experimental team Excel); checks on NaOH capacity, electrons, mass, energy",
              note="biorefineries/sabre/systems/_att_system.py, units/_att.py"),
-        dict(item="Simulation scale", value=scale["dry_feed_kgph"], note="kg/h dry (15000 wet t/d x (1-0.8673))"),
+        dict(item="Simulation scale", value=scale["dry_feed_kgph"], note="kg/h dry (15,000 wet t/d of fresh Sargassum basis)"),
         dict(item="Operating hours", value=sys.operating_hours, note="330 d x 24 h (tea.yaml)"),
         dict(item="Normalization", value="per kg dry Sargassum; per kg H2 (PSA product)", note=""),
         dict(item="H2 product", value=float(s["h2_product"].imass["H2"]) / dry, note="kg/kg dry"),
@@ -919,9 +912,7 @@ def build_att_documentation():
     by_unit = lca.get_att_gwp_by_unit(sys, applied)
     summary_lca = lca.get_att_gwp_summary(sys, applied)
     gaps = lca.get_att_lca_data_gaps(sys, applied)
-    comparison = lca.create_att_lca_system(
-        u2_gas_closure=Y("att.yaml", "att.reactor.material_balance.comparison_gas_closure_method"))
-    sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, comparison, inv.get_att_cost_estimates(comparison))
+    sens_lca = lca.get_att_gwp_sensitivity(sys, estimates)
     applied = lca.apply_att_gwp(sys, estimates=estimates)
     total = contributions[-1]
     dry = inv._dry_feed_kgph(sys)
@@ -938,13 +929,6 @@ def build_att_documentation():
                          value=float("nan"), GWP_kgCO2e_per_kg_dry=total["GWP_kgCO2e_per_kg_dry"] + cake_landfill,
                          GWP_kgCO2e_per_kg_H2=(total["GWP_kgCO2e_per_kg_dry"] + cake_landfill) / h2,
                          delta_per_kg_H2=cake_landfill / h2, note="consistent with TEA Case A"))
-    ch4 = next(g for g in gaps if g["item"].startswith("Reported CH4"))
-    lca_scen.append(dict(scenario="Indicative: reported CH4 released (NOT a model scenario)", parameter="CH4",
-                         value=27.0, GWP_kgCO2e_per_kg_dry=total["GWP_kgCO2e_per_kg_dry"] + ch4["indicative_kgCO2e_per_kg_dry"],
-                         GWP_kgCO2e_per_kg_H2=(total["GWP_kgCO2e_per_kg_dry"] + ch4["indicative_kgCO2e_per_kg_dry"]) / h2,
-                         delta_per_kg_H2=ch4["indicative_kgCO2e_per_kg_dry"] / h2,
-                         note="reported CH4 x GWP100 27.0 (AR6 non-fossil); CH4 cannot coexist with measured H2 in the "
-                              "balanced model"))
     lca_scen += [dict(scenario=f"Collection/transport: {r['parameter']}", parameter=r["unit"], value=r["value"],
                       GWP_kgCO2e_per_kg_dry=float("nan"), GWP_kgCO2e_per_kg_H2=r["result"], delta_per_kg_H2=float("nan"),
                       note=r["note"]) for r in ct if r["analysis"] == "LCA"]
@@ -956,8 +940,8 @@ def build_att_documentation():
                       note="") for r in sens_tea]
                 + [dict(group="Lime price", case=f"{r['lime_price']} | {r['case']}", MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"],
                         delta=r["delta_vs_0.24"], note=r["basis"]) for r in lime]
-                + [dict(group="P1 electricity", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta_MSP"],
-                        note=f"P1 {r['P1_GWh_per_yr']:.1f} GWh/yr; plant {r['plant_electricity_GWh_per_yr']:.1f} GWh/yr; "
+                + [dict(group="P1 press", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta_MSP"],
+                        note=f"P1 {r['P1_GWh_per_yr']:.1f} GWh/yr; {r['P1_installed_MUSD']:.1f} MUSD; "
                              f"dGWP {r['delta_GWP_kgCO2e_per_kg_H2']:.2f} kg CO2e/kg H2") for r in p1]
                 + [dict(group="Collection/transport", case=f"{r['case']} | {r['parameter']} {r['value']} {r['unit']}",
                         MSP_USD_per_kg_H2=r["result"], delta=float("nan"), note=r["note"])
@@ -1118,10 +1102,8 @@ traceability only: no model, LCA or TEA parameter is changed.
 
 - **Process model (frozen):** `biorefineries/sabre/systems/_att_system.py` builds the
   BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
-  with custom units in `biorefineries/sabre/units/_att.py`. U2 scales all four
-  measured gases by one factor s (uniform_redox_scaling, s = 0.5998), preserving
-  the measured gas ratios and closing C, H, O with char and water; the measured
-  yields themselves are never modified. Sources of the data: `data_sources` in `biorefineries/sabre/data/att.yaml`.
+  with custom units in `biorefineries/sabre/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
+  closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/sabre/data/att.yaml`.
 - **Configuration:** `biorefineries/sabre/data/att.yaml` (process),
   `feedstock.yaml`, `tea.yaml` (SaBRe common), `att_lca.yaml` (GWP100 factors),
   `att_tea.yaml` (ATT prices and capital items).
@@ -1156,9 +1138,8 @@ python -m unittest discover -s biorefineries/sabre/test -t . -p "test_att*.py"
 ## Main uncertainties
 
 See sheet `24_Limitations_Gaps` and `23_Master_Assumptions` (column
-`Collaborator_confirmation`): reported CH4/CO vs measured H2 (38 % electron
-excess), Sargassum collection/transport data, CaCO3 cake purity and outlet,
-delivered Ca(OH)2 price and source, P1 power basis (5 vs 280 kWh/t dry), PSA
+`Collaborator_confirmation`): NaOH capacity for CO2 (36 % captured), Sargassum collection/transport data, CaCO3 cake purity and outlet,
+delivered Ca(OH)2 price and source, P1 press basis, PSA
 capital (preliminary), plant-location electricity factor, indirect capital,
 feedstock composition (no CHNS-O of the UCLA sample).
 
@@ -1209,13 +1190,14 @@ def _process_and_materials(sys, utilities):
     rows = []
     P, M = "Process and energy", "Materials and products"
     _row(rows, P, "Wet Sargassum feed", float(s["att_sargassum_feed"].F_mass) * 24 / 1e3, "t/d", "SaBRe scale")
-    _row(rows, P, "Dry Sargassum feed", dry * 24 / 1e3, "t/d", "SaBRe database moisture 86.73 %")
+    _row(rows, P, "Dry Sargassum feed", dry * 24 / 1e3, "t/d", "NLR preprint composition")
     _row(rows, P, "Operating time", hours, "h/yr", "tea.yaml 330 d/yr")
-    measured = U2.reported_gas_yield_mmol_per_g_daf
+    specified = U2.reported_gas_yield_mmol_per_g_daf
     for gas in ("H2", "CH4", "CO", "CO2"):
-        _row(rows, P, f"{gas} yield, measured", float(measured[gas]), "mmol/g daf", "EXPERIMENTAL (Ni-CatATT)")
+        _row(rows, P, f"{gas} yield, specified", float(specified.get(gas, 0.0)), "mmol/g daf",
+             "Experimental team Excel (CO2 topped up by the carbon balance)")
         _row(rows, P, f"{gas} yield, model", U2._model_gas_yield_mmol_per_g_daf[gas], "mmol/g daf",
-             f"ENGINEERING PREDICTION ({U2.gas_closure_method})")
+             "specified yields")
     _row(rows, P, "H2 at U2 outlet", float(U2.outs[0].imass["H2"]) / dry, "kg/kg dry", "model yield x daf")
     _row(rows, P, "H2 product (PSA 90 %)", h2, "kg/kg dry", "PSA recovery: engineering assumption")
     _row(rows, P, "H2 product", h2 * dry * hours / 1e3, "t/yr", "")
@@ -1250,10 +1232,6 @@ def _process_and_materials(sys, utilities):
          "treatment equipment and cost not in baseline TEA")
     for gas in ("CH4", "H2", "CO", "CO2"):
         _row(rows, M, f"  {gas} in PSA off-gas", float(tail.imass[gas]) / dry, "kg/kg dry", "model")
-    for r in inv.get_att_experimental_gas_yield_scenario(sys)[:4]:
-        if r["item"] in ("CH4", "CO"):
-            _row(rows, M, f"{r['item']} at the measured yield (reference)", r["U2_outlet_kg_per_kg_dry"],
-                 "kg/kg dry", "EXPERIMENTAL value x daf; not a balanced-model output")
     return rows
 
 
@@ -1403,11 +1381,11 @@ def _findings(msp, caco3, gwp, stage, slag, sens_tea, sens_lca, ct, case_a_lca, 
          "SENSITIVITY; main text"),
         ("Case-A-consistent GWP", f"Landfilling the CaCO3 cake (WARM proxy) adds {case_a_lca:.2f} kg CO2e/kg H2.",
          "SENSITIVITY; SI"),
-        ("Gas-yield basis", f"Model gas yields = {s_factor:.4f} x measured for all four gases (ratios preserved); the "
-         "measured gases carry 1.38x the feed's available electrons, so s is fixed by conservation. Model yields are "
-         "engineering predictions, not measurements.", "ROBUST as method; value depends on feed composition"),
+        ("Gas-yield basis", "Specified yields of the experimental team (H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 mmol/g daf; "
+         "NaOH 1 g/g daf); they close the electron balance (identified products hold less reducing power than the feed).",
+         "ROBUST as method; value depends on feed composition"),
         ("Open items before submission", "Collection/transport activity data; CaCO3 purity and outlet; delivered "
-         "lime price and source; P1 power basis (5 vs 280 kWh/t dry); PSA capital; plant-location grid factor; "
+         "lime price and source; P1 press basis; PSA capital; plant-location grid factor; "
          "indirect capital; collaborator confirmation of gas analysis.", "TO RESOLVE"),
     ]
     return [dict(topic=a, finding=b, robustness_and_placement=c) for a, b, c in rows]
@@ -1474,7 +1452,7 @@ def build_att_consolidated_results():
     assumptions = _assumptions_table()
     lime_share = next(r["USD_per_kg_H2"] for r in opex if r["item"] == "Ca(OH)2") / result["msp"]
     findings = _findings(result["msp"], caco3, gwp_h2, stage, slag, sens_tea, sens_lca, ct, cake_landfill / h2, h2,
-                         lime_share, float(inv._units(sys)["U2"]._gas_scale_factor),
+                         lime_share, 1.0,
                          next(r["USD_per_kg_H2"] for r in opex if r["category"] == "capital") / result["msp"])
     return {
         "00_key_findings": findings,
@@ -1493,12 +1471,10 @@ def build_att_consolidated_results():
 
 def _assumptions_table():
     rows = [
-        ("EXPERIMENTAL", "Measured gas yields", "H2 66.728, CH4 8.769, CO 0.165, CO2 0.187 mmol/g daf",
-         "ATT Inputs and Assumptions_261005.xlsx, Ni-CatATT"),
-        ("ENGINEERING", "Model gas yields", "s x measured (uniform_redox_scaling, s = 0.5998)", "att.yaml reactor.material_balance"),
-        ("EXPERIMENTAL", "CH4 / CO yields (separate scenario)", "8.769 / 0.165 mmol/g daf", "same workbook; not in balanced model"),
-        ("EXPERIMENTAL", "NaOH : daf", "2 : 1", "workbook / advisor"),
-        ("LITERATURE/DATABASE", "Feedstock", "ash 34.53 % dry, moisture 86.73 %", "SaBRe feedstock.yaml (Milledge 2020)"),
+        ("EXPERIMENTAL", "Gas yields", "H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 mmol/g daf",
+         "Experimental team Excel (energy and exergy calculation)"),
+        ("EXPERIMENTAL", "NaOH : daf", "1 : 1", "Experimental team Excel"),
+        ("LITERATURE", "Feedstock", "NLR preprint fresh (14.3 % solids) and pressed Sargassum", "feedstock.yaml (Wiatrowski et al.)"),
         ("LITERATURE", "Ca(OH)2 price", "0.24 (ref.) / 0.28 USD/kg, f.o.b.", "USGS MCS 2025 / 2026"),
         ("LITERATURE", "Emission factors", "NaOH 1.12, Ca(OH)2 0.91/0, NG 0.056 + 0.0199, grid 0.449",
          "collaborators; NETL 2019; GREET 2022 (att_lca.yaml)"),

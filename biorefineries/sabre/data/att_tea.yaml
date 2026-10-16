@@ -6,7 +6,7 @@
 
 tea:
   basis: "SaBReTEA with tea.yaml financial assumptions; ATT model with the active U2 closure (att.yaml) at the SaBRe reference scale"
-  cost_year_note: "Equipment from BioSTEAM correlations at CEPCI 567.5 (BioSTEAM default, 2017), as in the other SaBRe pathways. Material prices are of mixed years, recorded below; no escalation applied."
+  cost_year_note: "ASSUMPTION: all equipment is costed in 2020 USD (CEPCI 596.2, the basis of the NLR Sargassum TEA used for the feed and press data); see cost_year below. Material and utility prices are of mixed years, recorded below, and are not escalated."
   product: h2_product   # MSP solved on this stream
 
   prices:   # USD per kg of stream unless noted
@@ -29,9 +29,10 @@ tea:
     process_water:
       value: 0.000441
       source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
-    wastewater_streams: [press_liquid, u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
+    wastewater_streams: [u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
     solid_waste_streams: [ash_residue_cake]
     # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
+    juice: 0.0               # biostimulant_juice (ATT-only case): transferred to the biostimulant plant, no price
     CaCO3_cake: 0.0          # coproduct; revenue to be set later
     offgas: 0.0              # no sale price; its fuel value is credited as natural gas displaced in the U2 burner (voc item)
     natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
@@ -68,19 +69,25 @@ tea:
   offgas_handling_usd_per_t: [0.0, 10.0, 25.0]
   offgas_note: "Placeholder collection/flaring/venting cost; no equipment designed. Off-gas carries the model CH4 (s x reported); final fate unresolved."
 
+  # Cost basis: 2020 USD (user decision 2026-10-16, the basis of the NLR Sargassum
+  # preprint TEA). Equipment is costed at the 2020 CEPCI; prices keep the year
+  # recorded with each entry (no escalation); the municipal biosolids press anchor
+  # (2021 report) and the PSA anchor (year unknown) are used as 2020 USD.
   cost_year:
-    reference_CE: 567.5
-    reference_note: "BioSTEAM default CEPCI (2017), used by all SaBRe pathways."
+    basis_year: 2020
+    reference_CE: 596.2
+    reference_note: "Annual CEPCI 2020 (Chemical Engineering), set as bst.CE by create_att_system. The other SaBRe pathways use the BioSTEAM default 567.5 (2017)."
     comparison_CE: 800.0
     comparison_note: "Approximate 2024 CEPCI (monthly values ~800 in 2024, Chemical Engineering, https://www.chemengonline.com/cepci). Escalates BioSTEAM correlations and the inventory equipment estimates only; the PSA anchor (year unknown) and all prices are not escalated."
 
   limitations:
     - "FCI = installed equipment cost (SaBRe convention): no separate engineering, construction, contingency or other indirect capital; see FCI sensitivity."
     - "PSA capital is a preliminary review-based estimate (+/-50 %), not a correlation or vendor quote."
-    - "Equipment at CEPCI 567.5 (2017) while chemical prices are 2024-2025; utility prices are BioSTEAM defaults (older basis)."
+    - "Equipment at CEPCI 596.2 (2020 USD) while chemical prices are 2024-2025 and utility prices are BioSTEAM defaults (older basis); the MSP is therefore not a single-year number. Only the municipal press anchor (3.1 MUSD, year unrecorded in the source) and the PSA anchor (year unknown) are not escalated."
     - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
     - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
-    - "P1 electricity follows BioSTEAM ScrewPress (37.2 kWh per t of total wet feed); alternative reported, not adopted."
+    - "P1 (ATT-only case) is costed as a municipal biosolids screw press (3.1 MUSD per 0.953 dry t/h, 5 kWh per dry t); the BioSTEAM ScrewPress (37.2 kWh per t of total wet feed, 115 parallel units) is reported as the alternative."
+    - "ATT-only case: the press liquid (raw juice for biostimulant production) is transferred at zero price and burden; the integrated case has no P1 and no juice."
     - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
     - "No lime regeneration (kiln) or alternative lime sourcing in the economics."
 
@@ -91,10 +98,8 @@ tea:
     natural_gas_price_factor: [0.7, 1.3]
     electricity_price_factor: [0.7, 1.3]
     FCI_factor: [0.7, 1.3]
-    # P1 power (frozen model: BioSTEAM ScrewPress 37.2 kWh per t of TOTAL wet
-    # feed = 280 kWh/t dry for Sargassum). Alternatives per t DRY solids:
-    P1_power_kWh_per_t_dry:
-      perry_dry_basis: 37.2     # same Perry value applied per dry tonne
-      sabre_press: 5.0          # preprocessing.yaml press.power_kWh_per_dry_ton_TS (HUBER)
-    # P1 capital alternative: SaBRe press anchor (preprocessing.yaml), installed
-    P1_sabre_anchor: {installed_usd: 3100000.0, ref_dry_tph: 0.953, exponent: 0.6}
+    # P1 (ATT-only case only): baseline = municipal biosolids press (5 kWh/t dry,
+    # 3.1 MUSD anchor). Alternative = BioSTEAM ScrewPress (power 37.2 kWh per t
+    # of TOTAL wet feed, installed cost from its own correlations), applied by
+    # evaluate_att_tea(p1_biosteam_screwpress=True).
+    P1_biosteam_screwpress: true

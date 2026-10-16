@@ -68,13 +68,13 @@ def _factors(overrides=None):
     return f
 
 
-def create_att_lca_system(u2_gas_closure=None):
-    """Frozen ATT model at the SaBRe reference scale with operating hours."""
+def create_att_lca_system(configuration="att_only"):
+    """ATT model at the SaBRe reference scale ("att_only" or "integrated") with operating hours."""
     from biorefineries.sabre.systems._att_system import create_att_system
 
-    scale = inv.get_att_reference_scale()
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"],
-                                          u2_gas_closure=u2_gas_closure), scale["dry_feed_kgph"])
+    scale = inv.get_att_reference_scale(configuration)
+    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration),
+                        scale["dry_feed_kgph"])
     sys.operating_hours = scale["operating_hours_per_year"]
     return sys
 
@@ -339,11 +339,10 @@ def get_att_gwp_summary(sys, applied):
          "not credited (no sequestration or substitution credit)"),
         ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
          "fate not credited; degradation not quantified"),
-        ("CH4 reported in workbook (not in model)", ch4_reported, "kg/kg dry",
-         "model CH4 = 0 is a feasibility simplification, not an observation"),
-        ("CO reported in workbook (not in model)",
+        ("CH4 in U2 gas (specified)", ch4_reported, "kg/kg dry", "experimental team yield, burned in the U2 burner"),
+        ("CO in U2 gas (specified)",
          float(U2.reported_gas_yield_mmol_per_g_daf["CO"]) * daf * 28.0101 / 1e3 / dry, "kg/kg dry",
-         "model CO = 0 is a feasibility simplification, not an observation"),
+         "experimental team yield"),
     ]
     return [dict(item=a, value=b, unit=c, note=d) for a, b, c, d in rows]
 
@@ -355,8 +354,8 @@ def _total_per_kg(sys, **kw):
     return total / dry_yr, total / h2_yr, applied
 
 
-def get_att_gwp_sensitivity(sys, estimates, comparison_sys=None, comparison_estimates=None):
-    """Baseline, steel-slag lime, one-at-a-time factor ranges, comparison closure."""
+def get_att_gwp_sensitivity(sys, estimates):
+    """Baseline, steel-slag lime, one-at-a-time factor ranges."""
     rows = []
     base_dry, base_h2, _ = _total_per_kg(sys, estimates=estimates)
     rows.append(dict(scenario="Baseline", parameter="", value=float("nan"),
@@ -370,11 +369,6 @@ def get_att_gwp_sensitivity(sys, estimates, comparison_sys=None, comparison_esti
             d, h, _ = _total_per_kg(sys, overrides={name: float(value)}, estimates=estimates)
             rows.append(dict(scenario=f"S2 {name} {bound}", parameter=name, value=float(value),
                              GWP_kgCO2e_per_kg_dry=d, GWP_kgCO2e_per_kg_H2=h, delta_per_kg_H2=h - base_h2))
-    if comparison_sys is not None:
-        d, h, _ = _total_per_kg(comparison_sys, estimates=comparison_estimates)
-        rows.append(dict(scenario="Comparison: reconciled gas yields (s ~0.60)", parameter="U2 closure",
-                         value=float("nan"), GWP_kgCO2e_per_kg_dry=d, GWP_kgCO2e_per_kg_H2=h,
-                         delta_per_kg_H2=h - base_h2))
     apply_att_gwp(sys, estimates=estimates)  # restore baseline factors
     return rows
 
@@ -415,7 +409,6 @@ def get_att_lca_data_gaps(sys, applied):
     wet_t_per_kg_dry = float(s["att_sargassum_feed"].F_mass) / 1e3 / dry
     per_fuel = wet_t_per_kg_dry * f["marine_fuel"]
     gwp_ch4 = _LCA["indicative_gwp100"]["CH4_non_fossil"]["value"]
-    ch4 = summary["CH4 reported in workbook (not in model)"] * gwp_ch4
     ch4_model = summary["CH4 in PSA off-gas (model)"] * gwp_ch4
     steam_fuel = sum(hu.duty for hu in sys.heat_utilities if hu.agent.ID == "low_pressure_steam") / 1e3 / dry
     ng = f["natural_gas_combustion"] + f["natural_gas_upstream"]
@@ -428,8 +421,6 @@ def get_att_lca_data_gaps(sys, applied):
         ("Model off-gas CH4 if vented", "NOT IN BASELINE GWP (baseline burns the off-gas in the U2 burner)", ch4_model,
          "indicative: model off-gas CH4 x GWP100 27.0 (AR6 non-fossil); burning gives biogenic CO2 (0)",
          "HIGH if vented instead of burned"),
-        ("Reported CH4 (8.769 mmol/g daf) if released", "REFERENCE (experimental value)",
-         ch4, "indicative: reported CH4 x GWP100 27.0; the balanced model carries s x reported", "reference"),
         ("PSA off-gas fate (CH4, unrecovered H2, CO, CO2)",
          "BURNED in the U2 burner (natural gas offset; no burner equipment or cost in the baseline TEA)", float("nan"),
          "CH4 venting quantified above; burning gives biogenic CO2; H2 indirect warming not quantified", "MEDIUM"),
@@ -442,8 +433,8 @@ def get_att_lca_data_gaps(sys, applied):
          "landfill proxy for the whole wet cake; entrained NaOH neutralization not included", "LOW"),
         ("Char degradation in landfill", "NOT QUANTIFIED", float("nan"),
          f"{summary['Biogenic C in ash/char cake (landfilled)']:.3f} kg C/kg dry (incl. carbonate C)", "LOW-MEDIUM"),
-        ("Wastewater process CH4/N2O and COD of press liquid", "NOT INCLUDED", float("nan"),
-         "press liquid modeled as pure water; energy-only WWT factor", "LOW-MEDIUM"),
+        ("Wastewater process CH4/N2O and COD of condensates and purge", "NOT INCLUDED", float("nan"),
+         "condensates modeled as pure water; energy-only WWT factor", "LOW-MEDIUM"),
         ("Cooling-tower and boiler make-up water", "NOT INCLUDED", float("nan"), "small", "LOW"),
         ("Water/WWT factors (Zib et al. 2021)", "AS PROVIDED, not rechecked", float("nan"), "tiny contribution", "LOW"),
         ("Capital goods, chemical transport", "EXCLUDED", float("nan"), "outside the workbook boundary", "LOW"),
@@ -510,11 +501,7 @@ def export_att_lca(out_dir=None):
         "05_activity_inventory_per_kg_dry": utilities,
     }
     checks = check_att_lca(sys, applied, contributions, utilities)
-    comparison = create_att_lca_system(
-        u2_gas_closure=load_assumptions("att.yaml")["att"]["reactor"]["material_balance"]["comparison_gas_closure_method"])
-    comparison_estimates = inv.get_att_cost_estimates(comparison)
-    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, estimates, comparison,
-                                                                      comparison_estimates)
+    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, estimates)
     tables["07_data_gaps"] = get_att_lca_data_gaps(sys, applied)
     unchanged = fingerprint == [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     checks.append(dict(check="Frozen model flows unchanged by LCA", value=float(unchanged), expected=1.0,

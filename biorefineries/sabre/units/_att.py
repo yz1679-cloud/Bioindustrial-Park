@@ -5,8 +5,8 @@ import thermosteam as tmo
 from biorefineries.sabre.utils import load_assumptions
 
 __all__ = (
+    "ATTPress",
     "ATTReactor",
-    "solve_att_u2_closure",
     "close_att_u2_balance",
     "CausticizationReactor",
     "NaOHEvaporator",
@@ -36,134 +36,104 @@ _SARGASSUM_DRY_IDS = (
 )
 
 
-def _solve_att_u2_CHO(feed_atoms, fixed_atoms, gas_atoms, char_atoms):
-    # x*gas + char*c + H2O*w = feed - fixed, for the C, H and O balances.
-    water_atoms = {"H": 2, "O": 1}
-    CHO = ("C", "H", "O")
-    A = np.array([
-        [gas_atoms.get(e, 0.0), char_atoms.get(e, 0.0), water_atoms.get(e, 0.0)]
-        for e in CHO
-    ])
-    b = np.array([feed_atoms.get(e, 0.0) - fixed_atoms.get(e, 0.0) for e in CHO])
-    return tuple(map(float, np.linalg.solve(A, b)))
-
-
-def close_att_u2_balance(method, feed_atoms, fixed_atoms, measured_gas_kmolph,
-                         species_atoms, char_atoms, closure_gas_ID="CO2"):
+class ATTPress(bst.Unit):
     """
-    Close the U2 C, H and O balances; return (gas kmol/h by species, char
-    kmol/h, product water kmol/h, gas scale factor s or nan).
+    P1: screw press of the ATT-only plant, with the cost and power basis of a
+    municipal biosolids screw press (att.yaml feed_preparation.press).
 
-    ``uniform_redox_scaling``: every measured gas is scaled by one factor s.
-    ``h2_priority``: the measured H2 is kept; the other reported gases are
-    not imposed and the remaining C, H and O leave as char, water and one
-    closure gas (an unmeasured closure product, not an experimental yield).
+    ins: [0] fresh Sargassum. outs: [0] presscake, [1] press liquid (raw
+    juice for biostimulant production).
+
+    Each component stays in the cake in the fraction ``retention`` (default
+    1); the cake water makes up ``1 - cake_solids_wt_frac`` of the cake, and
+    the rest of the water leaves with the juice. Installed cost = anchor x
+    (dry solids throughput / anchor throughput) ** exponent (single train);
+    electricity = kWh per dry tonne of solids (ash included) fed.
     """
-    def atoms_of(flows):
-        totals = {}
-        for ID, kmolph in flows.items():
-            for element, n in species_atoms[ID].items():
-                totals[element] = totals.get(element, 0.0) + n * kmolph
-        return totals
 
-    if method == "uniform_redox_scaling":
-        scale, char_kmolph, water_kmolph = solve_att_u2_closure(
-            feed_atoms, fixed_atoms, atoms_of(measured_gas_kmolph), char_atoms
-        )
-        gas = {ID: scale * n for ID, n in measured_gas_kmolph.items()}
-        return gas, char_kmolph, water_kmolph, scale
-    if method == "h2_priority":
-        h2 = measured_gas_kmolph["H2"]
-        fixed = dict(fixed_atoms)
-        fixed["H"] = fixed.get("H", 0.0) + 2.0 * h2
-        closure, char_kmolph, water_kmolph = _solve_att_u2_CHO(
-            feed_atoms, fixed, species_atoms[closure_gas_ID], char_atoms
-        )
-        if min(closure, char_kmolph, water_kmolph) < 0.0:
-            raise RuntimeError(
-                "H2-priority U2 closure is infeasible: "
-                f"{closure_gas_ID} {closure:.6g}, char {char_kmolph:.6g}, "
-                f"water {water_kmolph:.6g} kmol/h. The measured H2 cannot be "
-                "kept with this char formula and closure gas."
-            )
-        gas = {ID: 0.0 for ID in measured_gas_kmolph}
-        gas["H2"] = h2
-        gas[closure_gas_ID] = gas.get(closure_gas_ID, 0.0) + closure
-        return gas, char_kmolph, water_kmolph, float("nan")
-    if method in ("h2_measured_ch4_max", "uniform_co2_free"):
-        # Alternative gas-yield scenarios (char = 0; selected feasible scenarios, not the baseline).
-        # h2_measured_ch4_max: H2 and CO measured; CH4, CO2, water from C/H/O.
-        # uniform_co2_free: H2, CH4, CO x s; CO2 and water close C and O.
-        import numpy as np_
-        rows = ("C", "H", "O")
-        rest = {e: feed_atoms.get(e, 0.0) - fixed_atoms.get(e, 0.0) for e in rows}
-        if method == "h2_measured_ch4_max":
-            h2, co = measured_gas_kmolph["H2"], measured_gas_kmolph["CO"]
-            b = [rest["C"] - co, rest["H"] - 2.0 * h2, rest["O"] - co]
-            M = [[1.0, 1.0, 0.0], [4.0, 0.0, 2.0], [0.0, 2.0, 1.0]]          # CH4, CO2, H2O
-            ch4, co2, water = map(float, np_.linalg.solve(M, b))
-            gas, scale = {"H2": h2, "CH4": ch4, "CO": co, "CO2": co2}, float("nan")
-        else:
-            scaled = {ID: measured_gas_kmolph[ID] for ID in ("H2", "CH4", "CO")}
-            g = atoms_of(scaled)
-            M = [[g.get(e, 0.0), species_atoms["CO2"].get(e, 0.0), {"H": 2.0, "O": 1.0}.get(e, 0.0)] for e in rows]
-            scale, co2, water = map(float, np_.linalg.solve(M, [rest[e] for e in rows]))
-            gas = {ID: scale * n for ID, n in scaled.items()}
-            gas["CO2"] = co2
-        if min(*gas.values(), water) < 0.0 or (scale == scale and not 0.0 < scale <= 1.0):
-            raise RuntimeError(f"U2 bound closure '{method}' infeasible: gases {gas}, water {water:.6g}.")
-        for ID in measured_gas_kmolph:
-            gas.setdefault(ID, 0.0)
-        return gas, 0.0, water, scale
-    if method == "experimental_fixed":
-        # All measured gases kept exactly. C closes on the char and H on the
-        # product water (the only unmeasured C- and H-bearing outlets); O has
-        # no remaining unmeasured carrier and is NOT closed: the outlet O
-        # deficit equals half the redox excess of the measured gases and is
-        # reported by the reactor as an unresolved elemental residual.
-        gas = dict(measured_gas_kmolph)
-        fixed = dict(fixed_atoms)
-        for element, n in atoms_of(gas).items():
-            fixed[element] = fixed.get(element, 0.0) + n
-        remaining = {e: feed_atoms.get(e, 0.0) - fixed.get(e, 0.0) for e in ("C", "H")}
-        char_kmolph = remaining["C"] / char_atoms["C"]
-        water_kmolph = (remaining["H"] - char_kmolph * char_atoms.get("H", 0.0)) / 2.0
-        if char_kmolph < 0.0 or water_kmolph < 0.0:
-            raise RuntimeError(
-                f"Experimental-fixed U2 closure gives negative char ({char_kmolph:.6g}) "
-                f"or water ({water_kmolph:.6g}) kmol/h."
-            )
-        return gas, char_kmolph, water_kmolph, float("nan")
-    raise ValueError(f"Unsupported gas_closure_method '{method}'.")
+    _N_ins = 1
+    _N_outs = 2
+    _F_BM_default = {"Press system": 1.0}
+
+    def _init(self, cake_solids_wt_frac, retention=None, power_kWh_per_dry_ton=5.0,
+              capex_installed_ref_usd=3.1e6, ref_capacity_tph_dry=0.953, scale_exponent=0.6):
+        self.cake_solids_wt_frac = float(cake_solids_wt_frac)
+        self.retention = dict(retention or {})
+        self.power_kWh_per_dry_ton = float(power_kWh_per_dry_ton)
+        self.capex_installed_ref_usd = float(capex_installed_ref_usd)
+        self.ref_capacity_tph_dry = float(ref_capacity_tph_dry)
+        self.scale_exponent = float(scale_exponent)
+
+    def _run(self):
+        feed = self.ins[0]
+        cake, juice = self.outs
+        cake.empty()
+        juice.empty()
+        cake.phase = juice.phase = "l"
+        for chemical in feed.chemicals:
+            ID = chemical.ID
+            if ID == "Water":
+                continue
+            mass = float(feed.imass[ID])
+            r = min(max(self.retention.get(ID, 1.0), 0.0), 1.0)
+            cake.imass[ID] = r * mass
+            juice.imass[ID] = (1.0 - r) * mass
+        solids = float(cake.F_mass)
+        f = self.cake_solids_wt_frac
+        water_feed = float(feed.imass["Water"])
+        water_cake = min(solids * (1.0 - f) / f, water_feed)
+        cake.imass["Water"] = water_cake
+        juice.imass["Water"] = water_feed - water_cake
+        cake.T = juice.T = feed.T
+        cake.P = juice.P = feed.P
+
+    def _design(self):
+        feed = self.ins[0]
+        dry_tph = (float(feed.F_mass) - float(feed.imass["Water"])) / 1e3
+        self.design_results["Dry solids throughput (t/h)"] = dry_tph
+        self.power_utility(self.power_kWh_per_dry_ton * dry_tph)
+
+    def _cost(self):
+        dry_tph = self.design_results["Dry solids throughput (t/h)"]
+        capex = (self.capex_installed_ref_usd
+                 * (dry_tph / self.ref_capacity_tph_dry) ** self.scale_exponent) if dry_tph > 0 else 0.0
+        self.design_results["Installed CAPEX ($)"] = capex
+        self.baseline_purchase_costs["Press system"] = capex
 
 
-def solve_att_u2_closure(feed_atoms, fixed_atoms, gas_atoms, char_atoms):
+def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, char_atoms=None):
     """
-    Solve the U2 C, H and O balances for the common scale factor s of the
-    measured gases, the char flow and the product water [kmol/h]:
+    Specified-yield U2 closure: the gas yields are inputs. Carbon that is not
+    in the specified gases or the carbonate leaves as extra CO2 (the model's
+    closure product: no unreacted carbon residue is carried) and the product
+    water closes the oxygen (and with it the mass) balance. Hydrogen is NOT
+    solved: the hydrogen the identified products do not contain (outlet -
+    inlet < 0) is left to the unidentified products (NH3, H2S, tars) and
+    reported as a check; a carbon deficit is likewise left as an unresolved
+    C residual instead of inventing carbon.
 
-        s*gas + char*c + H2O*w = feed - fixed
-
-    ``fixed_atoms`` are the outlets set independently (ash, Na2CO3,
-    residual NaOH, retained N/S and any other specified product).
-    s is a RECONCILIATION factor, not a measurement.
+    Returns (gas kmol/h by species incl. the closure CO2, 0.0 [no residue],
+    product water kmol/h, scale factor 1.0).
     """
-    scale, char_kmolph, water_kmolph = _solve_att_u2_CHO(
-        feed_atoms, fixed_atoms, gas_atoms, char_atoms
-    )
-    if not 0.0 < scale <= 1.0 + 1e-12:
+    if method != "specified_yields":
+        raise ValueError(f"Unsupported gas_closure_method '{method}'.")
+    gas = dict(specified_gas_kmolph)
+    fixed = dict(fixed_atoms)
+    for ID, kmolph in gas.items():
+        for element, n in species_atoms[ID].items():
+            fixed[element] = fixed.get(element, 0.0) + n * kmolph
+    remaining_C = feed_atoms.get("C", 0.0) - fixed.get("C", 0.0)
+    if remaining_C > 0.0:
+        gas["CO2"] = gas.get("CO2", 0.0) + remaining_C
+        fixed["C"] = fixed.get("C", 0.0) + remaining_C
+        fixed["O"] = fixed.get("O", 0.0) + 2.0 * remaining_C
+    water_kmolph = feed_atoms.get("O", 0.0) - fixed.get("O", 0.0)
+    if water_kmolph < 0.0:
         raise RuntimeError(
-            f"U2 gas scale factor s = {scale:.6g} is outside (0, 1]. "
-            "s > 1 means the measured gases do not exhaust the feed's "
-            "reducing power, so the char formula or NaOH conversion, "
-            "not the gas yields, must close the balance."
+            f"The specified gas slate cannot be produced from this feed: the oxygen balance "
+            f"gives product water {water_kmolph:.6g} kmol/h."
         )
-    if char_kmolph < 0.0 or water_kmolph < 0.0:
-        raise RuntimeError(
-            f"U2 closure gives negative char ({char_kmolph:.6g}) or "
-            f"water ({water_kmolph:.6g}) kmol/h."
-        )
-    return scale, char_kmolph, water_kmolph
+    return gas, 0.0, water_kmolph, 1.0
 
 
 class ATTReactor(bst.Unit):
@@ -174,28 +144,14 @@ class ATTReactor(bst.Unit):
     SaBRe dry-ash-free feed basis; NaOH-to-Na2CO3 conversion follows
     att.yaml (workbook: complete).
 
-    All elements (C, H, O, N, S, Na, Ca) are closed exactly; feed N and S
-    are retained in the char (``CharN``/``CharS``). The reported absolute gas
-    yields together exceed the reducing power (available electrons) of the
-    feed organics, so not all of them can be kept (``gas_closure_method``):
-
-    - ``uniform_redox_scaling`` (baseline, Gas-C; att.yaml): the measured gas
-      composition is kept and every measured gas is scaled by one factor s
-      (0.5998); the remaining C leaves as char.
-    - ``h2_priority`` (comparison): the measured H2 yield is kept. CH4, CO and
-      CO2 are not imposed (not complete product yields); the remaining C, H
-      and O leave as char (``Char``), product water and one closure gas
-      (att.yaml ``h2_priority_closure_gas``), an unmeasured closure product.
-    - ``h2_measured_ch4_max`` (Gas-A) / ``uniform_co2_free`` (Gas-Cprime):
-      alternative element-balanced gas-yield scenarios (char = 0), not the
-      baseline: measured H2 and CO with the maximum feasible CH4; or H2, CH4
-      and CO scaled by s with CO2 determined by carbon closure.
-    - ``experimental_fixed`` (experimental-fidelity check): all measured gases
-      kept exactly; C closes on char and H on water; the O residual cannot
-      close (the measured gases exceed the feed's available electrons) and is
-      reported in ``_unresolved_element_kmolph``, not assigned to a species.
-
-    The model yields are reported next to the unchanged measured yields.
+    The gas yields are specified (att.yaml: the experimental team's slate).
+    C, O and Na are closed: carbon beyond the specified gases and the
+    carbonate leaves as extra CO2 and the product water closes oxygen and
+    mass. Hydrogen is a check, not an unknown (what the identified products
+    do not hold goes to unidentified products such as NH3). N and S are not
+    followed (they stay in an inert N/S residue). ``balance_checks`` reports (i) whether
+    the NaOH can absorb the CO2 generated and (ii) whether the products
+    respect the electron, mass and energy balances of the feed.
 
     The process heat duty is Hnet(outlets) - Hnet(inlet) and therefore
     includes the reaction enthalpy. The organic feed's formation enthalpy is
@@ -287,9 +243,7 @@ class ATTReactor(bst.Unit):
             balance["gas_closure_method"] if gas_closure_method is None
             else gas_closure_method
         )
-        self.closure_gas_ID = str(balance["h2_priority_closure_gas"])
-        if self.gas_closure_method not in ("h2_priority", "uniform_redox_scaling", "experimental_fixed",
-                                           "h2_measured_ch4_max", "uniform_co2_free"):
+        if self.gas_closure_method != "specified_yields":
             raise ValueError(
                 f"Unsupported gas_closure_method '{self.gas_closure_method}'."
             )
@@ -432,19 +386,15 @@ class ATTReactor(bst.Unit):
         }
 
         # ----------------------------------------------------------
-        # 3. Close the C, H and O balances (gas_closure_method):
-        #    h2_priority - measured H2 kept, closure gas + char + water;
-        #    uniform_redox_scaling - all measured gases x s + char + water.
+        # 3. Close C and H with the specified gases, char (C) and water (H);
+        #    O is checked below, not solved.
         # ----------------------------------------------------------
         fixed_atoms = atoms_of(flows_of(residue))
         char_atoms = chemicals[self.char_ID].atoms
-        species_atoms = {
-            ID: chemicals[ID].atoms
-            for ID in (*measured_gas_kmolph, self.closure_gas_ID)
-        }
+        species_atoms = {ID: chemicals[ID].atoms for ID in measured_gas_kmolph}
         model_gas_kmolph, char_kmolph, water_kmolph, scale = close_att_u2_balance(
             self.gas_closure_method, feed_atoms, fixed_atoms,
-            measured_gas_kmolph, species_atoms, char_atoms, self.closure_gas_ID,
+            measured_gas_kmolph, species_atoms, char_atoms,
         )
         gas_atoms = atoms_of(model_gas_kmolph)
 
@@ -462,16 +412,39 @@ class ATTReactor(bst.Unit):
             for element in set(feed_atoms) | set(out_atoms)
         }
         tolerance = 1e-9 * max(1.0, max(map(abs, feed_atoms.values())))
-        # Unresolved elemental residuals (outlet - inlet, kmol/h): allowed
-        # only for the experimental_fixed closure, where they are reported,
-        # never silently closed.
+        # Unresolved elemental residuals (outlet - inlet, kmol/h): only oxygen
+        # may remain, and only within 2 % of the organic oxygen of the feed
+        # (otherwise the specified slate violates the electron/mass balance).
         self._unresolved_element_kmolph = {
             element: error for element, error in atomic_balance_errors.items()
             if abs(error) > tolerance
         }
-        if self._unresolved_element_kmolph and self.gas_closure_method != "experimental_fixed":
+        organic_atoms_feed = {
+            e: sum(float(feed.imol[ID]) * chemicals[ID].atoms.get(e, 0.0) for ID in organic_IDs)
+            for e in ("C", "O")
+        }
+        organic_O_kmolph = organic_atoms_feed["O"]
+        o_residual = self._unresolved_element_kmolph.get("O", 0.0)
+        organic_atoms_feed["H"] = sum(
+            float(feed.imol[ID]) * chemicals[ID].atoms.get("H", 0.0) for ID in organic_IDs
+        )
+        # The identified products may hold LESS hydrogen/reducing power than the
+        # feed (the rest is in unidentified products), never more.
+        bad = {}
+        for e, v in self._unresolved_element_kmolph.items():
+            if e == "H":
+                if v > 0.005 * organic_atoms_feed["H"]:
+                    bad[e] = v
+            elif e == "C":
+                if abs(v) > 0.02 * organic_atoms_feed["C"]:
+                    bad[e] = v
+            else:
+                bad[e] = v
+        if bad:
             raise RuntimeError(
-                f"U2 elemental balance not closed: {atomic_balance_errors}"
+                "The specified gas slate violates the elemental/electron balance of the feed "
+                "(identified products hold more hydrogen than the feed, a carbon mismatch beyond 2 %, "
+                f"or another element): {bad}; all residuals {self._unresolved_element_kmolph}."
             )
 
         def available_electrons(atoms):
@@ -488,10 +461,10 @@ class ATTReactor(bst.Unit):
              for ID in (self.char_ID, *self.heteroatom_IDs.values())}
         )
 
+        self._organic_atoms_kmolph = organic_atoms
         self._measured_gas_kmolph = measured_gas_kmolph
         self._gas_scale_factor = scale
-        # Model (closed) gas yields: H2 = measured under h2_priority,
-        # measured x s under uniform_redox_scaling.
+        # Gas yields as specified (scale factor 1.0 kept for the reports).
         self._model_gas_kmolph = model_gas_kmolph
         self._model_gas_yield_mmol_per_g_daf = {
             ID: kmolph * 1000.0 / daf_sargassum_kgph
@@ -525,18 +498,12 @@ class ATTReactor(bst.Unit):
         self._atomic_balance_errors_kmolph = atomic_balance_errors
         self._max_atomic_balance_error_kmolph = max(map(abs, atomic_balance_errors.values()), default=0.0)
         self._elemental_balance_enforced = not self._unresolved_element_kmolph
-        if self.gas_closure_method == "uniform_redox_scaling":
-            status = (f"C/H/O/N/S/Na/Ca closed; all measured gases scaled by s = {scale:.4f} "
-                      "to the feed's redox capacity.")
-        elif self.gas_closure_method == "h2_priority":
-            status = (f"C/H/O/N/S/Na/Ca closed; measured H2 kept, CH4/CO not imposed, "
-                      f"{self.closure_gas_ID} is a closure product.")
-        elif self.gas_closure_method in ("h2_measured_ch4_max", "uniform_co2_free"):
-            status = (f"C/H/O/N/S/Na/Ca closed; alternative gas-yield scenario {self.gas_closure_method} "
-                      "(char = 0); not the baseline.")
-        else:
-            status = ("NOT CLOSED: all measured gases kept; C closed on char, H on water; unresolved "
-                      f"residuals (kmol/h) {self._unresolved_element_kmolph}.")
+        c_residual = self._unresolved_element_kmolph.get("C", 0.0)
+        h_residual = self._unresolved_element_kmolph.get("H", 0.0)
+        status = (f"C/O/Na closed with the specified gas slate (extra closure CO2 "
+                  f"{(model_gas_kmolph['CO2'] - measured_gas_kmolph['CO2']) * 1000.0 / daf_sargassum_kgph:.2f} mmol/g daf); "
+                  f"residuals (outlet - inlet): C {c_residual * 1000.0 / daf_sargassum_kgph:+.3f}, "
+                  f"H {h_residual * 1000.0 / daf_sargassum_kgph:+.3f} mmol/g daf (unidentified H products).")
         self._elemental_balance_status = status
 
         if dry_sargassum_kgph > 0.0:
@@ -865,20 +832,10 @@ class ATTReactor(bst.Unit):
             "ATT aqueous NaOH enthalpy correction"
         ] = aqueous_correction_kJph
 
-        # Gas basis: measured vs model (closed) yields.
-        if self.gas_closure_method == "uniform_redox_scaling":
-            self.design_results[
-                "Gas yield scale factor s (reconciliation, not measured)"
-            ] = self._gas_scale_factor
-        elif self.gas_closure_method == "experimental_fixed":
-            for element, error in self._unresolved_element_kmolph.items():
-                self.design_results[
-                    f"UNRESOLVED {element} balance, outlet - inlet [mmol/g daf]"
-                ] = error * 1000.0 / self._daf_sargassum_kgph
-        else:
-            self.design_results[
-                f"Closure {self.closure_gas_ID} [mmol/g daf] (unmeasured closure product)"
-            ] = self._model_gas_yield_mmol_per_g_daf[self.closure_gas_ID]
+        # Gas basis: specified yields and the oxygen check.
+        self.design_results[
+            "Hydrogen balance residual (unidentified products), outlet - inlet [mmol/g daf]"
+        ] = self._unresolved_element_kmolph.get("H", 0.0) * 1000.0 / self._daf_sargassum_kgph
         self.design_results[
             "H2 yield, measured [mmol/g daf]"
         ] = float(self.reported_gas_yield_mmol_per_g_daf["H2"])
@@ -905,6 +862,54 @@ class ATTReactor(bst.Unit):
         self.design_results[
             "ATT auxiliary utility thermal power"
         ] = self._utility_thermal_power_kW
+
+
+
+def _att_u2_balance_checks(self):
+    """
+    Checks of the specified slate (call after the system is simulated):
+
+    (i) NaOH capacity for CO2: CO2 generated = gas CO2 + CO2 captured as
+        Na2CO3; capturing it all needs 2 NaOH per CO2.
+    (ii) electrons: available electrons of the feed organics against the
+        gases and residue; overall mass; and energy: the chemical energy of
+        the product gases (HHV) must not exceed the feed HHV plus the
+        process heat.
+    """
+    daf = self._daf_sargassum_kgph
+    gas, residue = self.outs
+    feed = self.ins[0]
+    chemicals = feed.chemicals
+    co2_gas = float(gas.imol["CO2"])
+    carbonate = float(residue.imol["Na2CO3"]) - float(feed.imol["Na2CO3"])   # formed in U2 (recycled carbonate excluded)
+    co2_generated = co2_gas + carbonate
+    naoh_available = float(feed.imol["NaOH"])
+    naoh_required = 2.0 * co2_generated
+    atoms = self._organic_atoms_kmolph
+    e_feed = 4.0 * atoms.get("C", 0.0) + atoms.get("H", 0.0) - 2.0 * atoms.get("O", 0.0)   # C/H/O only
+    e_out = sum(float(gas.imol[ID]) * v for ID, v in (("H2", 2.0), ("CH4", 8.0), ("CO", 2.0)))
+    gas_HHV_kJph = sum(float(gas.imol[ID]) * chemicals[ID].HHV for ID in ("H2", "CH4", "CO"))
+    feed_HHV_kJph = self.feed_HHV_MJ_per_kg_daf * 1e3 * daf
+    heat_kJph = getattr(self, "_heat_duty_kJph", float("nan"))
+    ratio = gas_HHV_kJph / (feed_HHV_kJph + max(heat_kJph, 0.0)) if feed_HHV_kJph > 0 else float("nan")
+    rows = [
+        dict(check="NaOH available for CO2 capture [mmol/g daf]", value=naoh_available * 1e3 / daf, unit="mmol/g daf"),
+        dict(check="NaOH needed to capture all CO2 generated [mmol/g daf]", value=naoh_required * 1e3 / daf, unit="mmol/g daf"),
+        dict(check="CO2 captured as Na2CO3 / CO2 generated", value=carbonate / co2_generated if co2_generated else float("nan"),
+             unit="-", status="SUFFICIENT" if naoh_available >= naoh_required - 1e-12 else "INSUFFICIENT (CO2 remains in the gas)"),
+        dict(check="Electrons: feed organics, C/H/O [mmol/g daf]", value=e_feed * 1e3 / daf, unit="mmol e-/g daf"),
+        dict(check="Electrons: identified gases [mmol/g daf]", value=e_out * 1e3 / daf, unit="mmol e-/g daf",
+             status="PASS" if e_out <= 1.01 * e_feed else "FAIL"),
+        dict(check="Reducing power left to unidentified products / feed", value=(e_feed - e_out) / e_feed, unit="-"),
+        dict(check="Mass balance error / inlet", value=self._mass_balance_error_fraction, unit="-",
+             status="PASS" if abs(self._mass_balance_error_fraction) <= 5e-3 else "FAIL"),
+        dict(check="Product gas HHV / (feed HHV + process heat)", value=ratio, unit="-",
+             status="PASS" if ratio == ratio and ratio <= 1.0 else "FAIL"),
+    ]
+    return rows
+
+
+ATTReactor.balance_checks = _att_u2_balance_checks
 
 
 class CausticizationReactor(bst.Unit):

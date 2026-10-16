@@ -12,14 +12,11 @@ att_outputs/ at the repository root). Order:
  2 inventory         full-scale mass/energy inventory
  3 tea               MSP           (read by the cross-checks of 5, 6 and 8)
  4 lca               GWP100        (read by the cross-checks of 5, 6 and 8)
- 5 consolidated      full-scale summary
- 6 final             comparison workbook incl. D7 gas scenarios (C sheets -> summary)
- 7 gas_scenarios     Gas-C / Gas-Cprime / Gas-A TEA and LCA (QC 14 checks against D7 of 7)
- 8 documentation     master model documentation
- 9 heat_integration  heat-recovery screening and HEN report (JSON)
-10 diagram_svg/png   process flow diagrams
+ 5 consolidated      full-scale summary (ATT-only case)
+ 6 documentation     master model documentation
+ 7 heat_integration  heat-recovery screening and HEN report (JSON)
+ 8 diagram_svg/png   process flow diagrams
 
-The scenarios run after final because their QC compares with final's D7.
 Then the ATT unit tests (unless --skip-tests) and a tally of every exported
 QC table are written to validation/run_summary.md and run_summary.json. The
 exit status is 1 if a step or a test fails or any QC row is FAIL. QC rows that
@@ -48,8 +45,6 @@ STEPS = (
     ("tea", "run_att_tea", ()),
     ("lca", "run_att_lca", ()),
     ("consolidated", "run_att_consolidated", ()),
-    ("final", "run_att_final", ()),
-    ("gas_scenarios", "run_att_gas_scenarios", ()),
     ("documentation", "run_att_documentation", ()),
     ("heat_integration", "run_att_heat_integration", ("--hen", "--json-out", "{heat_integration}/att_heat_report.json")),
     ("diagram_svg", "run_att_diagram", ("--format", "svg")),
@@ -64,7 +59,6 @@ QC_TABLES = (
     "full_scale/lca/08_checks.csv",
     "full_scale/summary/08_consistency_checks.csv",
     "full_scale/summary/C13_TEA_LCA_Consistency.csv",
-    "scenarios/gas_yield/14_QC_Checks.csv",
     "documentation/26_QC_Checks.csv",
 )
 

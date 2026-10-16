@@ -2,16 +2,22 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST_TYPES
+from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST_TYPES, CONFIGURATIONS
 
 
 class TestATTBreakdown(unittest.TestCase):
+    configuration = "att_only"
 
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.t = build_att_breakdown()
+        cls.t = build_att_breakdown(cls.configuration)
         cls.s = cls.t["summary"]
+
+    def test_u2_checks_pass(self):
+        rows = cls_rows = self.t["U2_balance_checks"]
+        status = rows["status"].dropna()
+        self.assertFalse(status.str.startswith("FAIL").any(), rows.to_string())
 
     def test_msp_types_sum_to_msp(self):
         self.assertAlmostEqual(self.t["MSP_by_type"]["USD_per_kg_H2"].sum(), self.s["MSP_USD_per_kg_H2"], delta=1e-6)
@@ -40,6 +46,13 @@ class TestATTBreakdown(unittest.TestCase):
         # the tail-gas natural gas offset is a negative contributor
         offset = self.t["GWP_by_contributor"]
         self.assertLess(offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0], 0.0)
+
+
+class TestATTBreakdownIntegrated(TestATTBreakdown):
+    configuration = "integrated"
+
+    def test_no_press(self):
+        self.assertNotIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))
 
 
 if __name__ == "__main__":

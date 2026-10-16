@@ -3,8 +3,9 @@
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
 (Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (15,000 wet t/d) with material, element, Na, water and energy balances, a
-preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, gas-yield
-scenarios.
+preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, for two cases:
+the ATT-only plant (wet *Sargassum*) and the ATT-integration case (presscake
+of a biostimulant plant).
 
 > **Data availability.** The measured gas yields and the workbook values in
 > `data/att.yaml` are unpublished laboratory
@@ -51,13 +52,11 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_tea` | `full_scale/tea/` |
 | `run_att_lca` | `full_scale/lca/` |
 | `run_att_consolidated` | `full_scale/summary/` |
-| `run_att_final` | `comparison/` (C-sheet CSVs to `full_scale/summary/`) |
-| `run_att_gas_scenarios` | `scenarios/gas_yield/` |
 | `run_att_documentation` | `documentation/` |
 | `run_att_heat_integration --hen --json-out <file>` | heat-recovery screening (console/JSON) |
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
-Cost and GWP breakdown of the baseline H2 (MSP by cost type, CAPEX by process
+Cost and GWP breakdown of H2 for both cases (MSP by cost type, CAPEX by process
 area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):
 
@@ -81,16 +80,12 @@ att_outputs/
 │   ├── mass_energy/         streams, mass/element/water/Na-Ca balances, unit energy, utilities, LCI
 │   ├── tea/                 MSP, CAPEX/OPEX, CaCO3/lime/P1/off-gas cases, sensitivities
 │   ├── lca/                 GWP100 summary, contributions, scenarios, data gaps
-│   └── summary/             consolidated process/TEA/GWP results and final sheets C1-C14
-├── comparison/              ATT_Final_Results.xlsx (all sheets A-D) and D1-D7 lab vs plant, gas-yield scenarios
-├── scenarios/gas_yield/     Gas-C (baseline) / Gas-Cprime / Gas-A detailed TEA and LCA
+│   └── summary/             consolidated process/TEA/GWP results
 ├── scenarios/heat_integration/  heat-recovery screening and HEN designs (JSON)
 ├── documentation/           master model documentation workbook; diagrams/
 └── validation/              run summary, unit-test and step logs
 ```
 
-Experimental (laboratory) results and full-scale model results are kept in
-separate folders; they meet only in `comparison/`.
 
 ## Code structure
 
@@ -101,8 +96,8 @@ biorefineries/sabre/
 ├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
 ├── analyses/att/                  analyses (see analyses/att/__init__.py)
 │   ├── mass_energy.py  thermodynamics.py  heat_integration.py   process-level helpers
-│   ├── inventory.py  tea.py  lca.py  scenarios.py                 full-scale analyses
-│   ├── reporting.py  final.py                                     consolidated results, documentation, comparison
+│   ├── inventory.py  tea.py  lca.py  breakdown.py                 full-scale analyses
+│   ├── reporting.py                                               consolidated results, documentation
 │   ├── validation.py                                              read-only audits (1 kg/h, Na ledger)
 │   └── paths.py                                                   output locations
 ├── data/                          inputs only (see below)
@@ -124,25 +119,27 @@ biorefineries/sabre/
 - Laboratory experiment (UCLA, Ni-CatATT): 0.5 g daf Sargassum, 1 g NaOH,
   500 °C, 1 h, N₂ carrier and 3.6 g steam; measured H₂, CH₄, CO, CO₂ (mmol/g daf).
   N₂ and the catalyst are laboratory conditions, not plant feeds.
-- Plant: SaBRe reference scale, 15,000 wet t/d (1,990.5 dry t/d), 330 d/yr.
-  P1 screw press and D0 dryer to 50 wt % moisture; U2 at 773.15 K with
-  2 kg NaOH/kg daf; gas cooling, drying, PSA (90 % H₂ recovery) and
+- Plant: SaBRe reference scale, 15,000 wet t/d of fresh *Sargassum* (NLR preprint composition), 330 d/yr.
+  ATT-only case: P1 screw press (municipal biosolids press cost and power; the press
+  liquid is the raw juice for biostimulant production, transferred at no price) and
+  D0 dryer to 50 wt % moisture. Integration case: the presscake of the biostimulant
+  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf; gas cooling, drying, PSA (90 % H₂ recovery) and
   compression to 20 bar; residue dissolution, causticization with Ca(OH)₂
   (85 %, 1.1 equivalents, 90 °C), 5 % whole-liquor purge, evaporation to
   50 wt % NaOH and recycle.
-- U2 baseline gas closure `uniform_redox_scaling`: all four measured gas
-  yields × s (s = 0.5998), preserving the measured ratios and closing C, H, O
-  with char and water. Model yields are engineering predictions; the measured
-  values are never modified. Gas-Cprime and Gas-A are alternative closures.
-- TEA: preliminary; equipment at CEPCI 567.5 (2017), 2024-2025 prices; no
+- U2 gas yields are specified (experimental team: H₂ 70.52, CH₄ 0.70, CO 0.31,
+  CO₂ 22.68 mmol/g daf; carbon not otherwise assigned leaves as CO₂); product
+  water closes oxygen. `ATTReactor.balance_checks()` reports (i) NaOH capacity for
+  the CO₂ generated and (ii) electron, mass and energy balances of the identified
+  products. Unidentified reactions are not tracked.
+- TEA: preliminary; equipment in 2020 USD (CEPCI 596.2), 2024-2025 prices; no
   CaCO₃ or CH₄ revenue in the reference case. The PSA tail gas (mainly CH₄ and
   unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
   up to U2's fuel demand (about a third of it); no burner is modeled.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
   allocation or product credits; the PSA tail gas is burned in the U2 burner
   (natural gas offset, biogenic CO₂ not counted, no CH₄ emission).
-- Main unvalidated items are listed in `comparison/ATT_Final_Results.xlsx`
-  sheet C14 and in the documentation sheets 23-24.
+- Main unvalidated items are listed in the documentation sheets 23-24.
 
 ## Credits
 

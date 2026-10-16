@@ -60,12 +60,39 @@ att:
       decision: "User decision 2026-10-09: not binding. Model evaporates only the excess water so that NaOH/(NaOH + H2O) = 50 wt% after the fresh solid-NaOH makeup (Na2CO3 is mostly crystalline and excluded)."
 
   feed_preparation:
-    feedstock_type: pelagic
-    # Original process design (user-confirmed 2026-10-09; wet basis):
-    # P1 mechanical dewatering to ~75 wt% moisture, then D0 thermal drying
-    # to 50 wt% before U2. D0 is a required unit; mechanical dewatering
-    # alone is not assumed to reach 50 wt%.
-    press_cake_moisture_wt_frac: 0.75
+    # Feed composition (data/feedstock.yaml, NLR Sargassum preprint): the
+    # ATT-only plant starts from fresh Sargassum (nlr_fresh); the ATT-
+    # integration case receives the presscake of a biostimulant plant
+    # (nlr_pressed) and has no P1.
+    feedstock_type: nlr_fresh
+    integrated_feedstock_type: nlr_pressed
+    # P1 mechanical dewatering to the 15 psi screw-press result of the
+    # preprint (23.7 % solids), then D0 thermal drying to 50 wt% moisture
+    # before U2. D0 is required: the press reaches only 73-76 % moisture, not
+    # 50 % (preprint Table 2); the preprint's own TEA assumes 20 % solids.
+    press_cake_moisture_wt_frac: 0.763
+    press:
+      # Share of the dry solids that stay in the cake (preprint Table 2, 15 psi:
+      # 17.86 kg x 23.7 % / (30.36 kg x 14.3 %)). Component retention in the
+      # cake follows from the fresh and pressed compositions (capped at 1);
+      # the rest (ash/salts, mannitol, part of the protein) leaves in the
+      # press liquid.
+      solids_recovery: 0.975
+      # Municipal biosolids screw press (City of Bellingham TM-12, 2021; same
+      # anchor as preprocessing.yaml): installed cost scaled on the dry-solids
+      # throughput, single train, exponent 0.6. Treated as 2020 USD (not
+      # escalated). Replaces BioSTEAM's ScrewPress correlation (115 parallel
+      # units at the SaBRe scale).
+      capex_installed_ref_usd: 3100000.0
+      ref_capacity_tph_dry: 0.953
+      scale_exponent: 0.6
+      # Press-only electricity (HUBER screw press case study, 2023), per dry
+      # tonne of solids. BioSTEAM's ScrewPress applies 37.2 kWh per tonne of
+      # WET feed instead (about 56x higher at this feed).
+      power_kWh_per_dry_ton: 5.0
+      # The press liquid is the raw juice for biostimulant production and is
+      # a coproduct of the ATT-only plant (no wastewater charge; transfer
+      # price in att_tea.yaml).
     att_sargassum_moisture_wt_frac: 0.5
     dryer_temperature_K: 343.15
     dryer:
@@ -97,84 +124,39 @@ att:
     baseline_case: Ni-CatATT
     cases:
       Ni-CatATT:
-        naoh_kg_per_kg_daf: 2.0
-        naoh_loading_basis: 'Advisor-confirmed baseline: 1 g NaOH per 0.5 g daf seaweed (equivalent to 2 kg NaOH
-          per kg daf seaweed).'
+        # NaOH loading and gas yields of the experimental team's energy and
+        # exergy calculation (Gyudae Sim, UCLA, 2026-09-28; Excel read from the
+        # slides): 1 g NaOH per g daf and the gas slate below. The slate closes
+        # carbon, hydrogen, sodium and the electron balance of the feed (gas
+        # electrons 149.9 mmol/g daf against a feed capacity of 148-150), unlike
+        # the absolute yields measured in the laboratory run (204 mmol e-/g daf).
+        naoh_kg_per_kg_daf: 1.0
+        naoh_loading_basis: 'Experimental team energy calculation: NaOH : biomass (daf) = 1 g/g (the lab run used 1 g NaOH per 0.5 g seaweed).'
         gas_yield_mmol_per_g_daf:
-          H2: 66.72842505487348
-          CH4: 8.768738649553573
-          CO: 0.1648486662946429
-          CO2: 0.1865389341517857
-        gas_yield_basis: Absolute Ni-CatATT experimental yields from ATT Inputs and Assumptions_261005.xlsx, Experimental
-          results.
-        ignored_reported_gas_yields_mmol_per_g_daf:
-          Gas4: 0.09166974330357144
-        ignored_gas_status: Gas 4 was clarified by the collaborator as CO measured on the second GC column and negligible;
-          it is ignored. The main Excel CO column is retained.
+          H2: 70.52
+          CH4: 0.70
+          CO: 0.31
+          CO2: 22.68
+        gas_yield_basis: Experimental team energy and exergy calculation (Excel), U2 outlet gas per kg total solids converted to mmol per g daf with their 71.7 wt % volatile solids.
+        ignored_reported_gas_yields_mmol_per_g_daf: {}
         excluded_baseline_gas_species:
-        - C2H4
+        - C2H4          # 0.10 mmol/g daf each in the team slate; ~1 % of the carbon, not modeled
         - C2H6
         - N2
         - H2S
-        experimental_condition_note: Excel reports 500 C, 1 h hold, N2 50 mL/min and steam 0.03 mL/min for the laboratory
-          experiment. N2 is treated only as a laboratory condition and is not scaled as a process feed or process
-          product in the current baseline.
     material_balance:
-      # Workbook assumption (energy-analysis sheet), retained.
+      # Workbook assumption (energy-analysis sheet), retained: all NaOH is
+      # converted to Na2CO3 at the 1 g/g loading.
       naoh_to_na2co3_conversion: 1.0
-      # The measured yields above are kept unchanged as data. They carry
-      # 204 mmol available electrons per g daf (2 per H2, 8 per CH4, 2 per
-      # CO), while the SaBRe daf feed can supply only ~148 (consistent with
-      # the workbook HHV of 16.9 MJ/kg daf). NaOH, water and carbonate carry
-      # no reducing power, so no residue composition or steam yield can close
-      # the balance with the measured absolute yields; all four
-      # experimental cases exceed the feed capacity. GC measures gas
-      # COMPOSITION directly, whereas absolute yields also depend on carrier
-      # flow, collection window and sample-mass normalization (a common-mode
-      # error).
-      #
-      # Baseline (user decision 2026-10-12): uniform_redox_scaling. All four
-      # measured gases are scaled by ONE factor s, so the experimental gas
-      # ratios are preserved exactly. With the C, H and O balances and the
-      # char formula, s is unique (the maximum feasible s = 0.5998 with 100 %
-      # NaOH conversion; lower conversion leaves more C as char and lowers s).
-      # Model yields are engineering predictions, NOT measurements; the
-      # measured yields above are never modified.
-      # Previous baseline 2026-10-10 to 2026-10-12: h2_priority. The study's primary
-      # result is H2; the workbook (Experimental results sheet) reports CH4,
-      # CO and CO2 in the same table, but they are not complete product
-      # yields: CO2 is mostly captured by NaOH, and liquids, char and
-      # carbonate were not quantified. The measured H2 is kept (it uses ~90 %
-      # of the feed's available electrons) and the remaining C, H and O close
-      # as char, product water and one closure gas. The electron budget
-      # forces the closure gas to be fully oxidized carbon: CH4 or CO as the
-      # closure species give a negative char amount. The closure CO2 is an
-      # unmeasured closure product, NOT experimental data, and contradicts
-      # the reported gas-phase CO2 (0.19) and CH4 (8.77 mmol/g daf).
-      gas_closure_method: uniform_redox_scaling
-      h2_priority_closure_gas: CO2
-      # Comparison scenario: h2_priority (measured H2 kept, CH4/CO not
-      # imposed, closure CO2).
-      comparison_gas_closure_method: h2_priority
-      # Selected element-balanced gas-yield scenarios (user decision
-      # 2026-10-12; reported alongside the baseline Gas-C, NOT the baseline;
-      # selected feasible modeling scenarios, not global physical bounds).
-      # Both set char = 0 (residue char was not measured):
-      #  - Gas-A, h2_measured_ch4_max: measured H2 and CO; maximum feasible
-      #    CH4 (~2.35 mmol/g daf, feed N retained in the residue); CO2 ~10
-      #    (vs 0.19 measured). Unrelated to TEA Case A (CaCO3 cake disposal).
-      #  - Gas-Cprime, uniform_co2_free: H2, CH4, CO x s (s ~0.748); CO2 by
-      #    carbon closure (~5.8 vs 0.19 measured).
-      # experimental_fixed (available, NOT the baseline; 2026-10-12): all four
-      # measured gases kept exactly; C closes on char and H on water; the O
-      # balance cannot close (outlet O short by ~33 mmol/g daf = half the
-      # redox excess of the measured gases plus char) and is reported as an
-      # unresolved residual, not assigned to any species. U2 mass therefore
-      # does not close (~-7 % of the U2 inlet) and the U2 duty is on a
-      # non-conserving basis. Select with create_att_system(u2_gas_closure=
-      # "experimental_fixed").
-      # Unconverted carbon leaves as char (chemical 'Char', CH0.5O0.1; feed
-      # N and S as 'CharN'/'CharS').
+      # The gas yields above are specified. U2 closes the C and H balances with
+      # the gases, Na2CO3 and two sinks for what is not identified: product
+      # water (H) and a small unreacted residue 'Char' (C), which only gives the
+      # leftover carbon a place to go (0.012 kg/kg dry feed for the team's slate).
+      # N and S stay with the residue (CharN/CharS). The oxygen balance is a
+      # CHECK, not an unknown (the team's slate closes it within 0.1 %); the
+      # electron balance and the NaOH capacity for CO2 are reported by
+      # ATTReactor.balance_checks().
+      gas_closure_method: specified_yields
       char_species: Char
       heteroatom_species:
         N: CharN
@@ -491,9 +473,6 @@ att:
       basis: "SaBRe common plant scale: feedstock.yaml scale.wet_feed_ton_per_day with the pelagic moisture fraction; tea.yaml operating_days."
       status: "Project-wide SaBRe assumption reused for comparability with the other SaBRe pathways; not an ATT-specific design decision."
     # U2 gas closure (user decision 2026-10-10; reactor.material_balance).
-    u2_closure:
-      baseline: "uniform_redox_scaling: all four measured gases x s (s = 0.5998, unique); experimental gas ratios preserved; element- and redox-closed. Model yields are engineering predictions, not measurements."
-      comparison: "h2_priority: measured H2 kept; CH4/CO not imposed; closure CO2 (previous baseline). experimental_fixed: measured gases unchanged, O balance open (experimental comparison only)."
     # Fate of every external stream: [direction, category, note].
     stream_fates:
       att_sargassum_feed: [input, feedstock, "Pelagic Sargassum as harvested (wet)."]
@@ -507,7 +486,7 @@ att:
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
-      press_liquid: [output, wastewater, "P1 press liquid, modeled as pure water (dissolved solids not modeled)."]
+      biostimulant_juice: [output, coproduct, "ATT-only case: press liquid of P1 = raw juice for biostimulant production (water, plus the solids not retained by the press). Transferred at zero price and burden; present only in the att_only configuration."]
       u3_condensate: [output, wastewater, "U3 gas condensate."]
       u3_dryer_removed_water: [output, wastewater, "U3D removed water."]
       ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]

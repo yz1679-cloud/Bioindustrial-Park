@@ -63,12 +63,13 @@ class ATTTEA(SaBReTEA):
         return super().VOC + self.extra_VOC
 
 
-def create_att_tea_system():
-    """Frozen ATT model at the SaBRe reference scale."""
+def create_att_tea_system(configuration="att_only"):
+    """ATT model at the SaBRe reference scale ("att_only" or "integrated")."""
     from biorefineries.sabre.systems._att_system import create_att_system
 
-    scale = inv.get_att_reference_scale()
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]), scale["dry_feed_kgph"])
+    scale = inv.get_att_reference_scale(configuration)
+    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration),
+                        scale["dry_feed_kgph"])
     sys.operating_hours = scale["operating_hours_per_year"]
     return sys
 
@@ -98,6 +99,8 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
     s["fresh_naoh_solid"].price = p["NaOH"]
     s["lime"].price = p["CaOH2"]
     s["dissolution_water"].price = p["process_water"]
+    if "biostimulant_juice" in s:
+        s["biostimulant_juice"].price = float(_T["prices"]["juice"])
     for ID in _T["prices"]["wastewater_streams"]:
         s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
     for ID in _T["prices"]["solid_waste_streams"]:
@@ -127,7 +130,23 @@ def _u3k_reciprocating(sys):
     return unit
 
 
-def _capital_items(sys, estimates, psa_factor=1.0, p1_alternative=False):
+def _biosteam_screwpress(sys):
+    """BioSTEAM ScrewPress on the P1 feed (alternative to the municipal-press basis); None without P1."""
+    units = inv._units(sys)
+    if "P1" not in units:
+        return None
+    from biorefineries.sabre.systems._att_system import get_att_press_retention
+
+    P1 = units["P1"]
+    with inv._scratch_flowsheet():
+        unit = bst.ScrewPress("P1_biosteam_screwpress", ins=P1.ins[0].copy(),
+                              split={ID: r for ID, r in get_att_press_retention().items()},
+                              moisture_content=1.0 - P1.cake_solids_wt_frac)
+        unit.simulate()
+    return unit
+
+
+def _capital_items(sys, estimates, psa_factor=1.0, p1_biosteam_screwpress=False):
     """Extra installed capital beyond the frozen unit models [USD]."""
     u = inv._units(sys)
     items = [(f"{r['item']} (estimate)", r["installed_cost"], r["method"])
@@ -136,16 +155,14 @@ def _capital_items(sys, estimates, psa_factor=1.0, p1_alternative=False):
     recip = _u3k_reciprocating(sys)
     items.append(("U3K: reciprocating replaces screw correlation (difference)",
                   recip.installed_cost - u["U3K"].installed_cost, _T["capex"]["U3K"]["reason"]))
-    if p1_alternative:
-        a = _T["sensitivities"]["P1_sabre_anchor"]
-        dry_tph = inv._dry_feed_kgph(sys) / 1e3
-        anchor = a["installed_usd"] * (dry_tph / a["ref_dry_tph"]) ** a["exponent"]
-        items.append(("P1: SaBRe press anchor replaces BioSTEAM (difference)", anchor - u["P1"].installed_cost,
-                      "preprocessing.yaml press capex anchor, 0.6 scaling"))
+    alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
+    if alt is not None:
+        items.append(("P1: BioSTEAM ScrewPress replaces municipal press (difference)",
+                      alt.installed_cost - u["P1"].installed_cost, "bst.ScrewPress cost correlation (Perry), parallel units"))
     return items
 
 
-def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_kWh_per_t_dry=None):
+def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_biosteam_screwpress=False):
     """Extra annual operating costs beyond material, utility and disposal prices [USD/yr]."""
     hours = sys.operating_hours
     elec = bst.PowerUtility.price
@@ -166,16 +183,15 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_kWh_per_t_d
     if elec_factor != 1.0:
         items.append(("Electricity price change (unit power)",
                       (elec_factor - 1.0) * sys.power_utility.rate * elec * hours))
-    if p1_kWh_per_t_dry is not None:
-        P1 = inv._units(sys)["P1"]
-        new_kW = p1_kWh_per_t_dry * inv._dry_feed_kgph(sys) / 1e3
-        items.append(("P1 power alternative (difference)",
-                      (new_kW - P1.power_utility.rate) * elec * elec_factor * hours))
+    alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
+    if alt is not None:
+        items.append(("P1 power: BioSTEAM ScrewPress replaces municipal press (difference)",
+                      (alt.power_utility.rate - inv._units(sys)["P1"].power_utility.rate) * elec * elec_factor * hours))
     return items
 
 
 def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
-                     fci_factor=1.0, p1_kWh_per_t_dry=None, p1_alternative_capex=False, caco3=None,
+                     fci_factor=1.0, p1_biosteam_screwpress=False, caco3=None,
                      offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
     """
     Build the TEA for one case and solve the H2 MSP with SaBReTEA's DCF.
@@ -191,8 +207,8 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     p = _prices(price_overrides)
     cake_price = None if caco3 is None else caco3_cake_price(sys, **caco3)
     _apply_prices(sys, p, cake_price, offgas_usd_per_t, feedstock_usd_per_wet_t)
-    capital = _capital_items(sys, estimates, psa_factor, p1_alternative_capex)
-    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_kWh_per_t_dry)
+    capital = _capital_items(sys, estimates, psa_factor, p1_biosteam_screwpress)
+    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_biosteam_screwpress)
     installed_units = sum(u.installed_cost for u in sys.units)
     extra_capital = sum(v for _, v, _ in capital)
     extra_capital += (fci_factor - 1.0) * (installed_units + extra_capital)
@@ -256,6 +272,9 @@ def _opex_table(sys, result):
     for ID, label in (("fresh_naoh_solid", "NaOH makeup"), ("lime", "Ca(OH)2"),
                       ("dissolution_water", "Process water"), ("att_sargassum_feed", "Sargassum feedstock")):
         add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
+    if "biostimulant_juice" in s:
+        add("Biostimulant juice transfer (coproduct)", "juice", -s["biostimulant_juice"].cost * hours,
+            f"{s['biostimulant_juice'].price:.6g} USD/kg")
     for agent in ("natural_gas", "low_pressure_steam", "cooling_water"):
         add(f"Utility: {agent}", "utilities",
             sum(hu.cost for hu in sys.heat_utilities if hu.agent.ID == agent) * hours, "BioSTEAM agent price")
@@ -296,9 +315,8 @@ def get_att_tea_sensitivity(sys, estimates):
         cases.append((f"Electricity price x{f}", dict(elec_factor=f)))
     for f in sens["FCI_factor"]:
         cases.append((f"FCI x{f}", dict(fci_factor=f)))
-    for name, v in sens["P1_power_kWh_per_t_dry"].items():
-        cases.append((f"P1 power {v} kWh/t dry ({name})", dict(p1_kWh_per_t_dry=v)))
-    cases.append(("P1 CAPEX: SaBRe press anchor", dict(p1_alternative_capex=True)))
+    if "P1" in inv._units(sys) and sens.get("P1_biosteam_screwpress"):
+        cases.append(("P1: BioSTEAM ScrewPress (power and CAPEX)", dict(p1_biosteam_screwpress=True)))
     rows = []
     for name, kw in cases:
         msp = evaluate_att_tea(sys, estimates, **kw)["msp"]
@@ -372,30 +390,34 @@ def get_att_lime_price_cases(sys, estimates):
 
 
 def get_att_p1_power_cases(sys, estimates):
-    """P1 electricity: BioSTEAM ScrewPress basis vs SaBRe press basis (TEA and GWP deltas)."""
+    """
+    P1 (ATT-only case): municipal biosolids press (adopted) vs BioSTEAM
+    ScrewPress, power, installed cost, MSP and GWP deltas. Empty without P1.
+    """
     from biorefineries.sabre.analyses.att import lca
 
+    units = inv._units(sys)
+    if "P1" not in units:
+        return []
     hours = sys.operating_hours
     dry = inv._dry_feed_kgph(sys)
-    P1 = inv._units(sys)["P1"]
-    aux_kW = sum(r["power_kW"] for r in estimates if r["power_kW"] == r["power_kW"])
-    plant_kW = sys.power_utility.rate + aux_kW
+    P1 = units["P1"]
+    alt = _biosteam_screwpress(sys)
     ef = float(lca._EF["electricity"]["value"])
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / dry
     base_msp = _msp(sys, estimates)
-    cases = [("BioSTEAM ScrewPress: 37.2 kWh per t total wet feed (frozen model)", None, P1.power_utility.rate),
-             ("Same 37.2 kWh applied per t dry solids", 37.2, 37.2 * dry / 1e3),
-             ("SaBRe press: 5 kWh per t dry solids (preprocessing.yaml)", 5.0, 5.0 * dry / 1e3)]
+    wet_t = float(P1.ins[0].F_mass) / 1e3
     rows = []
-    for name, value, kW in cases:
-        msp = base_msp if value is None else _msp(sys, estimates, p1_kWh_per_t_dry=value)
+    for name, unit, adopted in (("Municipal biosolids press (HUBER-type; 5 kWh/t dry; 3.1 MUSD per 0.953 dry t/h)", P1, True),
+                                ("BioSTEAM ScrewPress (Perry; 37.2 kWh/t total wet feed)", alt, False)):
+        kW = unit.power_utility.rate
+        msp = base_msp if adopted else _msp(sys, estimates, p1_biosteam_screwpress=True)
         d_kWh_per_kg_dry = (kW - P1.power_utility.rate) / dry
-        rows.append(dict(case=name, P1_kW=kW, P1_GWh_per_yr=kW * hours / 1e6,
-                         plant_electricity_GWh_per_yr=(plant_kW - P1.power_utility.rate + kW) * hours / 1e6,
-                         P1_kWh_per_t_dry=kW / dry * 1e3, MSP_USD_per_kg_H2=msp, delta_MSP=msp - base_msp,
-                         delta_GWP_kgCO2e_per_kg_dry=d_kWh_per_kg_dry * ef,
+        rows.append(dict(case=name, P1_kW=kW, P1_kWh_per_t_dry=kW / dry * 1e3, P1_kWh_per_t_wet=kW / wet_t,
+                         P1_GWh_per_yr=kW * hours / 1e6, P1_installed_MUSD=unit.installed_cost / 1e6,
+                         MSP_USD_per_kg_H2=msp, delta_MSP=msp - base_msp,
                          delta_GWP_kgCO2e_per_kg_H2=d_kWh_per_kg_dry * ef / h2,
-                         status="frozen baseline" if value is None else "alternative, not adopted"))
+                         status="adopted" if adopted else "alternative, not adopted"))
     _msp(sys, estimates)
     return rows
 
@@ -455,6 +477,10 @@ def get_att_cost_year_comparison(sys):
     return rows
 
 
+def _configuration(sys):
+    return "att_only" if "P1" in inv._units(sys) else "integrated"
+
+
 def _same_flows(sys, fingerprint, rtol=1e-8):
     now = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     return all(abs(a - b) <= rtol * max(abs(b), 1e-6) for a, b in zip(now, fingerprint))
@@ -462,7 +488,7 @@ def _same_flows(sys, fingerprint, rtol=1e-8):
 
 def _checks(sys, result, fingerprint):
     tea = result["tea"]
-    scale = inv.get_att_reference_scale()
+    scale = inv.get_att_reference_scale(_configuration(sys))
     hours = sys.operating_hours
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     fuel = sum(hu.duty for hu in gas) / 1e3 / _BURNER_EFFICIENCY * hours
@@ -470,7 +496,7 @@ def _checks(sys, result, fingerprint):
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / inv._dry_feed_kgph(sys)
     unchanged = _same_flows(sys, fingerprint)
     rows = [
-        ("Dry feed [t/d] = 15000 x (1 - 0.8673)", scale["dry_feed_t_per_day"], 15000 * (1 - 0.8673)),
+        ("Dry feed [t/d] = reference scale", inv._dry_feed_kgph(sys) * 24.0 / 1e3, scale["dry_feed_t_per_day"]),
         ("Operating hours = 330 d x 24 h", hours, 7920.0),
         ("TEA operating days x 24 = system hours", tea.operating_days * 24, hours),
         ("FCI = unit installed + extra capital", tea.FCI,

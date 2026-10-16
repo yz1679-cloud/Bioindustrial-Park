@@ -13,8 +13,6 @@ Layout (keys of ``output_dir``)::
     full_scale/tea/            tea            MSP, CAPEX/OPEX, cases, sensitivities
     full_scale/lca/            lca            GWP100, contributions, scenarios
     full_scale/summary/        summary        consolidated results, final sheets C1-C14
-    comparison/                comparison     ATT_Final_Results.xlsx, gas-yield comparisons (D1-D7)
-    scenarios/gas_yield/       gas_scenarios  Gas-C / Gas-Cprime / Gas-A TEA and LCA
     scenarios/heat_integration/ heat_integration  heat-recovery screening and HEN report
     documentation/             documentation  master model documentation
     documentation/diagrams/    diagrams       process flow diagrams
@@ -34,8 +32,6 @@ SUBDIRS = {
     "tea": "full_scale/tea",
     "lca": "full_scale/lca",
     "summary": "full_scale/summary",
-    "comparison": "comparison",
-    "gas_scenarios": "scenarios/gas_yield",
     "heat_integration": "scenarios/heat_integration",
     "documentation": "documentation",
     "diagrams": "documentation/diagrams",

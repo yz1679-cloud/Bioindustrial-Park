@@ -117,6 +117,17 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
     # No known formula/composition for this lumped catch-all; treated as
     # generically Glucan-like (same MW/Cn/V/Hf).
     OtherSolids = Glucan.copy("OtherSolids")
+    if include_att:
+        # ATT feed composition from the NLR Sargassum preprint (Wiatrowski et
+        # al., Research Square 2026, Tables 1, S-5, S-6): the unidentified
+        # remainder (29.6 % of dry solids in the 15 psi pressed solids, incl.
+        # 1 % FAME) is given the C/H/O/N formula that makes the identified
+        # pseudo-components plus this remainder reproduce the measured CHN of
+        # the sample (C 31.36, H 3.88, N 1.16 wt % of dry solids; O by
+        # difference): OtherSolids = 48.9 wt % C, 5.7 H, 45.1 O, 0.5 N.
+        # Hf per gram borrows Glucan's value (the ATT model re-references the
+        # feed Hf to the HHV in att.yaml, so it does not enter the U2 duty).
+        OtherSolids = _structural_solid("OtherSolids", "CH1.39O0.69N0.009", -1438.3 * 24.62)
 
     # EnzymaticPress/3-HP-only chemicals.
     hp3_chemicals = []

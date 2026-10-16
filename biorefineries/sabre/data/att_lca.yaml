@@ -93,7 +93,7 @@ lca:
     H_plus_per_mol: {NaOH: 1, Na2CO3: 1}
 
   waste_management:
-    wastewater_streams: [press_liquid, u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
+    wastewater_streams: [u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
     landfill_streams: [ash_residue_cake]
 
   coproduct:

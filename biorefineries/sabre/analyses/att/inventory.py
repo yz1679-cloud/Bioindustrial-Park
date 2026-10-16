@@ -31,7 +31,6 @@ from biosteam.units.design_tools import PressureVessel
 from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
 from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
 
-from biorefineries.sabre.analyses.att.thermodynamics import get_att_u2_gas_basis
 from biorefineries.sabre.utils import (
     OPERATING_DAYS_PER_YEAR, OPERATING_HOURS_PER_YEAR, get_scale_feed_kgph, load_assumptions,
 )
@@ -39,7 +38,7 @@ from biorefineries.sabre.utils import (
 __all__ = (
     "get_att_reference_scale",
     "get_att_external_flows",
-    "get_att_h2_yield_basis_check",
+    "get_att_u2_balance_checks",
     "get_att_product_scenarios",
     "get_att_chemical_ledger",
     "get_att_carbon_fate",
@@ -49,8 +48,6 @@ __all__ = (
     "get_att_lci",
     "get_att_equipment_inventory",
     "get_att_tea_inputs",
-    "get_att_u2_closure_comparison",
-    "get_att_experimental_gas_yield_scenario",
     "get_att_unit_streams",
     "get_att_unit_balances",
     "get_att_stream_sanity_check",
@@ -92,20 +89,29 @@ def _dry_feed_kgph(sys):
     return float(feed.F_mass - feed.imass["Water"])
 
 
-def get_att_reference_scale():
-    """SaBRe common plant scale (project-wide assumption)."""
-    feed_type = _ATT["feed_preparation"]["feedstock_type"]
+def get_att_reference_scale(configuration="att_only"):
+    """
+    SaBRe common plant scale (project-wide assumption): 15,000 wet t/d of
+    fresh Sargassum. For the integrated case the ATT plant receives the
+    presscake of that Sargassum from a biostimulant plant.
+    """
+    from biorefineries.sabre.systems._att_system import get_att_reference_dry_feed_kgph
+
+    feed_type = _ATT["feed_preparation"]["feedstock_type" if configuration == "att_only"
+                                         else "integrated_feedstock_type"]
     moisture = float(_FEEDSTOCK["feedstock_type"][feed_type]["moisture_frac"])
-    wet_kgph = get_scale_feed_kgph(_FEEDSTOCK)
+    dry_kgph = get_att_reference_dry_feed_kgph(configuration)
+    wet_kgph = dry_kgph / (1.0 - moisture)
     return dict(
-        wet_feed_t_per_day=float(_FEEDSTOCK["scale"]["wet_feed_ton_per_day"]),
+        configuration=configuration,
+        wet_feed_t_per_day=wet_kgph * 24.0 / 1000.0,
         wet_feed_kgph=wet_kgph,
         moisture_frac=moisture,
-        dry_feed_kgph=wet_kgph * (1.0 - moisture),
-        dry_feed_t_per_day=wet_kgph * (1.0 - moisture) * 24.0 / 1000.0,
+        dry_feed_kgph=dry_kgph,
+        dry_feed_t_per_day=dry_kgph * 24.0 / 1000.0,
         operating_days_per_year=float(OPERATING_DAYS_PER_YEAR),
         operating_hours_per_year=float(OPERATING_HOURS_PER_YEAR),
-        dry_feed_t_per_year=wet_kgph * (1.0 - moisture) * OPERATING_HOURS_PER_YEAR / 1000.0,
+        dry_feed_t_per_year=dry_kgph * OPERATING_HOURS_PER_YEAR / 1000.0,
         basis=_INV["reference_scale"]["basis"],
         status=_INV["reference_scale"]["status"],
     )
@@ -135,97 +141,31 @@ def get_att_external_flows(sys):
     return rows
 
 
-def _max_ch4_with_measured_h2(U2):
-    """Largest CH4 compatible with the measured H2 (char = 0) [mmol/g daf]."""
-    feed = U2.ins[0]
-    residue = U2.outs[1]
-    daf = float(U2._daf_sargassum_kgph)
-    char = residue.chemicals[U2.char_ID].atoms
-    h2 = float(U2.reported_gas_yield_mmol_per_g_daf["H2"]) * daf / 1000.0
-    target = []
-    for e in ("C", "H", "O"):
-        fixed = float(residue.get_atomic_flow(e)) - float(residue.imol[U2.char_ID]) * char.get(e, 0.0)
-        target.append(float(feed.get_atomic_flow(e)) - fixed - (2.0 * h2 if e == "H" else 0.0))
-    # Unknowns: CH4, CO2, H2O.
-    ch4, co2, water = np.linalg.solve(np.array([[1, 1, 0], [4, 0, 2], [0, 2, 1]], float), target)
-    return ch4 * 1000.0 / daf, co2 * 1000.0 / daf
-
-
-def get_att_h2_yield_basis_check(sys):
-    """Targeted check of the reported gas yields against the feed electrons."""
-    U2 = _units(sys)["U2"]
-    daf = float(U2._daf_sargassum_kgph)
-    dry = float(U2._dry_sargassum_kgph)
-    redox = U2._redox_balance_kmol_e_per_h
-    feed_e = redox["feed_organics"] / daf * 1e3  # mmol e-/g daf
-    measured = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
-    gas_e = sum(_GAS_ELECTRONS[k] * y for k, y in measured.items())
-    ratio = gas_e / feed_e
-    hhv_range = _ATT["reactor"]["energy_basis"]["sensitivity_feed_HHV_MJ_per_kg_daf"]["secondary_literature"]
-    ch4_max, co2_at_ch4_max = _max_ch4_with_measured_h2(U2)
-    rows = [
-        ("Source of reported yields", float("nan"), "",
-         "ATT Inputs and Assumptions_261005.xlsx, sheet 'Experimental results', Ni-CatATT row: H2, CH4, CO, "
-         "Gas 4 and CO2 in one table (hard-coded values, no formulas or notes); 500 C, 1 h, N2 carrier, "
-         "steam 3.6 g; char, liquids and carbonate not reported"),
-        ("Available electrons in feed organics (model composition)", feed_e, "mmol e-/g daf", ""),
-        ("Available electrons in reported gases", gas_e, "mmol e-/g daf",
-         "H2 x2, CH4 x8, CO x2, CO2 x0; water and NaOH are redox-neutral"),
-        ("  of which H2", 2 * measured["H2"], "mmol e-/g daf", ""),
-        ("  of which CH4", 8 * measured["CH4"], "mmol e-/g daf", ""),
-        ("Reported gases / feed electrons", ratio, "-", "> 1: the reported gases cannot all be kept"),
-        ("Measured H2 alone / feed electrons", 2 * measured["H2"] / feed_e, "-", "< 1: H2 alone is feasible"),
-        ("Max CH4 compatible with measured H2 (char = 0)", ch4_max, "mmol/g daf",
-         f"vs reported {measured['CH4']:.2f}; requires CO2 {co2_at_ch4_max:.2f} mmol/g daf"),
-        ("Feed HHV implied by all reported gases (Thornton)", gas_e * _THORNTON_kJ_PER_MOL_E / 1e3, "MJ/kg daf",
-         f"literature range {hhv_range[0]}-{hhv_range[1]} MJ/kg daf"),
-        ("Ash fraction needed if yields were normalized to a too-small daf mass", 1 - daf / dry / ratio,
-         "kg/kg dry", f"database {1 - daf / dry:.3f}, workbook 0.172 (both far lower)"),
-        ("Model closure", float("nan"), "", U2.gas_closure_method),
-    ]
-    model = U2._model_gas_yield_mmol_per_g_daf
-    for k in _MW:
-        rows.append((f"  model {k}", model.get(k, 0.0), "mmol/g daf",
-                     "measured" if (k == "H2" and U2.gas_closure_method == "h2_priority") else
-                     ("closure product (unmeasured)" if k == U2.closure_gas_ID
-                      and U2.gas_closure_method == "h2_priority" else "")))
-    rows = [dict(item=a, value=b, unit=c, note=d) for a, b, c, d in rows]
-    rows.append(dict(
-        item="Conclusion", value=float("nan"), unit="",
-        note=("The four measured gases together exceed the feed's available electrons (1.38x), so they cannot all "
-              "be reproduced in a conserving model. Baseline: all four scaled by one factor s (ratios preserved); "
-              "h2_priority keeps H2 only; experimental_fixed keeps all four with an open O balance. Ash basis, "
-              "dry/daf or wet-mass normalization do not explain the excess. Documented limitation."),
-    ))
-    return rows
+def get_att_u2_balance_checks(sys):
+    """U2 checks: NaOH capacity for CO2, electrons, mass and energy (ATTReactor.balance_checks)."""
+    return _units(sys)["U2"].balance_checks()
 
 
 def get_att_product_scenarios(sys):
-    """Reported (workbook) vs model gas yields, H2 product and off-gas."""
-    basis = get_att_u2_gas_basis(sys)
+    """Specified U2 gas yields, H2 product and off-gas."""
     U2 = _units(sys)["U2"]
-    daf = basis["daf_kgph"]
+    daf = float(U2._daf_sargassum_kgph)
     dry = _dry_feed_kgph(sys)
     streams = _streams(sys)
     U2_gas = U2.outs[0]
     tail = streams["u3_tail_gas"]
-    measured = basis["measured_yield_mmol_per_g_daf"]
-    model = basis["model_yield_mmol_per_g_daf"]
-    method = U2.gas_closure_method
+    psa = float(_ATT["gas_treatment"]["psa_h2_recovery"])
+    spec = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
+    method = "specified_yields"
     rows = []
     for k in _MW:
-        if method == "h2_priority":
-            status = ("measured" if k == "H2" else
-                      "closure product (unmeasured)" if k == U2.closure_gas_ID else "not imposed (set to 0)")
-        else:
-            status = "measured x s (reconciled)"
-        rows.append(dict(closure=method, item=f"{k} in U2 gas", reported_mmol_per_g_daf=measured[k],
-                         model_mmol_per_g_daf=model.get(k, 0.0),
+        rows.append(dict(closure=method, item=f"{k} in U2 gas", specified_mmol_per_g_daf=spec.get(k, 0.0),
                          kg_per_h_at_sim_basis=float(U2_gas.imass[k]),
-                         kg_per_kg_dry=float(U2_gas.imass[k]) / dry, status=status))
+                         kg_per_kg_dry=float(U2_gas.imass[k]) / dry,
+                         status="specified (experimental team)" if k in spec else "not specified"))
     h2 = float(streams["h2_product"].imass["H2"])
     rows.append(dict(closure=method, item="H2 product (after PSA)", kg_per_h_at_sim_basis=h2,
-                     kg_per_kg_dry=h2 / dry, status=f"PSA recovery {basis['psa_h2_recovery']}"))
+                     kg_per_kg_dry=h2 / dry, status=f"PSA recovery {psa}"))
     for k in _MW:
         v = float(tail.imass[k])
         rows.append(dict(closure=method, item=f"{k} in collected off-gas", kg_per_h_at_sim_basis=v,
@@ -524,7 +464,6 @@ def get_att_lci(flows, utilities, products, ca_source=None):
     add("Process water", util["Process water (D1)"], "kg", None, None, "", "MISSING (expected negligible)")
     for stream, label in (("ash_residue_cake", "Ash/char residue to disposal"),
                           ("liquor_purge", "Alkaline purge treatment"),
-                          ("press_liquid", "Wastewater: press liquid"),
                           ("u3_condensate", "Wastewater: U3 condensate"),
                           ("ec1_condensate", "Wastewater: EC1 condensate")):
         add(label, total[(stream, "TOTAL")], "kg", None, None, "", "MISSING")
@@ -630,108 +569,6 @@ def get_att_tea_inputs():
     return [dict(input=a, value=b, source=c, status=d) for a, b, c, d in rows]
 
 
-def _closure_metrics(sys):
-    U2 = _units(sys)["U2"]
-    dry = _dry_feed_kgph(sys)
-    s = _streams(sys)
-    estimates = get_att_cost_estimates(sys)
-    flows = get_att_external_flows(sys)
-    utilities = get_att_purchased_utilities(sys, estimates)
-    lci = get_att_lci(flows, utilities, get_att_product_scenarios(sys))
-    u = {r["item"]: r["per_kg_dry"] for r in utilities}
-    y = U2._model_gas_yield_mmol_per_g_daf
-    feed = U2.ins[0]
-    gas, residue = U2.outs
-    element_error = max(
-        abs(float(gas.get_atomic_flow(e) + residue.get_atomic_flow(e) - feed.get_atomic_flow(e)))
-        / float(feed.get_atomic_flow(e)) for e in ("C", "H", "O", "N", "Na")
-    )
-    redox = U2._redox_balance_kmol_e_per_h
-    gwp = next(r for r in lci if r["flow"].startswith("TOTAL"))["GWP_kgCO2e_per_kg_dry"]
-    gwp_h2 = next(r for r in lci if r["flow"].startswith("GWP per kg H2"))["GWP_kgCO2e_per_kg_dry"]
-    return (
-        ("H2 yield in U2 gas (model)", y["H2"], "mmol/g daf"),
-        ("H2 at U2 outlet", float(gas.imass["H2"]) / dry, "kg/kg dry"),
-        ("H2 product (PSA 90 %)", float(s["h2_product"].imass["H2"]) / dry, "kg/kg dry"),
-        ("CH4 in U2 gas (model; reported 8.769 kept in 02c)", y["CH4"], "mmol/g daf"),
-        ("CO in U2 gas (model; reported 0.165 kept in 02c)", y["CO"], "mmol/g daf"),
-        ("CO2 in U2 gas (model)", y["CO2"], "mmol/g daf"),
-        ("Gas scale factor s", float(U2._gas_scale_factor), "-"),
-        ("Char incl. CharN/CharS", U2._char_kgph / dry, "kg/kg dry"),
-        ("Char C / feed organic C", U2._char_carbon_fraction_of_feed_organic_C, "-"),
-        ("U2 net water formation (negative = consumed)", U2._net_water_formation_kmolph * 18.01528 / dry,
-         "kg/kg dry"),
-        ("U3 condensate", float(s["u3_condensate"].F_mass) / dry, "kg/kg dry"),
-        ("F1 ash/char cake", float(s["ash_residue_cake"].F_mass) / dry, "kg/kg dry"),
-        ("PSA off-gas", float(s["u3_tail_gas"].F_mass) / dry, "kg/kg dry"),
-        ("U2 max relative element error (C, H, O, N, Na)", element_error, "-"),
-        ("U2 electron balance error (model gases + char vs feed)",
-         (redox["model_gases"] + redox["char"] - redox["feed_organics"]) / redox["feed_organics"], "-"),
-        ("U2 process heat", U2._heat_duty_kJph / 1e3 / dry, "MJ/kg dry"),
-        ("U2 heat incl. 5 % loss", U2._utility_heat_duty_kJph / 1e3 / dry, "MJ/kg dry"),
-        ("U2 natural gas fuel (LHV)", u["U2 natural gas: fuel input (LHV)"], "MJ/kg dry"),
-        ("LP steam heat incl. loss", u["LP steam: utility heat incl. 5 % loss"], "MJ/kg dry"),
-        ("Boiler natural gas for steam (LHV)", u["LP steam: boiler natural gas (LHV)"], "MJ/kg dry"),
-        ("Total natural gas (U2 + boiler)", u["U2 natural gas: fuel input (LHV)"]
-         + u["LP steam: boiler natural gas (LHV)"], "MJ/kg dry"),
-        ("Cooling water heat removed", u["Cooling water: heat removed"], "MJ/kg dry"),
-        ("Electricity total", u["Electricity: total"], "kWh/kg dry"),
-        ("NaOH makeup", float(s["fresh_naoh_solid"].F_mass) / dry, "kg/kg dry"),
-        ("Ca(OH)2", float(s["lime"].F_mass) / dry, "kg/kg dry"),
-        ("GWP (limestone Ca(OH)2, missing factors excluded)", gwp, "kg CO2e/kg dry"),
-        ("GWP per kg H2", gwp_h2, "kg CO2e/kg H2"),
-    )
-
-
-def get_att_experimental_gas_yield_scenario(sys):
-    """
-    EXPERIMENTAL GAS-YIELD SCENARIO (product accounting only).
-
-    All reported Ni-CatATT yields (H2, CH4, CO, CO2) times the daf feed, with
-    the PSA recovery applied to H2 and the other gases to the off-gas. It is
-    NOT element- or redox-balanced with the SaBRe feed and has no energy
-    balance; mass, energy and utilities come only from the closed baseline.
-    Use: product accounting and CH4/CO coproduct-recovery or emission
-    sensitivities, never combined with the baseline closure CO2.
-    """
-    U2 = _units(sys)["U2"]
-    daf = float(U2._daf_sargassum_kgph)
-    dry = _dry_feed_kgph(sys)
-    psa = float(_ATT["gas_treatment"]["psa_h2_recovery"])
-    reported = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
-    model = U2._model_gas_yield_mmol_per_g_daf
-    label = "EXPERIMENTAL (reported); NOT element/redox balanced; product accounting only"
-    rows = []
-    for k in _MW:
-        U2_kg = reported[k] * daf * _MW[k] / 1000.0 / dry
-        product = U2_kg * psa if k == "H2" else 0.0
-        rows.append(dict(item=k, reported_mmol_per_g_daf=reported[k], U2_outlet_kg_per_kg_dry=U2_kg,
-                         to_H2_product_kg_per_kg_dry=product, to_offgas_kg_per_kg_dry=U2_kg - product,
-                         baseline_model_mmol_per_g_daf=model.get(k, 0.0), status=label))
-    feed_e = U2._redox_balance_kmol_e_per_h["feed_organics"] / daf * 1e3
-    gas_e = sum(_GAS_ELECTRONS[k] * y for k, y in reported.items())
-    rows.append(dict(item="Available electrons: reported gases / feed organics",
-                     reported_mmol_per_g_daf=gas_e, U2_outlet_kg_per_kg_dry=float("nan"),
-                     to_H2_product_kg_per_kg_dry=float("nan"), to_offgas_kg_per_kg_dry=float("nan"),
-                     baseline_model_mmol_per_g_daf=feed_e,
-                     status=f"deficit {gas_e - feed_e:.1f} mmol e-/g daf ({gas_e / feed_e - 1:.0%}); "
-                            "no energy balance exists for this scenario"))
-    return rows
-
-
-def get_att_u2_closure_comparison(systems):
-    """Side-by-side key results for simulated systems {label: sys}."""
-    metrics = {label: _closure_metrics(sys) for label, sys in systems.items()}
-    first = next(iter(metrics.values()))
-    rows = []
-    for i, (name, _, unit) in enumerate(first):
-        row = dict(metric=name, unit=unit)
-        for label, values in metrics.items():
-            row[label] = values[i][1]
-        rows.append(row)
-    return rows
-
-
 # ---------------------------------------------------------------------------
 # Final verification tables
 # ---------------------------------------------------------------------------
@@ -740,23 +577,16 @@ _ELEMENTS = ("C", "H", "O", "N", "S", "Na", "Ca")
 
 
 def _component_basis(U2):
-    """Origin of the U2 outlet components (measured vs model closure)."""
-    closure = U2.closure_gas_ID
-    basis = {
-        ("att_gas", "H2"): "EXPERIMENTAL: measured H2 yield (Ni-CatATT)",
-        ("att_gas", "Water"): "MODEL CLOSURE: C/H/O balance (product water)",
-        ("att_residue", "Char"): "MODEL CLOSURE: C/H/O balance (char CH0.5O0.1)",
-        ("att_residue", "CharN"): "MODEL: feed N retained in char",
-        ("att_residue", "CharS"): "MODEL: feed S retained in char",
-        ("att_residue", "Na2CO3"): "SPECIFIED: 100 % NaOH -> Na2CO3 (workbook)",
-        ("att_residue", "Ash"): "SPECIFIED: inert ash (SaBRe database)",
+    """Origin of the U2 outlet components."""
+    return {
+        ("att_gas", "H2"): "SPECIFIED: experimental team yield",
+        ("att_gas", "CH4"): "SPECIFIED: experimental team yield",
+        ("att_gas", "CO"): "SPECIFIED: experimental team yield",
+        ("att_gas", "CO2"): "SPECIFIED yield + carbon not otherwise assigned (C balance)",
+        ("att_gas", "Water"): "MODEL: oxygen balance (product water)",
+        ("att_residue", "Na2CO3"): "SPECIFIED: NaOH -> Na2CO3 (experimental team)",
+        ("att_residue", "Ash"): "SPECIFIED: inert ash",
     }
-    if U2.gas_closure_method == "h2_priority":
-        basis[("att_gas", closure)] = "MODEL-ASSUMED CLOSURE PRODUCT (not measured)"
-    else:
-        for ID in U2._measured_gas_kmolph:
-            basis[("att_gas", ID)] = "MODEL: measured yield x s (reconciled)"
-    return basis
 
 
 def get_att_unit_streams(sys):
@@ -845,17 +675,17 @@ def get_att_water_balance(sys):
         w_out += w
         rows.append(dict(group=f"output ({fates[p.ID][1]})", item=p.ID, kg_per_kg_dry=w / dry))
     rows += [
-        dict(group="internal", item="P1 mechanical dewatering (press liquid)",
-             kg_per_kg_dry=float(s["press_liquid"].imass["Water"]) / dry),
+        dict(group="internal", item="P1 mechanical dewatering (juice, if present)",
+             kg_per_kg_dry=(float(s["biostimulant_juice"].imass["Water"]) / dry) if "biostimulant_juice" in s else 0.0),
         dict(group="internal", item="D0 thermal drying (evaporated)",
              kg_per_kg_dry=float(s["dryer_exhaust"].imass["Water"] - s["dryer_air"].imass["Water"]) / dry),
         dict(group="internal", item="U3 condensation (U3C + U3D)",
              kg_per_kg_dry=float(s["u3_condensate"].imass["Water"] + s["u3_dryer_removed_water"].imass["Water"]) / dry),
         dict(group="internal", item="EC1 evaporation (= condensate)",
              kg_per_kg_dry=float(s["ec1_condensate"].imass["Water"]) / dry),
-        dict(group="internal", item="Wastewater total (press liquid + condensates)",
+        dict(group="internal", item="Wastewater total (condensates)",
              kg_per_kg_dry=sum(float(s[k].imass["Water"]) for k in
-                               ("press_liquid", "u3_condensate", "u3_dryer_removed_water", "ec1_condensate")) / dry),
+                               ("u3_condensate", "u3_dryer_removed_water", "ec1_condensate")) / dry),
         dict(group="check", item="inputs + formation - outputs", kg_per_kg_dry=(w_in + formation - w_out) / dry),
     ]
     return rows
@@ -873,7 +703,7 @@ def get_att_sodium_calcium_ledger(sys):
     makeup = float(s["fresh_naoh_solid"].imass["NaOH"])
     gross = float(to_U2.imass["NaOH"])
     items = [
-        ("NaOH entering U2 (gross requirement, 2 kg/kg daf)", gross),
+        ("NaOH entering U2 (gross requirement, 1 kg/kg daf)", gross),
         ("NaOH from recycle (EC1 concentrate)", gross - makeup),
         ("NaOH makeup (fresh solid)", makeup),
         ("Effective NaOH recovery = 1 - makeup / gross", 1.0 - makeup / gross),
@@ -904,52 +734,33 @@ def get_att_sodium_calcium_ledger(sys):
     return rows
 
 
-_MODEL_LABEL = "MODEL: measured x s (engineering prediction preserving the measured ratios; NOT a measurement)"
-
-
 def get_att_gas_accounting(sys):
-    """Reported vs model gas yields, labels, destinations and the CO2 path."""
+    """Specified gas yields, labels, destinations and the CO2 path."""
     U2 = _units(sys)["U2"]
-    daf = float(U2._daf_sargassum_kgph)
     dry = _dry_feed_kgph(sys)
-    reported = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
+    specified = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
     model = U2._model_gas_yield_mmol_per_g_daf
-    h2_priority = U2.gas_closure_method == "h2_priority"
     labels = {
-        "H2": ("EXPERIMENTAL (measured); kept exactly" if h2_priority else _MODEL_LABEL,
-               "90 % to h2_product (PSA), 10 % to u3_tail_gas", ""),
-        "CH4": ("MODEL SIMPLIFICATION: set to 0 for element/redox feasibility; NOT an experimental "
-                "observation. The reported yield cannot coexist with the measured H2 under the SaBRe "
-                "feed composition (max ~2.4 mmol/g daf even with no char)" if h2_priority else _MODEL_LABEL,
-                "u3_tail_gas",
-                "TEA: no CH4 revenue in the baseline; CH4 recovery is a later sensitivity. LCA: CH4 "
-                "emission/fugitive loss is a later sensitivity using the reported yield."),
-        "CO": ("Not imposed (0); reported value kept" if h2_priority else _MODEL_LABEL, "u3_tail_gas", ""),
-        "CO2": ("MODEL-ASSUMED CLOSURE PRODUCT (not measured): carbon beyond the NaOH capacity leaves "
-                "fully oxidized. Reported value is gas-phase CO2 after in-situ NaOH capture (NaOH mixed "
-                "with the sample in the reactor; inferred from the set-up, not stated in the workbook)"
-                if h2_priority else _MODEL_LABEL, "u3_tail_gas", "Biogenic CO2."),
+        "H2": ("SPECIFIED (experimental team)", "90 % to h2_product (PSA), 10 % to u3_tail_gas", ""),
+        "CH4": ("SPECIFIED (experimental team)", "u3_tail_gas",
+                "TEA: no CH4 revenue; tail gas is burned in the U2 burner (natural gas offset)."),
+        "CO": ("SPECIFIED (experimental team)", "u3_tail_gas", ""),
+        "CO2": ("SPECIFIED yield plus the carbon not otherwise assigned (carbon balance)", "u3_tail_gas",
+                "Biogenic CO2."),
     }
     rows = []
     for k in _MW:
         label, destination, flag = labels[k]
-        rows.append(dict(species=k, reported_mmol_per_g_daf=reported[k],
-                         reported_kg_per_kg_dry=reported[k] * daf * _MW[k] / 1000.0 / dry,
+        rows.append(dict(species=k, specified_mmol_per_g_daf=specified.get(k, 0.0),
                          model_mmol_per_g_daf=model.get(k, 0.0),
                          model_kg_per_kg_dry=float(U2.outs[0].imass[k]) / dry,
                          basis=label, destination=destination, TEA_LCA_flag=flag))
-    ignored = U2.ignored_reported_gas_yields
-    for k, y in ignored.items():
-        rows.append(dict(species=k, reported_mmol_per_g_daf=float(y), reported_kg_per_kg_dry=float("nan"),
-                         model_mmol_per_g_daf=0.0, model_kg_per_kg_dry=0.0,
-                         basis="Ignored: CO on the second GC column (collaborator), negligible",
-                         destination="", TEA_LCA_flag=""))
     # Path of the gas species through U3 (no unit absorbs CO2).
     for ID in ("att_gas", "u3_cooled_multiphase", "u3_wet_gas", "u3_dry_gas", "u3_raw_h2_product",
                "u3_tail_gas", "h2_product"):
         stream = next(s for unit in sys.units for s in (*unit.ins, *unit.outs) if s.ID == ID)
-        rows.append(dict(species=f"path: {ID}", reported_mmol_per_g_daf=float("nan"),
-                         reported_kg_per_kg_dry=float("nan"), model_mmol_per_g_daf=float("nan"),
+        rows.append(dict(species=f"path: {ID}", specified_mmol_per_g_daf=float("nan"),
+                         model_mmol_per_g_daf=float("nan"),
                          model_kg_per_kg_dry=float("nan"),
                          basis=", ".join(f"{k} {float(stream.imass[k]) / dry:.5f}" for k in _MW),
                          destination=f"{stream.source} -> {stream.sink}", TEA_LCA_flag="kg/kg dry"))
@@ -1029,11 +840,8 @@ def get_att_utility_consistency_check(sys):
          sum(hu.duty for hu in u["EC1"].heat_utilities if hu.duty > 0), energy["EC1_utility_heat_kJph"]),
         ("D0 heat utility = energy summary [kJ/h]",
          sum(hu.duty for hu in u["D0"].heat_utilities), energy["D0_utility_heat_kJph"]),
-        ("U2 gas closure method", u["U2"].gas_closure_method,
-         _ATT["reactor"]["material_balance"]["gas_closure_method"]),
-        ("U2 model H2 = measured x s (or measured) [mmol/g daf]", u["U2"]._model_gas_yield_mmol_per_g_daf["H2"],
-         float(u["U2"].reported_gas_yield_mmol_per_g_daf["H2"])
-         * (u["U2"]._gas_scale_factor if u["U2"].gas_closure_method == "uniform_redox_scaling" else 1.0)),
+        ("U2 model H2 = specified H2 [mmol/g daf]", u["U2"]._model_gas_yield_mmol_per_g_daf["H2"],
+         float(u["U2"].reported_gas_yield_mmol_per_g_daf["H2"])),
     ]
     out = []
     for item, a, b in rows:
@@ -1048,16 +856,17 @@ def get_att_utility_consistency_check(sys):
 def get_att_final_assumptions():
     """Accepted research-stage assumptions (user-confirmed 2026-10-10)."""
     rows = [
-        ("NaOH : daf Sargassum", "2 kg/kg daf", "att.yaml reactor case naoh_kg_per_kg_daf"),
-        ("Feedstock", "SaBRe pelagic: ash 34.53 % dry, moisture 86.73 %", "feedstock.yaml"),
-        ("P1 / D0", "dewatering to 75 % moisture, thermal drying to 50 % (wet basis)", "att.yaml feed_preparation"),
+        ("NaOH : daf Sargassum", "1 kg/kg daf", "att.yaml reactor case naoh_kg_per_kg_daf"),
+        ("Feedstock", "NLR preprint: fresh Sargassum (14.3 % solids; pressed 23.7 / 27.0 %)", "feedstock.yaml"),
+        ("P1 / D0", "ATT-only: municipal-type screw press to 76.3 % moisture (juice to biostimulant), thermal drying to 50 % (wet basis); integrated: presscake from the biostimulant plant, no P1", "att.yaml feed_preparation"),
         ("D1 dissolution water", f"{_ATT['downstream']['dissolution_water_kg_per_kg_Na2CO3']} kg/kg Na2CO3 into D1",
          "workbook B18"),
         ("Liquor recycle", f"{_ATT['downstream']['whole_liquor_recycle_fraction']:.0%} whole-liquor; "
                            "NaOH recovery calculated", "att.yaml downstream"),
-        ("Measured gas yields", "H2 66.728, CH4 8.769, CO 0.165, CO2 0.187 mmol/g daf (never modified)",
-         "workbook Ni-CatATT"),
-        ("U2 closure", _INV["u2_closure"]["baseline"], "att.yaml reactor.material_balance"),
+        ("Gas yields", "H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 mmol/g daf (experimental team Excel)",
+         "att.yaml reactor"),
+        ("U2 checks", "NaOH capacity for CO2; electron, mass and energy balances of the identified products",
+         "ATTReactor.balance_checks"),
         ("NaOH -> Na2CO3 in U2", "100 %", "workbook"),
         ("C1", f"{_ATT['downstream']['causticization_conversion']:.0%} conversion, Ca(OH)2 "
                f"{_ATT['downstream']['lime_equiv']} x stoich., 90 C", "workbook / att.yaml"),
@@ -1132,16 +941,16 @@ def compare_scale_invariance(sys_small, sys_large):
 
 # (level, area, assumption, basis, TEA/LCA influence)
 ASSUMPTION_REGISTER = (
-    ("1 essential", "U2 gas yield", "All four measured gases x s (s = 0.5998, ratios preserved); alternatives "
-     "h2_priority and experimental_fixed", "Reported gases exceed feed electrons 1.38x; s unique by C/H/O + electrons",
-     "HIGH (H2 product and MSP scale with s)"),
-    ("1 essential", "U2 chemistry", "100 % NaOH -> Na2CO3; unconverted C as char CH0.5O0.1; N, S retained in char",
-     "Element/redox closure; att.yaml reactor.material_balance", "MEDIUM (NaOH makeup, Na2CO3 load)"),
-    ("1 essential", "NaOH loading", "2 kg NaOH/kg daf", "Advisor-confirmed experimental basis", "HIGH (recycle, EC1 duty)"),
-    ("1 essential", "Feedstock", "Database ash 34.53 % dry, moisture 86.73 %", "User decision; feedstock.yaml",
-     "HIGH (daf per kg dry: 0.655 vs 0.828 workbook)"),
-    ("1 essential", "Feed preparation", "P1 to 75 % moisture, D0 to 50 % (DrumDryer, ideal heat balance)",
-     "User-confirmed process design", "HIGH (D0 ~6 MJ/kg dry)"),
+    ("1 essential", "U2 gas yield", "H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 mmol/g daf specified; extra carbon "
+     "leaves as CO2", "Experimental team Excel; closes the electron balance", "HIGH (H2 product and MSP)"),
+    ("1 essential", "U2 chemistry", "100 % NaOH -> Na2CO3; oxygen balance sets the product water; N, S not tracked",
+     "att.yaml reactor.material_balance", "MEDIUM (NaOH makeup, Na2CO3 load)"),
+    ("1 essential", "NaOH loading", "1 kg NaOH/kg daf", "Experimental team Excel", "HIGH (recycle, EC1 duty)"),
+    ("1 essential", "Feedstock", "NLR preprint composition (fresh and pressed Sargassum)", "feedstock.yaml",
+     "HIGH (daf per kg dry)"),
+    ("1 essential", "Feed preparation", "ATT-only: P1 municipal-type press to 76.3 % moisture, D0 to 50 % "
+     "(DrumDryer, ideal heat balance); integrated: presscake, no P1", "User-confirmed process design",
+     "HIGH (D0 ~6 MJ/kg dry)"),
     ("1 essential", "Recycle", "95 % whole-liquor recycle, 5 % purge; EC1 to 50 % NaOH/(NaOH+H2O) at 90 C",
      "Collaborator '95 % NaOH recycling' read as whole-liquor recycle", "HIGH (NaOH makeup, EC1 duty)"),
     ("1 essential", "C1", "85 % conversion, Ca(OH)2 1.1 x stoichiometric, 90 C", "att.yaml downstream",
@@ -1158,8 +967,6 @@ ASSUMPTION_REGISTER = (
     ("2 engineering", "Off-gas", "Collected 100 %, unpurified, burned in the U2 burner (natural gas offset up to U2's "
      "fuel demand; no burner, flue gas or capital); mainly CH4 with unrecovered H2, CO and CO2",
      "User decisions 2026-10-09/12/15", "MEDIUM (burner not modeled; planned fired heater)"),
-    ("2 engineering", "CH4", "Model CH4 = s x reported (5.26 mmol/g daf); reported 8.769 kept as reference",
-     "Ratio-preserving closure", "FLAG: TEA CH4-recovery and LCA CH4-emission (if vented) sensitivities"),
     ("2 engineering", "CaCO3 cake", "Coproduct, no credit or burden", "User decision 2026-10-09",
      "MEDIUM (scenario later)"),
     ("2 engineering", "Filter cakes", "F1 30 %, F2 25 % moisture with entrained mother liquor", "Literature review",
@@ -1220,7 +1027,7 @@ def build_att_inventory_tables():
     energy_s = get_att_unit_energy(small)
     utilities_s = get_att_purchased_utilities(small)
     check_s = check_att_inventory(small, flows_s, utilities_s)
-    h2_check = get_att_h2_yield_basis_check(small)
+    h2_check = get_att_u2_balance_checks(small)
 
     scale = get_att_reference_scale()
     ref = _simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]), scale["dry_feed_kgph"])
@@ -1259,18 +1066,9 @@ def build_att_inventory_tables():
     for r in utilities:
         r["per_year_at_reference_scale"] = r["per_kg_dry"] * dry_t * 1000.0
 
-    comparison_method = _ATT["reactor"]["material_balance"]["comparison_gas_closure_method"]
-    comparison = _simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"],
-                                             u2_gas_closure=comparison_method), scale["dry_feed_kgph"])
-    closure_comparison = get_att_u2_closure_comparison({
-        f"{_units(ref)['U2'].gas_closure_method} (baseline)": ref,
-        f"{comparison_method} (comparison)": comparison,
-    })
-
     checks = [dict(basis="1 kg/h simulation", check=k, value=str(v)) for k, v in check_s.items()]
     checks += [dict(basis="reference scale", check=k, value=str(v)) for k, v in check.items()]
     basis = [dict(item=k, value=v) for k, v in scale.items()]
-    basis += [dict(item=f"U2 closure: {k}", value=v) for k, v in _INV["u2_closure"].items()]
     sanity = ([dict(r, basis="1 kg/h simulation") for r in get_att_stream_sanity_check(small)]
               + [dict(r, basis="reference scale") for r in get_att_stream_sanity_check(ref)])
     return {
@@ -1278,9 +1076,7 @@ def build_att_inventory_tables():
         "00b_final_assumptions": get_att_final_assumptions(),
         "01_external_flows": flows,
         "02_gas_products": products,
-        "02b_u2_closure_comparison": closure_comparison,
-        "02c_experimental_gas_yield_scenario": get_att_experimental_gas_yield_scenario(ref),
-        "03_h2_yield_basis_check": h2_check,
+        "03_u2_balance_checks": h2_check,
         "04_chemical_ledger": chem,
         "05_carbon_fate": carbon,
         "06_unit_energy": energy,

@@ -8,6 +8,7 @@ from biorefineries.sabre.utils import (
 )
 from biorefineries.sabre.analyses.att.mass_energy import wash_balance
 from biorefineries.sabre.units._att import (
+    ATTPress,
     ATTReactor,
     CausticizationReactor,
     NaOHEvaporator,
@@ -15,7 +16,7 @@ from biorefineries.sabre.units._att import (
     aqueous_naoh_enthalpy_correction_kJph,
 )
 
-__all__ = ("create_att_system",)
+__all__ = ("create_att_system", "get_att_press_retention", "get_att_reference_dry_feed_kgph")
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
 _FEEDSTOCK_DATA = load_assumptions("feedstock.yaml")
@@ -30,6 +31,36 @@ if "heat_recovery" not in _ATT_DATA:
         "Install the Step 6 data file as data/att.yaml (not under a versioned filename)."
     )
 _ATT_HEAT_RECOVERY = _ATT_DATA["heat_recovery"]
+_COST_YEAR = load_assumptions("att_tea.yaml")["tea"]["cost_year"]
+
+
+def get_att_press_retention():
+    """
+    Fraction of each pseudo-component that stays in the presscake: the share
+    of dry solids kept by the press (preprint Table 2) times the ratio of the
+    pressed to the fresh composition, capped at 1.
+    """
+    types = _FEEDSTOCK_DATA["feedstock_type"]
+    fresh = types[_ATT_FEED_PREP["feedstock_type"]]["dry_composition"]
+    pressed = types[_ATT_FEED_PREP["integrated_feedstock_type"]]["dry_composition"]
+    recovery = float(_ATT_FEED_PREP["press"]["solids_recovery"])
+    return {ID: min(1.0, recovery * pressed[ID] / fresh[ID]) for ID in fresh}
+
+
+def get_att_reference_dry_feed_kgph(configuration="att_only"):
+    """
+    Dry solids fed to the ATT plant at the SaBRe reference scale: the fresh
+    Sargassum of the ATT-only plant, or the dry presscake that the same
+    15,000 wet t/d of Sargassum leaves at a biostimulant plant (integration).
+    """
+    from biorefineries.sabre.utils import get_scale_feed_kgph
+    fresh = _FEEDSTOCK_DATA["feedstock_type"][_ATT_FEED_PREP["feedstock_type"]]
+    dry = get_scale_feed_kgph(_FEEDSTOCK_DATA) * (1.0 - float(fresh["moisture_frac"]))
+    if configuration == "att_only":
+        return dry
+    retention = get_att_press_retention()
+    return dry * sum(retention[ID] * x for ID, x in fresh["dry_composition"].items())
+
 
 def create_att_system(
     dry_sargassum_kgph=1.0,
@@ -39,7 +70,7 @@ def create_att_system(
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_integration=False,
-    u2_gas_closure=None,
+    configuration="att_only",
 ):
     """
     Build the alkaline thermal treatment (ATT) process.
@@ -53,11 +84,12 @@ def create_att_system(
     att_case : str or None
         ATT process case. None selects the baseline case defined in
         data/att.yaml (currently Ni-CatATT).
-    u2_gas_closure : str or None
-        U2 gas closure: 'uniform_redox_scaling' (baseline, Gas-C),
-        'h2_priority', 'experimental_fixed', 'uniform_co2_free' (Gas-Cprime)
-        or 'h2_measured_ch4_max' (Gas-A). None uses att.yaml
-        reactor.material_balance.gas_closure_method.
+    configuration : str
+        'att_only' (default): ATT plant that starts from fresh wet Sargassum,
+        with the press P1 (its liquid is the raw juice for biostimulant
+        production, a coproduct). 'integrated': ATT plant that receives the
+        presscake of a biostimulant plant (normally a waste), without P1;
+        ``dry_sargassum_kgph`` is then the dry presscake.
     f2_wash_enabled : bool or None
         Add the W2 F2-cake washer. None uses att.yaml downstream.f2_washing.
     f2_wash_ratio : float or None
@@ -91,6 +123,10 @@ def create_att_system(
         chemicals = None
     if chemicals is None or "Char" not in chemicals:
         create_chemicals(include_att=True)
+    if configuration not in ("att_only", "integrated"):
+        raise ValueError("configuration must be 'att_only' or 'integrated'.")
+    # All equipment is costed at the cost-year CEPCI of att_tea.yaml (2020 USD).
+    bst.CE = float(_COST_YEAR["reference_CE"])
 
     # --------------------------------------------------------------
     # ATT case selection
@@ -114,7 +150,9 @@ def create_att_system(
     # dry_sargassum_kgph is retained only as a convenient dry-solids
     # scaling basis.
     # --------------------------------------------------------------
-    feedstock_type = _ATT_FEED_PREP["feedstock_type"]
+    feedstock_type = _ATT_FEED_PREP[
+        "feedstock_type" if configuration == "att_only" else "integrated_feedstock_type"
+    ]
     feed_params = get_feedstock_type_params(
         _FEEDSTOCK_DATA,
         feedstock_type,
@@ -136,6 +174,7 @@ def create_att_system(
         fresh_feed_kgph=fresh_feed_kgph,
         moisture_frac=raw_moisture_frac,
         ash_wt_frac_dry=raw_ash_wt_frac_dry,
+        dry_composition=feed_params.get("dry_composition"),
     )
 
     raw_feed.ID = "att_sargassum_feed"
@@ -150,24 +189,26 @@ def create_att_system(
     # current ATT modeling notes (75 wt% until a stronger literature
     # basis is identified).
     # --------------------------------------------------------------
-    press_split = {
-        ID: 1.0
-        for ID in raw_feed.chemicals.IDs
-        if ID != "Water"
-    }
-
-    P1 = bst.ScrewPress(
-        "P1",
-        ins=raw_feed,
-        outs=(
-            "pressed_sargassum",
-            "press_liquid",
-        ),
-        split=press_split,
-        moisture_content=_ATT_FEED_PREP[
-            "press_cake_moisture_wt_frac"
-        ],
-    )
+    press_cfg = _ATT_FEED_PREP["press"]
+    if configuration == "att_only":
+        P1 = ATTPress(
+            "P1",
+            ins=raw_feed,
+            outs=(
+                "pressed_sargassum",
+                "biostimulant_juice",
+            ),
+            cake_solids_wt_frac=1.0 - float(_ATT_FEED_PREP["press_cake_moisture_wt_frac"]),
+            retention=get_att_press_retention(),
+            power_kWh_per_dry_ton=press_cfg["power_kWh_per_dry_ton"],
+            capex_installed_ref_usd=press_cfg["capex_installed_ref_usd"],
+            ref_capacity_tph_dry=press_cfg["ref_capacity_tph_dry"],
+            scale_exponent=press_cfg["scale_exponent"],
+        )
+        D0_feed = P1 - 0
+    else:
+        P1 = None
+        D0_feed = raw_feed
 
     # --------------------------------------------------------------
     # D0 - Thermal drying before ATT.
@@ -188,7 +229,7 @@ def create_att_system(
     D0 = bst.DrumDryer(
         "D0",
         ins=(
-            P1 - 0,
+            D0_feed,
             dryer_air,
             dryer_backup_fuel,
         ),
@@ -250,10 +291,17 @@ def create_att_system(
     # target. Na2CO3 is initialized at zero and is determined by recycle
     # convergence.
     # --------------------------------------------------------------
-    initial_daf_kgph = (
-        dry_sargassum_kgph
-        * (1.0 - raw_ash_wt_frac_dry)
-    )
+    if configuration == "att_only":
+        # daf of the presscake (the press leaves part of the solids in the juice)
+        _retention = get_att_press_retention()
+        initial_daf_kgph = dry_sargassum_kgph * sum(
+            _retention[ID] * x for ID, x in feed_params["dry_composition"].items() if ID != "Ash"
+        )
+    else:
+        initial_daf_kgph = (
+            dry_sargassum_kgph
+            * (1.0 - raw_ash_wt_frac_dry)
+        )
     initial_naoh_kgph = (
         naoh_kg_per_kg_daf
         * initial_daf_kgph
@@ -330,7 +378,6 @@ def create_att_system(
             "att_residue",
         ),
         case_name=att_case,
-        gas_closure_method=u2_gas_closure,
     )
 
     # --------------------------------------------------------------
@@ -916,7 +963,7 @@ def create_att_system(
     # System
     # --------------------------------------------------------------
     path = [
-        P1,
+        *([P1] if P1 is not None else []),
         D0,
         M1,
         U2,

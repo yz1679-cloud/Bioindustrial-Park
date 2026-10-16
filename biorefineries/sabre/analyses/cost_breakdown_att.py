@@ -9,21 +9,24 @@
 cost_breakdown_att.py
 ----------------------
 Breakdown of the ATT H2 minimum selling price and GWP100 at the SaBRe
-reference scale (baseline gas closure Gas-C): MSP by cost type and group,
-CAPEX by equipment and process area, OPEX by group, and GWP100 by
-contributor. The numbers come from ``analyses/att/breakdown.py`` (one
-simulation of the baseline; see its docstring for the definitions).
+reference scale for two cases: the ATT-only plant (wet Sargassum, press P1,
+dryer D0; the press liquid goes to biostimulant production) and the
+ATT-integration case (presscake of a biostimulant plant, no P1). MSP by cost
+type and group, CAPEX by equipment and process area, OPEX by group, and
+GWP100 by contributor. The numbers come from ``analyses/att/breakdown.py``
+(one simulation per case; see its docstring for the definitions).
 
 Kept as its own script, like cost_breakdown_3hp.py: the ATT system sets its
 own chemical set and must not share a Python process with the other systems.
 
-Outputs (relative to this script's directory):
+Outputs (relative to this script's directory), each with a ``case`` column:
     ../results/tables/cost_breakdown_att_msp.csv         MSP by group and cost type
     ../results/tables/cost_breakdown_att_capex.csv       installed cost by equipment item
     ../results/tables/cost_breakdown_att_capex_area.csv  installed cost by area + allocated MSP
     ../results/tables/cost_breakdown_att_opex.csv        annual operating cost by group
-    ../results/tables/cost_breakdown_att_gwp.csv         GWP100 by contributor and stage
-    ../results/tables/cost_breakdown_summary_att.csv     one-row summary
+    ../results/tables/cost_breakdown_att_gwp.csv         GWP100 by contributor
+    ../results/tables/cost_breakdown_att_u2_checks.csv   U2 balance checks
+    ../results/tables/cost_breakdown_summary_att.csv     one row per case
     ../results/figures/fig_cost_breakdown_att.png        MSP / CAPEX / OPEX / GWP panels
 
 Run from the repo root:
@@ -42,22 +45,15 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown
+from biorefineries.sabre.analyses.att.breakdown import CONFIGURATIONS, build_att_breakdown
 
 TABLES_OUT = SCRIPT_DIR.parent / "results" / "tables"
 FIGURES_OUT = SCRIPT_DIR.parent / "results" / "figures"
 TABLES_OUT.mkdir(parents=True, exist_ok=True)
 FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
-# Categorical slots 1-5 in fixed order (dataviz reference palette, light mode).
-TYPE_COLORS = {
-    "Materials": "#2a78d6",
-    "Utilities": "#eb6834",
-    "Waste treatment and disposal": "#1baf7a",
-    "Fixed operating cost": "#eda100",
-    "CAPEX-related": "#e87ba4",
-}
-EMISSION_COLOR, OFFSET_COLOR = "#6b6a66", "#008300"   # neutral grey; slot 6 green (not a cost-type color)
+# One color per case (categorical slots 1-2, dataviz reference palette, light mode).
+CASE_COLORS = {"att_only": "#2a78d6", "integrated": "#eb6834"}
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 _SHORT = {
@@ -85,18 +81,30 @@ def _style():
     })
 
 
-def _hbar(ax, labels, values, colors, label_fmt, xlabel, title, pad=0.18):
-    """Horizontal bars, largest on top, direct value labels, no legend box."""
-    y = list(range(len(values)))[::-1]
-    ax.barh(y, values, color=colors, height=0.62, edgecolor=SURFACE, linewidth=1.5)
-    lo, hi = min(0.0, min(values)), max(values)
-    span = hi - lo
-    for yi, v, text in zip(y, values, label_fmt):
-        # Labels sit to the right of the bar end; for a negative bar, to the right of zero.
-        ax.text(max(v, 0.0) + 0.012 * span, yi, text, va="center", ha="left", fontsize=8.5, color=INK)
-    ax.set_yticks(y)
-    ax.set_yticklabels([_SHORT.get(l, l) for l in labels])
-    ax.set_xlim(lo - pad * span * (lo < 0), hi + pad * 1.6 * span)
+def _grouped_hbar(ax, frames, label_col, value_col, label_fmt, xlabel, title, min_abs=0.0):
+    """Horizontal bars, one per case within each category, largest category on top."""
+    cats = {}
+    for case, d in frames.items():
+        for lab, v in zip(d[label_col], d[value_col]):
+            cats.setdefault(lab, {})[case] = v
+    cats = {k: v for k, v in cats.items() if max(abs(x) for x in v.values()) > min_abs}
+    order = sorted(cats, key=lambda k: max(cats[k].values()), reverse=True)
+    h = 0.8 / len(frames)
+    allv = [x for k in cats for x in cats[k].values()]
+    span = max(abs(x) for x in allv) if allv else 1.0
+    lo = min([0.0] + allv)
+    for i, lab in enumerate(order):
+        y0 = len(order) - 1 - i
+        for j, case in enumerate(frames):
+            if case not in cats[lab]:
+                continue
+            v = cats[lab][case]
+            y = y0 + 0.4 - h * (j + 0.5)
+            ax.barh(y, v, height=h * 0.9, color=CASE_COLORS[case], edgecolor=SURFACE, linewidth=1.0)
+            ax.text(max(v, 0.0) + 0.012 * span, y, label_fmt(v), va="center", ha="left", fontsize=7.5, color=INK)
+    ax.set_yticks(range(len(order)))
+    ax.set_yticklabels([_SHORT.get(l, l) for l in order[::-1]])
+    ax.set_xlim(lo * 1.2 if lo < 0 else 0, span * 1.22)
     ax.set_xlabel(xlabel)
     ax.set_title(title, loc="left", color=INK)
     ax.axvline(0, color=INK_2, linewidth=0.8)
@@ -109,45 +117,29 @@ def _hbar(ax, labels, values, colors, label_fmt, xlabel, title, pad=0.18):
 
 def plot_breakdown(tables, path):
     _style()
-    s = tables["summary"]
-    fig, axes = plt.subplots(2, 2, figsize=(14.5, 9.2))
+    summ = {c: t["summary"] for c, t in tables.items()}
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    both = lambda f: " / ".join(f(s) for s in summ.values())
 
-    ax = axes[0, 0]
-    d = tables["MSP_by_type"]
-    _hbar(ax, d["cost_type"], d["USD_per_kg_H2"], [TYPE_COLORS[t] for t in d["cost_type"]],
-          [f"{v:.2f}  ({sh:.0%})" for v, sh in zip(d["USD_per_kg_H2"], d["share_of_MSP"])],
-          "USD per kg H2 (levelized at the MSP)", f"(a) H2 MSP by cost type (total {s['MSP_USD_per_kg_H2']:.2f} USD/kg)")
+    _grouped_hbar(axes[0, 0], {c: t["MSP_by_type"] for c, t in tables.items()}, "cost_type", "USD_per_kg_H2",
+                  lambda v: f"{v:.2f}", "USD per kg H2 (levelized at the MSP)",
+                  "(a) H2 MSP by cost type (" + both(lambda s: f"{s['MSP_USD_per_kg_H2']:.2f}") + " USD/kg)")
+    _grouped_hbar(axes[0, 1], {c: t["CAPEX_by_area"] for c, t in tables.items()}, "area", "installed_MUSD",
+                  lambda v: f"{v:.1f}", "Installed cost, MUSD",
+                  "(b) CAPEX by process area (FCI " + both(lambda s: f"{s['FCI_MUSD']:.0f}") + " MUSD)")
+    _grouped_hbar(axes[1, 0], {c: t["OPEX_by_group"] for c, t in tables.items()}, "group", "MUSD_per_yr",
+                  lambda v: f"{v:.1f}", "MUSD per year",
+                  "(c) OPEX by group (annual operating cost " + both(lambda s: f"{s['AOC_MUSD_per_yr']:.0f}") + " MUSD/yr)",
+                  min_abs=1e-9)
+    _grouped_hbar(axes[1, 1], {c: t["GWP_by_contributor"] for c, t in tables.items()}, "contributor", "kgCO2e_per_kg_H2",
+                  lambda v: f"{v:.1f}", "kg CO2e per kg H2",
+                  "(d) H2 GWP100 by contributor (net " + both(lambda s: f"{s['GWP_kgCO2e_per_kg_H2']:.1f}") + " kg CO2e/kg)",
+                  min_abs=0.01 * max(abs(s["GWP_kgCO2e_per_kg_H2"]) for s in summ.values()))
 
-    ax = axes[0, 1]
-    d = tables["CAPEX_by_area"]
-    _hbar(ax, d["area"], d["installed_MUSD"], [TYPE_COLORS["CAPEX-related"]] * len(d),
-          [f"{v:.1f}  ({sh:.0%})" for v, sh in zip(d["installed_MUSD"], d["share_of_FCI"])],
-          "Installed cost, MUSD", f"(b) CAPEX by process area (FCI {s['FCI_MUSD']:.0f} MUSD)")
-
-    ax = axes[1, 0]
-    d = tables["OPEX_by_group"]
-    d = d[d["MUSD_per_yr"].abs() > 1e-9]
-    _hbar(ax, d["group"], d["MUSD_per_yr"], [TYPE_COLORS[t] for t in d["cost_type"]],
-          [f"{v:.1f}  ({sh:.0%})" for v, sh in zip(d["MUSD_per_yr"], d["share_of_AOC"])],
-          "MUSD per year", f"(c) OPEX by group (annual operating cost {s['AOC_MUSD_per_yr']:.0f} MUSD/yr)")
-
-    ax = axes[1, 1]
-    d = tables["GWP_by_contributor"]
-    major = d[d["kgCO2e_per_kg_H2"].abs() >= 0.01 * abs(s["GWP_kgCO2e_per_kg_H2"])]
-    rest = d["kgCO2e_per_kg_H2"].sum() - major["kgCO2e_per_kg_H2"].sum()
-    labels = list(major["contributor"]) + (["Others"] if abs(rest) > 1e-12 else [])
-    values = list(major["kgCO2e_per_kg_H2"]) + ([rest] if abs(rest) > 1e-12 else [])
-    shares = [v / s["GWP_kgCO2e_per_kg_H2"] for v in values]
-    _hbar(ax, labels, values, [OFFSET_COLOR if v < 0 else EMISSION_COLOR for v in values],
-          [f"{v:.1f}  ({sh:.0%})" for v, sh in zip(values, shares)], "kg CO2e per kg H2",
-          f"(d) H2 GWP100 by contributor (net {s['GWP_kgCO2e_per_kg_H2']:.1f} kg CO2e/kg)")
-
-    handles = [Patch(facecolor=c, edgecolor=SURFACE, label=t) for t, c in TYPE_COLORS.items()]
-    handles += [Patch(facecolor=EMISSION_COLOR, edgecolor=SURFACE, label="GWP: emission"),
-                Patch(facecolor=OFFSET_COLOR, edgecolor=SURFACE, label="GWP: natural gas offset")]
-    fig.legend(handles=handles, loc="lower center", ncol=7, frameon=False, fontsize=9, labelcolor=INK_2)
-    fig.suptitle("ATT H2 (baseline Gas-C, SaBRe reference scale): cost and GWP100 breakdown", fontsize=12,
-                 color=INK, x=0.01, ha="left")
+    handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CONFIGURATIONS[c]) for c in tables]
+    fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False, fontsize=9.5, labelcolor=INK_2)
+    fig.suptitle("ATT H2 (SaBRe reference scale): cost and GWP100 breakdown, ATT-only vs ATT-integration",
+                 fontsize=12, color=INK, x=0.01, ha="left")
     fig.tight_layout(rect=(0, 0.04, 1, 0.96))
     fig.savefig(path, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
@@ -156,21 +148,25 @@ def plot_breakdown(tables, path):
 def write_tables(tables):
     names = {"MSP_by_group": "cost_breakdown_att_msp.csv", "CAPEX_by_equipment": "cost_breakdown_att_capex.csv",
              "CAPEX_by_area": "cost_breakdown_att_capex_area.csv", "OPEX_by_group": "cost_breakdown_att_opex.csv",
-             "GWP_by_contributor": "cost_breakdown_att_gwp.csv"}
+             "GWP_by_contributor": "cost_breakdown_att_gwp.csv", "U2_balance_checks": "cost_breakdown_att_u2_checks.csv"}
     for key, name in names.items():
-        tables[key].to_csv(TABLES_OUT / name, index=False)
-    pd.DataFrame([tables["summary"]]).set_index("scenario").to_csv(TABLES_OUT / "cost_breakdown_summary_att.csv")
+        columns = ["case"] + list(next(iter(tables.values()))[key].columns)
+        pd.concat([t[key].assign(case=c) for c, t in tables.items()], ignore_index=True)[columns].to_csv(
+            TABLES_OUT / name, index=False)
+    pd.DataFrame([t["summary"] for t in tables.values()]).set_index("case").to_csv(
+        TABLES_OUT / "cost_breakdown_summary_att.csv")
 
 
 if __name__ == "__main__":
-    tables = build_att_breakdown()
+    tables = {c: build_att_breakdown(c) for c in CONFIGURATIONS}
     write_tables(tables)
     plot_breakdown(tables, FIGURES_OUT / "fig_cost_breakdown_att.png")
     print(f"Saved tables to {TABLES_OUT}")
     print(f"Saved figure to {FIGURES_OUT / 'fig_cost_breakdown_att.png'}")
-    print("\nATT summary:")
-    for k, v in tables["summary"].items():
-        print(f"  {k:<36}{v:,.4f}" if isinstance(v, float) else f"  {k:<36}{v}")
-    for key in ("MSP_by_type", "CAPEX_by_area", "OPEX_by_group", "GWP_by_stage"):
-        print(f"\n{key}:")
-        print(tables[key].to_string(index=False, float_format=lambda x: f"{x:,.3f}"))
+    for c, t in tables.items():
+        print(f"\n=== {CONFIGURATIONS[c]} ===")
+        for k, v in t["summary"].items():
+            print(f"  {k:<36}{v:,.4f}" if isinstance(v, float) else f"  {k:<36}{v}")
+        for key in ("MSP_by_type", "CAPEX_by_area", "OPEX_by_group", "GWP_by_stage"):
+            print(f"\n{key}:")
+            print(t[key].to_string(index=False, float_format=lambda x: f"{x:,.3f}"))
