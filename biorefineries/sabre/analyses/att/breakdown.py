@@ -2,7 +2,7 @@
 Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 at the SaBRe
 reference scale for the two cases:
 
-* ``att_only``   ATT plant fed with wet Sargassum (15,000 wet t/d): P1 press
+* ``att_only``   ATT plant fed with wet Sargassum (NLR scale: 3 million wet t/yr): P1 press
                  (municipal biosolids screw press), D0 dryer and the ATT
                  process; the press liquid is the raw juice for biostimulant
                  production (transferred at zero price).

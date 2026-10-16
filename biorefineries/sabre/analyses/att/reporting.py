@@ -85,7 +85,7 @@ def _register_rows():
     fs = "feedstock.yaml"
     add("Feedstock", "Feedstock type (ATT-only)", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
         "NLR preprint fresh Sargassum", SDB, "NLR preprint (Wiatrowski et al.)", "att.yaml:att.feed_preparation.feedstock_type",
-        "ATT-only case; 15,000 wet t/d of fresh Sargassum")
+        "ATT-only case; 3 million wet t/yr of fresh Sargassum (NLR scale)")
     add("Feedstock", "Feedstock type (integrated)", Y("att.yaml", "att.feed_preparation.integrated_feedstock_type"), "-",
         "feed", "NLR preprint pressed Sargassum", SDB, "NLR preprint (Wiatrowski et al.)",
         "att.yaml:att.feed_preparation.integrated_feedstock_type",
@@ -102,9 +102,9 @@ def _register_rows():
             "NLR preprint, mapped to pseudo-components", f"feedstock.yaml:feedstock_type.{ftype}.dry_composition.{comp}",
             "Preprint-based", affects="Process, LCA, TEA",
             uncertainty="OtherSolids (29 % dry) modeled as glucan-like C6H10O5", confirm="Yes (CHNS-O of sample)")
-    add("Scale", "Wet feed capacity", Y(fs, "scale.wet_feed_ton_per_day"), "t wet/d", "plant",
-        "SaBRe common plant scale", SDB, "SaBRe project assumption", "feedstock.yaml:scale.wet_feed_ton_per_day",
-        "Project-wide assumption", affects="LCA, TEA")
+    add("Scale", "Wet feed capacity", Y("att.yaml", "att.feed_preparation.scale.wet_feed_tonnes_per_year"), "t wet/yr",
+        "plant", "NLR preprint plant scale (fresh Sargassum)", SDB, "NLR preprint (3 million wet t/yr)",
+        "att.yaml:att.feed_preparation.scale.wet_feed_tonnes_per_year", "Preprint value", affects="LCA, TEA")
     add("Scale", "Operating days", Y("tea.yaml", "operating_days"), "d/yr", "plant", "Annual operation", SDB,
         "SaBRe project assumption", "tea.yaml:operating_days", "Project-wide assumption",
         "7920 h/yr", "LCA, TEA")
@@ -867,7 +867,7 @@ def _overview(sys, result, gwp_total):
         dict(item="Model", value=f"{tea_mod._configuration(sys)} case, U2 with specified gas yields "
                                  "(experimental team Excel); checks on NaOH capacity, electrons, mass, energy",
              note="biorefineries/sabre/systems/_att_system.py, units/_att.py"),
-        dict(item="Simulation scale", value=scale["dry_feed_kgph"], note="kg/h dry (15,000 wet t/d of fresh Sargassum basis)"),
+        dict(item="Simulation scale", value=scale["dry_feed_kgph"], note="kg/h dry (NLR scale: 3 million wet t/yr of fresh Sargassum)"),
         dict(item="Operating hours", value=sys.operating_hours, note="330 d x 24 h (tea.yaml)"),
         dict(item="Normalization", value="per kg dry Sargassum; per kg H2 (PSA product)", note=""),
         dict(item="H2 product", value=float(s["h2_product"].imass["H2"]) / dry, note="kg/kg dry"),
@@ -1116,8 +1116,8 @@ traceability only: no model, LCA or TEA parameter is changed.
 - **Consolidation:** `analyses/att/reporting.py` -> `att_outputs/full_scale/summary/`.
 - **This package:** `analyses/att/reporting.py` -> `att_outputs/documentation/`.
 
-All analyses run on the frozen system at the SaBRe reference scale (15,000 wet
-t/d; 1,990.5 dry t/d; 7,920 h/yr). Electricity and equipment costs are taken
+All analyses run on the frozen system at the NLR preprint scale (3 million wet
+t/yr; about 1,300 dry t/d; 7,920 h/yr). Electricity and equipment costs are taken
 at this scale; per-kg-dry material and heat flows are scale-invariant.
 
 ## Authoritative sources

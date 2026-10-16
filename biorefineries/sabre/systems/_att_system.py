@@ -49,13 +49,15 @@ def get_att_press_retention():
 
 def get_att_reference_dry_feed_kgph(configuration="att_only"):
     """
-    Dry solids fed to the ATT plant at the SaBRe reference scale: the fresh
+    Dry solids fed to the ATT plant at the NLR preprint scale (3 million wet
+    t/yr of fresh Sargassum, att.yaml feed_preparation.scale): the fresh
     Sargassum of the ATT-only plant, or the dry presscake that the same
-    15,000 wet t/d of Sargassum leaves at a biostimulant plant (integration).
+    Sargassum leaves at a biostimulant plant (integration).
     """
-    from biorefineries.sabre.utils import get_scale_feed_kgph
+    from biorefineries.sabre.utils import OPERATING_DAYS_PER_YEAR
     fresh = _FEEDSTOCK_DATA["feedstock_type"][_ATT_FEED_PREP["feedstock_type"]]
-    dry = get_scale_feed_kgph(_FEEDSTOCK_DATA) * (1.0 - float(fresh["moisture_frac"]))
+    wet_kgph = float(_ATT_FEED_PREP["scale"]["wet_feed_tonnes_per_year"]) * 1e3 / (OPERATING_DAYS_PER_YEAR * 24.0)
+    dry = wet_kgph * (1.0 - float(fresh["moisture_frac"]))
     if configuration == "att_only":
         return dry
     retention = get_att_press_retention()

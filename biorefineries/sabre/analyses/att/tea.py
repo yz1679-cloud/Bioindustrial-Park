@@ -540,7 +540,7 @@ def export_att_tea(out_dir=None):
     summary = [
         ("H2 MSP", result["msp"], "USD/kg H2"),
         ("H2 production", h2_yr / 1e3, "t/yr"),
-        ("Plant capacity", scale["dry_feed_t_per_day"], "dry t/d (15000 wet t/d, 330 d/yr)"),
+        ("Plant capacity", scale["dry_feed_t_per_day"], "dry t/d (3 million wet t/yr, 330 d/yr)"),
         ("Fixed capital investment (FCI)", tea.FCI / 1e6, "MUSD"),
         ("Total capital investment (TCI)", tea.TCI / 1e6, "MUSD"),
         ("Variable operating cost (VOC)", tea.VOC / 1e6, "MUSD/yr"),

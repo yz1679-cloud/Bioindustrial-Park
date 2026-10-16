@@ -64,6 +64,11 @@ att:
     # ATT-only plant starts from fresh Sargassum (nlr_fresh); the ATT-
     # integration case receives the presscake of a biostimulant plant
     # (nlr_pressed) and has no P1.
+    # Plant scale of the NLR preprint TEA (3 million wet t/yr; 1,306 dry t/d in
+    # the preprint; 3e6 / 330 d = 9,091 wet t/d here), replacing the SaBRe
+    # common 15,000 wet t/d for the ATT cases.
+    scale:
+      wet_feed_tonnes_per_year: 3000000
     feedstock_type: nlr_fresh
     integrated_feedstock_type: nlr_pressed
     # P1 mechanical dewatering to the 15 psi screw-press result of the

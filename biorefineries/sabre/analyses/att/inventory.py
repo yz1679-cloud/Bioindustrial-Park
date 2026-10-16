@@ -91,7 +91,7 @@ def _dry_feed_kgph(sys):
 
 def get_att_reference_scale(configuration="att_only"):
     """
-    SaBRe common plant scale (project-wide assumption): 15,000 wet t/d of
+    NLR preprint plant scale: 3 million wet t/yr (att.yaml feed_preparation.scale) of
     fresh Sargassum. For the integrated case the ATT plant receives the
     presscake of that Sargassum from a biostimulant plant.
     """
@@ -977,7 +977,7 @@ ASSUMPTION_REGISTER = (
      "<10 kJ/kg dry effect", "LOW"),
     ("2 engineering", "Missing costs", "C1 tank; U2 vessel (Inconel, tau 1 h); EC1 evaporator/condenser/vacuum",
      "BioSTEAM correlations; att.yaml inventory.cost_estimates", "MEDIUM (U2 vessel uncertain)"),
-    ("2 engineering", "Plant scale", "SaBRe common 15000 wet t/d, 330 d/yr", "feedstock.yaml, tea.yaml",
+    ("2 engineering", "Plant scale", "NLR preprint scale 3 million wet t/yr (9,091 wet t/d), 330 d/yr", "att.yaml, tea.yaml",
      "HIGH for TEA"),
     ("2 engineering", "Wastes", "Ash/char cake, purge, wastewater: disposal prices from tea.yaml; GWP factors missing",
      "tea.yaml price", "LOW-MEDIUM"),

@@ -2,7 +2,7 @@
 
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
-(Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (15,000 wet t/d) with material, element, Na, water and energy balances, a
+(Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (NLR preprint scale, 3 million wet t/yr) with material, element, Na, water and energy balances, a
 preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, for two cases:
 the ATT-only plant (wet *Sargassum*) and the ATT-integration case (presscake
 of a biostimulant plant).
@@ -119,7 +119,7 @@ biorefineries/sabre/
 - Laboratory experiment (UCLA, Ni-CatATT): 0.5 g daf Sargassum, 1 g NaOH,
   500 °C, 1 h, N₂ carrier and 3.6 g steam; measured H₂, CH₄, CO, CO₂ (mmol/g daf).
   N₂ and the catalyst are laboratory conditions, not plant feeds.
-- Plant: SaBRe reference scale, 15,000 wet t/d of fresh *Sargassum* (NLR preprint composition), 330 d/yr.
+- Plant: NLR preprint scale, 3 million wet t/yr (9,091 wet t/d, about 1,300 dry t/d) of fresh *Sargassum* (NLR preprint composition), 330 d/yr.
   ATT-only case: P1 screw press (municipal biosolids press cost and power; the press
   liquid is the raw juice for biostimulant production, transferred at no price) and
   D0 dryer to 50 wt % moisture. Integration case: the presscake of the biostimulant
