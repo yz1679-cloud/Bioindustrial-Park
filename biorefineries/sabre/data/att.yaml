@@ -109,6 +109,16 @@ att:
       # equipment, which is reported separately from the typical specific
       # heat use below and is not used in the baseline utilities.
       thermal_duty_basis: ideal_heat_balance
+      # Drying air (an ambient-air carrier; the steam heats the drum) is sized
+      # so that the exhaust leaves at this relative humidity at the dryer
+      # temperature (a saturated or over-saturated exhaust would condense).
+      exhaust_relative_humidity: 0.8
+      # BioSTEAM sizes one drum from a specific evaporation rate (20 kg/h/m3).
+      # At this scale that is one 6.5 m x 164 m drum, so the drying load is split
+      # over identical parallel drums of at most this diameter and the
+      # length-to-diameter ratio below (rotary-dryer practice is L/D 4-10).
+      max_drum_diameter_m: 4.5
+      drum_length_to_diameter: 5.0
       # Typical specific heat use of dryer equipment [MJ/kg water evaporated]:
       # Danish Energy Agency (1998), tabulated by DryingMate A/S
       # (Teknologisk Institut). Heat-pump values are electricity.
@@ -194,7 +204,7 @@ att:
     # STEP 7.5 U3 baseline.
     #
     # U3 is implemented primarily with native BioSTEAM units:
-    #   U3C Flash -> U3D Splitter -> U3P Splitter -> U3K IsothermalCompressor
+    #   U3C Flash -> U3D Splitter -> U3K IsothermalCompressor -> U3P Splitter -> U3V valve (tail gas)
     #
     # The numerical values below are explicit PROVISIONAL engineering
     # assumptions so the complete flowsheet can run. Replace them when
@@ -219,9 +229,13 @@ att:
     psa_non_h2_to_product_fraction: 0.0
     psa_status: "Provisional ideal-selectivity PSA surrogate; H2 recovery/purity require collaborator confirmation."
 
-    # U3K native isothermal H2-product compressor.
-    # Sale/delivery pressure and efficiency are provisional placeholders.
+    # U3K native isothermal compressor: compresses the dried gas to the PSA feed
+    # pressure, which is also the H2 delivery pressure (a PSA at 90 % recovery
+    # needs a high-pressure feed; the product leaves at the feed pressure).
+    # The PSA tail gas is let down to the burner pressure in the valve U3V.
+    # Pressures and efficiency are provisional placeholders.
     h2_product_pressure_Pa: 2000000.0
+    tail_gas_pressure_Pa: 130000.0
     h2_compressor_efficiency: 0.70
     h2_compressor_status: "Provisional 2 MPa product pressure and 70% isothermal efficiency; final H2 delivery specification unresolved."
 
@@ -444,11 +458,14 @@ att:
       dissolution_water: [input, process_water, "D1 dissolution water."]
       lime: [input, reagent, "Ca(OH)2, stoichiometric x lime_equiv."]
       fresh_naoh_solid: [input, reagent, "Solid NaOH makeup (dissolved in M1)."]
-      h2_product: [output, main_product, "PSA H2 compressed to the U3K outlet pressure."]
+      h2_product: [output, main_product, "PSA H2 at the PSA feed pressure (2 MPa; the dried gas is compressed in U3K before the PSA)."]
       u3_tail_gas: [output, coproduct_offgas, "PSA off-gas (mainly CH4 and unrecovered H2), assumed collected (100 %) and burned in the U2 burner (natural gas offset, no burner modeled). Earlier note: final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
+      excess_condensate: [output, wastewater, "Condensate (EC1 and U3C) in excess of the D1 dissolution-water demand; normally zero."]
+      u3_condensate: [internal, recycle, "U3C gas condensate, recycled to D1 (dissolution water)."]
+      ec1_condensate: [internal, recycle, "EC1 evaporator condensate, recycled to D1 (dissolution water)."]
       biostimulant_juice: [output, coproduct, "ATT-only case: press liquid of P1 = raw juice for biostimulant production (water, plus the solids not retained by the press). Transferred at zero price and burden; present only in the att_only configuration."]
       u3_condensate: [output, wastewater, "U3 gas condensate."]
       u3_dryer_removed_water: [output, wastewater, "U3D removed water."]

@@ -29,7 +29,7 @@ tea:
     process_water:
       value: 0.000441
       source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
-    wastewater_streams: [u3_condensate, u3_dryer_removed_water, ec1_condensate, liquor_purge]
+    wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge]
     solid_waste_streams: [ash_residue_cake]
     # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
     juice: 0.0               # biostimulant_juice (ATT-only case): transferred to the biostimulant plant, no price
@@ -52,7 +52,7 @@ tea:
       source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed."
     U3K:
       compressor_type: Reciprocating
-      reason: "BioSTEAM selected screw compressors (bounds 10-750 hp) for 16,800 hp; reciprocating is the conventional H2 service and within its correlation bounds. TEA-only replacement of the U3K cost; power unchanged."
+      reason: "BioSTEAM selects screw compressors, outside their bounds (10-750 hp) at this size; reciprocating is the conventional service for the PSA-feed gas and within its correlation bounds. TEA-only replacement of the U3K cost; power unchanged."
 
   # Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
   # content of the cake (not the wet cake). The sold share of the cake is

@@ -235,6 +235,16 @@ def create_att_system(
     dryer_air = bst.Stream("dryer_air")
     dryer_backup_fuel = bst.Stream("dryer_backup_fuel")
 
+    # Drying-air flow: sized so the exhaust leaves at the target relative
+    # humidity at the dryer temperature (R = kg gas per kg water evaporated).
+    _dryer_cfg = _ATT_FEED_PREP["dryer"]
+    _x_water = (
+        float(_dryer_cfg["exhaust_relative_humidity"])
+        * float(bst.settings.chemicals["Water"].Psat(float(_ATT_FEED_PREP["dryer_temperature_K"])))
+        / 101325.0
+    )
+    dryer_gas_ratio = (1.0 - _x_water) / _x_water * 28.96 / 18.015
+
     D0 = ATTDrumDryer(
         "D0",
         ins=(
@@ -256,6 +266,9 @@ def create_att_system(
         ],
         P=101325.0,
         utility_agent="Steam",
+        R=dryer_gas_ratio,
+        length_to_diameter=float(_dryer_cfg["drum_length_to_diameter"]),
+        max_drum_diameter_m=float(_dryer_cfg["max_drum_diameter_m"]),
     )
 
     # --------------------------------------------------------------
@@ -503,22 +516,13 @@ def create_att_system(
         _ATT_U3["psa_h2_recovery"]
     )
 
-    U3P = bst.Splitter(
-        "U3P",
-        ins=U3D - 0,
-        outs=(
-            "u3_raw_h2_product",
-            "u3_tail_gas",
-        ),
-        split=psa_split,
-    )
-
-    # U3K - Native BioSTEAM H2 product compressor.
-    # Product pressure/efficiency are provisional and live in att.yaml.
+    # U3K - Native BioSTEAM compressor of the dried gas to the PSA feed
+    # pressure (= H2 delivery pressure). Pressure/efficiency are provisional
+    # and live in att.yaml.
     U3K = ATTCompressor(
         "U3K",
-        ins=U3P - 0,
-        outs=("h2_product",),
+        ins=U3D - 0,
+        outs=("u3_compressed_gas",),
         P=float(
             _ATT_U3["h2_product_pressure_Pa"]
         ),
@@ -529,6 +533,25 @@ def create_att_system(
         ),
         vle=False,
         intercooler_T_K=float(_ATT_HEAT_RECOVERY["u3k_interstage_temperature_K"]),
+    )
+
+    # U3P - PSA surrogate at the PSA feed pressure; the H2 product leaves at
+    # that pressure and the tail gas is let down to the burner pressure (U3V).
+    U3P = bst.Splitter(
+        "U3P",
+        ins=U3K - 0,
+        outs=(
+            "h2_product",
+            "u3_tail_gas_high_pressure",
+        ),
+        split=psa_split,
+    )
+
+    U3V = bst.IsenthalpicValve(
+        "U3V",
+        ins=U3P - 1,
+        outs=("u3_tail_gas",),
+        P=float(_ATT_U3["tail_gas_pressure_Pa"]),
     )
 
     # --------------------------------------------------------------
@@ -583,16 +606,46 @@ def create_att_system(
     # process assumptions. Its source/basis should still be retained and
     # verified before final publication.
     # --------------------------------------------------------------
+    # Dissolution water is first taken from the process condensates (EC1
+    # evaporator condensate, recycled from the previous iteration, and the
+    # U3C gas condensate); fresh water only makes up the rest and any
+    # condensate in excess of the demand leaves as wastewater.
     dissolution_water = bst.Stream(
         "dissolution_water",
         Water=0.0,
         units="kg/hr",
     )
+    ec1_condensate = bst.Stream("ec1_condensate", Water=0.0, units="kg/hr")
+    dissolution_water_kg_per_kg_Na2CO3 = float(
+        _ATT_DOWNSTREAM["dissolution_water_kg_per_kg_Na2CO3"]
+    )
+
+    W3 = bst.Mixer(
+        "W3",
+        ins=(U3C - 1, ec1_condensate),
+        outs=("condensate_pool",),
+    )
+
+    SW = bst.Splitter(
+        "SW",
+        ins=W3 - 0,
+        outs=("condensate_to_D1", "excess_condensate"),
+        split=1.0,
+    )
+
+    @SW.add_specification(run=True)
+    def send_condensate_to_dissolution():
+        demand_kgph = dissolution_water_kg_per_kg_Na2CO3 * max(
+            float(RC1.outs[0].imass["Na2CO3"]), 0.0
+        )
+        pool_kgph = float(SW.ins[0].F_mass)
+        SW.split = min(1.0, demand_kgph / pool_kgph) if pool_kgph > 0.0 else 1.0
 
     D1 = bst.Mixer(
         "D1",
         ins=(
             RC1 - 0,
+            SW - 0,
             dissolution_water,
         ),
         outs=("dissolved_att_slurry",),
@@ -606,13 +659,11 @@ def create_att_system(
             float(att_residue.imass["Na2CO3"]),
             0.0,
         )
+        demand_kgph = dissolution_water_kg_per_kg_Na2CO3 * na2co3_kgph
 
         dissolution_water.empty()
-        dissolution_water.imass["Water"] = (
-            _ATT_DOWNSTREAM[
-                "dissolution_water_kg_per_kg_Na2CO3"
-            ]
-            * na2co3_kgph
+        dissolution_water.imass["Water"] = max(
+            demand_kgph - float(D1.ins[1].F_mass), 0.0
         )
 
     # --------------------------------------------------------------
@@ -960,7 +1011,7 @@ def create_att_system(
     EC1 = NaOHEvaporator(
         "EC1",
         ins=SP1 - 0,
-        outs=(naoh_recycle, "ec1_condensate"),
+        outs=(naoh_recycle, ec1_condensate),
         T=ec1_T,
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
     )
@@ -985,9 +1036,12 @@ def create_att_system(
         U3HX,
         U3C,
         U3D,
-        U3P,
         U3K,
+        U3P,
+        U3V,
         RC1,
+        W3,
+        SW,
         D1,
         F1,
         C1,
@@ -1007,7 +1061,7 @@ def create_att_system(
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=naoh_recycle,
+        recycle=(naoh_recycle, ec1_condensate),
         # Step 7.4 adds a nonlinear makeup/concentration specification.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

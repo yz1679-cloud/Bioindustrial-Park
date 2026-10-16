@@ -81,7 +81,10 @@ def _units(sys):
 
 
 def _streams(sys):
-    return {s.ID: s for s in (*sys.feeds, *sys.products)}
+    """Every stream of the system by ID (feeds, products and internal streams)."""
+    streams = {s.ID: s for u in sys.units for s in (*u.ins, *u.outs) if s.ID}
+    streams.update({s.ID: s for s in (*sys.feeds, *sys.products)})
+    return streams
 
 
 def _dry_feed_kgph(sys):
@@ -464,8 +467,8 @@ def get_att_lci(flows, utilities, products, ca_source=None):
     add("Process water", util["Process water (D1)"], "kg", None, None, "", "MISSING (expected negligible)")
     for stream, label in (("ash_residue_cake", "Ash/char residue to disposal"),
                           ("liquor_purge", "Alkaline purge treatment"),
-                          ("u3_condensate", "Wastewater: U3 condensate"),
-                          ("ec1_condensate", "Wastewater: EC1 condensate")):
+                          ("u3_dryer_removed_water", "Wastewater: U3D removed water"),
+                          ("excess_condensate", "Wastewater: condensate in excess of D1 demand")):
         add(label, total[(stream, "TOTAL")], "kg", None, None, "", "MISSING")
     add("CaCO3 cake (coproduct)", total[("caco3_cake", "TOTAL")], "kg", 0.0, None,
         "No credit or burden by decision", "excluded by decision")
@@ -681,11 +684,13 @@ def get_att_water_balance(sys):
              kg_per_kg_dry=float(s["dryer_exhaust"].imass["Water"] - s["dryer_air"].imass["Water"]) / dry),
         dict(group="internal", item="U3 condensation (U3C + U3D)",
              kg_per_kg_dry=float(s["u3_condensate"].imass["Water"] + s["u3_dryer_removed_water"].imass["Water"]) / dry),
-        dict(group="internal", item="EC1 evaporation (= condensate)",
+        dict(group="internal", item="EC1 evaporation (= condensate, recycled to D1)",
              kg_per_kg_dry=float(s["ec1_condensate"].imass["Water"]) / dry),
-        dict(group="internal", item="Wastewater total (condensates)",
+        dict(group="internal", item="Condensate recycled to D1 (EC1 + U3C)",
+             kg_per_kg_dry=float(s["condensate_to_D1"].imass["Water"]) / dry),
+        dict(group="internal", item="Wastewater total (U3D water + excess condensate)",
              kg_per_kg_dry=sum(float(s[k].imass["Water"]) for k in
-                               ("u3_condensate", "u3_dryer_removed_water", "ec1_condensate")) / dry),
+                               ("u3_dryer_removed_water", "excess_condensate")) / dry),
         dict(group="check", item="inputs + formation - outputs", kg_per_kg_dry=(w_in + formation - w_out) / dry),
     ]
     return rows
@@ -756,8 +761,8 @@ def get_att_gas_accounting(sys):
                          model_kg_per_kg_dry=float(U2.outs[0].imass[k]) / dry,
                          basis=label, destination=destination, TEA_LCA_flag=flag))
     # Path of the gas species through U3 (no unit absorbs CO2).
-    for ID in ("att_gas", "u3_cooled_multiphase", "u3_wet_gas", "u3_dry_gas", "u3_raw_h2_product",
-               "u3_tail_gas", "h2_product"):
+    for ID in ("att_gas", "u3_cooled_multiphase", "u3_wet_gas", "u3_dry_gas", "u3_compressed_gas",
+               "h2_product", "u3_tail_gas_high_pressure", "u3_tail_gas"):
         stream = next(s for unit in sys.units for s in (*unit.ins, *unit.outs) if s.ID == ID)
         rows.append(dict(species=f"path: {ID}", specified_mmol_per_g_daf=float("nan"),
                          model_mmol_per_g_daf=float("nan"),

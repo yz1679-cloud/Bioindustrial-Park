@@ -91,7 +91,7 @@ att_outputs/
 biorefineries/sabre/
 ├── units/_att.py                  ATT units: ATTReactor (U2), CausticizationReactor (C1),
 │                                  NaOHEvaporator (EC1), ATTDrumDryer, ATTCompressor, ATTMolecularSieve
-├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
+├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3K-U3P-U3V / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
 ├── analyses/att/                  analyses (see analyses/att/__init__.py)
 │   ├── mass_energy.py  thermodynamics.py                       process-level helpers
 │   ├── inventory.py  tea.py  lca.py  breakdown.py                 full-scale analyses
@@ -121,8 +121,8 @@ biorefineries/sabre/
   ATT-only case: P1 screw press (municipal biosolids press cost and power; the press
   liquid is the raw juice for biostimulant production, transferred at no price) and
   D0 dryer to 50 wt % moisture. Integration case: the presscake of the biostimulant
-  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf; gas cooling, drying, PSA (90 % H₂ recovery) and
-  compression to 20 bar; residue dissolution, causticization with Ca(OH)₂
+  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf; gas cooling, drying, compression to 20 bar and PSA (90 % H₂ recovery,
+  tail gas let down to 1.3 bar); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
   (85 %, 1.1 equivalents, 90 °C), 5 % whole-liquor purge, evaporation to
   50 wt % NaOH and recycle.
 - U2 gas yields are specified (experimental team: H₂ 70.52, CH₄ 0.70, CO 0.31,

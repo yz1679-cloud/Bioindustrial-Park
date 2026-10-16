@@ -295,7 +295,7 @@ _UNIT_INFO = {
     "U3C": ("Separate condensate at 40 C, 1 atm", "att.yaml:att.gas_treatment.condenser_*"),
     "U3D": ("Dry gas (molecular sieve)", "att.yaml:att.gas_treatment.dryer_water_to_dry_gas_fraction"),
     "U3P": ("PSA surrogate: 90 % H2 to product, rest to off-gas", "att.yaml:att.gas_treatment.psa_*"),
-    "U3K": ("Compress H2 product to 2 MPa", "att.yaml:att.gas_treatment.h2_*"),
+    "U3K": ("Compress dried gas to the 2 MPa PSA feed pressure", "att.yaml:att.gas_treatment.h2_*"),
     "RC1": ("Cool ATT residue to 90 C", "att.yaml:att.heat_recovery.residue_cooling_target_temperature_K"),
     "D1": ("Dissolve Na2CO3 residue in water (3 kg/kg Na2CO3)", "att.yaml:att.downstream.dissolution_water_kg_per_kg_Na2CO3"),
     "F1": ("Remove ash/char cake (pressure filter)", "att.yaml:att.downstream.f1_*"),
@@ -533,7 +533,7 @@ def _products(sys):
     dry = inv._dry_feed_kgph(sys)
     rows = []
     for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge", "biostimulant_juice",
-               "u3_condensate", "u3_dryer_removed_water", "ec1_condensate", "dryer_exhaust"):
+               "excess_condensate", "u3_dryer_removed_water", "dryer_exhaust"):
         if ID not in s:
             continue
         st = s[ID]
@@ -1103,7 +1103,7 @@ traceability only: no model, LCA or TEA parameter is changed.
 ## Modeling framework
 
 - **Process model (frozen):** `biorefineries/sabre/systems/_att_system.py` builds the
-  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
+  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3K-U3P-U3V / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
   with custom units in `biorefineries/sabre/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/sabre/data/att.yaml`.
 - **Configuration:** `biorefineries/sabre/data/att.yaml` (process),

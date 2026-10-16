@@ -1026,8 +1026,8 @@ def get_att_u3_summary(sys):
     dry_gas = u.U3D.outs[0]
     dryer_water = u.U3D.outs[1]
     raw_h2 = u.U3P.outs[0]
-    tail_gas = u.U3P.outs[1]
-    h2_product = u.U3K.outs[0]
+    tail_gas = u.U3V.outs[0]
+    h2_product = u.U3P.outs[0]
 
     def mass(stream, ID):
         return float(stream.imass[ID])

@@ -94,18 +94,48 @@ class ATTDrumDryer(bst.DrumDryer):
     (water evaporating at the drum temperature) that BioSTEAM's
     HeatExchangerNetwork can match. The exchanger cost is zero: the heated
     drum is already inside the DrumDryer cost correlation.
+
+    BioSTEAM sizes a single drum from the evaporation rate. Here the load is
+    split over identical parallel drums no larger than ``max_drum_diameter_m``
+    (cost and power per drum from the BioSTEAM correlation, times the number
+    of drums).
     """
 
-    def _init(self, *args, **kwargs):
+    def _init(self, *args, max_drum_diameter_m=None, **kwargs):
         super()._init(*args, **kwargs)
+        self.max_drum_diameter_m = None if max_drum_diameter_m is None else float(max_drum_diameter_m)
+        self._N_drums = 1
         _att_add_proxy_exchanger(self, "steam")
 
     def _design(self):
         n = len(self.heat_utilities)
         super()._design()
+        self._N_drums = 1
+        D_max = self.max_drum_diameter_m
+        if D_max is not None:
+            from math import ceil, pi
+            from biosteam.units.design_tools import cylinder_diameter_from_volume, cylinder_area
+            results = self.design_results
+            V_max = pi / 4.0 * D_max ** 2 * (D_max * self.length_to_diameter)
+            N = max(1, int(ceil(results["Volume"] / V_max - 1e-9)))
+            if N > 1:
+                results["Volume"] = V = results["Volume"] / N
+                results["Diameter"] = D = cylinder_diameter_from_volume(V, self.length_to_diameter)
+                results["Length"] = L = D * self.length_to_diameter
+                results["Peripheral drum area"] = cylinder_area(D, L)
+            self._N_drums = N
+        self.design_results["Number of drums"] = self._N_drums
         for hu in self.heat_utilities[n:]:
             self.heat_utilities.remove(hu)
             _att_proxy_exchanger(self, "steam", hu.unit_duty, self.T, latent=True, costed=False)
+
+    def _cost(self):
+        super()._cost()   # one drum
+        N = self._N_drums
+        if N > 1:
+            for k in self.baseline_purchase_costs:
+                self.baseline_purchase_costs[k] *= N
+            self.power_utility.scale(N)
 
 
 class ATTCompressor(bst.IsothermalCompressor):
