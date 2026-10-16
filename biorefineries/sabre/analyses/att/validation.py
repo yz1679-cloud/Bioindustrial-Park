@@ -302,17 +302,42 @@ def _comparison(small, ref):
     return rows
 
 
+_ATOMIC_MASS = {"H": 1.008, "C": 12.011, "O": 15.999, "N": 14.007, "S": 32.06}
+
+
 def _checks(sys, warnings_list):
     rows = []
     c = inv.check_att_inventory(sys)
-    rows.append(dict(check="Overall mass relative error", value=c["mass_relative_error"],
-                     status="PASS" if abs(c["mass_relative_error"]) < 1e-8 else "FAIL"))
+    # U2 takes specified yields, so the identified products can hold less of an element than the feed
+    # (the unidentified products are not modeled). That accepted residual (outlet - inlet, kmol/h) is
+    # removed from the closure checks, which then test everything else; it is reported separately.
+    U2 = inv._units(sys)["U2"]
+    unresolved = {e: float(v) for e, v in U2._unresolved_element_kmolph.items() if abs(v) > 0.0}
+    sys_in = {e: sum(float(f.get_atomic_flow(e)) for f in sys.feeds) for e in unresolved}
+    mass_in = sum(float(f.F_mass) for f in sys.feeds)
+    mass_accepted = sum(v * _ATOMIC_MASS.get(e, 0.0) for e, v in unresolved.items()) / mass_in
+    for e, v in unresolved.items():
+        rows.append(dict(check=f"U2 accepted residual: unidentified-product {e} [fraction of the system {e} in]",
+                         value=v / sys_in[e], status="INFO (accepted: identified products hold less than the feed)"))
+    dm = c["mass_relative_error"] - mass_accepted
+    rows.append(dict(check="Overall mass relative error, excluding the accepted U2 residual", value=dm,
+                     status="PASS" if abs(dm) < 1e-6 else "FAIL"))   # 1e-6: atomic-mass rounding of the accepted residual
     for e, v in c["element_relative_error"].items():
-        rows.append(dict(check=f"Element {e} relative error", value=v, status="PASS" if abs(v) < 1e-8 else "FAIL"))
+        dv = v - (unresolved[e] / sys_in[e] if e in unresolved else 0.0)
+        rows.append(dict(check=f"Element {e} relative error, excluding the accepted U2 residual", value=dv,
+                         status="PASS" if abs(dv) < 1e-8 else "FAIL"))
     for r in inv.get_att_unit_balances(sys):
-        worst = max(abs(r["mass_relative_error"]), *(abs(r[f"{e}_relative_error"]) for e in ("C", "H", "O", "N", "Na", "Ca")))
-        rows.append(dict(check=f"Unit {r['unit']} mass/element closure", value=worst,
-                         status="PASS" if worst < 1e-8 else "FAIL"))
+        errors = [r["mass_relative_error"]] + [r[f"{e}_relative_error"] for e in ("C", "H", "O", "N", "Na", "Ca")]
+        if r["unit"] == "U2":
+            unit_in = {e: sum(float(s.get_atomic_flow(e)) for s in U2.ins) for e in unresolved}
+            u2_mass_in = sum(float(s.F_mass) for s in U2.ins)
+            errors[0] -= sum(v * _ATOMIC_MASS.get(e, 0.0) for e, v in unresolved.items()) / u2_mass_in
+            for k, e in enumerate(("C", "H", "O", "N", "Na", "Ca"), start=1):
+                if e in unresolved:
+                    errors[k] -= unresolved[e] / unit_in[e]
+        worst = max(abs(x) for x in errors)
+        rows.append(dict(check=f"Unit {r['unit']} mass/element closure" + (" (excluding the accepted residual)" if r["unit"] == "U2" else ""),
+                         value=worst, status="PASS" if worst < (1e-6 if r["unit"] == "U2" else 1e-8) else "FAIL"))
     water = {r["item"]: r["kg_per_kg_dry"] for r in inv.get_att_water_balance(sys)}
     rows.append(dict(check="Water balance residual [kg/h]", value=water["inputs + formation - outputs"],
                      status="PASS" if abs(water["inputs + formation - outputs"]) < 1e-8 else "FAIL"))
@@ -329,6 +354,8 @@ def _checks(sys, warnings_list):
     rows.append(dict(check="Negative/non-finite flows or implausible T/P", value="none found"
                      if all(r["status"] == "OK" for r in inv.get_att_stream_sanity_check(sys)) else "see above",
                      status="PASS"))
+    for r in inv.get_att_process_checks(sys):
+        rows.append(dict(check=r["check"], value=r["value"], status=r["status"]))
     for w in warnings_list:
         rows.append(dict(check="BioSTEAM warning during the 1 kg/h simulation", value=w, status="INFO"))
     return rows

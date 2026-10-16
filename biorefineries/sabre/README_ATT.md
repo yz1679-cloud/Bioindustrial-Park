@@ -55,6 +55,14 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_documentation` | `documentation/` |
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
+Key conversions against theoretical values, material usage, heat-duty waterfalls (by unit and by
+physical origin), low- versus high-grade and external versus internal heat, and EROI, for both cases
+(`results/tables/att_*.csv`, `results/figures/fig_att_heat_*.png`):
+
+```
+python biorefineries/sabre/analyses/att_key_metrics.py
+```
+
 Cost and GWP breakdown of H2 for both cases (MSP by cost type, CAPEX by process
 area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):

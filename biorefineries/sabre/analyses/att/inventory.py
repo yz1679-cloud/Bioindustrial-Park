@@ -775,6 +775,10 @@ def get_att_gas_accounting(sys):
 def _documented_enthalpy_residual(unit):
     """(value or None, explanation) for Hnet(out) - Hnet(in) - process heat."""
     kind = type(unit).__name__
+    if isinstance(unit, bst.MolecularSieve):
+        kind = "MolecularSieve"        # includes ATTMolecularSieve
+    elif isinstance(unit, bst.IsothermalCompressor):
+        kind = "IsothermalCompressor"  # includes ATTCompressor
     if unit.ID == "U2":
         return (unit._feed_Hf_HHV_correction_kJph + unit._aqueous_feed_correction_kJph,
                 "Feed Hf re-referenced to the HHV + NaOH heat-of-solution correction of the feed")
@@ -820,6 +824,73 @@ def get_att_unit_energy_balance(sys):
             unexplained_MJ_per_kg_dry=unexplained / 1e3 / dry,
             explanation=note,
         ))
+    return rows
+
+
+_NA2CO3_SOLUBILITY_G_PER_100G_WATER = (   # CRC Handbook (anhydrous basis; hydrate transitions ignored)
+    (0.0, 7.0), (10.0, 12.5), (20.0, 21.5), (25.0, 29.4), (30.0, 38.8), (35.0, 49.7), (40.0, 48.5), (50.0, 47.5),
+    (60.0, 46.4), (80.0, 45.1), (100.0, 44.7))
+
+
+def get_att_recycle_convergence(sys):
+    """Relative change of the tear flows on one more simulation (run last: it re-simulates the system)."""
+    s = _streams(sys)
+    tear = [s["naoh_recycle"], s["ec1_condensate"], s["fresh_naoh_solid"]]
+    before = [float(x.F_mass) for x in tear]
+    sys.simulate()
+    change = max(abs(float(x.F_mass) - b) / max(b, 1e-12) for x, b in zip(tear, before))
+    return dict(check="Recycle convergence: relative change of the tear flows on one more simulation", value=change,
+                expected=1e-6, status="PASS" if change < 1e-6 else "FAIL")
+
+
+def get_att_process_checks(sys):
+    """
+    Process-level checks beyond the closure of each unit: the U2 balances
+    (NaOH capacity for CO2, electrons, mass, energy), the heat-exchanger
+    network, the dryer exhaust humidity and Na2CO3 solubility in D1, with
+    reference values from the UCLA slides. Rows: check, value, expected, status.
+    """
+    u, s = _units(sys), _streams(sys)
+    rows = []
+
+    def add(check, value, expected, status):
+        rows.append(dict(check=check, value=value, expected=expected, status=status))
+
+    for r in u["U2"].balance_checks():
+        status = r.get("status")
+        if status is None:
+            continue
+        if status.startswith("SUFFICIENT"):
+            status = "PASS"
+        elif status.startswith("INSUFFICIENT"):
+            status = "INFO (CO2 is specified; the NaOH captures only part of it)"
+        add("U2: " + r["check"], r["value"], "", status)
+    HXN = next((f for f in (*sys.units, *sys.facilities) if type(f).__name__ == "HeatExchangerNetwork"), None)
+    if HXN is not None:
+        limit = HXN.acceptable_energy_balance_error * 100.0
+        err = float(HXN.energy_balance_percent_error)
+        add("HXN: energy balance error [%]", err, limit, "PASS" if abs(err) <= limit else "FAIL")
+        for label, agents in (("steam", lambda a: a.endswith("steam")), ("cooling water", lambda a: a == "cooling_water")):
+            before = sum(abs(hu.duty) for x in sys.units if x is not HXN for hu in x.heat_utilities
+                         if hu.agent and agents(hu.agent.ID))
+            after = sum(abs(hu.duty) for hu in sys.heat_utilities if hu.agent and agents(hu.agent.ID))
+            add(f"HXN: {label} duty after <= before [kJ/h]", after, before, "PASS" if after <= before * (1 + 1e-9) else "FAIL")
+    ex = s["dryer_exhaust"]
+    water = bst.settings.chemicals["Water"]
+    rh = float(ex.imol["Water"]) / float(ex.F_mol) * float(ex.P) / float(water.Psat(float(ex.T)))
+    target = float(_ATT["feed_preparation"]["dryer"]["exhaust_relative_humidity"])
+    add("D0: exhaust relative humidity <= target (no condensation)", rh, target, "PASS" if rh <= target + 1e-6 else "FAIL")
+    d1 = s["dissolved_att_slurry"]
+    conc = 100.0 * float(d1.imass["Na2CO3"]) / float(d1.imass["Water"])
+    sol = float(np.interp(float(d1.T) - 273.15, *zip(*_NA2CO3_SOLUBILITY_G_PER_100G_WATER)))
+    add("D1: Na2CO3 below its solubility at the slurry temperature [g/100 g water]", conc, sol,
+        "PASS" if conc <= sol else "FAIL")
+    from biorefineries.sabre.analyses.att import key_metrics as km
+    heat = km.get_heat(sys)
+    mj = heat["total"] / heat["dry"] / 1e3
+    add("Heating duty before heat integration vs UCLA slides (16.4 MJ/kg dry seaweed)", mj, 16.4, "INFO (reference, not a test)")
+    share = heat["water_handling"] / heat["total"]
+    add("Water handling share of the heating duty vs UCLA slides (65-77 %)", share, "0.65-0.77", "INFO (reference, not a test)")
     return rows
 
 

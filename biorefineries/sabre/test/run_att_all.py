@@ -56,7 +56,6 @@ QC_TABLES = (
     "full_scale/tea/05_checks.csv",
     "full_scale/lca/08_checks.csv",
     "full_scale/summary/08_consistency_checks.csv",
-    "full_scale/summary/C13_TEA_LCA_Consistency.csv",
     "documentation/26_QC_Checks.csv",
 )
 

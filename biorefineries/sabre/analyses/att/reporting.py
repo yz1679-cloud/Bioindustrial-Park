@@ -1019,6 +1019,10 @@ def build_att_documentation():
     tables["26_QC_Checks"].append(dict(source="documentation", check="Frozen flows unchanged (rel. 1e-8)",
                                        value=str(tea_mod._same_flows(sys, fingerprint)),
                                        status="PASS" if tea_mod._same_flows(sys, fingerprint) else "FAIL"))
+    tables["26_QC_Checks"] += [dict(source="process", check=r["check"], value=str(r["value"]), status=r["status"])
+                               for r in inv.get_att_process_checks(sys)]
+    r = inv.get_att_recycle_convergence(sys)   # re-simulates: keep last
+    tables["26_QC_Checks"].append(dict(source="process", check=r["check"], value=str(r["value"]), status=r["status"]))
     order = ["00_Overview", "01_Process_Assumptions", "02_Feedstock_Composition", "03_Equipment_Operating",
              "04_Connectivity", "05_Stream_Inventory_Long", "05b_Stream_Matrix_kg_per_kg_dry",
              "06_Mass_Element_Balance", "07_NaOH_Carbonate", "07b_Na2CO3_Crystallization",
@@ -1323,6 +1327,12 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
     return rows
 
 
+def _process_check_rows(sys):
+    """Process-level checks (U2 balances, HXN, dryer humidity, D1 solubility, UCLA reference values)."""
+    return [dict(check=r["check"], TEA_or_model=r["value"], LCA_or_reference=r["expected"], status=r["status"])
+            for r in inv.get_att_process_checks(sys)]
+
+
 def _existing_outputs_check(rows, msp_reference, gwp_per_kg_H2):
     """Compare with the exported TEA and LCA results; a missing file is reported as NOT CHECKED."""
     import pandas as pd
@@ -1442,7 +1452,7 @@ def build_att_consolidated_results():
                       lime_USD_per_kg=r["lime_price"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"])
                  for r in caco3 if not r["case"].startswith("Reference")]
     consistency = _consistency(sys, estimates, result, contributions, utilities)
-    consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2)
+    consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2) + _process_check_rows(sys)
     sens = ([dict(analysis="TEA (MSP USD/kg H2)", case=r["case"], value=r["MSP_USD_per_kg_H2"], delta=r["delta"])
              for r in sens_tea]
             + [dict(analysis="TEA lime price (Case A)", case=r["lime_price"], value=r["MSP_USD_per_kg_H2"],
