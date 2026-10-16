@@ -573,10 +573,7 @@ class TestATTHeatIntegrationScenario(unittest.TestCase):
 class TestATTEC1TemperatureScenario(unittest.TestCase):
     """115 C EC1 is an optimization scenario; the 90 C baseline is unchanged."""
 
-    def test_baseline_rejects_and_scenario_flags_solubility_extrapolation(self):
-        from biorefineries.sabre import _naoh_properties as naoh
-        with self.assertRaises(ValueError):
-            naoh.na2co3_solubility_mol_per_kg_water(20.0, 388.15)
+    def test_scenario_keeps_baseline_ec1_constants(self):
         import warnings
         warnings.filterwarnings('ignore')
         from biorefineries.sabre.systems._att_system import create_att_system
@@ -585,7 +582,7 @@ class TestATTEC1TemperatureScenario(unittest.TestCase):
         sys.simulate()
         EC1 = sys.flowsheet.unit.EC1
         self.assertFalse(EC1.is_baseline_temperature)
-        self.assertTrue(EC1._na2co3_solubility_extrapolated)
+        self.assertAlmostEqual(EC1.boiling_point_elevation_K, 33.0)
         self.assertAlmostEqual(EC1.T, 388.15)
         self.assertGreater(EC1._condensation_temperature_K, 343.15 + 10.0)
 

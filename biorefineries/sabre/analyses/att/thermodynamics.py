@@ -5,7 +5,7 @@ read-only analyses of a converged ATT system. All evaluations hold the
 converged U2 feed fixed (U2-local; the recycle is not re-converged).
 Reference states: formation enthalpies at 298.15 K (ThermoSTEAM Hf of
 each species' reference phase); organic feed Hf re-referenced to the HHV
-in att.yaml; dissolved NaOH at its NaOH(aq) electrolyte enthalpy; product
+in att.yaml; dissolved NaOH at its heat of solution (infinite dilution); product
 water as liquid at 298.15 K in the reaction step.
 
 C1 phase-consistent standard-state reference (used by
@@ -301,7 +301,7 @@ def get_att_u2_energy_uncertainty(sys) -> dict:
     - char formula: CH0.3O0.05 to CH0.8O0.2 per C (generic 500 C chars);
     - char HHV correlation: +/-5 % (assumed; conservative vs. the reported
       1.45 % mean absolute error, as ATT char is outside its data set);
-    - NaOH(aq) enthalpy correction: +/-5 % (Olsson vs. OxyChem agreement);
+    - NaOH(aq) enthalpy correction: +/-5 % (spread of the heat of solution in the sources);
     - dissolved recycle Na2CO3 counted as molten by ThermoSTEAM: bounded
       by its fusion plus solution enthalpies.
 

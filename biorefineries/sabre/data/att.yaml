@@ -31,7 +31,7 @@ att:
       downstream.recycle_naoh_wt_frac: "Workbook B19 ('water left in recovered NaOH', 50 wt %), applied as NaOH/(NaOH + H2O) by user decision 2026-10-09."
       downstream.whole_liquor_recycle_fraction: "Source reports '95 % NaOH recycling' without defining a separator; interpreted as 95 % whole-liquor recycle (provisional engineering baseline)."
       downstream.filter cake moistures: "F1 30 wt %: literature-supported engineering baseline. F2 25 wt %: CaCO3/lime-filtration literature review."
-      downstream (EC1 and C1 property data): "Published data cited in the comments there: Olsson (NaOH-water enthalpy), Wu et al. 2020, Morey and Burlew 1964, Ghaffari et al. 2025, Silcock / Qin et al. 2015 (Na2CO3 solubility), General Chemical soda-ash guide; implemented in _naoh_properties.py."
+      downstream (EC1 and U2 NaOH data): "ec1_boiling_point_elevation_K from the Olsson et al. 1997 vapor pressure of NaOH(aq); ec1_na2co3_dissolved_fraction from Wu et al. 2020 Na2CO3 solubility near 50 wt% NaOH; naoh_heat_of_solution_kJ_per_kg from NBS (-44.5 kJ/mol), Olsson et al. 1997 and the OxyChem Caustic Soda Handbook Table 11."
       energy_sources: "Workbook, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat)."
       heat_recovery: "BioSTEAM defaults and engineering assumptions; the HEN scenarios are optional and unverified where marked."
       inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors from the collaborators' workbook (energy-analysis sheet B25-B28); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
@@ -196,8 +196,9 @@ att:
       sensitivity_feed_HHV_MJ_per_kg_daf:
         primary_composition_consistent: [16.3, 18.1]   # Thornton / Channiwala-Parikh on the model daf composition
         secondary_literature: [15.7, 19.5]
-      # The dissolved NaOH in the recycle liquor is corrected to the NaOH(aq)
-      # electrolyte enthalpy (ThermoSTEAM treats it as subcooled molten NaOH).
+      # The dissolved NaOH in the recycle liquor is corrected for the heat of
+      # solution (downstream.naoh_heat_of_solution_kJ_per_kg; ThermoSTEAM
+      # treats it as subcooled molten NaOH).
       not_included: "Dissolution enthalpy of the small amount of dissolved Na2CO3 in the recycle liquor."
     sensitivity_plan:
       naoh_loading: Planned sensitivity parameter; baseline is 2 kg NaOH/kg daf.
@@ -304,34 +305,69 @@ att:
     whole_liquor_recycle_fraction: 0.95
 
     # EC1 (single-effect vacuum evaporator, 90 C). Fresh solid NaOH is added
-    # in M1 with the feed. EC1 evaporates only the
-    # water in excess of what keeps the recycle liquor at
-    # NaOH/(NaOH + H2O) = recycle_naoh_wt_frac after the makeup; it
-    # evaporates nothing if the liquor already holds less water (user
-    # decision 2026-10-09: minimum evaporation, the 50 % definition is not
-    # binding). Na2CO3 above its solubility crystallizes as anhydrous
-    # Na2CO3 and is recycled with the slurry. Boiling pressure, duty and
-    # solubility: biorefineries.sabre._naoh_properties.
+    # in M1 with the feed. EC1 evaporates only the water in excess of what
+    # keeps the recycle liquor at NaOH/(NaOH + H2O) = recycle_naoh_wt_frac
+    # after the makeup; it evaporates nothing if the liquor already holds
+    # less water (user decision 2026-10-09: minimum evaporation, the 50 %
+    # definition is not binding).
     recycle_naoh_wt_frac: 0.50
     recycle_naoh_concentration_basis: naoh_plus_water
     concentration_temperature_K: 363.15
-    # EC1 property-model validation (2026-10-09; details in
-    # biorefineries/sabre/_naoh_properties.py). Baseline (90 C) results:
-    # pressure 17.2 kPa (+/-7-12 %, from boiling-point agreement within
-    # 1.5-2.5 K); process duty 8404 kJ/h = pure-water latent heat 7917 +
-    # heat of concentration 434 (+/-~90) + Na2CO3 crystallization 53 (+/-53),
-    # i.e. about +/-1.7 %. Na2CO3 solubility in concentrated NaOH rests on a
-    # single source (Wu et al. 2020) and is not independently validated; its
-    # energy impact is < 10 kJ/h. Cross-check (2026-10-09): Morey & Burlew
-    # (1964) put NaOH(s) + Na2CO3(s) co-saturation at 90 C at
-    # NaOH/(NaOH+H2O) = 0.749, so no NaOH(s) forms at x <= 0.50. Ghaffari et
-    # al. (2025, 85 C) and Silcock/Qin et al. (2015, 100 C) bracket the
-    # Na2CO3.H2O branch (<= 15 wt% NaOH): model within -5 to +11 %. No 90 C
-    # data exist for the anhydrous branch (17-50 wt% NaOH); 100 C data
-    # suggest the model may be ~1.5-2x high at 19-35 wt% and up to ~2.6x low
-    # near 50 wt% (crystals +/-0.02 kg/h, < 10 kJ/h). Solid identity in
-    # that branch (Na2CO3 vs Na2CO3.H2O) is unresolved.
-    ec1_validation_status: "NaOH-H2O vapor pressure and enthalpy validated against independent data; Na2CO3 solubility validated only in the Na2CO3.H2O branch (<=15 wt% NaOH); anhydrous branch near 50 wt% NaOH single-source, not independently validated."
+    # EC1 uses a simple model (user decision 2026-10-15): duty = latent heat
+    # of the evaporated water plus liquor sensible heat; no electrolyte
+    # property correlations. The three constants below are tuned to the
+    # baseline (EC1 at 90 C, feed liquor ~17.6 wt % NaOH, outlet ~44 wt %
+    # NaOH, 95 % whole-liquor recycle); their valid ranges are noted with
+    # each. To get the NaOH(aq) property model back (Olsson 1997 vapor
+    # pressure and enthalpy, Wu 2020 Na2CO3 solubility; EC1 with boiling
+    # pressure, heat of concentration and salting-out; the U2 inlet
+    # electrolyte correction), restore biorefineries/sabre/_naoh_properties.py
+    # and the EC1 / aqueous_naoh_enthalpy_correction_kJph code in
+    # units/_att.py from commit e64370ab (last commit with it, already with
+    # the fresh NaOH makeup in M1): git checkout e64370ab -- <file>. The
+    # original version with the separate M2 makeup mixer is commit 9d5f93a9.
+    # Boiling-point elevation of ~44 wt% NaOH at 90 C: the water vapor
+    # pressure over NaOH(aq) (Olsson et al. 1997) is 17.2 kPa, i.e. the vapor
+    # condenses at 57 C. Supplier boiling-point curves agree within 2.5 K.
+    ec1_boiling_point_elevation_K: 33.0
+    # VALID RANGE: EC1 outlet 0.40-0.46 NaOH/(NaOH + H2O) (about 28-36 K) at
+    # 90-115 C (the elevation changes by only ~2 K between them). It rises
+    # steeply with concentration: 16 K at 0.30, 22 K at 0.35, 42 K at 0.50.
+    # It only sets the condenser temperature and the vacuum pressure (not
+    # costed) and the vapor temperature in the optional heat integration;
+    # re-derive it if the recycle ratio or NaOH loading changes the outlet
+    # concentration outside this range.
+    # Fraction of the Na2CO3 fed to EC1 that stays dissolved; the rest
+    # crystallizes as anhydrous Na2CO3 and is recycled with the slurry (no
+    # solid-liquid separation). Na2CO3 is nearly insoluble in ~50 wt% NaOH:
+    # the Wu et al. (2020, ACS Omega 5, 4875) 363.15 K data give about 5 % of
+    # the recycle carbonate dissolved at the 50 wt% target. That solubility
+    # rests on a single source and the solid identity (Na2CO3 vs
+    # Na2CO3.H2O) is unresolved; the energy effect is below 0.1 % of plant heat.
+    ec1_na2co3_dissolved_fraction: 0.05
+    # VALID RANGE: 0.05-0.11. The Wu et al. 2020 data (363.15 K) give 0.05 at
+    # the 0.50 NaOH/(NaOH + H2O) of the recycle target (liquor plus fresh
+    # makeup) and 0.11 at the 0.44 EC1 outlet; 0.17 at 0.40 and 0.28 at 0.35
+    # for the baseline carbonate load (0.18 kg Na2CO3 per kg outlet water).
+    # The value scales with the carbonate load, so re-derive it if the
+    # purge/recycle ratio or the causticization conversion changes it
+    # markedly. Valid only at 363 K (solubility data); the mass effect is
+    # 0.014 kg/h of 0.24 kg/h at the 1 kg/h dry basis.
+    # Heat of solution of NaOH(s) at infinite dilution, 25 C [kJ/kg NaOH]
+    # (NBS: -44.5 kJ/mol; Olsson et al. 1997 and the OxyChem Caustic Soda
+    # Handbook give 1048-1113 kJ/kg). Used for the U2 inlet enthalpy of the
+    # dissolved NaOH in the recycle liquor (ThermoSTEAM treats it as molten
+    # NaOH). The same infinite-dilution reference as the C1 aqueous-ion basis;
+    # the heat of concentration in EC1 (~0.4 MJ/kg NaOH) is lumped into this
+    # constant and not charged to EC1.
+    naoh_heat_of_solution_kJ_per_kg: 1113.0
+    # VALID RANGE: EC1 FEED liquor up to ~0.20 NaOH/(NaOH + H2O) (baseline
+    # 0.176), where the integral heat of solution is flat at 1080-1090 kJ/kg
+    # (25-90 C; 1113 is the NBS infinite-dilution value, ~3 % higher).
+    # Because the heat of concentration in EC1 is lumped into this constant,
+    # the relevant concentration is the EC1 feed, not the recycle liquor. A
+    # more concentrated EC1 feed needs a lower value: about 925 kJ/kg at 0.30
+    # and 735 kJ/kg at 0.40 (90 C). The sources span 1048-1113 kJ/kg.
 
     # Heat loss as a fraction of process heating duty (workbook: 5 %),
     # applied to C1 and EC1.
@@ -402,7 +438,7 @@ att:
           status: "Baseline."
         ec1_115C:
           ec1_temperature_K: 388.15
-          status: "Evaluated, not adopted: no advantage over 90 C with a low-temperature belt dryer (2026-10-09). Na2CO3 solubility above 90 C is extrapolated from 363.15 K data."
+          status: "Evaluated, not adopted: no advantage over 90 C with a low-temperature belt dryer (2026-10-09). The constant boiling-point elevation and dissolved Na2CO3 fraction of the 90 C baseline are kept."
       # Alternative dryer evaluated for heat integration only. The baseline
       # DrumDryer is not integrated because the model does not define the
       # temperature at which it accepts heat.

@@ -941,13 +941,13 @@ def _documented_enthalpy_residual(unit):
     kind = type(unit).__name__
     if unit.ID == "U2":
         return (unit._feed_Hf_HHV_correction_kJph + unit._aqueous_feed_correction_kJph,
-                "Feed Hf re-referenced to the HHV + NaOH(aq) electrolyte correction of the feed")
+                "Feed Hf re-referenced to the HHV + NaOH heat-of-solution correction of the feed")
     if unit.ID == "C1":
         return (-unit._aqueous_reference_correction_kJph,
                 "Infinite-dilution aqueous-ion reference for NaOH/Na2CO3 (native Hf replaced)")
     if unit.ID == "EC1":
-        return (None, "Duty from the Olsson NaOH(aq) enthalpy (latent + concentration + crystallization); "
-                      "native stream enthalpy treats NaOH as molten")
+        return (None, "Duty = latent heat of the evaporated water + liquor sensible heat (heat of "
+                      "concentration lumped into the U2 NaOH heat-of-solution term)")
     if kind == "MolecularSieve":
         return (None, "Adsorbent regeneration heat, not carried by process streams (BioSTEAM MolecularSieve)")
     if kind == "IsothermalCompressor":
@@ -1145,7 +1145,7 @@ ASSUMPTION_REGISTER = (
      "MEDIUM (Na losses)"),
     ("2 engineering", "C1 enthalpy", "Infinite-dilution aqueous reference; concentrated-solution terms bounded",
      "-40 to +300 kJ/kg dry (<1.2 % of plant heat)", "LOW"),
-    ("2 engineering", "EC1 Na2CO3 solubility", "Wu et al. 2020 at 90 C; anhydrous branch single-source",
+    ("2 engineering", "EC1 dissolved Na2CO3 fraction", "5 % dissolved (Wu et al. 2020 near 50 wt% NaOH; single source)",
      "<10 kJ/kg dry effect", "LOW"),
     ("2 engineering", "Missing costs", "C1 tank; U2 vessel (Inconel, tau 1 h); EC1 evaporator/condenser/vacuum",
      "BioSTEAM correlations; att.yaml inventory.cost_estimates", "MEDIUM (U2 vessel uncertain)"),

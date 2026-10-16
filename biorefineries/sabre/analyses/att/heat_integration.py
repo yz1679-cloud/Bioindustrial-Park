@@ -1188,8 +1188,8 @@ def get_att_process_heat_intervals(sys, n_intervals: int = 90,
 
     Hot:  U3HX product gas cooling with steam condensation (ThermoSTEAM VLE),
           RC1 residue cooling (temperature-dependent Cp),
-          EC1 vapor desuperheating and condensation (electrolyte model).
-    Cold: EC1 boiling (isothermal at the evaporator temperature, electrolyte
+          EC1 vapor desuperheating and condensation (latent-heat model).
+    Cold: EC1 boiling (isothermal at the evaporator temperature, latent-heat
           model), C1 heating (assumed linear from feed to reactor temperature)
           and, only for a ``dryer`` option from att.yaml, D0 drying. With
           ``dryer=None`` (baseline DrumDryer) D0 is not integrated, because
@@ -1219,7 +1219,7 @@ def get_att_process_heat_intervals(sys, n_intervals: int = 90,
     if q_ec1 > 0.0:
         intervals.append(HeatInterval("EC1", "cold", EC1.T, EC1.T, q_ec1,
             "single-effect boiling at the evaporator temperature",
-            "electrolyte_model"))
+            "latent_heat_model"))
     condenser = duties[("EC1", "hot")]
     if condenser > 0.0:
         T_c = float(EC1._condensation_temperature_K)
@@ -1227,9 +1227,9 @@ def get_att_process_heat_intervals(sys, n_intervals: int = 90,
         kmol = float(EC1.outs[1].imol["Water"])
         superheat = kmol * (Water.H("g", EC1.T) - Water.H("g", T_c))
         intervals.append(HeatInterval("EC1", "hot", EC1.T, T_c, superheat,
-            "vapor desuperheating", "electrolyte_model"))
+            "vapor desuperheating", "latent_heat_model"))
         intervals.append(HeatInterval("EC1", "hot", T_c, T_c, condenser - superheat,
-            "vapor condensation", "electrolyte_model"))
+            "vapor condensation", "latent_heat_model"))
 
     q_d0 = duties[("D0", "cold")]
     if d0 is not None and q_d0 > 0.0:

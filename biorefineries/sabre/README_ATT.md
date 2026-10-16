@@ -99,7 +99,7 @@ biorefineries/sabre/
 │   └── paths.py                                                   output locations
 ├── data/                          inputs only (see below)
 ├── test/                          test_att_*.py (unit tests), run_att_*.py (runners), run_att_all.py
-├── _chemicals.py  _naoh_properties.py  _tea.py  utils.py          shared SaBRe modules
+├── _chemicals.py  _tea.py  utils.py                               shared SaBRe modules
 ```
 
 ## Data sources

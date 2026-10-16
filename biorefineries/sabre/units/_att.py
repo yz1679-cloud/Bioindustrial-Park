@@ -2,7 +2,6 @@ import biosteam as bst
 import numpy as np
 import thermosteam as tmo
 
-from biorefineries.sabre import _naoh_properties as _naoh
 from biorefineries.sabre.utils import load_assumptions
 
 __all__ = (
@@ -19,6 +18,7 @@ _ATT_DATA = load_assumptions("att.yaml")["att"]
 
 _ATT = _ATT_DATA["reactor"]
 _ATT_DOWNSTREAM = _ATT_DATA["downstream"]
+_NAOH_HEAT_OF_SOLUTION_kJ_per_kg = float(_ATT_DOWNSTREAM["naoh_heat_of_solution_kJ_per_kg"])
 
 _SARGASSUM_DRY_IDS = (
     "Ash",
@@ -1167,7 +1167,7 @@ def _liquor_masses(stream, unit_ID):
     }
     if other:
         raise RuntimeError(
-            f"{unit_ID}: the NaOH-Na2CO3-H2O property model cannot handle {other}."
+            f"{unit_ID}: the NaOH-Na2CO3-H2O liquor model cannot handle {other}."
         )
     return tuple(float(stream.imass[ID]) for ID in _LIQUOR_IDS)
 
@@ -1178,37 +1178,25 @@ def _solid_na2co3_kgph(stream):
     return float(stream.imass["Na2CO3"]) if stream.phase == "s" else 0.0
 
 
-def _na2co3_sensible_kJph(kgph, T_in, T_out, chemicals):
-    """Na2CO3 sensible enthalpy change (solid Cp) [kJ/h]."""
-    if kgph == 0.0 or T_in == T_out:
-        return 0.0
-    Cn = chemicals["Na2CO3"].Cn
-    T_mean = 0.5 * (T_in + T_out)
-    return kgph / _MW_NA2CO3 * Cn("s", T_mean) * (T_out - T_in)
-
-
 def aqueous_naoh_enthalpy_correction_kJph(stream):
     """
-    Enthalpy of the dissolved NaOH in ``stream`` from the electrolyte model
-    minus ThermoSTEAM's value [kJ/h].
+    Enthalpy of the dissolved NaOH in ``stream`` as NaOH(aq) minus
+    ThermoSTEAM's value [kJ/h].
 
     ThermoSTEAM represents dissolved NaOH as pure (subcooled molten) liquid
-    NaOH; the electrolyte model uses solid NaOH + water -> NaOH(aq) with the
-    concentration-dependent heat of solution. Water enthalpy is common to
-    both and cancels.
+    NaOH. In reality dissolving solid NaOH releases the heat of solution
+    (att.yaml downstream.naoh_heat_of_solution_kJ_per_kg, infinite dilution,
+    the same reference as the C1 aqueous-ion basis), which has to be paid
+    back when the NaOH leaves the solution in U2. A single constant is used,
+    so the heat of concentration of the recycle liquor in EC1 is lumped into
+    this term and is not charged to EC1 separately.
     """
-    water = float(stream.imass["Water"])
     naoh = float(stream.imass["NaOH"])
     if naoh <= 0.0:
         return 0.0
     T = float(stream.T)
-    x = naoh / (naoh + water)
-    real = (
-        (naoh + water) * _naoh.solution_enthalpy_kJ_per_kg(x, T)
-        - water * _naoh.solution_enthalpy_kJ_per_kg(0.0, T)
-        - naoh * _naoh.solid_naoh_enthalpy_kJ_per_kg(T)
-    )
     NaOH = stream.chemicals["NaOH"]
+    real = -naoh * _NAOH_HEAT_OF_SOLUTION_kJ_per_kg          # relative to solid NaOH
     native = naoh / _MW_NAOH * (NaOH.H("l", T) - NaOH.H("s", T))
     return real - native
 
@@ -1220,16 +1208,19 @@ class NaOHEvaporator(bst.Unit):
 
     Only water in excess of ``max_water_kgph`` is evaporated; that limit is
     set by the system so the liquor reaches the target NaOH/(NaOH + H2O)
-    after the downstream fresh solid-NaOH makeup. If the liquor already
+    after the fresh solid-NaOH makeup added in M1. If the liquor already
     holds less water, nothing is evaporated.
 
-    Physics (see biorefineries.sabre._naoh_properties):
-    * operating pressure = water vapor pressure over the outlet NaOH(aq)
-      (Olsson et al. 1997), i.e. including boiling-point elevation;
-    * Na2CO3 above its solubility in the outlet liquor (Wu et al. 2020,
-      363.15 K) crystallizes as anhydrous Na2CO3 and stays in the slurry;
-    * duty from the NaOH(aq) enthalpy-concentration correlation, the vapor
-      enthalpy, the Na2CO3 crystallization enthalpy and a heat-loss factor;
+    Simple model (no electrolyte property correlations):
+    * the vapor condenses at the boiling temperature minus a constant
+      boiling-point elevation; the operating pressure is the water vapor
+      pressure at that temperature;
+    * process duty = latent heat of the evaporated water at the boiling
+      temperature + sensible heat of the liquor; the heat of concentration
+      and of Na2CO3 crystallization (together about 6 % of the duty) are
+      neglected (see ``aqueous_naoh_enthalpy_correction_kJph``);
+    * all but a fixed fraction of the Na2CO3 crystallizes (Na2CO3 is almost
+      insoluble in concentrated caustic) and stays in the slurry;
     * vapor is condensed at its saturation temperature (cooling utility).
 
     The concentrate is returned at 1 atm by its extraction pump, whose
@@ -1244,12 +1235,20 @@ class NaOHEvaporator(bst.Unit):
     _N_outs = 2
 
     def _init(self, T, heat_loss_fraction, max_water_kgph=float("inf"),
-              allow_na2co3_solubility_extrapolation=False):
+              boiling_point_elevation_K=None, na2co3_dissolved_fraction=None):
         self.T = float(T)
         self.heat_loss_fraction = float(heat_loss_fraction)
         self.max_water_kgph = float(max_water_kgph)
-        # Scenarios away from 363.15 K only (unverified assumption).
-        self.allow_na2co3_solubility_extrapolation = bool(allow_na2co3_solubility_extrapolation)
+        self.boiling_point_elevation_K = float(
+            _ATT_DOWNSTREAM["ec1_boiling_point_elevation_K"]
+            if boiling_point_elevation_K is None else boiling_point_elevation_K
+        )
+        self.na2co3_dissolved_fraction = float(
+            _ATT_DOWNSTREAM["ec1_na2co3_dissolved_fraction"]
+            if na2co3_dissolved_fraction is None else na2co3_dissolved_fraction
+        )
+        if not 0.0 <= self.na2co3_dissolved_fraction <= 1.0:
+            raise ValueError("na2co3_dissolved_fraction must be between 0 and 1.")
 
     def _run(self):
         feed = self.ins[0]
@@ -1265,17 +1264,8 @@ class NaOHEvaporator(bst.Unit):
         T = self.T if evaporated > 0.0 else float(feed.T)
         x_out = naoh / (naoh + water_out)
 
-        m_naoh = naoh / _MW_NAOH * 1e3 / water_out           # mol/kg H2O
-        m_sat, solid = _naoh.na2co3_solubility_mol_per_kg_water(
-            m_naoh, T, self.allow_na2co3_solubility_extrapolation
-        )
-        self._na2co3_solubility_extrapolated = abs(T - 363.15) > 0.5
-        dissolved = min(carbonate, m_sat * water_out * _MW_NA2CO3 / 1e3)
+        dissolved = carbonate * self.na2co3_dissolved_fraction
         crystals = carbonate - dissolved
-        if crystals > 0.0 and solid != "Na2CO3":
-            raise NotImplementedError(
-                f"{self.ID}: Na2CO3.H2O crystallization is not modeled."
-            )
 
         concentrate.empty()
         concentrate.phases = ("l", "s")
@@ -1288,8 +1278,8 @@ class NaOHEvaporator(bst.Unit):
 
         condensate.empty()
         if evaporated > 0.0:
-            P = _naoh.water_vapor_pressure_Pa(x_out, T)
-            T_condensation = float(feed.chemicals["Water"].Tsat(P))
+            T_condensation = T - self.boiling_point_elevation_K
+            P = float(feed.chemicals["Water"].Psat(T_condensation))
             condensate.imass["Water"] = evaporated
             condensate.phase = "l"
             condensate.T = T_condensation
@@ -1307,30 +1297,20 @@ class NaOHEvaporator(bst.Unit):
 
     def _design(self):
         feed = self.ins[0]
-        concentrate = self.outs[0]
-        water_in, naoh, carbonate = _liquor_masses(feed, self.ID)
-        water_out = float(concentrate.imass["l", "Water"])
         evaporated = self._evaporated_water_kgph
-        T_in, T = float(feed.T), float(concentrate.T)
-        h = _naoh.solution_enthalpy_kJ_per_kg
-
-        liquor_in = (naoh + water_in) * h(naoh / (naoh + water_in), T_in)
-        liquor_out = (naoh + water_out) * h(self._outlet_naoh_wt_frac_naoh_water, T)
+        T_in, T = float(feed.T), float(self.outs[0].T)
         Water = feed.chemicals["Water"]
-        h_vapor = h(0.0, T) + Water.Hvap(T) / Water.MW         # kJ/kg
-        vapor = evaporated * h_vapor
-        crystallization = (
-            -_naoh.NA2CO3_DISSOLUTION_kJ_per_mol
-            * self._na2co3_crystals_kgph / _MW_NA2CO3 * 1e3
-        )
-        sensible_carbonate = _na2co3_sensible_kJph(carbonate, T_in, T, feed.chemicals)
-        duty = liquor_out + vapor - liquor_in + crystallization + sensible_carbonate
+
+        latent = evaporated * Water.Hvap(T) / Water.MW           # kJ/h
+        sensible = float(feed.C) * (T - T_in)                    # kJ/h
+        duty = latent + sensible
 
         condenser = 0.0
         if evaporated > 0.0:
+            T_c = self._condensation_temperature_K
             condenser = -evaporated * (
-                h_vapor - h(0.0, self._condensation_temperature_K)
-            )
+                Water.Hvap(T) + Water.H("l", T) - Water.H("l", T_c)
+            ) / Water.MW
 
         if duty > 0.0:
             self.add_heat_utility(
@@ -1345,7 +1325,6 @@ class NaOHEvaporator(bst.Unit):
             )
 
         self._heat_duty_kJph = duty
-        self._crystallization_heat_kJph = crystallization
         self._condenser_duty_kJph = condenser
         self._utility_heat_duty_kJph = sum(
             hu.duty for hu in self.heat_utilities if hu.duty > 0.0
@@ -1360,11 +1339,10 @@ class NaOHEvaporator(bst.Unit):
             "Operating temperature": T,
             "Operating pressure": P if P is not None else 0.0,
             "Boiling-point elevation": (
-                T - self._condensation_temperature_K if P is not None else 0.0
+                self.boiling_point_elevation_K if P is not None else 0.0
             ),
             "Outlet NaOH/(NaOH+H2O)": self._outlet_naoh_wt_frac_naoh_water,
             "Na2CO3 crystals": self._na2co3_crystals_kgph,
-            "Na2CO3 solubility extrapolated from 90 C": int(self._na2co3_solubility_extrapolated),
             "Process heat duty": duty,
             "Condenser duty": condenser,
         })
@@ -1372,7 +1350,6 @@ class NaOHEvaporator(bst.Unit):
             "Evaporated water": "kg/hr", "Operating temperature": "K",
             "Operating pressure": "Pa", "Boiling-point elevation": "K",
             "Outlet NaOH/(NaOH+H2O)": "-", "Na2CO3 crystals": "kg/hr",
-            "Na2CO3 solubility extrapolated from 90 C": "-",
             "Process heat duty": "kJ/hr", "Condenser duty": "kJ/hr",
         }
 

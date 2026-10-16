@@ -364,8 +364,8 @@ def get_att_energy_summary(sys):
     directly from BioSTEAM.
 
     C1 remains the current ATT-specific reaction implementation.
-    EC1 is the NaOH(aq) vacuum evaporator; its duty comes from the
-    electrolyte enthalpy model plus the 5% heat-loss factor.
+    EC1 is the NaOH(aq) vacuum evaporator; its duty is the latent heat of
+    the evaporated water plus the 5% heat-loss factor.
 
     No ATT heat-recovery credit is applied in this function.
     """
@@ -400,7 +400,7 @@ def get_att_energy_summary(sys):
     # scenario); C1._utility_heat_duty_kJph is the unintegrated value.
     c1_utility_kJph = _positive_heat_utility_kJph(u.C1)
 
-    # EC1 vacuum evaporator: electrolyte-model duty plus heat loss.
+    # EC1 vacuum evaporator: latent-heat duty plus heat loss.
     ec1_utility_kJph = (
         _positive_heat_utility_kJph(
             u.EC1

@@ -67,7 +67,8 @@ def create_att_system(
     ec1_temperature_K : float or None
         EC1 boiling temperature for OPTIMIZATION SCENARIOS. None keeps the
         baseline (att.yaml concentration_temperature_K, 90 C). Any other
-        value extrapolates the 90 C Na2CO3 solubility data (flagged).
+        value keeps the baseline boiling-point elevation and dissolved
+        Na2CO3 fraction (approximation).
     heat_integration : bool
         OPTIONAL SCENARIO: add the ATTHeatRecovery facility, which credits
         only temperature-verified heat-exchanger matches (D0 not integrated).
@@ -308,7 +309,7 @@ def create_att_system(
         M1._fresh_naoh_makeup_kgph = fresh_naoh_kgph
 
         # M1 is adiabatic, so the true U2 feed enthalpy is ThermoSTEAM's
-        # value plus the electrolyte correction of the NaOH(aq) recycle
+        # value plus the heat-of-solution correction of the NaOH(aq) recycle
         # liquor (ThermoSTEAM treats dissolved NaOH as subcooled molten
         # NaOH). The fresh NaOH enters as a solid, whose enthalpy is the
         # same in ThermoSTEAM and in reality; its heat of solution only
@@ -882,9 +883,9 @@ def create_att_system(
     #
     #     water_max = gross NaOH * (1 - x) / x,   x = NaOH/(NaOH + H2O)
     #
-    # No evaporation if the liquor already holds less water. Boiling
-    # pressure, duty and Na2CO3 salting-out use the NaOH(aq) property
-    # model (biorefineries.sabre._naoh_properties).
+    # No evaporation if the liquor already holds less water. EC1 is a simple
+    # model: latent-heat duty, constant boiling-point elevation and a fixed
+    # dissolved fraction of Na2CO3 (att.yaml downstream.ec1_*).
     # --------------------------------------------------------------
     if _ATT_DOWNSTREAM["recycle_naoh_concentration_basis"] != "naoh_plus_water":
         raise ValueError(
@@ -900,7 +901,6 @@ def create_att_system(
         outs=(naoh_recycle, "ec1_condensate"),
         T=ec1_T,
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
-        allow_na2co3_solubility_extrapolation=abs(ec1_T - baseline_ec1_T) > 0.5,
     )
     EC1.is_baseline_temperature = abs(ec1_T - baseline_ec1_T) <= 0.5
 

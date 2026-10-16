@@ -339,8 +339,6 @@ def _sources():
     rows += [
         dict(item="Flowsheet", reference="biorefineries/sabre/systems/_att_system.py (create_att_system)", role="model"),
         dict(item="ATT units (U2, C1, EC1)", reference="biorefineries/sabre/units/_att.py", role="model"),
-        dict(item="NaOH(aq) properties", reference="biorefineries/sabre/_naoh_properties.py (Olsson 1997; Wu 2020)",
-             role="model"),
         dict(item="Chemicals (Char, CharN, CharS, feed pseudo-components)", reference="biorefineries/sabre/_chemicals.py",
              role="model"),
         dict(item="Extraction functions", reference="biorefineries/sabre/analyses/att/inventory.py, att/reporting.py",

@@ -224,18 +224,27 @@ def _register_rows():
         f"att.yaml:{ds}.whole_liquor_recycle_fraction", "Interpretation, user-accepted",
         affects="Process, LCA, TEA", confirm="Yes")
     add("Downstream", "EC1 temperature", Y("att.yaml", f"{ds}.concentration_temperature_K"), "K", "EC1",
-        "Boiling temperature (pressure from Olsson correlation)", ENG, "User decision 2026-10-09 (90 C baseline)",
+        "Boiling temperature (pressure = water vapor pressure at T - boiling-point elevation)", ENG, "User decision 2026-10-09 (90 C baseline)",
         f"att.yaml:{ds}.concentration_temperature_K", "Specified")
     add("Downstream", "EC1/M1 concentration target", Y("att.yaml", f"{ds}.recycle_naoh_wt_frac"),
         "NaOH/(NaOH+H2O)", "EC1, M1", "Binary basis after makeup", EXP,
         "Workbook 'Water left in recovered NaOH 50 wt%'; basis per user decision 2026-10-09",
         f"att.yaml:{ds}.recycle_naoh_wt_frac", "Specified", affects="Process, LCA, TEA")
-    add("Downstream", "NaOH(aq) properties", "Olsson et al. 1997", "-", "EC1, U2",
-        "Vapor pressure and enthalpy of NaOH(aq)", LIT, "Olsson, Jernqvist, Aly, Int. J. Thermophys. 18 (1997) 779",
-        "biorefineries/sabre/_naoh_properties.py", "Validated (boiling points, Cp, dilution heat)")
-    add("Downstream", "Na2CO3 solubility in NaOH", "Wu et al. 2020", "-", "EC1", "Salting-out at 90 C", LIT,
-        "Wu, Liu, Wu, ACS Omega 5 (2020) 4875", "biorefineries/sabre/_naoh_properties.py",
-        "Single-source near 50 wt% NaOH", uncertainty="<10 kJ/h per kg/h dry feed")
+    add("Downstream", "EC1 boiling-point elevation", Y("att.yaml", f"{ds}.ec1_boiling_point_elevation_K"), "K", "EC1",
+        "Vapor condensation temperature = boiling temperature - elevation", LIT,
+        "Olsson, Jernqvist, Aly, Int. J. Thermophys. 18 (1997) 779 (vapor pressure of ~44 wt% NaOH at 90 C)",
+        f"att.yaml:{ds}.ec1_boiling_point_elevation_K", "Constant at the baseline outlet concentration",
+        uncertainty="supplier boiling-point curves agree within 2.5 K")
+    add("Downstream", "EC1 dissolved Na2CO3 fraction", Y("att.yaml", f"{ds}.ec1_na2co3_dissolved_fraction"), "-", "EC1",
+        "Fraction of the Na2CO3 fed that stays dissolved; the rest crystallizes", LIT,
+        "Wu, Liu, Wu, ACS Omega 5 (2020) 4875 (363.15 K, ~50 wt% NaOH)",
+        f"att.yaml:{ds}.ec1_na2co3_dissolved_fraction", "Single-source near 50 wt% NaOH; solid identity unresolved",
+        uncertainty="<0.1 % of plant heat")
+    add("Downstream", "NaOH heat of solution", Y("att.yaml", f"{ds}.naoh_heat_of_solution_kJ_per_kg"), "kJ/kg NaOH", "U2",
+        "Enthalpy correction of the dissolved NaOH in the recycle liquor", LIT,
+        "NBS -44.5 kJ/mol; Olsson et al. 1997; OxyChem Caustic Soda Handbook Table 11",
+        f"att.yaml:{ds}.naoh_heat_of_solution_kJ_per_kg", "Infinite dilution, same reference as C1",
+        uncertainty="1048-1113 kJ/kg in the sources")
     for name, eta, src in (("U2 burner efficiency", Y("att.yaml", "att.energy_sources.natural_gas.burner_efficiency"),
                             "Workbook: 'IPCC 2006; burner eff. 0.90'"),
                            ("Steam boiler efficiency", Y("att_lca.yaml", "lca.natural_gas.boiler_efficiency"),
@@ -415,19 +424,18 @@ def _naoh_extra(sys):
     ec1 = u["EC1"]
     rows.append(dict(stream="EC1 operating pressure [Pa]", NaOH_over_NaOH_plus_H2O=ec1._operating_pressure_Pa,
                      NaOH_over_total_mixture=float("nan"), Na2CO3_over_total_mixture=float("nan"),
-                     note="Olsson correlation at 90 C"))
+                     note="water vapor pressure at the condensation temperature"))
     return rows
 
 
 def _crystallization_audit(sys):
     """
-    Na2CO3 salting-out in EC1: inlet/outlet phases, solubility limit
-    recomputed independently from the Wu et al. (2020) 363.15 K data
-    (_naoh_properties), the unit mass balances and the Na2CO3 recycle fate.
-    Values in kg/h at the reference scale and per 1 kg/h dry feed.
+    Na2CO3 crystallization in EC1: inlet/outlet phases, the fixed dissolved
+    fraction (att.yaml downstream.ec1_na2co3_dissolved_fraction), the unit
+    mass balances and the Na2CO3 recycle fate. Values in kg/h at the
+    reference scale and per 1 kg/h dry feed.
     """
-    from biorefineries.sabre import _naoh_properties as _naoh
-    from biorefineries.sabre.units._att import _MW_NA2CO3, _MW_NAOH, _solid_na2co3_kgph
+    from biorefineries.sabre.units._att import _solid_na2co3_kgph
 
     u = inv._units(sys)
     s = inv._streams(sys)
@@ -459,30 +467,19 @@ def _crystallization_audit(sys):
     add(S, "Total solid Na2CO3 leaving the unit", eo_sol, "kg/h", "outlet solid phase")
     add(S, "Model attribute: crystals", EC1._na2co3_crystals_kgph, "kg/h", "EC1._na2co3_crystals_kgph")
 
-    # Conditions and solubility limit, recomputed from the correlation.
+    # Conditions.
     ec1_w, ec1_naoh = float(ec1_out.imass["l", "Water"]), float(ec1_out.imass["l", "NaOH"])
-    m_ec1 = ec1_naoh / _MW_NAOH * 1e3 / ec1_w
-    sat_ec1, solid_ec1 = _naoh.na2co3_solubility_mol_per_kg_water(m_ec1, float(ec1_out.T),
-                                                                  EC1.allow_na2co3_solubility_extrapolation)
-    lim_ec1 = sat_ec1 * ec1_w * _MW_NA2CO3 / 1e3
-    S = "2 Conditions and solubility limit"
+    S = "2 Conditions"
     add(S, "Outlet temperature", float(ec1_out.T) - 273.15, "C", "fixed boiling temperature", per_kg_dry=False)
     add(S, "Pressure", EC1._operating_pressure_Pa / 1e3, "kPa",
-        "water vapor pressure over NaOH(aq) (Olsson et al. 1997)", per_kg_dry=False)
+        "water vapor pressure at the boiling temperature minus the boiling-point elevation", per_kg_dry=False)
     add(S, "Water in the outlet liquor", ec1_w, "kg/h", "EC1 evaporates to the water limit")
     add(S, "Water evaporated", float(ec1_cond.F_mass), "kg/h", "EC1 condensate")
     add(S, "NaOH in the outlet liquor", ec1_naoh, "kg/h", "recovered NaOH; the fresh makeup is added in M1")
     add(S, "NaOH/(NaOH + H2O) in the outlet", ec1_naoh / (ec1_naoh + ec1_w), "-",
         "binary basis; the recycle target (0.50) applies after the fresh NaOH makeup in M1", per_kg_dry=False)
-    add(S, "NaOH molality in the outlet", m_ec1, "mol/kg H2O", "used in the solubility correlation", per_kg_dry=False)
-    add(S, "Na2CO3 saturation molality", sat_ec1, "mol/kg H2O",
-        "Wu et al. (2020), 363.15 K, log-linear between (5.96, 1.44) and (24.08, 0.10) mol/kg", per_kg_dry=False)
-    add(S, "Na2CO3 saturation", sat_ec1 * _MW_NA2CO3 / 10.0, "g/100 g H2O", "same", per_kg_dry=False)
-    add(S, "Stable solid at saturation", solid_ec1, "-", "branch of the correlation", per_kg_dry=False)
-    add(S, "Solubility limit in the outlet liquor", lim_ec1, "kg Na2CO3/h", "saturation x outlet water")
-    add(S, "Recomputed solid = Na2CO3 in - limit (if positive)", max(e_tot - lim_ec1, 0.0), "kg/h",
-        "independent recalculation")
-    add(S, "Crystallization enthalpy", EC1._crystallization_heat_kJph, "kJ/h", "in the evaporator duty")
+    add(S, "Dissolved fraction of the Na2CO3 fed", EC1.na2co3_dissolved_fraction, "-",
+        "att.yaml downstream.ec1_na2co3_dissolved_fraction (assumption)", per_kg_dry=False)
 
     # Unit mass balances.
     S = "3 Mass balances"
@@ -522,16 +519,15 @@ def _crystallization_audit(sys):
     add(S, "EC1 precipitation [kg/h at 1 kg/h dry feed]", v, "kg/kg dry",
         f"converged model {v:.5f} (reference scale) = {v_small:.5f} (1 kg/h simulation): "
         f"{'PASS' if same else 'FAIL'}", per_kg_dry=False)
-    for item, a_, b_ in (("EC1 solid = recomputed from correlation", eo_sol, max(e_tot - lim_ec1, 0.0)),
+    expected_solid = e_tot * (1.0 - EC1.na2co3_dissolved_fraction)
+    for item, a_, b_ in (("EC1 solid = Na2CO3 fed x (1 - dissolved fraction)", eo_sol, expected_solid),
                          ("Na2CO3 balance of EC1 closes", e_tot - eo_tot, 0.0)):
         add(S, item, a_, "kg/h", "PASS" if abs(a_ - b_) <= 1e-9 * max(1.0, abs(b_)) else "FAIL", per_kg_dry=False)
     add(S, "Method", nan, "",
-        "CALCULATED, not imposed: solid = Na2CO3 present - solubility limit, with the limit from "
-        "the Wu et al. (2020, ACS Omega 5, 4875-4889) 363.15 K saturation data in "
-        "_naoh_properties.na2co3_solubility_mol_per_kg_water (anhydrous Na2CO3 branch). The "
-        "amounts follow from the simulated water, NaOH and Na2CO3 flows; no precipitation amount "
-        "is a fixed input. Limitations: single source near 50 wt% NaOH, solid identity (Na2CO3 vs "
-        "Na2CO3.H2O) unresolved, crystals recycled to U2 (not separated).", per_kg_dry=False)
+        "ASSUMED, not calculated: a fixed fraction of the Na2CO3 fed stays dissolved and the rest crystallizes "
+        "(att.yaml downstream.ec1_na2co3_dissolved_fraction, about 5 %, from the Wu et al. 2020 solubility "
+        "near 50 wt% NaOH). Limitations: single source, solid identity (Na2CO3 vs Na2CO3.H2O) unresolved, "
+        "crystals recycled to U2 (not separated).", per_kg_dry=False)
     return rows
 
 
@@ -592,12 +588,11 @@ def _energy_accounts(sys):
     EC1 = u["EC1"]
     for a, label, unit_label in (("_evaporated_water_kgph", "Evaporated water", "kg/kg dry"),
                                  ("_heat_duty_kJph", "Process heat", "MJ/kg dry"),
-                                 ("_crystallization_heat_kJph", "Na2CO3 crystallization heat", "MJ/kg dry"),
                                  ("_condenser_duty_kJph", "Condenser duty", "MJ/kg dry"),
                                  ("_utility_heat_duty_kJph", "Utility heat (steam)", "MJ/kg dry"),
                                  ("_heat_loss_kJph", "Heat loss", "MJ/kg dry")):
         v = getattr(EC1, a)
-        put("EC1", label, v / dry if "kg/kg" in unit_label else v / dry / 1e3, unit_label, "NaOHEvaporator (Olsson)")
+        put("EC1", label, v / dry if "kg/kg" in unit_label else v / dry / 1e3, unit_label, "NaOHEvaporator")
     put("EC1", "Specific heat per kg water", EC1._specific_heat_kJ_per_kg_water / 1e3, "MJ/kg water")
     put("EC1", "Operating pressure", EC1._operating_pressure_Pa / 1e3, "kPa")
     for ID in ("U3HX", "U3D", "U3K", "RC1"):
@@ -1120,7 +1115,7 @@ traceability only: no model, LCA or TEA parameter is changed.
   with custom units in `biorefineries/sabre/units/_att.py`. U2 scales all four
   measured gases by one factor s (uniform_redox_scaling, s = 0.5998), preserving
   the measured gas ratios and closing C, H, O with char and water; the measured
-  yields themselves are never modified. NaOH(aq) properties: `biorefineries/sabre/_naoh_properties.py`.
+  yields themselves are never modified. Sources of the data: `data_sources` in `biorefineries/sabre/data/att.yaml`.
 - **Configuration:** `biorefineries/sabre/data/att.yaml` (process),
   `feedstock.yaml`, `tea.yaml` (SaBRe common), `att_lca.yaml` (GWP100 factors),
   `att_tea.yaml` (ATT prices and capital items).
