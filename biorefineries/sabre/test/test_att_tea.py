@@ -37,9 +37,11 @@ class TestATTTEA(unittest.TestCase):
         s = inv._streams(self.sys)
         self.assertEqual(s["u3_tail_gas"].price, 0.0)
         self.assertEqual(s["caco3_cake"].price, 0.0)
-        names = [n for n, _, _ in self.result["capital_items"]]
-        self.assertIn("PSA unit (PRELIMINARY)", names)
-        self.assertTrue(any(n.startswith("U3K") for n in names))
+        # the PSA and the compressor are costed inside U3P and U3K, not added by the TEA
+        units = inv._units(self.sys)
+        self.assertGreater(units["U3P"].installed_cost, 0.0)
+        self.assertEqual(type(units["U3K"]).__name__, "ATTCompressor")
+        self.assertEqual(units["U3K"].compressor_type, "Reciprocating")
 
 
     def test_caco3_case_b_dcf_matches_cash_change(self):

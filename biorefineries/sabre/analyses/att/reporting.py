@@ -271,10 +271,10 @@ def _register_rows():
     for k, v in Y("tea.yaml", "tea").items():
         add("Financial", k, str(v) if isinstance(v, list) else v, "-", "SaBReTEA", "", SDB,
             "SaBRe tea.yaml (project financial convention)", f"tea.yaml:tea.{k}", "Baseline", affects="TEA")
-    psa = Y("att_tea.yaml", "tea.capex.PSA")
+    psa = Y("att.yaml", "att.gas_treatment.psa_cost")
     add("TEA", "PSA installed cost anchor", psa["anchor_installed_cost_usd"], "USD", "U3P",
         f"{psa['anchor_capacity_t_H2_per_day']} t H2/d, exponent {psa['exponent']}", LIT, psa["source"],
-        "att_tea.yaml:tea.capex.PSA", psa["status"], affects="TEA", basis="Baseline (+/-50 %)",
+        "att.yaml:att.gas_treatment.psa_cost", psa["status"], affects="TEA", basis="Baseline (+/-50 %)",
         uncertainty="Primary reference and cost year not verified")
     add("TEA", "Equipment cost year", bst.CE, "CEPCI", "all equipment", "BioSTEAM default CE", BSD,
         "BioSTEAM settings (bst.CE)", "att_tea.yaml:tea.cost_year.reference_CE", "Baseline", affects="TEA",
@@ -751,14 +751,11 @@ def _capex_detail(sys, result):
                              correlation=(f"basis {ci.basis} [{ci.units}], S={ci.S}, ub={ci.ub}, n={ci.n}, CE={ci.CE}"
                                           if ci else "BioSTEAM unit _cost method"),
                              cost_year=f"CEPCI {bst.CE} (BioSTEAM)", source="native BioSTEAM"))
-    recip = tea_mod._u3k_reciprocating(sys)
     for name, value, source in result["capital_items"]:
         purchase = float("nan")
         est = next((r for r in result["estimates"] if name.startswith(r["item"])), None)
         if est:
             purchase = est["purchase_cost"]
-        if name.startswith("U3K"):
-            purchase = recip.purchase_cost - inv._units(sys)["U3K"].purchase_cost
         rows.append(dict(item=name, class_="TEA-only estimate", sizing_basis=est["size"] if est else "",
                          parallel_units="", purchase_cost_USD=purchase, installed_cost_USD=value, F_BM=float("nan"),
                          F_M=float("nan"), correlation=source, cost_year=f"CEPCI {bst.CE}" if "PSA" not in name

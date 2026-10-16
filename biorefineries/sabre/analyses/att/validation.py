@@ -443,6 +443,7 @@ def build_att_1kgph_audit():
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
     aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
     a, b = aux(estimates, small), aux(inv.get_att_cost_estimates(ref), ref)
+    b = b if b else float("nan")   # agitator and vacuum power are inside the unit models now (no TEA estimate)
     tables["12_Compare_Full_Scale"].insert(-1, dict(
         parameter="Electricity, agitators + EC1 vacuum (TEA estimates) [kWh/kg dry]", actual_1kgph_simulation=a,
         full_scale_normalized_per_kg_dry=b, relative_difference=(a - b) / b,

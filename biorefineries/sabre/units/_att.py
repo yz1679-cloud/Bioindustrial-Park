@@ -1,6 +1,11 @@
+from math import ceil, exp, log, pi
+
 import biosteam as bst
 import numpy as np
 import thermosteam as tmo
+from biosteam.units.design_tools import PressureVessel
+from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
+from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
 
 from biorefineries.sabre.utils import load_assumptions
 
@@ -14,12 +19,15 @@ __all__ = (
     "ATTDrumDryer",
     "ATTCompressor",
     "ATTMolecularSieve",
+    "ATTVesselCost",
+    "ATTPSA",
 )
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
 
 _ATT = _ATT_DATA["reactor"]
 _ATT_DOWNSTREAM = _ATT_DATA["downstream"]
+_EQUIPMENT = _ATT_DATA["inventory"]["cost_estimates"]   # sizing of equipment BioSTEAM has no unit model for
 _NAOH_HEAT_OF_SOLUTION_kJ_per_kg = float(_ATT_DOWNSTREAM["naoh_heat_of_solution_kJ_per_kg"])
 
 _SARGASSUM_DRY_IDS = (
@@ -188,6 +196,69 @@ class ATTMolecularSieve(bst.MolecularSieve):
                 _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
                                      hxn_ok=False)
 
+
+
+class ATTVesselCost(bst.Unit, PressureVessel):
+    """
+    Vertical vessel of a given volume, costed with BioSTEAM's pressure-vessel
+    correlation (auxiliary unit of the ATT reactor; no mass or energy effect).
+    """
+    _N_ins = _N_outs = 1
+    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
+    _F_BM_default = {"Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
+
+    def __init__(self, ID="", ins=None, outs=(), thermo=None, *, volume_m3=1.0, length_to_diameter=3.0,
+                 material="Inconel-600"):
+        super().__init__(ID, ins, outs, thermo)
+        self.volume_m3 = float(volume_m3)
+        self.length_to_diameter = float(length_to_diameter)
+        self.vessel_type = "Vertical"
+        # BioSTEAM has no density for most alloys: size the wall with SS316
+        # and apply the material factor of the specified alloy.
+        self.vessel_material = "Stainless steel 316"
+        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[material]
+
+    def _run(self):
+        self.outs[0].copy_like(self.ins[0])
+
+    def _design(self):
+        D_m = (4.0 * self.volume_m3 / (pi * self.length_to_diameter)) ** (1.0 / 3.0)
+        self._design_and_cost_pressure_vessel(
+            101325.0, D_m, self.length_to_diameter * D_m,
+            pressure_units="Pa", length_units="m",
+        )
+
+    def _cost(self):
+        pass
+
+
+class ATTPSA(bst.Splitter):
+    """
+    Idealized PSA (component splitter) with a capital cost: BioSTEAM has no PSA
+    model, so one installed-cost item, anchor x (H2 product / anchor capacity)
+    ** exponent x cost_factor, is carried by the unit (bare-module factor 1,
+    the anchor being an installed cost). PRELIMINARY: see att.yaml gas_treatment.psa_cost.
+    """
+    _F_BM_default = {"PSA unit": 1.0}
+
+    def _init(self, *args, anchor_installed_cost_usd, anchor_capacity_t_H2_per_day, exponent=0.6, cost_factor=1.0,
+              **kwargs):
+        super()._init(*args, **kwargs)
+        self.anchor_installed_cost_usd = float(anchor_installed_cost_usd)
+        self.anchor_capacity_t_H2_per_day = float(anchor_capacity_t_H2_per_day)
+        self.exponent = float(exponent)
+        self.cost_factor = float(cost_factor)
+
+    def _design(self):
+        self.design_results["H2 product (t/d)"] = float(self.outs[0].imass["H2"]) * 24.0 / 1e3
+        self._units["H2 product (t/d)"] = "t/d"
+
+    def _cost(self):
+        tpd = self.design_results["H2 product (t/d)"]
+        self.baseline_purchase_costs["PSA unit"] = (
+            self.anchor_installed_cost_usd * (tpd / self.anchor_capacity_t_H2_per_day) ** self.exponent
+            * self.cost_factor
+        )
 
 
 class ATTPress(bst.Unit):
@@ -437,6 +508,13 @@ class ATTReactor(bst.Unit):
             heat_only=True,
             heat_transfer_efficiency=self.heat_transfer_efficiency,
         )
+
+        # Reactor vessel (hold-up volume): costed with the pressure-vessel
+        # correlation; its volume follows the feed in _design().
+        cfg = _EQUIPMENT["U2_vessel"]
+        vessel = self.auxiliary("vessel", ATTVesselCost, ins=bst.Stream(None),
+                                length_to_diameter=cfg["length_to_diameter"], material=cfg["material"])
+        self.register_auxiliary(vessel, "vessel")
 
     def _run(self):
         feed = self.ins[0]
@@ -916,6 +994,11 @@ class ATTReactor(bst.Unit):
                 "duty": heat_duty_kJph,
             },
         )
+        cfg = _EQUIPMENT["U2_vessel"]
+        vessel = self.vessel
+        vessel.ins[0].copy_like(feed)
+        vessel.volume_m3 = float(feed.F_mass) / cfg["density_kg_per_m3"] * cfg["tau_h"] / cfg["fill_fraction"]
+        vessel.simulate(run=False)
 
         utility_heat_duty_kJph = sum(
             max(float(hu.duty), 0.0)
@@ -1108,6 +1191,9 @@ class CausticizationReactor(bst.Unit):
         self.target_temperature_K = float(target_temperature_K)
         self.heat_loss_fraction = float(heat_loss_fraction)
         _att_add_proxy_exchanger(self, "heater", 1.0 / (1.0 + self.heat_loss_fraction))
+        # Agitated reaction tank (holding time tau): BioSTEAM MixTank with its agitator power.
+        tank = self.auxiliary("tank", bst.MixTank, ins=bst.Stream(None), tau=_EQUIPMENT["C1"]["tau_h"])
+        self.register_auxiliary(tank, "tank")
 
         self.reaction = tmo.Reaction(
             "Na2CO3 + CaOH2 -> 2 NaOH + CaCO3",
@@ -1233,6 +1319,8 @@ class CausticizationReactor(bst.Unit):
         # allowance enters through the heat-transfer efficiency, so it is not
         # counted twice. The duty lumps sensible heating and the (small)
         # reaction enthalpy.
+        self.tank.ins[0].copy_like(self.outs[0])
+        self.tank.simulate()
         if abs(heat_duty_kJph) > 1e-12:
             efficiency = (
                 1.0 / (1.0 + self.heat_loss_fraction)
@@ -1472,17 +1560,16 @@ class NaOHEvaporator(bst.Unit):
         # Evaporator heating (water evaporating at the operating temperature)
         # and condenser (water condensing at the condensation temperature)
         # are carried by auxiliary exchangers that BioSTEAM's
-        # HeatExchangerNetwork can match. Their cost is zero here: the
-        # evaporator and the condenser are costed in
-        # analyses/att/inventory.get_att_cost_estimates (Seider evaporator
-        # correlation, bst.HXutility condenser).
+        # HeatExchangerNetwork can match. The condenser exchanger is costed;
+        # the evaporator's heating surface is inside the evaporator
+        # correlation costed in _cost() (the exchanger itself has zero cost).
         evaporator_hx = condenser_hx = None
         if duty > 0.0:
             evaporator_hx = _att_proxy_exchanger(self, "evaporator", duty, T, latent=True, costed=False)
         if condenser < 0.0:
             condenser_hx = _att_proxy_exchanger(
                 self, "condenser", condenser, self._condensation_temperature_K,
-                latent=True, costed=False,
+                latent=True,
             )
 
         self._heat_duty_kJph = duty
@@ -1514,3 +1601,28 @@ class NaOHEvaporator(bst.Unit):
             "Outlet NaOH/(NaOH+H2O)": "-", "Na2CO3 crystals": "kg/hr",
             "Process heat duty": "kJ/hr", "Condenser duty": "kJ/hr",
         }
+
+    _F_BM_default = {"Forced-circulation evaporator": 2.45, "Vacuum system": 1.0}
+
+    def _cost(self):
+        """Forced-circulation evaporator (Seider et al.) and the vacuum system for air in-leakage."""
+        e = _EQUIPMENT["EC1"]
+        hx = self.hxn_evaporator
+        steam = [hu for hu in hx.heat_utilities if hu.duty > 0.0]
+        if steam:
+            Q = sum(hu.unit_duty for hu in steam)                      # kJ/h
+            dT = steam[0].agent.T - float(self.T)
+            area_m2 = Q / (e["U_W_per_m2_K"] * 3.6 * dT)
+            # Seider et al. forced-circulation evaporator, A in ft2 (150-8000 ft2 per unit), CE 500.
+            area_ft2 = area_m2 * 10.7639
+            n = max(1, ceil(area_ft2 / 8000.0))
+            lnA = log(area_ft2 / n)
+            self.baseline_purchase_costs["Forced-circulation evaporator"] = (
+                n * bst.CE / 500.0 * exp(8.2986 + 0.5329 * lnA - 0.000196 * lnA * lnA))
+            self.design_results["Evaporator area"] = area_m2
+            self._units["Evaporator area"] = "m2"
+            liquor_m3ph = float(self.ins[0].F_mass) / e["liquor_density_kg_per_m3"]
+            vessel_m3 = liquor_m3ph * e["vessel_holdup_h"] / e["vessel_fill_fraction"]
+            vacuum = compute_vacuum_system_power_and_cost(0.0, 0.0, self._operating_pressure_Pa, vessel_m3)
+            self.baseline_purchase_costs["Vacuum system"] = vacuum["Cost"]
+            self.add_power_utility(vacuum["Work"])

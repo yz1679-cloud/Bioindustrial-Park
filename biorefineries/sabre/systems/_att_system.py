@@ -15,6 +15,7 @@ from biorefineries.sabre.units._att import (
     ATTDrumDryer,
     ATTCompressor,
     ATTMolecularSieve,
+    ATTPSA,
     aqueous_naoh_enthalpy_correction_kJph,
 )
 
@@ -532,12 +533,13 @@ def create_att_system(
             ]
         ),
         vle=False,
+        compressor_type=_ATT_U3["h2_compressor_type"],
         intercooler_T_K=float(_ATT_HEAT_RECOVERY["u3k_interstage_temperature_K"]),
     )
 
     # U3P - PSA surrogate at the PSA feed pressure; the H2 product leaves at
     # that pressure and the tail gas is let down to the burner pressure (U3V).
-    U3P = bst.Splitter(
+    U3P = ATTPSA(
         "U3P",
         ins=U3K - 0,
         outs=(
@@ -545,6 +547,10 @@ def create_att_system(
             "u3_tail_gas_high_pressure",
         ),
         split=psa_split,
+        anchor_installed_cost_usd=float(_ATT_U3["psa_cost"]["anchor_installed_cost_usd"]),
+        anchor_capacity_t_H2_per_day=float(_ATT_U3["psa_cost"]["anchor_capacity_t_H2_per_day"]),
+        exponent=float(_ATT_U3["psa_cost"]["exponent"]),
+        cost_factor=float(_ATT_U3["psa_cost"]["cost_factor"]),
     )
 
     U3V = bst.IsenthalpicValve(

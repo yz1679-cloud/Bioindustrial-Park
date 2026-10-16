@@ -5,12 +5,11 @@ Reuses SaBReTEA (tea.yaml financial assumptions; FCI = installed equipment
 cost; FOC = 4 % of FCI) through a thin subclass that adds only what the
 frozen unit models do not carry:
 
-- extra installed capital: out-of-model equipment estimates from
-  att.inventory (C1 tank, U2 vessel, EC1 evaporator/condenser/vacuum),
-  the preliminary PSA estimate and the U3K reciprocating-compressor
-  correction (att_tea.yaml capex);
-- extra annual operating cost: purge-neutralization H2SO4, estimated
-  agitator/vacuum electricity, and the natural-gas cost adjustment that
+- extra installed capital: only the P1 BioSTEAM-ScrewPress alternative and the
+  PSA cost-factor sensitivity (all equipment is costed inside the units: the
+  U2 vessel and furnace, the C1 tank, the EC1 evaporator, condenser and vacuum
+  system, the PSA in U3P and the reciprocating compressor U3K);
+- extra annual operating cost: purge-neutralization H2SO4 and the natural-gas cost adjustment that
   prices fuel = U2 duty / burner efficiency (as in the LCA) instead of the
   BioSTEAM agent flow.
 
@@ -115,21 +114,6 @@ def _ng_usd_per_MJ():
     return agent.regeneration_price / (bst.Chemical("CH4").LHV / 1e3)
 
 
-def _psa_installed_cost(sys, factor=1.0):
-    c = _T["capex"]["PSA"]
-    h2_tpd = float(inv._streams(sys)["h2_product"].imass["H2"]) * 24.0 / 1e3
-    return c["anchor_installed_cost_usd"] * (h2_tpd / c["anchor_capacity_t_H2_per_day"]) ** c["exponent"] * factor
-
-
-def _u3k_reciprocating(sys):
-    U3K = inv._units(sys)["U3K"]
-    with inv._scratch_flowsheet():
-        unit = bst.IsothermalCompressor("U3K_reciprocating_estimate", ins=U3K.ins[0].copy(), P=U3K.P,
-                                        eta=U3K.eta, compressor_type=_T["capex"]["U3K"]["compressor_type"])
-        unit.simulate()
-    return unit
-
-
 def _biosteam_screwpress(sys):
     """BioSTEAM ScrewPress on the P1 feed (alternative to the municipal-press basis); None without P1."""
     units = inv._units(sys)
@@ -151,10 +135,9 @@ def _capital_items(sys, estimates, psa_factor=1.0, p1_biosteam_screwpress=False)
     u = inv._units(sys)
     items = [(f"{r['item']} (estimate)", r["installed_cost"], r["method"])
              for r in estimates if r["installed_cost"] == r["installed_cost"]]
-    items.append(("PSA unit (PRELIMINARY)", _psa_installed_cost(sys, psa_factor), _T["capex"]["PSA"]["source"]))
-    recip = _u3k_reciprocating(sys)
-    items.append(("U3K: reciprocating replaces screw correlation (difference)",
-                  recip.installed_cost - u["U3K"].installed_cost, _T["capex"]["U3K"]["reason"]))
+    if psa_factor != 1.0:
+        items.append((f"PSA capital x{psa_factor} (adjustment of the U3P cost)",
+                      (psa_factor - 1.0) * u["U3P"].installed_cost, "att_tea.yaml sensitivities.PSA_capex_factor"))
     alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
     if alt is not None:
         items.append(("P1: BioSTEAM ScrewPress replaces municipal press (difference)",
@@ -237,8 +220,8 @@ def _capex_table(sys, result):
     rows = []
     estimated = {r["unit"] for r in result["estimates"]}
     for u in sys.units:
-        if u.installed_cost > 0.0 or u.ID in estimated or u.ID == "U3P":
-            warn = " (correlation out of bounds; corrected below)" if u.ID == "U3K" else ""
+        if u.installed_cost > 0.0 or u.ID in estimated:
+            warn = ""
             rows.append(dict(item=f"{u.ID} {type(u).__name__}", purchase_cost=u.purchase_cost,
                              installed_cost=u.installed_cost,
                              source="BioSTEAM correlation" + warn if u.installed_cost > 0 else
@@ -461,7 +444,7 @@ def get_att_cost_year_comparison(sys):
     original = bst.CE
     rows = []
     try:
-        for label, CE in ((f"CEPCI {cy['reference_CE']} (2017, reference)", cy["reference_CE"]),
+        for label, CE in ((f"CEPCI {cy['reference_CE']} (2020, reference)", cy["reference_CE"]),
                           (f"CEPCI {cy['comparison_CE']} (~2024, approximate)", cy["comparison_CE"])):
             bst.CE = CE
             sys.simulate()  # re-costs at this CEPCI (flows reconverge to the same state)

@@ -40,19 +40,9 @@ tea:
     cooling_note: "Cooling water at the BioSTEAM default price, which covers tower operation; cooling-tower electricity is not priced separately."
     electricity_note: "BioSTEAM default PowerUtility price on the modeled unit power; estimated agitator and EC1 vacuum power added."
 
-  capex:
-    # Out-of-model equipment from att.inventory.get_att_cost_estimates
-    # (C1 tank, U2 vessel, EC1 evaporator/condenser/vacuum) is added.
-    PSA:
-      status: PRELIMINARY (not a correlation or vendor quote)
-      anchor_installed_cost_usd: 45000000.0
-      anchor_capacity_t_H2_per_day: 203.4
-      exponent: 0.6
-      range_factor: [0.5, 1.5]
-      source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed."
-    U3K:
-      compressor_type: Reciprocating
-      reason: "BioSTEAM selects screw compressors, outside their bounds (10-750 hp) at this size; reciprocating is the conventional service for the PSA-feed gas and within its correlation bounds. TEA-only replacement of the U3K cost; power unchanged."
+  # Equipment capital is costed inside the unit models (U2 vessel and furnace, C1 tank, EC1 evaporator,
+  # condenser and vacuum system, the PSA in U3P, the reciprocating compressor U3K; see att.yaml).
+  # The TEA only adds the P1 press alternative and the PSA cost-factor adjustment.
 
   # Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
   # content of the cake (not the wet cake). The sold share of the cake is

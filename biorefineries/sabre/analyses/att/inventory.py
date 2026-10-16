@@ -27,9 +27,6 @@ from math import ceil, exp, log, pi
 import numpy as np
 
 import biosteam as bst
-from biosteam.units.design_tools import PressureVessel
-from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
-from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
 
 from biorefineries.sabre.utils import (
     OPERATING_DAYS_PER_YEAR, OPERATING_HOURS_PER_YEAR, get_scale_feed_kgph, load_assumptions,
@@ -265,98 +262,13 @@ def _scratch_flowsheet():
         bst.main_flowsheet.set_flowsheet(previous)
 
 
-class _VesselEstimate(bst.Unit, PressureVessel):
-    """Vertical vessel of a given volume (cost estimate only)."""
-    _N_ins = _N_outs = 1
-    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
-    _F_BM_default = {"Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
-
-    def __init__(self, ID, ins, volume_m3, length_to_diameter, material):
-        super().__init__(ID, ins)
-        self.volume_m3 = volume_m3
-        self.length_to_diameter = length_to_diameter
-        self.vessel_type = "Vertical"
-        # BioSTEAM has no density for most alloys: size the wall with SS316
-        # and apply the material factor of the specified alloy.
-        self.vessel_material = "Stainless steel 316"
-        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[material]
-
-    def _run(self):
-        self.outs[0].copy_like(self.ins[0])
-
-    def _design(self):
-        D_m = (4.0 * self.volume_m3 / (pi * self.length_to_diameter)) ** (1.0 / 3.0)
-        self._design_and_cost_pressure_vessel(
-            101325.0, D_m, self.length_to_diameter * D_m,
-            pressure_units="Pa", length_units="m",
-        )
-
-    def _cost(self):
-        pass
-
-
 def get_att_cost_estimates(sys):
-    """Engineering cost estimates for units without a BioSTEAM cost (TEA only)."""
-    est = _INV["cost_estimates"]
-    u = _units(sys)
-    rows = []
-    with _scratch_flowsheet():
-        for ID, feed in (("C1", u["C1"].outs[0]),):
-            tank = bst.MixTank(f"{ID}_estimate", ins=feed.copy(), tau=est[ID]["tau_h"])
-            tank.simulate()
-            rows.append(dict(unit=ID, item=f"{ID} agitated tank", purchase_cost=tank.purchase_cost,
-                             installed_cost=tank.installed_cost, power_kW=tank.power_utility.rate,
-                             size=f"{tank.design_results['Total volume']:.1f} m3 total",
-                             method=f"{est[ID]['method']}, tau {est[ID]['tau_h']} h", note=est[ID]["note"]))
-
-        v = est["U2_vessel"]
-        feed = u["U2"].ins[0]
-        volume = feed.F_mass / v["density_kg_per_m3"] * v["tau_h"] / v["fill_fraction"]
-        vessel = _VesselEstimate("U2_vessel_estimate", feed.copy(), volume, v["length_to_diameter"], v["material"])
-        vessel.simulate()
-        rows.append(dict(unit="U2", item="U2 reactor vessel", purchase_cost=vessel.purchase_cost,
-                         installed_cost=vessel.installed_cost, power_kW=0.0,
-                         size=f"{volume:.1f} m3", method=f"{v['method']}, {v['material']}, tau {v['tau_h']} h",
-                         note=v["note"]))
-
-        e = est["EC1"]
-        EC1 = u["EC1"]
-        steam = [hu for hu in EC1.heat_utilities if hu.duty > 0.0]
-        Q = sum(hu.unit_duty for hu in steam)
-        if Q > 0.0:
-            dT = steam[0].agent.T - EC1.T
-            area = Q / (e["U_W_per_m2_K"] * 3.6 * dT)  # m2
-            # Seider et al. forced-circulation evaporator, A in ft2 (150-8000
-            # ft2 per unit), CE 500. BioSTEAM's tabulated lambda multiplies A
-            # by 0.0929 although its areas are in m2, so it is not used here.
-            area_ft2 = area * 10.7639
-            n = max(1, ceil(area_ft2 / 8000.0))
-            lnA = log(area_ft2 / n)
-            evaporator = n * bst.CE / 500.0 * exp(8.2986 + 0.5329 * lnA - 0.000196 * lnA * lnA)
-            rows.append(dict(unit="EC1", item="EC1 forced-circulation evaporator", purchase_cost=evaporator,
-                             installed_cost=2.45 * evaporator, power_kW=0.0,
-                             size=f"{area:.0f} m2 in {n} unit(s)", method=e["method"], note=e["note"]))
-            vapor = EC1.outs[1].copy()
-            vapor.phase = "g"
-            vapor.T = EC1.T
-            vapor.P = EC1._operating_pressure_Pa
-            condenser = bst.HXutility("EC1_condenser_estimate", ins=vapor, V=0.0, rigorous=False)
-            condenser.simulate()
-            rows.append(dict(unit="EC1", item="EC1 condenser", purchase_cost=condenser.purchase_cost,
-                             installed_cost=condenser.installed_cost, power_kW=0.0,
-                             size=f"{condenser.design_results.get('Area', float('nan')):.0f} ft2",
-                             method="bst.HXutility (cooling water)", note="Duty equals the EC1 cooling utility."))
-            liquor_m3ph = EC1.ins[0].F_mass / e["liquor_density_kg_per_m3"]
-            vessel_m3 = liquor_m3ph * e["vessel_holdup_h"] / e["vessel_fill_fraction"]
-            vacuum = compute_vacuum_system_power_and_cost(0.0, 0.0, EC1._operating_pressure_Pa, vessel_m3)
-            rows.append(dict(unit="EC1", item=f"EC1 vacuum system ({vacuum['Name']})", purchase_cost=vacuum["Cost"],
-                             installed_cost=vacuum["Cost"], power_kW=vacuum["Work"],
-                             size=f"{vessel_m3:.1f} m3 vessel", method="BioSTEAM vacuum-system correlation",
-                             note="Air in-leakage only; condenser removes the vapor."))
-
-    rows.append(dict(unit="U3P", item="PSA unit", purchase_cost=float("nan"), installed_cost=float("nan"),
-                     power_kW=float("nan"), size="", method="none", note=est["U3P"]["note"]))
-    return rows
+    """
+    Equipment costed outside the unit models (TEA only). None remains: the reactor vessel, the C1 tank,
+    the EC1 evaporator, condenser and vacuum system, the PSA (U3P) and the compressor (U3K) are costed
+    inside their units. Kept (empty) for the reports and the TEA that take an ``estimates`` argument.
+    """
+    return []
 
 
 def get_att_tail_gas_offset(sys):
@@ -397,7 +309,7 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
     cw_power = cw_kmolph * sum(_LCA["cooling_water_kW_per_kmolph"])
     # Equipment-based estimates exist only where costs were estimated.
     estimated_power = (sum(r["power_kW"] for r in cost_estimates if r["power_kW"] == r["power_kW"])
-                       if cost_estimates else float("nan"))
+                       if cost_estimates is not None else float("nan"))
     rows = [
         ("U2 natural gas: process heat", sum(hu.unit_duty for hu in ng) / 1e3, "MJ", "simulated"),
         ("U2 natural gas: heat delivered incl. 5 % reactor loss", ng_heat / 1e3, "MJ", "simulated"),

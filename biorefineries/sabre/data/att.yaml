@@ -228,6 +228,19 @@ att:
     psa_h2_recovery: 0.90
     psa_non_h2_to_product_fraction: 0.0
     psa_status: "Provisional ideal-selectivity PSA surrogate; H2 recovery/purity require collaborator confirmation."
+    # PSA capital (installed): BioSTEAM has no PSA model, so U3P carries one cost item,
+    # anchor x (H2 product / anchor capacity) ** exponent x cost_factor.
+    psa_cost:
+      status: PRELIMINARY (not a correlation or vendor quote)
+      anchor_installed_cost_usd: 45000000.0
+      anchor_capacity_t_H2_per_day: 203.4
+      exponent: 0.6
+      cost_factor: 1.0
+      source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed and not escalated. Sensitivity: att_tea.yaml PSA_capex_factor."
+    # U3K compressor type: BioSTEAM picks screw compressors, outside their bounds (10-750 hp)
+    # at this size; reciprocating is the conventional service for the PSA-feed gas and is
+    # within its correlation bounds.
+    h2_compressor_type: Reciprocating
 
     # U3K native isothermal compressor: compresses the dried gas to the PSA feed
     # pressure, which is also the H2 delivery pressure (a PSA at 90 % recovery
