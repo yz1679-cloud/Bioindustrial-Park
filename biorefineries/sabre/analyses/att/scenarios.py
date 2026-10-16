@@ -28,8 +28,8 @@ __all__ = ("build_att_gas_scenario_tables", "export_att_gas_scenario_comparison"
 
 IDS = tuple(label for label, _, _ in fin.GAS_SCENARIOS)
 _BASE = IDS[0]
-_EXPECTED = {  # D7_Gas_Yield_Scenarios at commit 419ad328 (MSP ref, MSP TEA Case A, GWP per kg H2)
-    "Gas-C": (15.99, 18.28, 89.5), "Gas-Cprime": (12.83, 14.67, 72.4), "Gas-A": (9.71, 11.09, 55.0)}
+_EXPECTED = {  # D7_Gas_Yield_Scenarios with the tail-gas natural gas offset (2026-10-15): MSP ref, MSP TEA Case A, GWP per kg H2
+    "Gas-C": (15.62, 17.91, 83.28), "Gas-Cprime": (12.47, 14.32, 66.33), "Gas-A": (9.54, 10.93, 52.30)}
 # Relative tolerance of the checks against _EXPECTED: results shift slightly
 # between library versions and machines (observed up to ~0.8 %).
 _EXPECTED_RTOL = 0.01
@@ -688,7 +688,7 @@ def _assumptions(R):
         ("CaCO3 cake in LCA", "Baseline GWP (all scenarios) has no CaCO3 cake burden or credit, consistent with the TEA "
                               "reference. TEA Case A disposes the cake; its landfill GWP is listed in 09 as indicative "
                               "and NOT added.", "att_lca.yaml coproduct"),
-        ("Revenue", "None besides H2: no CH4, off-gas or CaCO3 revenue; no CaCO3 or CH4 credits", "att_tea.yaml"),
+        ("Revenue", "None besides H2: no CH4 or CaCO3 revenue; off-gas fuel value credited only as natural gas displaced", "att_tea.yaml"),
         ("LCA boundary", "PARTIAL: Sargassum collection and transport excluded (no activity data); cradle-to-gate H2 "
                          "at 20 bar; allocation none", "att_lca.yaml"),
         ("PSA off-gas", fin.OFFGAS_FATE + ". Indicative CH4 venting impact reported separately, NOT added to GWP.",
@@ -892,9 +892,10 @@ at the SaBRe reference scale and evaluated with the existing `att.tea`,
 
 MSP components (06) levelize SaBReTEA's cash-flow table at the solved MSP and
 sum to the MSP. GWP100 is partial-boundary (no Sargassum collection and
-transport). The PSA off-gas final fate is UNRESOLVED: no CH4 emission,
-combustion or treatment cost is included; the indicative CH4 venting impact is
-listed in 09 and not added to GWP. No CH4, off-gas or CaCO3 revenue or credit.
+transport). The PSA off-gas is burned in the U2 burner (natural gas offset, no
+burner equipment modeled): no CH4 emission is included; the indicative CH4
+venting impact is listed in 09 and not added to GWP. No CH4 or CaCO3 revenue
+or credit.
 QC: sheet 14. Figure-ready data: sheets F1-F5.
 
 Reproduce:

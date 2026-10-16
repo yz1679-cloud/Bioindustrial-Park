@@ -416,6 +416,23 @@ def get_att_cost_estimates(sys):
     return rows
 
 
+def get_att_tail_gas_offset(sys):
+    """
+    Natural gas displaced by burning the PSA tail gas in the U2 burner
+    (simple offset; att.yaml gas_treatment.tail_gas_combustion). The tail gas
+    LHV replaces the same LHV of natural gas, up to U2's fuel demand
+    (delivered heat / burner efficiency). Fuel basis, MJ/h.
+    """
+    enabled = load_assumptions("att.yaml")["att"]["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
+    tail = _streams(sys)["u3_tail_gas"]
+    tail_LHV = float(tail.LHV) / 1e3 if tail.F_mol else 0.0
+    ng = [hu for hu in sys.heat_utilities if hu.agent and hu.agent.ID == "natural_gas"]
+    u2_fuel = sum(hu.duty for hu in ng) / 1e3 / float(_NG["burner_efficiency"])
+    offset = min(tail_LHV, u2_fuel) if enabled else 0.0
+    return dict(enabled=enabled, tail_gas_LHV_MJph=tail_LHV, u2_fuel_MJph=u2_fuel, offset_MJph=offset,
+                displaced_fraction=offset / u2_fuel if u2_fuel else 0.0)
+
+
 def get_att_purchased_utilities(sys, cost_estimates=None):
     """Purchased utilities and their primary-energy basis."""
     dry = _dry_feed_kgph(sys)
@@ -432,6 +449,7 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
     steam_heat = sum(hu.duty for hu in steam)
     cw_kmolph = sum(hu.flow for hu in cw)
     ch4_LHV_kJ_per_kmol = bst.Chemical("CH4").LHV
+    offset = get_att_tail_gas_offset(sys)
     modeled_power = sum(unit.power_utility.rate for unit in sys.units)
     cw_power = cw_kmolph * sum(_LCA["cooling_water_kW_per_kmolph"])
     # Equipment-based estimates exist only where costs were estimated.
@@ -442,6 +460,8 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
         ("U2 natural gas: heat delivered incl. 5 % reactor loss", ng_heat / 1e3, "MJ", "simulated"),
         ("U2 natural gas: fuel input (LHV)", ng_heat / 1e3 / burner, "MJ",
          f"= delivered / burner efficiency {burner}; used for TEA and LCA"),
+        ("U2 natural gas displaced by PSA tail gas (offset)", offset["offset_MJph"], "MJ",
+         f"tail gas LHV {offset['tail_gas_LHV_MJph'] / dry:.4g} MJ/kg dry; burned in the U2 burner, capped at U2 fuel"),
         ("U2 natural gas: BioSTEAM agent fuel (cross-check only)",
          sum(hu.flow for hu in ng) * ch4_LHV_kJ_per_kmol / 1e3, "MJ", "BioSTEAM agent flow x CH4 LHV; not used"),
         ("LP steam: process heat", sum(hu.unit_duty for hu in steam) / 1e3, "MJ", "D0, U3D, C1, EC1"),
@@ -1049,7 +1069,7 @@ def get_att_final_assumptions():
         ("Heat sources", "U2 direct natural gas (burner 0.90); LP steam from NG boiler (0.80)", "workbook / BioSTEAM"),
         ("Heat integration", "excluded from the baseline", "user decision"),
         ("CaCO3 cake", "coproduct, no credit", "user decision"),
-        ("PSA off-gas", "collected; no CH4 revenue; CH4 recovery/emission = later sensitivity", "user decision"),
+        ("PSA off-gas", "collected and burned in the U2 burner (natural gas offset); no CH4 revenue", "user decision 2026-10-15"),
     ]
     return [dict(assumption=a, value=b, source=c) for a, b, c in rows]
 
@@ -1135,8 +1155,9 @@ ASSUMPTION_REGISTER = (
      "HIGH for LCA"),
     ("2 engineering", "PSA", "90 % H2 recovery, ideal selectivity, no power; product 20 bar",
      "att.yaml gas_treatment (provisional)", "MEDIUM (H2 product; capital missing)"),
-    ("2 engineering", "Off-gas", "Collected 100 %, unpurified, no credit; baseline off-gas is mainly CH4 with "
-     "unrecovered H2, CO and CO2", "User decisions 2026-10-09/12", "MEDIUM (CH4 value / emission sensitivities)"),
+    ("2 engineering", "Off-gas", "Collected 100 %, unpurified, burned in the U2 burner (natural gas offset up to U2's "
+     "fuel demand; no burner, flue gas or capital); mainly CH4 with unrecovered H2, CO and CO2",
+     "User decisions 2026-10-09/12/15", "MEDIUM (burner not modeled; planned fired heater)"),
     ("2 engineering", "CH4", "Model CH4 = s x reported (5.26 mmol/g daf); reported 8.769 kept as reference",
      "Ratio-preserving closure", "FLAG: TEA CH4-recovery and LCA CH4-emission (if vented) sensitivities"),
     ("2 engineering", "CaCO3 cake", "Coproduct, no credit or burden", "User decision 2026-10-09",

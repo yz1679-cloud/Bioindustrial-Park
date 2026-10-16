@@ -708,6 +708,12 @@ def _opex_detail(sys, result):
     ng_cost = sum(hu.cost for hu in gas) * hours + next(v for n, v in result["voc_items"] if n.startswith("Natural"))
     add("Natural gas, U2 (LHV)", fuel / dry, "MJ", tea_mod._ng_usd_per_MJ(), "USD/MJ", ng_cost,
         "BioSTEAM default natural_gas agent price, converted per MJ LHV", NV + " (BioSTEAM default)", "purchased")
+    displaced = next((v for n, v in result["voc_items"] if n.startswith("Natural gas displaced")), 0.0)
+    if displaced:
+        add("Natural gas displaced by PSA tail gas", -inv.get_att_tail_gas_offset(sys)["offset_MJph"] / dry, "MJ",
+            tea_mod._ng_usd_per_MJ(), "USD/MJ", displaced,
+            "tail gas LHV burned in the U2 burner, priced at the natural gas price (att.yaml gas_treatment.tail_gas_combustion)",
+            NV + " (BioSTEAM default)", "credit")
     for agent, label in (("low_pressure_steam", "LP steam"), ("cooling_water", "Cooling water (circulating)")):
         hus = [hu for hu in sys.heat_utilities if hu.agent.ID == agent]
         kg = sum(hu.flow * hu.agent.MW for hu in hus)
@@ -1367,7 +1373,8 @@ def _findings(msp, caco3, gwp, stage, slag, sens_tea, sens_lca, ct, case_a_lca, 
                                        and r["handling_usd_per_t"] == handling))):
                 return r["MSP_USD_per_kg_H2"]
     st = {r["stage"]: r for r in stage}
-    ng = st["Onsite fuel combustion"]["share"] + st["Natural gas supply chain"]["share"]
+    ng = (st["Onsite fuel combustion"]["share"] + st["Natural gas supply chain"]["share"]
+          + st.get("Natural gas displaced by tail gas", {"share": 0.0})["share"])  # net of the tail-gas offset
     ct10 = [r["result"] for r in ct if r["analysis"] == "TEA" and r["case"] == "Case A"
             and r["parameter"] == "collection + transport cost"]
     rows = [

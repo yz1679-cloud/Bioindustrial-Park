@@ -52,6 +52,7 @@ _STAGES = {
     "Natural gas boiler (LP steam): combustion": "Onsite fuel combustion",
     "Natural gas U2: upstream supply": "Natural gas supply chain",
     "Natural gas boiler (LP steam): upstream supply": "Natural gas supply chain",
+    "Natural gas displaced by PSA tail gas (burned in U2)": "Natural gas displaced by tail gas",
     "Electricity: process units": "Purchased electricity",
     "Electricity: cooling tower and CW pumps": "Purchased electricity",
     "Electricity: outside unit models (agitators, EC1 vacuum)": "Purchased electricity",
@@ -171,6 +172,9 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
                               lambda: _landfill_kgph(sys) * hours, f["inert_landfill"])
     sys.define_process_impact(KEY, "Electricity: outside unit models (agitators, EC1 vacuum)", "kWh",
                               lambda: aux_kW * hours, f["electricity"])
+    # Natural gas displaced by the PSA tail gas burned in the U2 burner (fuel basis, MJ).
+    sys.define_process_impact(KEY, "Natural gas displaced by PSA tail gas (burned in U2)", "MJ fuel",
+                              lambda: -inv.get_att_tail_gas_offset(sys)["offset_MJph"] * hours, ng)
     fuel = _LCA["collection_transport"]["marine_fuel_kg_per_t_wet"]
     if fuel is not None:
         wet_tph = float(s["att_sargassum_feed"].F_mass) / 1e3
@@ -329,7 +333,7 @@ def get_att_gwp_summary(sys, applied):
         ("Biogenic CO2 in PSA off-gas", float(tail.imass["CO2"]) / dry, "kg CO2/kg dry",
          "model value; recorded, GWP not applied (biogenic)"),
         ("H2 in PSA off-gas", float(tail.imass["H2"]) / dry, "kg/kg dry",
-         "off-gas final fate UNRESOLVED; H2 indirect warming not quantified"),
+         "burned with the tail gas (natural gas offset); H2 indirect warming not quantified"),
         ("PSA off-gas total", float(tail.F_mass) / dry, "kg/kg dry", _LCA["offgas"]["treatment"]),
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
          "not credited (no sequestration or substitution credit)"),
@@ -421,14 +425,14 @@ def get_att_lca_data_gaps(sys, applied):
     rows = [
         ("Sargassum collection and transport", "PENDING (no SaBRe data)",
          per_fuel, f"per 1 kg marine fuel per t wet Sargassum ({per_fuel / h2:.2f} per kg H2)", "potentially HIGH"),
-        ("Model off-gas CH4 if vented", "NOT IN BASELINE GWP (off-gas fate unresolved)", ch4_model,
-         "indicative: model off-gas CH4 x GWP100 27.0 (AR6 non-fossil); flaring would give biogenic CO2 (0)",
-         "HIGH if vented; requires off-gas handling"),
+        ("Model off-gas CH4 if vented", "NOT IN BASELINE GWP (baseline burns the off-gas in the U2 burner)", ch4_model,
+         "indicative: model off-gas CH4 x GWP100 27.0 (AR6 non-fossil); burning gives biogenic CO2 (0)",
+         "HIGH if vented instead of burned"),
         ("Reported CH4 (8.769 mmol/g daf) if released", "REFERENCE (experimental value)",
          ch4, "indicative: reported CH4 x GWP100 27.0; the balanced model carries s x reported", "reference"),
         ("PSA off-gas fate (CH4, unrecovered H2, CO, CO2)",
-         "UNRESOLVED (no treatment equipment or cost in baseline TEA)", float("nan"),
-         "CH4 venting quantified above; flaring gives biogenic CO2; H2 indirect warming not quantified", "MEDIUM-HIGH"),
+         "BURNED in the U2 burner (natural gas offset; no burner equipment or cost in the baseline TEA)", float("nan"),
+         "CH4 venting quantified above; burning gives biogenic CO2; H2 indirect warming not quantified", "MEDIUM"),
         ("Plant-location electricity factor", "PLACEHOLDER (US average)", float("nan"),
          "see S2 electricity range", "MEDIUM"),
         ("Steam boiler efficiency 0.80 vs 0.90", "ASSUMPTION", boiler_delta, "change if 0.90", "MEDIUM"),
@@ -462,9 +466,10 @@ def check_att_lca(sys, applied, contributions, utilities):
     checks = [
         ("Sum of contributions = System.get_net_impact", sum(c.values()), total),
         ("Product impacts (credits) in baseline", sys.get_total_products_impact(KEY), 0.0),
-        ("NG GWP = (U2 fuel + boiler fuel) x (combustion + upstream)",
+        ("NG GWP = (U2 fuel + boiler fuel - tail gas offset) x (combustion + upstream)",
          sum(v for k, v in c.items() if k.startswith("Natural gas")),
-         (u["U2 natural gas: fuel input (LHV)"] + u["LP steam: boiler natural gas (LHV)"]) * ng),
+         (u["U2 natural gas: fuel input (LHV)"] + u["LP steam: boiler natural gas (LHV)"]
+          - u["U2 natural gas displaced by PSA tail gas (offset)"]) * ng),
         ("Cooling GWP = inventory CW electricity x EF", c["Electricity: cooling tower and CW pumps"],
          cw_kWh * f["electricity"]),
         ("Unit + CW + auxiliary electricity = inventory total",

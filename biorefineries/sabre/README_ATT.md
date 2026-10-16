@@ -127,10 +127,12 @@ biorefineries/sabre/
   with char and water. Model yields are engineering predictions; the measured
   values are never modified. Gas-Cprime and Gas-A are alternative closures.
 - TEA: preliminary; equipment at CEPCI 567.5 (2017), 2024-2025 prices; no
-  CaCO₃, CH₄ or off-gas revenue in the reference case.
+  CaCO₃ or CH₄ revenue in the reference case. The PSA tail gas (mainly CH₄ and
+  unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
+  up to U2's fuel demand (about a third of it); no burner is modeled.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
-  allocation or credits; the final fate of the PSA off-gas (mainly CH₄) is
-  unresolved and not included.
+  allocation or product credits; the PSA tail gas is burned in the U2 burner
+  (natural gas offset, biogenic CO₂ not counted, no CH₄ emission).
 - Main unvalidated items are listed in `comparison/ATT_Final_Results.xlsx`
   sheet C14 and in the documentation sheets 23-24.
 
@@ -139,3 +141,23 @@ biorefineries/sabre/
 SaBRe framework: Azhar Razin and Yalin Li (UIUC open-source license, see the
 module headers). Laboratory data: UCLA collaborators (unpublished; permission
 required, see above).
+
+## Planned work
+
+- **Fired heater for U2 (replaces the tail-gas offset).** Model U2's furnace as
+  a fired-heater facility, following `FiredHeater` in the MCCA whey-olefins
+  model (ASPECT concept paper, `whey_olefins_prelim.py`): connect `u3_tail_gas`
+  as a stream burned with air plus a natural-gas makeup stream and a flue-gas
+  outlet, and move the TEA/LCA natural gas of U2 from per-kJ agent factors to
+  streams. Cost with a Seider et al. (2017) fired-heater correlation from the
+  VIFF toolkit: "Heater, pyrolysis" (0.737 Q^0.81, Q in Btu/hr, 10-500
+  MMBtu/hr, bare-module factor 2.19; 2013 basis), or the Sinnott box furnace
+  (30-120 MW) as an alternative. U2's duty at the SaBRe scale is about 750
+  MMBtu/hr (220 MW), so use parallel units (about USD 13 million purchase for
+  two 375 MMBtu/hr units, by a rough estimate); the 1 kg/h baseline is below
+  the correlation minimum. BioSTEAM has only steam boilers (`bst.Boiler`,
+  `bst.BoilerTurbogenerator`, as used by the 3HP system), which would supply
+  the LP steam of EC1, D0, C1 and U3D, not U2's 500 °C furnace.
+- **Crystal separation after EC1.** Na₂CO₃ crystals currently pass through M1
+  and U2 (relabeled as liquid in M1); a solid-liquid separator sending them to
+  D1 would save about 0.4 % of plant heat.

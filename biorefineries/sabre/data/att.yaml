@@ -238,9 +238,25 @@ att:
     h2_compressor_efficiency: 0.70
     h2_compressor_status: "Provisional 2 MPa product pressure and 70% isothermal efficiency; final H2 delivery specification unresolved."
 
-    # Tail gas is retained as an explicit stream for later combustion and
+    # Tail gas is retained as an explicit stream. SIMPLE OFFSET (user decision
+    # 2026-10-15): it is assumed to be burned in the U2 burner, displacing
+    # purchased natural gas up to U2's fuel demand (tail gas LHV replaces the same
+    # LHV of natural gas at the same burner efficiency); the burner itself is
+    # not modeled. 'offset_u2_natural_gas' | 'none'. Biogenic CO2 from burning
+    # is not counted (GWP 0, as for the other biogenic carbon); no CH4 slip.
+    tail_gas_combustion: offset_u2_natural_gas
+    # PLANNED (not implemented): replace the offset by a real fired heater for
+    # U2, following the FiredHeater facility of the MCCA whey-olefins model
+    # (ASPECT concept paper, whey_olefins_prelim.py): connect u3_tail_gas as a
+    # stream burned with air plus a natural-gas makeup stream, with a flue-gas
+    # outlet, and cost it with a Seider et al. 2017 fired-heater correlation
+    # from the VIFF toolkit ("Heater, pyrolysis": 0.737 Q^0.81, Q in Btu/hr,
+    # 10-500 MMBtu/hr, bare-module factor 2.19; Sinnott box furnace 30-120 MW as
+    # an alternative). U2's duty at the SaBRe scale (~750 MMBtu/hr, ~220 MW)
+    # exceeds one heater, so use parallel units; the 1 kg/h baseline is far
+    # below the correlation minimum. See README_ATT.md, "Planned work".
     # heat-recovery modeling. No combustion credit is applied in Step 7.5.
-    tail_gas_combustion_status: "Not yet implemented; tail gas composition/LHV are reported for the next heat-recovery step."
+    tail_gas_combustion_status: "Simple offset only: tail gas burned in the U2 burner displaces natural gas (see tail_gas_combustion); no burner unit, flue gas or burner capital modeled."
 
   downstream:
     # Dissolution before F1.
@@ -392,14 +408,15 @@ att:
     - CH4
     - CO
     hydrogen_disposition: product
-    hydrogen_energy_credit_status: H2 is a saleable product and is not credited as process fuel. Only future PSA
-      tail gas combustion may provide a process-heat credit.
+    hydrogen_energy_credit_status: H2 product is a saleable product and is not credited as process fuel. The
+      unrecovered H2 in the PSA tail gas is burned with the tail gas (natural gas offset).
     integration_method: BioSTEAM HeatExchangerNetwork / HXprocess
     minimum_approach_temperature_K: 5.0
     minimum_approach_temperature_status: BioSTEAM default/design assumption; must be verified before final TEA
     hydrogen_product_species:
     - H2
     future_tail_gas_fuel_species:
+    - H2
     - CH4
     - CO
     future_U3_sequence: condense and dry gas -> PSA H2 separation -> compress H2 product -> burn remaining combustible
@@ -486,7 +503,7 @@ att:
       lime: [input, reagent, "Ca(OH)2, stoichiometric x lime_equiv."]
       fresh_naoh_solid: [input, reagent, "Solid NaOH makeup (dissolved in M1)."]
       h2_product: [output, main_product, "PSA H2 compressed to the U3K outlet pressure."]
-      u3_tail_gas: [output, coproduct_offgas, "PSA off-gas, assumed collected (100 %): mainly CH4 with unrecovered H2, CO and CO2 in the baseline. Final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
+      u3_tail_gas: [output, coproduct_offgas, "PSA off-gas (mainly CH4 and unrecovered H2), assumed collected (100 %) and burned in the U2 burner (natural gas offset, no burner modeled). Earlier note: final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]

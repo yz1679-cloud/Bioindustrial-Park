@@ -11,7 +11,7 @@ lca:
   functional_unit: "1 kg H2 at the plant gate (PSA product, 20 bar); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
   secondary_unit: "1 kg dry Sargassum processed"
   boundary: "Cradle-to-plant-gate. Sargassum is waste biomass with zero production burden; its collection and transport are a pending boundary component."
-  allocation: "None. All burdens assigned to H2; no CaCO3, CH4 or off-gas credits in the baseline."
+  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits. The PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation)."
   energy_basis: LHV
   water_density_kg_per_m3: 1000.0   # wastewater volume = mass / 1000 kg/m3
 
@@ -101,7 +101,7 @@ lca:
     CaCO3_substitution_CF: null      # kg CO2e avoided per kg CaCO3 (required for 'substitution')
 
   offgas:
-    treatment: "UNRESOLVED: assumed collected; final fate (combustion, utilization or venting) not modeled; no CH4 emission, combustion CO2 or credit counted in GWP"
+    treatment: "BURNED: assumed collected and burned in the U2 burner; its LHV displaces natural gas (up to U2's fuel demand, att.yaml gas_treatment.tail_gas_combustion); no CH4 emission; biogenic combustion CO2 not counted"
 
   collection_transport:
     status: pending

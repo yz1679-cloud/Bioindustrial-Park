@@ -36,6 +36,19 @@ class TestATTInventory(unittest.TestCase):
         self.assertEqual(streams, {s.ID for s in (*self.sys.feeds, *self.sys.products)})
         self.assertEqual(_ATT["inventory"]["stream_fates"]["u3_tail_gas"][1], "coproduct_offgas")
 
+    def test_tail_gas_offsets_u2_natural_gas(self):
+        off = inv.get_att_tail_gas_offset(self.sys)
+        tail = inv._streams(self.sys)["u3_tail_gas"]
+        self.assertTrue(off["enabled"])
+        self.assertAlmostEqual(off["tail_gas_LHV_MJph"], float(tail.LHV) / 1e3, places=9)
+        self.assertGreater(off["tail_gas_LHV_MJph"], 0.0)
+        self.assertAlmostEqual(off["offset_MJph"], min(off["tail_gas_LHV_MJph"], off["u2_fuel_MJph"]), places=12)
+        self.assertLessEqual(off["offset_MJph"], off["u2_fuel_MJph"])
+        self.assertAlmostEqual(off["u2_fuel_MJph"] / inv._dry_feed_kgph(self.sys),
+                               self.u["U2 natural gas: fuel input (LHV)"], places=9)
+        self.assertAlmostEqual(self.u["U2 natural gas displaced by PSA tail gas (offset)"] * inv._dry_feed_kgph(self.sys),
+                               off["offset_MJph"], places=9)
+
     def test_natural_gas_efficiency_applied_once(self):
         delivered = self.u["U2 natural gas: heat delivered incl. 5 % reactor loss"]
         fuel = self.u["U2 natural gas: fuel input (LHV)"]

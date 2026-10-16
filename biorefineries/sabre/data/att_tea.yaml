@@ -33,7 +33,7 @@ tea:
     solid_waste_streams: [ash_residue_cake]
     # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
     CaCO3_cake: 0.0          # coproduct; revenue to be set later
-    offgas: 0.0              # fate pending; collection/treatment cost not included
+    offgas: 0.0              # no sale price; its fuel value is credited as natural gas displaced in the U2 burner (voc item)
     natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
     steam_note: "LP steam at the BioSTEAM default agent price, which covers generation; boiler natural gas is not priced separately (no double counting)."
     cooling_note: "Cooling water at the BioSTEAM default price, which covers tower operation; cooling-tower electricity is not priced separately."

@@ -159,6 +159,10 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_kWh_per_t_d
         ("Natural gas: price fuel = duty / 0.90 (adjustment to BioSTEAM agent cost)",
          (fuel_MJph * _ng_usd_per_MJ() * ng_factor - biosteam_gas_cost) * hours),
     ]
+    offset = inv.get_att_tail_gas_offset(sys)
+    if offset["offset_MJph"]:
+        items.append(("Natural gas displaced by PSA tail gas (burned in the U2 burner)",
+                      -offset["offset_MJph"] * _ng_usd_per_MJ() * ng_factor * hours))
     if elec_factor != 1.0:
         items.append(("Electricity price change (unit power)",
                       (elec_factor - 1.0) * sys.power_utility.rate * elec * hours))

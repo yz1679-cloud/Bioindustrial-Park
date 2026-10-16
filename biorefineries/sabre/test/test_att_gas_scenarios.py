@@ -28,7 +28,7 @@ class TestATTGasScenarios(unittest.TestCase):
 
     def test_headline_results(self):
         rows = {r["scenario"]: r for r in self.t["07_TEA_Ref_vs_Case_A"]}
-        for sid, (msp, msp_a) in {"Gas-C": (15.99, 18.28), "Gas-Cprime": (12.83, 14.67), "Gas-A": (9.71, 11.09)}.items():
+        for sid, (msp, msp_a) in {"Gas-C": (15.62, 17.91), "Gas-Cprime": (12.47, 14.32), "Gas-A": (9.54, 10.93)}.items():
             self.assertAlmostEqual(rows[sid]["MSP_TEA_reference"], msp, delta=RTOL * msp)
             self.assertAlmostEqual(rows[sid]["MSP_TEA_CaseA_CaCO3_disposal"], msp_a, delta=RTOL * msp_a)
 
@@ -42,7 +42,7 @@ class TestATTGasScenarios(unittest.TestCase):
                 self.assertAlmostEqual(sum(parts), float(total["basis"].split("= ")[1]), places=5)
 
     def test_gwp_stack_sums_to_total(self):
-        totals = {"Gas-C": 89.5, "Gas-Cprime": 72.4, "Gas-A": 55.0}
+        totals = {"Gas-C": 83.28, "Gas-Cprime": 66.33, "Gas-A": 52.30}
         for sid, gwp in totals.items():
             s = sum(r["kgCO2e_per_kg_H2"] for r in self.t["F2_GWP_Stack"] if r["scenario"] == sid)
             self.assertAlmostEqual(s, gwp, delta=RTOL * gwp)

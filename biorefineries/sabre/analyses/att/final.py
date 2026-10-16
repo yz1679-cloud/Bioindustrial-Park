@@ -30,9 +30,8 @@ GAS_SCENARIOS = (
      "Experimental H2 and CO preserved; maximum feasible CH4 with char = 0 and feed N retained in the "
      "residue; CO2 ~54x measured"),
 )
-OFFGAS_FATE = ("UNRESOLVED: PSA off-gas assumed collected; final fate (combustion, utilization or venting) not "
-               "modeled; no treatment equipment or cost (placeholder sensitivity only); no CH4 emission, combustion "
-               "CO2 or credit in GWP; biogenic CO2 GWP 0")
+OFFGAS_FATE = ("BURNED: PSA off-gas assumed collected and burned in the U2 burner (simple natural gas offset, up to "
+               "U2's fuel demand); no burner, flue gas or capital modeled; no CH4 emission; biogenic CO2 GWP 0")
 
 
 def _small(method):
@@ -159,8 +158,8 @@ def _unvalidated():
         ("NaOH heat of solution 1113 kJ/kg (U2 inlet correction)", "SOURCES 1048-1113 kJ/kg", "about +/-5 % of the U2 correction"),
         ("C1 concentrated-solution enthalpy", "BOUNDED, not modeled", "-0.2 to +1.2 % of plant heat"),
         ("P1 power 37.2 kWh/t wet (BioSTEAM)", "PENDING DECISION", "alternative 5 kWh/t dry lowers MSP and GWP"),
-        ("PSA off-gas (mainly CH4) final fate", "UNRESOLVED (collected; treatment not modeled)",
-         "GWP excludes CH4 emission; indicative venting impact in D7 (not in GWP)"),
+        ("PSA off-gas (mainly CH4) burned in the U2 burner", "SIMPLE OFFSET (no burner modeled)",
+         "natural gas displaced up to U2's fuel demand; indicative venting impact in D7 (not in GWP)"),
         ("PSA capital", "PRELIMINARY (+/-50 %)", "small MSP effect"),
     )]
 
@@ -233,8 +232,9 @@ written as CSV to `../full_scale/summary/`.
   gas CO2; they are selected feasible modeling scenarios, not global physical
   bounds or confidence intervals. Gas-A is unrelated to TEA Case A (CaCO3
   filter cake disposed). D7 reports char mass (CH0.5O0.1) and char carbon
-  separately. PSA off-gas fate is UNRESOLVED: no CH4 emission or treatment is
-  included in GWP/MSP; the indicative venting impact is reported, not added.
+  separately. The PSA off-gas is burned in the U2 burner (natural gas offset,
+  no burner equipment modeled): no CH4 emission is included in GWP; the
+  indicative venting impact is reported, not added.
 
 Reproduce all ATT results in dependency order (from any directory):
 

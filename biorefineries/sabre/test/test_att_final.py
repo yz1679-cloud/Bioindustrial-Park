@@ -59,7 +59,7 @@ class TestATTFinal(unittest.TestCase):
                                base["char_mass_kg_per_kg_dry"] * base["char_carbon_mass_fraction"], places=12)
         self.assertAlmostEqual(base["char_carbon_mass_fraction"], 0.851, places=3)
         for r in rows.values():
-            self.assertTrue(r["offgas_fate"].startswith("UNRESOLVED"))
+            self.assertTrue(r["offgas_fate"].startswith("BURNED"))
             self.assertLess(abs(r["mass_relative_error"]), 1e-8)
             self.assertLess(r["max_element_relative_error"], 1e-8)
 
