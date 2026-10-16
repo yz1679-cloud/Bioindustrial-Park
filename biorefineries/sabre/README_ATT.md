@@ -57,6 +57,14 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_heat_integration --hen --json-out <file>` | heat-recovery screening (console/JSON) |
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
+Cost and GWP breakdown of the baseline H2 (MSP by cost type, CAPEX by process
+area, OPEX by group, GWP100 by contributor), as tables and a figure under
+`results/` (like the other SaBRe systems):
+
+```
+python biorefineries/sabre/analyses/cost_breakdown_att.py
+```
+
 Every runner accepts `--out`. Results are written below `att_outputs/` at the
 repository root (or `ATT_OUTPUTS_DIR`), never into `data/`. `att_outputs/` is
 git-ignored: regenerate results instead of committing them.
