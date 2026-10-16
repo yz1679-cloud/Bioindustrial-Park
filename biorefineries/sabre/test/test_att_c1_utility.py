@@ -56,9 +56,11 @@ class TestC1HeatUtility(unittest.TestCase):
             self.assertAlmostEqual(utility, process, delta=1e-5)
             self.assertAlmostEqual(loss, 0.0, delta=1e-5)
 
-    def test_c1_not_prematurely_eligible_for_hxn(self):
-        _, hu = self._c1_heat_utility()
-        self.assertFalse(hu.hxn_ok)
+    def test_c1_heater_is_in_the_hxn(self):
+        # C1's heating sits in a costed auxiliary exchanger with process streams.
+        c1, hu = self._c1_heat_utility()
+        self.assertTrue(hu.hxn_ok)
+        self.assertGreater(c1.hxn_heater.installed_cost, 0.0)
 
     def test_repeat_simulation_does_not_duplicate_utility(self):
         c1, hu = self._c1_heat_utility()

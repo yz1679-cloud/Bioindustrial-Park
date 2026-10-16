@@ -12,7 +12,9 @@ from biorefineries.sabre.units._att import (
     ATTReactor,
     CausticizationReactor,
     NaOHEvaporator,
-    ATTHeatRecovery,
+    ATTDrumDryer,
+    ATTCompressor,
+    ATTMolecularSieve,
     aqueous_naoh_enthalpy_correction_kJph,
 )
 
@@ -71,7 +73,8 @@ def create_att_system(
     f2_wash_ratio=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
-    heat_integration=False,
+    heat_exchanger_network=True,
+    hxn_T_min_app_K=None,
     configuration="att_only",
 ):
     """
@@ -103,10 +106,14 @@ def create_att_system(
         baseline (att.yaml concentration_temperature_K, 90 C). Any other
         value keeps the baseline boiling-point elevation and dissolved
         Na2CO3 fraction (approximation).
-    heat_integration : bool
-        OPTIONAL SCENARIO: add the ATTHeatRecovery facility, which credits
-        only temperature-verified heat-exchanger matches (D0 not integrated).
-        False (default) is the baseline without heat recovery.
+    heat_exchanger_network : bool
+        Add BioSTEAM's HeatExchangerNetwork facility (default). It matches the
+        heating and cooling duties that sit in exchangers with process streams
+        (D0, EC1 evaporator and condenser, C1, U3HX) and adds the network's
+        exchanger cost. U2's fired duty and the solids cooler RC1 are
+        excluded. False gives the flowsheet with every duty on utilities.
+    hxn_T_min_app_K : float or None
+        HXN minimum approach temperature. None uses att.yaml.
 
     Returns
     -------
@@ -228,7 +235,7 @@ def create_att_system(
     dryer_air = bst.Stream("dryer_air")
     dryer_backup_fuel = bst.Stream("dryer_backup_fuel")
 
-    D0 = bst.DrumDryer(
+    D0 = ATTDrumDryer(
         "D0",
         ins=(
             D0_feed,
@@ -424,6 +431,8 @@ def create_att_system(
         rigorous=True,
         cool_only=True,
         estimate_pressure_drop=False,
+        U=float(_ATT_HEAT_RECOVERY["U3HX_heat_transfer_coefficient_kW_per_m2_per_K"]),
+        material=_ATT_HEAT_RECOVERY["cooler_material"],
     )
 
     # U3C - Native equilibrium flash / gas-liquid separator.
@@ -468,7 +477,7 @@ def create_att_system(
         ]
     )
 
-    U3D = bst.MolecularSieve(
+    U3D = ATTMolecularSieve(
         "U3D",
         ins=U3C - 0,
         outs=(
@@ -476,6 +485,7 @@ def create_att_system(
             "u3_dryer_removed_water",
         ),
         split=dryer_split,
+        regeneration_T_K=float(_ATT_HEAT_RECOVERY["u3d_regeneration_temperature_K"]),
     )
 
     # U3P - Idealized PSA surrogate using a native component Splitter.
@@ -505,7 +515,7 @@ def create_att_system(
 
     # U3K - Native BioSTEAM H2 product compressor.
     # Product pressure/efficiency are provisional and live in att.yaml.
-    U3K = bst.units.IsothermalCompressor(
+    U3K = ATTCompressor(
         "U3K",
         ins=U3P - 0,
         outs=("h2_product",),
@@ -518,6 +528,7 @@ def create_att_system(
             ]
         ),
         vle=False,
+        intercooler_T_K=float(_ATT_HEAT_RECOVERY["u3k_interstage_temperature_K"]),
     )
 
     # --------------------------------------------------------------
@@ -558,6 +569,8 @@ def create_att_system(
                 "solid_cooler_estimate_pressure_drop"
             ]
         ),
+        U=float(_ATT_HEAT_RECOVERY["RC1_heat_transfer_coefficient_kW_per_m2_per_K"]),
+        material=_ATT_HEAT_RECOVERY["cooler_material"],
     )
 
     # --------------------------------------------------------------
@@ -984,7 +997,12 @@ def create_att_system(
         EC1,
     ]
 
-    HXR = ATTHeatRecovery("HXR") if heat_integration else None
+    HXN = None
+    if heat_exchanger_network:
+        T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"]
+                          if hxn_T_min_app_K is None else hxn_T_min_app_K)
+        # The fired heater of U2 and the solids cooler are never matched.
+        HXN = bst.HeatExchangerNetwork("HXN", T_min_app=T_min_app, ignored=[U2, RC1])
 
     sys = bst.System(
         "att_sys",
@@ -1002,9 +1020,7 @@ def create_att_system(
         # and would stop the iteration before the makeup has converged.
         molar_tolerance=1e-9,
         relative_molar_tolerance=1e-7,
-        facilities=(HXR,) if heat_integration else (),
+        facilities=(HXN,) if HXN is not None else (),
     )
-    if heat_integration:
-        HXR.att_system = sys
 
     return sys

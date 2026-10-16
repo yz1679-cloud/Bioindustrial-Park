@@ -13,7 +13,6 @@ Layout (keys of ``output_dir``)::
     full_scale/tea/            tea            MSP, CAPEX/OPEX, cases, sensitivities
     full_scale/lca/            lca            GWP100, contributions, scenarios
     full_scale/summary/        summary        consolidated results, final sheets C1-C14
-    scenarios/heat_integration/ heat_integration  heat-recovery screening and HEN report
     documentation/             documentation  master model documentation
     documentation/diagrams/    diagrams       process flow diagrams
     validation/                validation     run summary, tests and QC tally
@@ -32,7 +31,6 @@ SUBDIRS = {
     "tea": "full_scale/tea",
     "lca": "full_scale/lca",
     "summary": "full_scale/summary",
-    "heat_integration": "scenarios/heat_integration",
     "documentation": "documentation",
     "diagrams": "documentation/diagrams",
     "validation": "validation",

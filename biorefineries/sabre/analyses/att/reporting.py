@@ -323,6 +323,8 @@ def _units_table(sys, estimates):
         cost_spec = "; ".join(f"{k}: basis {ci.basis} [{ci.units}], S={ci.S}, ub={ci.ub}, n={ci.n}, CE={ci.CE}"
                               for k, ci in items.items())
         func, cfg = _UNIT_INFO.get(u.ID, ("", ""))
+        if not u.outs:   # facilities (HXN) have no streams
+            continue
         out = u.outs[0]
         rows.append(dict(
             unit_ID=u.ID, BioSTEAM_class=type(u).__name__, function=func,
@@ -345,7 +347,7 @@ def _units_table(sys, estimates):
                          configuration="att.yaml:att.inventory.cost_estimates", data_origin="att.inventory.get_att_cost_estimates"))
     for item, note in (("Pumps and conveyors", "Not modeled as units (not costed separately)"),
                        ("Steam boiler, cooling tower (utility facilities)", "Purchased utilities; no capital in baseline"),
-                       ("Heat-exchanger network", "Optional scenario only (see Heat_Integration_Optional)")):
+                       ):
         rows.append(dict(unit_ID="-", BioSTEAM_class="not modeled", function=item, key_settings=note,
                          data_origin="documentation"))
     return rows
@@ -624,22 +626,22 @@ def _energy_totals(sys, utilities):
 
 
 def _heat_integration(sys):
-    from biorefineries.sabre.analyses.att.heat_integration import design_att_heat_exchanger_network
+    """BioSTEAM HeatExchangerNetwork (HXN) summary; empty if the system has no HXN."""
+    HXN = next((f for f in sys.facilities if type(f).__name__ == "HeatExchangerNetwork"), None)
     dry = inv._dry_feed_kgph(sys)
-    h = design_att_heat_exchanger_network(sys)
-    rows = [dict(section="status", item=h["status"], value=float("nan"), unit="",
-                 note="OPTIONAL SCENARIO - not in the baseline utilities, LCA or TEA")]
-    for m in h["matches"]:
-        rows.append(dict(section="match", item=f"{m['hot']} ({m['hot_unit']}) -> {m['cold']} ({m['cold_unit']})",
-                         value=m["duty_kJph"] / dry / 1e3, unit="MJ/kg dry",
-                         note=f"hot {m['hot_T_in_K']:.1f}->{m['hot_T_out_K']:.1f} K, cold {m['cold_T_in_K']:.1f}->"
-                              f"{m['cold_T_out_K']:.1f} K, loop {m['intermediate_loop']}"))
-    for side in ("heating", "cooling"):
-        for unit, d in h[side].items():
-            for k, v in d.items():
-                rows.append(dict(section=side, item=f"{unit} {k}", value=v / dry / 1e3, unit="MJ/kg dry", note=""))
-    rows.append(dict(section="total", item="recovered", value=h["recovered_kJph"] / dry / 1e3, unit="MJ/kg dry",
-                     note="area (unverified U) %.0f m2" % h["total_area_m2_UNVERIFIED_U"]))
+    if HXN is None:
+        return [dict(section="status", item="no HeatExchangerNetwork in the system", value=float("nan"),
+                     unit="", note="")]
+    rows = [dict(section="status", item=f"HXN, minimum approach {HXN.T_min_app} K; U2 (fired) and RC1 (solids) excluded",
+                 value=float("nan"), unit="", note="BioSTEAM HeatExchangerNetwork; process-process exchangers use BioSTEAM's default U")]
+    for label, v in (("heating utility before", HXN.original_heat_util_load), ("heating utility after", HXN.actual_heat_util_load),
+                     ("cooling utility before", HXN.original_cool_util_load), ("cooling utility after", HXN.actual_cool_util_load)):
+        rows.append(dict(section="utility", item=label, value=v / dry / 1e3, unit="MJ/kg dry", note=""))
+    for x in HXN.new_HXs:
+        rows.append(dict(section="match", item=x.ID, value=x.Q / dry / 1e3, unit="MJ/kg dry",
+                         note=f"installed {x.installed_cost / 1e6:.3f} MUSD at the 1 kg/h basis scale"))
+    rows.append(dict(section="capital", item="HXN installed cost (net of the exchangers it replaces)",
+                     value=HXN.installed_cost, unit="USD", note="BioSTEAM: max(0, new network - original exchangers)"))
     return rows
 
 
@@ -828,7 +830,7 @@ def _gaps_and_inconsistencies(lca_gaps):
          "legacy scripts'."),
         ("att.yaml reactor.legacy_heat_duty_kJ_per_kg_dry_sargassum = 10423.77", "not used by any code (legacy)."),
         ("att.yaml heat_recovery.minimum_approach_temperature_K = 5", "used only by legacy diagnostics "
-         "(att.mass_energy); the optional HEN uses delta_T_min_K = 10."),
+         "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),
         ("att.yaml heat_recovery future_tail_gas_fuel_species / gas_energy_diagnostic_species list CH4, CO",
          "legacy diagnostic keys used only by att.mass_energy diagnostics."),
         ("att_inventory preliminary LCI (sheets 08/09)", "omits natural-gas upstream and waste treatment "
@@ -989,7 +991,7 @@ def build_att_documentation():
         "10_Unit_Energy_Balance": inv.get_att_unit_energy_balance(sys),
         "11_Energy_Accounts": _energy_accounts(sys),
         "12_Utilities_Energy_Totals": utilities + _energy_totals(sys, utilities),
-        "13_Heat_Integration_Optional": _heat_integration(sys),
+        "13_Heat_Exchanger_Network": _heat_integration(sys),
         "14_LCA_EF_Register": lca.get_att_lca_factor_register(),
         "15_LCA_Contributions": _lca_register(contributions, applied),
         "16_LCA_by_Unit_and_Stage": ([dict(view="unit", item=r["unit"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
@@ -1022,7 +1024,7 @@ def build_att_documentation():
              "06_Mass_Element_Balance", "07_NaOH_Carbonate", "07b_Na2CO3_Crystallization",
              "08_Water_Balance", "09_Products_Residues",
              "10_Unit_Energy_Balance", "11_Energy_Accounts", "12_Utilities_Energy_Totals",
-             "13_Heat_Integration_Optional", "14_LCA_EF_Register", "15_LCA_Contributions", "16_LCA_by_Unit_and_Stage",
+             "13_Heat_Exchanger_Network", "14_LCA_EF_Register", "15_LCA_Contributions", "16_LCA_by_Unit_and_Stage",
              "17_LCA_Scenarios", "18_TEA_CAPEX", "19_TEA_OPEX_Reference", "19b_TEA_OPEX_Case_A",
              "20_Financial_Assumptions", "21_MSP_and_CaCO3_Cases", "21b_CaCO3_Case_Detail", "21c_MSP_Breakdown",
              "22_TEA_Sensitivities", "22b_Cost_Year", "23_Master_Assumptions", "24_Limitations_Gaps",

@@ -19,7 +19,7 @@ Energy accounting (no double counting)
   (att.energy_sources.natural_gas). The BioSTEAM agent flow already embeds
   its own combustion efficiency and is reported only as a cross-check.
 - Steam: boiler natural gas = steam utility heat / boiler efficiency.
-- The optional heat-integration scenario is not included.
+- Heat recovery: BioSTEAM's HeatExchangerNetwork (HXN) is in the system; U2's fired duty is excluded.
 """
 from contextlib import contextmanager
 from math import ceil, exp, log, pi
@@ -827,8 +827,8 @@ def get_att_utility_consistency_check(sys):
     system_total = sum(hu.duty for hu in sys.heat_utilities)
     energy = get_att_energy_summary(sys)
     rows = [
-        ("Heat-recovery facility in baseline", any(type(x).__name__ == "ATTHeatRecovery"
-                                                   for x in (*sys.units, *sys.facilities)), False),
+        ("HeatExchangerNetwork facility present", any(type(x).__name__ == "HeatExchangerNetwork"
+                                                     for x in (*sys.units, *sys.facilities)), True),
         ("Sum of unit heat utilities = system heat utilities [kJ/h]", sum(hu.duty for hu in unit_hus), system_total),
         ("U2 heat utility = U2 utility duty attribute [kJ/h]",
          sum(hu.duty for hu in u["U2"].heat_utilities), u["U2"]._utility_heat_duty_kJph),
@@ -876,7 +876,7 @@ def get_att_final_assumptions():
         ("PSA", f"{_ATT['gas_treatment']['psa_h2_recovery']:.0%} H2 recovery; product 20 bar", "att.yaml gas_treatment"),
         ("Heat loss", "5 % of process heat (U2, C1, EC1; steam agent for D0, U3D)", "workbook"),
         ("Heat sources", "U2 direct natural gas (burner 0.90); LP steam from NG boiler (0.80)", "workbook / BioSTEAM"),
-        ("Heat integration", "excluded from the baseline", "user decision"),
+        ("Heat integration", "BioSTEAM HeatExchangerNetwork, minimum approach 10 K; U2 (fired) and RC1 (solids) excluded", "user decision 2026-10-16"),
         ("CaCO3 cake", "coproduct, no credit", "user decision"),
         ("PSA off-gas", "collected and burned in the U2 burner (natural gas offset); no CH4 revenue", "user decision 2026-10-15"),
     ]
@@ -983,7 +983,7 @@ ASSUMPTION_REGISTER = (
      "tea.yaml price", "LOW-MEDIUM"),
     ("2 engineering", "Sargassum burden", "Zero upstream burden; collection/transport excluded",
      "Waste-biomass cut-off", "MEDIUM (decision)"),
-    ("3 optional", "Heat integration", "Excluded from the baseline (separate scenario)", "User decision", "Scenario"),
+    ("2 engineering", "Heat integration", "BioSTEAM HeatExchangerNetwork (10 K approach); process-process exchangers at BioSTEAM default U", "User decision 2026-10-16", "HIGH (steam and cooling duty)"),
     ("3 optional", "Dryer alternatives, EC1 multi-effect/MVR, lime kiln", "Not modeled", "Out of scope", "Scenario"),
 )
 

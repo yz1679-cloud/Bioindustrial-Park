@@ -35,7 +35,9 @@
 .. autoclass:: biorefineries.sabre.units.ATTReactor
 .. autoclass:: biorefineries.sabre.units.CausticizationReactor
 .. autoclass:: biorefineries.sabre.units.NaOHEvaporator
-.. autoclass:: biorefineries.sabre.units.ATTHeatRecovery
+.. autoclass:: biorefineries.sabre.units.ATTDrumDryer
+.. autoclass:: biorefineries.sabre.units.ATTCompressor
+.. autoclass:: biorefineries.sabre.units.ATTMolecularSieve
 """
 from . import _ad
 from . import _preprocessing

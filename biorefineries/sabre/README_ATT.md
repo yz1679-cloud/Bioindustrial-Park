@@ -53,7 +53,6 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_lca` | `full_scale/lca/` |
 | `run_att_consolidated` | `full_scale/summary/` |
 | `run_att_documentation` | `documentation/` |
-| `run_att_heat_integration --hen --json-out <file>` | heat-recovery screening (console/JSON) |
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
 Cost and GWP breakdown of H2 for both cases (MSP by cost type, CAPEX by process
@@ -81,7 +80,6 @@ att_outputs/
 │   ├── tea/                 MSP, CAPEX/OPEX, CaCO3/lime/P1/off-gas cases, sensitivities
 │   ├── lca/                 GWP100 summary, contributions, scenarios, data gaps
 │   └── summary/             consolidated process/TEA/GWP results
-├── scenarios/heat_integration/  heat-recovery screening and HEN designs (JSON)
 ├── documentation/           master model documentation workbook; diagrams/
 └── validation/              run summary, unit-test and step logs
 ```
@@ -92,10 +90,10 @@ att_outputs/
 ```
 biorefineries/sabre/
 ├── units/_att.py                  ATT units: ATTReactor (U2), CausticizationReactor (C1),
-│                                  NaOHEvaporator (EC1), ATTHeatRecovery (HXR)
+│                                  NaOHEvaporator (EC1), ATTDrumDryer, ATTCompressor, ATTMolecularSieve
 ├── systems/_att_system.py         create_att_system(): P1-D0-M1-U2-U3HX-U3C-U3D-U3P-U3K / RC1-D1-F1-C1-F2-SP1-EC1
 ├── analyses/att/                  analyses (see analyses/att/__init__.py)
-│   ├── mass_energy.py  thermodynamics.py  heat_integration.py   process-level helpers
+│   ├── mass_energy.py  thermodynamics.py                       process-level helpers
 │   ├── inventory.py  tea.py  lca.py  breakdown.py                 full-scale analyses
 │   ├── reporting.py                                               consolidated results, documentation
 │   ├── validation.py                                              read-only audits (1 kg/h, Na ledger)
@@ -136,6 +134,11 @@ biorefineries/sabre/
   CaCO₃ or CH₄ revenue in the reference case. The PSA tail gas (mainly CH₄ and
   unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
   up to U2's fuel demand (about a third of it); no burner is modeled.
+- Heat recovery: BioSTEAM's `HeatExchangerNetwork` (HXN, 10 K minimum approach) is in the
+  system by default (`create_att_system(heat_exchanger_network=True)`). Heating and cooling
+  duties of D0, C1, EC1 (evaporator and condenser) and U3HX are matched; U2's fired duty, the
+  solids cooler RC1, the U3K intercoolers and the U3D regeneration are not. Where BioSTEAM
+  carries a duty without an exchanger (C1, U3K, U3D) an auxiliary exchanger is costed.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
   allocation or product credits; the PSA tail gas is burned in the U2 burner
   (natural gas offset, biogenic CO₂ not counted, no CH₄ emission).

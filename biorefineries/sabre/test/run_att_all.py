@@ -14,8 +14,7 @@ att_outputs/ at the repository root). Order:
  4 lca               GWP100        (read by the cross-checks of 5, 6 and 8)
  5 consolidated      full-scale summary (ATT-only case)
  6 documentation     master model documentation
- 7 heat_integration  heat-recovery screening and HEN report (JSON)
- 8 diagram_svg/png   process flow diagrams
+ 7 diagram_svg/png   process flow diagrams
 
 Then the ATT unit tests (unless --skip-tests) and a tally of every exported
 QC table are written to validation/run_summary.md and run_summary.json. The
@@ -46,7 +45,6 @@ STEPS = (
     ("lca", "run_att_lca", ()),
     ("consolidated", "run_att_consolidated", ()),
     ("documentation", "run_att_documentation", ()),
-    ("heat_integration", "run_att_heat_integration", ("--hen", "--json-out", "{heat_integration}/att_heat_report.json")),
     ("diagram_svg", "run_att_diagram", ("--format", "svg")),
     ("diagram_png", "run_att_diagram", ("--format", "png")),
 )

@@ -11,7 +11,9 @@ __all__ = (
     "CausticizationReactor",
     "NaOHEvaporator",
     "aqueous_naoh_enthalpy_correction_kJph",
-    "ATTHeatRecovery",
+    "ATTDrumDryer",
+    "ATTCompressor",
+    "ATTMolecularSieve",
 )
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
@@ -34,6 +36,128 @@ _SARGASSUM_DRY_IDS = (
     "Mannitol",
     "OtherSolids",
 )
+
+
+def _att_add_proxy_exchanger(unit, name, efficiency=None):
+    """Create the auxiliary HXutility used by ``_att_proxy_exchanger`` (call in the unit's init)."""
+    aux = unit.auxiliary(f"hxn_{name}", bst.HXutility, ins=bst.Stream(None),
+                         heat_transfer_efficiency=efficiency)
+    unit.register_auxiliary(aux, f"hxn_{name}")   # costs and utilities roll up into the parent unit
+    return aux
+
+
+def _att_proxy_exchanger(unit, name, duty_kJph, T_in, T_out=None, *, latent=False, hxn_ok=True,
+                         costed=True):
+    """
+    Carry a heating or cooling duty of ``unit`` in an auxiliary BioSTEAM
+    ``HXutility`` whose process side is a water stream, so that the duty has
+    an exchanger (capital, utility) and, when ``hxn_ok``, process streams that
+    BioSTEAM's HeatExchangerNetwork can match.
+
+    The water stream is a PROXY for a process stream that BioSTEAM's unit
+    models do not carry or that cannot be flashed (solids, NaOH/Na2CO3
+    liquor): sensible duty between ``T_in`` and ``T_out`` (water of equal
+    heat capacity) or latent duty at ``T_in`` (evaporating, duty > 0, or
+    condensing, duty < 0, water). ``costed=False`` zeroes the exchanger cost
+    where the heating or cooling surface is already inside the unit's own
+    cost correlation or estimate.
+    """
+    if abs(duty_kJph) <= 1e-9:
+        return None
+    hx = getattr(unit, f"hxn_{name}")   # created in the unit's _init by _att_add_proxy_exchanger
+    Water = bst.settings.chemicals["Water"]
+    if latent:
+        P = float(Water.Psat(T_in))
+        heating = duty_kJph > 0.0
+        s_in = bst.Stream(None, Water=1.0, T=T_in, P=P, phase="l" if heating else "g")
+        s_out = bst.Stream(None, Water=1.0, T=T_in, P=P, phase="g" if heating else "l")
+        per_kmol = abs(Water.Hvap(T_in))
+    else:
+        s_in = bst.Stream(None, Water=1.0, T=T_in, P=101325.0, phase="l")
+        s_out = bst.Stream(None, Water=1.0, T=T_out, P=101325.0, phase="l")
+        per_kmol = s_out.H - s_in.H
+    scale = abs(duty_kJph) / abs(per_kmol)
+    s_in.scale(scale)
+    s_out.scale(scale)
+    hx.simulate_as_auxiliary_exchanger(ins=[s_in], outs=[s_out], duty=duty_kJph, vle=latent or False,
+                                       hxn_ok=hxn_ok)
+    if not costed:
+        for d in (hx.baseline_purchase_costs, hx.purchase_costs, hx.installed_costs):
+            for k in list(d):
+                d[k] = 0.0
+    return hx
+
+
+class ATTDrumDryer(bst.DrumDryer):
+    """
+    BioSTEAM DrumDryer whose steam duty is carried by an auxiliary exchanger
+    (water evaporating at the drum temperature) that BioSTEAM's
+    HeatExchangerNetwork can match. The exchanger cost is zero: the heated
+    drum is already inside the DrumDryer cost correlation.
+    """
+
+    def _init(self, *args, **kwargs):
+        super()._init(*args, **kwargs)
+        _att_add_proxy_exchanger(self, "steam")
+
+    def _design(self):
+        n = len(self.heat_utilities)
+        super()._design()
+        for hu in self.heat_utilities[n:]:
+            self.heat_utilities.remove(hu)
+            _att_proxy_exchanger(self, "steam", hu.unit_duty, self.T, latent=True, costed=False)
+
+
+class ATTCompressor(bst.IsothermalCompressor):
+    """
+    IsothermalCompressor whose intercooling duty is carried by a costed
+    auxiliary cooler (water proxy, sensible from ``intercooler_T_K`` to the
+    outlet temperature). Kept out of the heat exchanger network: the
+    interstage temperature is an assumption, not a modeled stream.
+    """
+
+    def _init(self, *args, intercooler_T_K=400.0, **kwargs):
+        super()._init(*args, **kwargs)
+        self.intercooler_T_K = float(intercooler_T_K)
+        _att_add_proxy_exchanger(self, "intercooler")
+
+    def _design(self):
+        n = len(self.heat_utilities)
+        super()._design()
+        for hu in self.heat_utilities[n:]:
+            self.heat_utilities.remove(hu)
+            _att_proxy_exchanger(self, "intercooler", hu.unit_duty, self.intercooler_T_K, self.outs[0].T,
+                                 hxn_ok=False)
+
+
+class ATTMolecularSieve(bst.MolecularSieve):
+    """
+    MolecularSieve whose regeneration heating and cooling duties are carried
+    by costed auxiliary exchangers (water proxy at ``regeneration_T_K``).
+    Kept out of the heat exchanger network (provisional BioSTEAM duties).
+    """
+
+    def _init(self, *args, regeneration_T_K=450.0, **kwargs):
+        super()._init(*args, **kwargs)
+        self.regeneration_T_K = float(regeneration_T_K)
+        _att_add_proxy_exchanger(self, "regeneration_heater")
+        _att_add_proxy_exchanger(self, "regeneration_cooler")
+
+    def _design(self):
+        n = len(self.heat_utilities)
+        super()._design()
+        new = list(self.heat_utilities[n:])
+        for hu in new:
+            self.heat_utilities.remove(hu)
+        T_in = float(self.ins[0].T)
+        for hu in new:
+            if hu.unit_duty > 0.0:
+                _att_proxy_exchanger(self, "regeneration_heater", hu.unit_duty, T_in, self.regeneration_T_K,
+                                     hxn_ok=False)
+            else:
+                _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
+                                     hxn_ok=False)
+
 
 
 class ATTPress(bst.Unit):
@@ -953,6 +1077,7 @@ class CausticizationReactor(bst.Unit):
         self.lime_equiv = float(lime_equiv)
         self.target_temperature_K = float(target_temperature_K)
         self.heat_loss_fraction = float(heat_loss_fraction)
+        _att_add_proxy_exchanger(self, "heater", 1.0 / (1.0 + self.heat_loss_fraction))
 
         self.reaction = tmo.Reaction(
             "Na2CO3 + CaOH2 -> 2 NaOH + CaCO3",
@@ -1071,31 +1196,26 @@ class CausticizationReactor(bst.Unit):
             + heat_loss_kJph
         )
 
-        # Register C1's calculated duty with BioSTEAM.  The argument to
-        # add_heat_utility is the PROCESS duty (hu.unit_duty), NOT the
-        # already loss-adjusted utility duty (hu.duty).  Otherwise the
-        # 5% assumed heat loss would be counted twice.
-        #
-        # A two-inlet reactive unit has no single process-inlet T-Q curve.
-        # The operating temperature is used only as a utility-agent
-        # selection proxy, NOT as evidence of an isothermal process.
-        # Keep this lumped duty outside automatic HXN matching until a
-        # physically defensible reaction/sensible heat profile exists.
+        # Register C1's calculated duty with BioSTEAM through an auxiliary
+        # heater (water-equivalent proxy for the liquor, T_in -> T_out) that
+        # is costed and can be matched by BioSTEAM's HeatExchangerNetwork.
+        # The duty passed is the PROCESS duty (hu.unit_duty); the heat-loss
+        # allowance enters through the heat-transfer efficiency, so it is not
+        # counted twice. The duty lumps sensible heating and the (small)
+        # reaction enthalpy.
         if abs(heat_duty_kJph) > 1e-12:
             efficiency = (
                 1.0 / (1.0 + self.heat_loss_fraction)
                 if heat_duty_kJph > 0.0 else 1.0
             )
-            hu = self.add_heat_utility(
-                heat_duty_kJph,
-                self.target_temperature_K,
-                self.target_temperature_K,
-                heat_transfer_efficiency=efficiency,
-                hxn_ok=False,
-            )
-            # Use actual registered utility for reporting; both values
-            # should match by construction for this lumped baseline.
-            utility_heat_duty_kJph = float(hu.duty)
+            mixed = bst.Stream(None)
+            mixed.mix_from(self.ins)
+            T_out = float(self.target_temperature_K)
+            T_in = float(mixed.T)
+            if abs(T_out - T_in) < 1.0:
+                T_in = T_out - 1.0
+            hx = _att_proxy_exchanger(self, "heater", heat_duty_kJph, T_in, T_out, hxn_ok=True)
+            utility_heat_duty_kJph = sum(float(hu.duty) for hu in hx.heat_utilities)
             heat_loss_kJph = (
                 utility_heat_duty_kJph - heat_duty_kJph
                 if heat_duty_kJph > 0.0 else 0.0
@@ -1243,6 +1363,8 @@ class NaOHEvaporator(bst.Unit):
               boiling_point_elevation_K=None, na2co3_dissolved_fraction=None):
         self.T = float(T)
         self.heat_loss_fraction = float(heat_loss_fraction)
+        _att_add_proxy_exchanger(self, "evaporator", 1.0 / (1.0 + self.heat_loss_fraction))
+        _att_add_proxy_exchanger(self, "condenser")
         self.max_water_kgph = float(max_water_kgph)
         self.boiling_point_elevation_K = float(
             _ATT_DOWNSTREAM["ec1_boiling_point_elevation_K"]
@@ -1317,22 +1439,27 @@ class NaOHEvaporator(bst.Unit):
                 Water.Hvap(T) + Water.H("l", T) - Water.H("l", T_c)
             ) / Water.MW
 
+        # Evaporator heating (water evaporating at the operating temperature)
+        # and condenser (water condensing at the condensation temperature)
+        # are carried by auxiliary exchangers that BioSTEAM's
+        # HeatExchangerNetwork can match. Their cost is zero here: the
+        # evaporator and the condenser are costed in
+        # analyses/att/inventory.get_att_cost_estimates (Seider evaporator
+        # correlation, bst.HXutility condenser).
+        evaporator_hx = condenser_hx = None
         if duty > 0.0:
-            self.add_heat_utility(
-                duty, T, T,
-                heat_transfer_efficiency=1.0 / (1.0 + self.heat_loss_fraction),
-                hxn_ok=False,
-            )
+            evaporator_hx = _att_proxy_exchanger(self, "evaporator", duty, T, latent=True, costed=False)
         if condenser < 0.0:
-            self.add_heat_utility(
-                condenser, self._condensation_temperature_K,
-                self._condensation_temperature_K, hxn_ok=False,
+            condenser_hx = _att_proxy_exchanger(
+                self, "condenser", condenser, self._condensation_temperature_K,
+                latent=True, costed=False,
             )
 
         self._heat_duty_kJph = duty
         self._condenser_duty_kJph = condenser
         self._utility_heat_duty_kJph = sum(
-            hu.duty for hu in self.heat_utilities if hu.duty > 0.0
+            hu.duty for hx in (evaporator_hx, condenser_hx) if hx is not None
+            for hu in hx.heat_utilities if hu.duty > 0.0
         )
         self._heat_loss_kJph = self._utility_heat_duty_kJph - max(duty, 0.0)
         self._specific_heat_kJ_per_kg_water = (
@@ -1357,80 +1484,3 @@ class NaOHEvaporator(bst.Unit):
             "Outlet NaOH/(NaOH+H2O)": "-", "Na2CO3 crystals": "kg/hr",
             "Process heat duty": "kJ/hr", "Condenser duty": "kJ/hr",
         }
-
-
-class ATTHeatRecovery(bst.Facility):
-    """
-    OPTIONAL heat-integration scenario; never part of the baseline flowsheet.
-
-    After the flowsheet converges, designs the heat-exchanger network with
-    ``design_att_heat_exchanger_network`` (baseline DrumDryer, so D0 is not
-    integrated) and credits only matches whose temperature feasibility is
-    verified on process T-Q curves. This is UTILITY BOOKKEEPING: no
-    exchanger units or streams are inserted. The heating utilities of EC1
-    and C1 become (process duty - recovered heat + heat loss), with the
-    recovery bounded by the process-stream duty; the cooling utilities of
-    U3HX, RC1 and the EC1 condenser drop by the recovered heat. Process-side
-    duties (HeatUtility.unit_duty, unit attributes) are unchanged and
-    exchanger capital is not costed.
-
-    ``att_system`` must be set to the ATT system before simulation.
-    """
-
-    network_priority = 0
-    _N_ins = 0
-    _N_outs = 0
-
-    def _init(self, delta_T_min_K=None):
-        self.delta_T_min_K = delta_T_min_K
-        self.att_system = None
-
-    def _run(self):
-        pass
-
-    def _design(self):
-        from biorefineries.sabre.analyses.att.heat_integration import (
-            design_att_heat_exchanger_network, _process_side_duties,
-            _baseline_heating_utilities, _units_of,
-        )
-        if self.att_system is None:
-            raise RuntimeError(f"{self.ID}: att_system is not set.")
-        u = _units_of(self.att_system)
-        design = design_att_heat_exchanger_network(
-            self.att_system, dryer=None, delta_T_min_K=self.delta_T_min_K
-        )
-        credited = [m for m in design["matches"] if m["basis"] == "temperature_verified"]
-        # Heating: unintegrated utility (process duty + heat loss) minus the
-        # recovered heat, which never exceeds the process-stream duty, so the
-        # heat-loss allowance stays with the external utility. Cooling:
-        # process heat release minus the recovered heat.
-        hot_duties = _process_side_duties(u)
-        heating_utilities = _baseline_heating_utilities(u)
-        recovered = {}
-        for m in credited:
-            for key in ((m["cold_unit"], "cold"), (m["hot_unit"], "hot")):
-                recovered[key] = recovered.get(key, 0.0) + m["duty_kJph"]
-        for (ID, kind), Q in recovered.items():
-            heating = kind == "cold"
-            hus = [hu for hu in getattr(u, ID).heat_utilities
-                   if (hu.duty > 0.0 if heating else hu.duty < 0.0)]
-            current = abs(sum(hu.duty for hu in hus))
-            target = (heating_utilities[ID] if heating else hot_duties[(ID, kind)]) - Q
-            if target < -1e-6:
-                raise RuntimeError(f"{self.ID}: credited heat exceeds the {ID} baseline duty.")
-            if current > 0.0:
-                for hu in hus:
-                    hu.scale(max(target, 0.0) / current)
-        self.hen_design = design
-        self.credited_matches = credited
-        self.credited_recovery_kJph = sum(m["duty_kJph"] for m in credited)
-        self.design_results.update({
-            "Credited heat recovery": self.credited_recovery_kJph,
-            "Credited matches": len(credited),
-            "Exchanger area (unverified U)": sum(m["area_m2_UNVERIFIED_U"] for m in credited),
-        })
-        self._units = {"Credited heat recovery": "kJ/hr", "Credited matches": "-",
-                       "Exchanger area (unverified U)": "m2"}
-
-    def _cost(self):
-        pass

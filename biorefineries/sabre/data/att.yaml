@@ -33,7 +33,7 @@ att:
       downstream.filter cake moistures: "F1 30 wt %: literature-supported engineering baseline. F2 25 wt %: CaCO3/lime-filtration literature review."
       downstream (EC1 and U2 NaOH data): "ec1_boiling_point_elevation_K from the Olsson et al. 1997 vapor pressure of NaOH(aq); ec1_na2co3_dissolved_fraction from Wu et al. 2020 Na2CO3 solubility near 50 wt% NaOH; naoh_heat_of_solution_kJ_per_kg from NBS (-44.5 kJ/mol), Olsson et al. 1997 and the OxyChem Caustic Soda Handbook Table 11."
       energy_sources: "Workbook, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat)."
-      heat_recovery: "BioSTEAM defaults and engineering assumptions; the HEN scenarios are optional and unverified where marked."
+      heat_recovery: "BioSTEAM defaults and engineering assumptions; cooler heat-transfer coefficients and the HXN approach temperature are unverified."
       inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors from the collaborators' workbook (energy-analysis sheet B25-B28); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
       inventory.cost_estimates: "Engineering estimates (TEA input only)."
       inventory.reference_scale: "SaBRe common plant scale (feedstock.yaml, tea.yaml)."
@@ -397,9 +397,20 @@ att:
     hydrogen_disposition: product
     hydrogen_energy_credit_status: H2 product is a saleable product and is not credited as process fuel. The
       unrecovered H2 in the PSA tail gas is burned with the tail gas (natural gas offset).
-    integration_method: BioSTEAM HeatExchangerNetwork / HXprocess
-    minimum_approach_temperature_K: 5.0
-    minimum_approach_temperature_status: BioSTEAM default/design assumption; must be verified before final TEA
+    integration_method: BioSTEAM HeatExchangerNetwork (HXN facility, on by default; U2's fired duty is excluded)
+    minimum_approach_temperature_K: 10.0
+    minimum_approach_temperature_status: design assumption (BioSTEAM default is 5 K); must be verified before final TEA
+    # Exchanger ratings of the gas and solids coolers (BioSTEAM's default
+    # U = 0.5 kW/m2/K and carbon steel suit liquids and condensing steam, not
+    # a hot CO2/H2 gas with 62 t/h of condensing water or a hot solid).
+    # Engineering assumptions, not vendor data.
+    U3HX_heat_transfer_coefficient_kW_per_m2_per_K: 0.1
+    RC1_heat_transfer_coefficient_kW_per_m2_per_K: 0.05
+    cooler_material: Stainless steel/stainless steel
+    # Assumed process temperatures of duties that BioSTEAM carries without a stream
+    # (only used to size their exchangers; not matched in the HXN).
+    u3k_interstage_temperature_K: 400.0
+    u3d_regeneration_temperature_K: 400.0   # kept at the LP-steam level, as before
     hydrogen_product_species:
     - H2
     future_tail_gas_fuel_species:
@@ -408,59 +419,6 @@ att:
     - CO
     future_U3_sequence: condense and dry gas -> PSA H2 separation -> compress H2 product -> burn remaining combustible
       tail gas; include heat exchangers as needed
-
-    # ------------------------------------------------------------------
-    # Heat-exchanger-network (HEN) design: OPTIMIZATION SCENARIOS ONLY.
-    # The baseline flowsheet and its utilities are unchanged; recovered
-    # heat is reported next to them, never in place of them.
-    # ------------------------------------------------------------------
-    heat_exchanger_network:
-      # Heat integration is an OPTIONAL SCENARIO (create_att_system
-      # heat_integration=True). The baseline flowsheet has no heat recovery
-      # and its utilities are never changed by this section.
-      status: "Optional scenario; baseline utilities unchanged."
-      delta_T_min_K: 10.0
-      # Matches that cannot exchange heat directly (hot gas or hot solids
-      # -> evaporator; hot solids -> any sink) go through an intermediate
-      # medium (e.g. raised steam), which costs one more approach temperature.
-      intermediate_loop_extra_approach_K: 10.0
-      # Credited in the scenario: only matches whose temperature feasibility
-      # is verified on process T-Q curves and that do not depend on an
-      # assumed dryer design (U3HX/RC1/EC1 vapor -> EC1 and C1). Matches
-      # into D0 are evaluated for an alternative dryer and never credited.
-      credited_match_basis: temperature_verified
-      # Energy boundary: recovered heat is bounded by what the process
-      # streams can absorb (EC1 boiling duty; C1 carbonate-liquor preheating
-      # from its inlet to 90 C). Heat-loss allowances, C1 lime heating and
-      # reaction enthalpy always stay with the external utility.
-      # Implementation: utility bookkeeping (verified match duties scale the
-      # units' heat utilities); no exchanger units or streams are inserted
-      # in the flowsheet and exchanger capital is not costed.
-      ec1_temperature_scenarios:
-        baseline_90C:
-          ec1_temperature_K: 363.15
-          status: "Baseline."
-        ec1_115C:
-          ec1_temperature_K: 388.15
-          status: "Evaluated, not adopted: no advantage over 90 C with a low-temperature belt dryer (2026-10-09). The constant boiling-point elevation and dissolved Na2CO3 fraction of the 90 C baseline are kept."
-      # Alternative dryer evaluated for heat integration only. The baseline
-      # DrumDryer is not integrated because the model does not define the
-      # temperature at which it accepts heat.
-      dryer_heat_acceptance:
-        belt_hot_air:
-          kind: sensible
-          T_in_K: 298.15
-          T_out_K: 363.15
-          status: "UNVERIFIED alternative: low-temperature belt dryer, drying air heated from 25 C to 90 C, using the D0 assumed thermal duty."
-      # Order-of-magnitude overall heat-transfer coefficients for area
-      # estimates only [W/m2/K]; UNVERIFIED.
-      overall_U_W_per_m2_K:
-        gas_sensible: 50.0
-        gas_condensing: 300.0
-        hot_solids: 50.0
-        steam_to_boiling_liquor: 1000.0
-        condensing_vapor_to_air: 40.0
-        condensing_vapor_to_liquid: 800.0
   feed_energy_reference:
     HHV_MJ_per_kg_daf_baseline: 16.9
     HHV_MJ_per_kg_daf_lower: 15.7
@@ -471,12 +429,12 @@ att:
     used_in_current_heat_recovery: false
 
   # Research-stage TEA/LCA inventory (user decisions 2026-10-09). Read by
-  # biorefineries/sabre/analyses/att/inventory.py. The heat-integration
-  # scenario is excluded; the baseline utilities are reported as simulated.
+  # biorefineries/sabre/analyses/att/inventory.py. Utilities are reported as
+  # simulated, after BioSTEAM's HeatExchangerNetwork when it is in the system.
   inventory:
     reference_scale:
-      basis: "SaBRe common plant scale: feedstock.yaml scale.wet_feed_ton_per_day with the pelagic moisture fraction; tea.yaml operating_days."
-      status: "Project-wide SaBRe assumption reused for comparability with the other SaBRe pathways; not an ATT-specific design decision."
+      basis: "NLR preprint plant scale: feed_preparation.scale.wet_feed_tonnes_per_year (3 million wet t/yr) with the nlr_fresh moisture fraction; tea.yaml operating_days."
+      status: "ATT-specific scale chosen to match the NLR preprint TEA (the SaBRe common scale of 15,000 wet t/d is not used)."
     # U2 gas closure (user decision 2026-10-10; reactor.material_balance).
     # Fate of every external stream: [direction, category, note].
     stream_fates:

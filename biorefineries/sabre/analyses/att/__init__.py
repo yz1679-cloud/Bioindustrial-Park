@@ -8,7 +8,6 @@ without loading the reporting stack):
 Process-level helpers (called by the model itself)
     mass_energy      energy accounting; F2 cake wash balance (W2)
     thermodynamics   C1 aqueous enthalpy reference
-    heat_integration heat-recovery screening, pinch targets, HXR network design
 
 Full-scale analyses (frozen BioSTEAM model)
     inventory        material/energy inventory, LCI, cost inputs

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--format", default="svg", help="svg, png or pdf")
     parser.add_argument("--dry-feed", type=float, default=1.0, help="dry Sargassum basis [kg/h]")
     parser.add_argument("--dark", action="store_true", help="use the dark theme instead of light")
-    parser.add_argument("--heat-integration", action="store_true", help="include the HXR facility")
+    parser.add_argument("--no-hxn", action="store_true", help="omit the BioSTEAM HeatExchangerNetwork facility")
     args = parser.parse_args()
     args.out = os.fspath(args.out or output_dir("diagrams"))
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     else:
         bst.preferences.light_mode()
     bst.main_flowsheet.clear()
-    sys = create_att_system(dry_sargassum_kgph=args.dry_feed, heat_integration=args.heat_integration)
+    sys = create_att_system(dry_sargassum_kgph=args.dry_feed, heat_exchanger_network=not args.no_hxn)
     sys.simulate()
     for kind in KINDS:
         file = os.path.join(args.out, f"{sys.ID}_{kind}")
