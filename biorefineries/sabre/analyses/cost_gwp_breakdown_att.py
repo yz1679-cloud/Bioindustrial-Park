@@ -68,6 +68,7 @@ _SHORT = {
     "Electricity: cooling tower and CW pumps": "Electricity: cooling tower, pumps",
     "Sargassum feedstock (0 in baseline)": "Sargassum (0 in baseline)",
     "PSA off-gas handling (0; fate unresolved)": "PSA off-gas handling (0)",
+    "Biogenic carbon stored in landfilled solids (credit)": "Stored biogenic carbon (landfilled solids)",
     "CaCO3 cake disposal": "CaCO3 cake disposal (fresh-lime case)",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost (4 % of FCI)",
     "Capital (FCI + WC, net of loan)": "Capital (FCI + WC, net of loan)",
@@ -139,8 +140,8 @@ def plot_breakdown(tables, path):
                   "(d) H2 GWP100 by contributor (net " + both(lambda s: f"{s['GWP_kgCO2e_per_kg_H2']:.1f}") + " kg CO2e/kg)",
                   min_abs=0.01 * max(abs(s["GWP_kgCO2e_per_kg_H2"]) for s in summ.values()))
     axes[1, 1].set_title(axes[1, 1].get_title(loc="left"), loc="left", color=INK, pad=17)
-    axes[1, 1].text(0.0, 1.012, "Not included: avoided landfill CH4, a potential credit of "
-                    + " / ".join(sorted({f"{s['GWP_landfill_credit_kgCO2e_per_kg_H2']:.1f}" for s in summ.values()})) + " kg CO2e/kg H2 (IPCC 2006, no gas capture)",
+    axes[1, 1].text(0.0, 1.012, "Includes the credit for biogenic carbon stored in landfilled solids. Not included: avoided landfill CH4 "
+                    "(alternative to it, " + " / ".join(sorted({f"{s['GWP_landfill_credit_kgCO2e_per_kg_H2']:.1f}" for s in summ.values()})) + " kg CO2e/kg H2)",
                     transform=axes[1, 1].transAxes, ha="left", va="bottom", fontsize=8, color=INK_2)
 
     handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CASE_LABELS[c]) for c in tables]

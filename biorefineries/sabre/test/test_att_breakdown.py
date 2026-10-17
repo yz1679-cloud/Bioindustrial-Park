@@ -48,8 +48,10 @@ class TestATTBreakdown(unittest.TestCase):
         memo = g[~g["counted_in_net"]]["kgCO2e_per_kg_H2"]
         self.assertEqual(len(memo), 1)
         self.assertLess(float(memo.iloc[0]), 0.0)
+        # the landfill-CH4 credit replaces the stored-carbon credit (same carbon, different fate): not additive
+        stored = g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum()
         self.assertAlmostEqual(self.s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"],
-                               self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
+                               self.s["GWP_kgCO2e_per_kg_H2"] - stored + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
         # no PSA, no tail gas: nothing displaces natural gas
         offset = self.t["GWP_by_contributor"]

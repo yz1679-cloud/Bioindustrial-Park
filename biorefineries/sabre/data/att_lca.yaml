@@ -11,7 +11,7 @@ lca:
   functional_unit: "1 kg H2 in the compressed product gas at the plant gate (20 bar, no PSA; the gas also holds CH4 and CO, not credited); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
   secondary_unit: "1 kg dry Sargassum processed"
   boundary: "Cradle-to-plant-gate. Sargassum is waste biomass with zero production burden; its collection and transport are a pending boundary component."
-  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits. With psa_enabled the PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation); the baseline has no PSA."
+  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits; the only credit is the storage of biogenic carbon in landfilled solids (carbon_storage). With psa_enabled the PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation); the baseline has no PSA."
   energy_basis: LHV
   water_density_kg_per_m3: 1000.0   # wastewater volume = mass / 1000 kg/m3
 
@@ -105,7 +105,17 @@ lca:
   offgas:
     treatment: "BURNED: assumed collected and burned in the U2 burner; its LHV displaces natural gas (up to U2's fuel demand, att.yaml gas_treatment.tail_gas_combustion); no CH4 emission; biogenic combustion CO2 not counted"
 
-  # POTENTIAL CREDIT, NOT in the net GWP (user request 2026-10-17): methane that the incoming Sargassum would
+  # CARBON STORAGE CREDIT (user decision 2026-10-17, in the net GWP): the biogenic carbon that leaves in landfilled
+  # solids (CaCO3 cake, ash/char cake, lime purge; waste_management.landfill_streams that are system products) is
+  # stored instead of being released as CO2 when the Sargassum decomposes, so it earns -44.01/12.011 kg CO2e per kg C.
+  # Permanence is assumed (carbonate and char in a landfill). Carbon released as CO2 anywhere (PSA tail gas, product
+  # gas, lime-kiln exhaust) is not credited. The credit is not additive with the landfill-CH4 credit below: both
+  # start from the same feed carbon with a different fate (decomposition to CO2 against landfill CH4).
+  carbon_storage:
+    credit_stored_carbon: true
+    note: "Net GWP counts the biogenic carbon stored in landfilled solids as a negative emission."
+
+  # ALTERNATIVE COUNTERFACTUAL, NOT in the net GWP (user request 2026-10-17): methane that the incoming Sargassum would
   # emit if it were landfilled instead of processed. Reported as a separate memo line beside the net result.
   # IPCC 2006 Guidelines Vol. 5 Ch. 3 (first-order-decay potential, all methane over the long term, no timing):
   #   CH4 = C_feed x DOCf x MCF x F x (1 - R) x (1 - OX) x 16/12

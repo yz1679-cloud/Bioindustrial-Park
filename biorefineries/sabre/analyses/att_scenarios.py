@@ -22,7 +22,8 @@ disposed as in the fresh-lime case, TEA Case A). Its supply is one reference-siz
 (Intratec reference electrothermic plant) x 74.09/64.10 = 92.5 kt/yr Ca(OH)2, taken as fully captured. The plant
 scale of scenarios 3 and 4 is the one at which scenario 4 (the larger lime user) uses that whole supply.
 
-The NaOH dose and the gas CO2 yield are overridden in this process only (att.yaml is not changed).
+The NaOH dose and the gas CO2 yield are overridden in this process only (att.yaml is not changed). The net GWP
+includes the stored-carbon credit (landfilled carbonate and char).
 
 Output: ../results/tables/att_scenarios.csv
 
@@ -104,6 +105,7 @@ def evaluate(name, spec, waste_dry_kgph):
         applied = lca.apply_att_gwp(system, estimates=est, overrides={"CaOH2_limestone": 0.0} if waste else None)
         contributions = lca.get_att_gwp_contributions(system, applied)
         credit = lca.get_att_landfill_credit(system)
+        stored = lca.get_att_stored_carbon_credit(system)
     s, hours = inv._streams(system), system.operating_hours
     net = contributions[-1]["GWP_kgCO2e_per_kg_H2"]
     t = result["tea"]
@@ -115,8 +117,10 @@ def evaluate(name, spec, waste_dry_kgph):
         Ca_OH_2_used_t_per_yr=float(s["lime"].imass["CaOH2"]) * hours / 1e3,
         Ca_OH_2_price_USD_per_t=0.0 if waste else float(tea._prices()["CaOH2"]) * 1e3,
         MSP_USD_per_kg_H2=result["msp"], FCI_MUSD=t.FCI / 1e6,
-        GWP_kgCO2e_per_kg_H2=net, landfill_credit_kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
-        GWP_with_landfill_credit_kgCO2e_per_kg_H2=net + credit["GWP_kgCO2e_per_kg_H2"])
+        GWP_kgCO2e_per_kg_H2=net, stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored,
+        GWP_without_stored_carbon_credit_kgCO2e_per_kg_H2=net - stored,
+        landfill_CH4_credit_alternative_kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
+        GWP_with_landfill_CH4_credit_instead_kgCO2e_per_kg_H2=net - stored + credit["GWP_kgCO2e_per_kg_H2"])
 
 
 if __name__ == "__main__":

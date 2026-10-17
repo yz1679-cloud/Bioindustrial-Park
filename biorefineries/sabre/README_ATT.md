@@ -162,7 +162,7 @@ biorefineries/sabre/
   carries a duty without an exchanger (C1, U3K, U3D) an auxiliary exchanger is costed.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
   allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is burned in the U2 burner:
-  natural gas offset, no CH₄ emission.) The avoided landfill CH₄ of the feed is reported as a separate potential credit, not in the net.
+  natural gas offset, no CH₄ emission.) The biogenic carbon stored in landfilled solids (CaCO₃ cake, ash/char cake, lime purge) is credited in the net as a negative emission (permanence assumed; carbon released as CO₂ anywhere, including the lime kiln, is not). The avoided landfill CH₄ of the feed is reported as an alternative credit (same carbon, different fate), not in the net and not additive with the stored-carbon credit.
 - Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
   it is not helpful. At the earlier baseline (1 g/g NaOH, with PSA) and recycled lime (ATT-integration), splitting 10 % raises the MSP from 2.80 to
   3.01 USD/kg H2 and the GWP from 17.9 to 18.9 kg CO2e/kg H2 (20 %: 3.27 and 20.2; 50 %: 4.65 and

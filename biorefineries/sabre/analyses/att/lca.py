@@ -68,6 +68,7 @@ _STAGES = {
     "Electricity: outside unit models (agitators, EC1 vacuum)": "Purchased electricity",
     "Wastewater treatment": "Waste management",
     "Landfill: solid residues": "Waste management",
+    "Biogenic carbon stored in landfilled solids (credit)": "Stored biogenic carbon",
     "Sargassum collection and transport": "Feedstock collection and transport",
 }
 
@@ -112,6 +113,14 @@ def _landfill_kgph(sys):
     s = inv._streams(sys)
     products = {p.ID for p in sys.products}
     return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["landfill_streams"] if ID in products)
+
+
+def _stored_carbon_kgph(sys):
+    """Carbon (kg C/h) leaving in landfilled solids; carbonate and char are taken as permanently stored."""
+    s = inv._streams(sys)
+    products = {p.ID for p in sys.products}
+    return sum(float(s[ID].get_atomic_flow("C")) * 12.011
+               for ID in _LCA["waste_management"]["landfill_streams"] if ID in products)
 
 
 def _cooling_water_kWh_per_kg():
@@ -184,6 +193,9 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
                               lambda: _h2so4_kgph(sys) * hours, f["H2SO4"])
     sys.define_process_impact(KEY, "Landfill: solid residues", "kg",
                               lambda: _landfill_kgph(sys) * hours, f["inert_landfill"])
+    stored = 1.0 if _LCA["carbon_storage"]["credit_stored_carbon"] else 0.0
+    sys.define_process_impact(KEY, "Biogenic carbon stored in landfilled solids (credit)", "kg CO2",
+                              lambda: -stored * _stored_carbon_kgph(sys) * 44.0095 / 12.011 * hours, 1.0)
     sys.define_process_impact(KEY, "Electricity: outside unit models (agitators, EC1 vacuum)", "kWh",
                               lambda: aux_kW * hours, f["electricity"])
     # Natural gas displaced by the PSA tail gas burned in the U2 burner (fuel basis, MJ).
@@ -269,13 +281,20 @@ def get_att_gwp_contributions(sys, applied):
     return rows
 
 
-LANDFILL_CREDIT_ITEM = "Avoided landfill CH4 (potential credit, not in net)"
+LANDFILL_CREDIT_ITEM = "Avoided landfill CH4 (alternative credit, not in net)"
+
+
+def get_att_stored_carbon_credit(sys):
+    """Stored-carbon credit in the net GWP [kg CO2e per kg H2; negative], 0 if switched off."""
+    on = _LCA["carbon_storage"]["credit_stored_carbon"]
+    h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
+    return -(_stored_carbon_kgph(sys) * 44.0095 / 12.011 / h2) if on else 0.0
 
 
 def get_att_landfill_credit(sys):
     """
-    Potential credit for the methane the incoming Sargassum would emit in a landfill (IPCC 2006 Vol. 5 Ch. 3,
-    long-term potential). Not part of the net GWP. Returns kg CH4 and kg CO2e (negative = credit) per kg dry
+    Alternative credit for the methane the incoming Sargassum would emit in a landfill (IPCC 2006 Vol. 5 Ch. 3,
+    long-term potential). Not part of the net GWP, and not additive with the stored-carbon credit that is. Returns kg CH4 and kg CO2e (negative = credit) per kg dry
     feed and per kg H2.
     """
     c = _LCA["landfill_counterfactual"]
@@ -360,11 +379,12 @@ def get_att_gwp_summary(sys, applied):
          f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x PSA recovery if any ({U2.gas_closure_method})"),
         ("CH4 in PSA off-gas (model)", float(tail.imass["CH4"]) / dry, "kg/kg dry",
          "explicit collected stream; final fate UNRESOLVED; direct CH4 emission not in baseline GWP; no credit"),
-        ("Potential credit: avoided landfill CH4 (not in net)", credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+        ("Alternative credit: avoided landfill CH4 (not in net)", credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
          f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 landfill potential, MCF/F/OX in att_lca.yaml); "
-         "counterfactual-dependent"),
-        ("GWP100 per kg H2 with the landfill credit", total_yr / h2_yr + credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
-         "net plus the potential credit above"),
+         "counterfactual-dependent; replaces the stored-carbon credit, not additive with it"),
+        ("GWP100 per kg H2 with the landfill-CH4 credit instead of the stored-carbon credit",
+         total_yr / h2_yr - get_att_stored_carbon_credit(sys) + credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         "net without the stored-carbon credit, plus the landfill-CH4 credit"),
         ("Lime source", float("nan"), "", applied["lime_source"]),
         ("Boundary status", float("nan"), "",
          "PARTIAL: Sargassum collection/transport pending" if _LCA["collection_transport"][
@@ -377,9 +397,11 @@ def get_att_gwp_summary(sys, applied):
          "burned with the tail gas (natural gas offset); H2 indirect warming not quantified"),
         ("PSA off-gas total", float(tail.F_mass) / dry, "kg/kg dry", _LCA["offgas"]["treatment"]),
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
-         "not credited (no sequestration or substitution credit)"),
+         "credited as stored carbon when the cake is landfilled (a product); not when it is recycled to the kiln"),
         ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
-         "fate not credited; degradation not quantified"),
+         "credited as stored carbon; degradation of the char not quantified"),
+        ("Stored-carbon credit in the net GWP", get_att_stored_carbon_credit(sys), "kg CO2e/kg H2",
+         "landfilled carbonate and char, permanence assumed"),
         ("CH4 in U2 gas (specified)", ch4_reported, "kg/kg dry", "experimental team yield, burned in the U2 burner"),
         ("CO in U2 gas (specified)",
          float(U2.reported_gas_yield_mmol_per_g_daf["CO"]) * daf * 28.0101 / 1e3 / dry, "kg/kg dry",
@@ -479,8 +501,8 @@ def get_att_lca_data_gaps(sys, applied):
         ("Cooling-tower and boiler make-up water", "NOT INCLUDED", float("nan"), "small", "LOW"),
         ("Water/WWT factors (Zib et al. 2021)", "AS PROVIDED, not rechecked", float("nan"), "tiny contribution", "LOW"),
         ("Capital goods, chemical transport", "EXCLUDED", float("nan"), "outside the workbook boundary", "LOW"),
-        ("Biogenic C storage in CaCO3", "NOT CREDITED", summary["Biogenic C retained in CaCO3 cake"] * 44.0095 / 12.011,
-         "kg CO2 equivalent of the retained C; credit needs a justified fate", "potential credit"),
+        ("Biogenic C storage in landfilled solids", "CREDITED in the net", summary["Biogenic C retained in CaCO3 cake"] * 44.0095 / 12.011,
+         "kg CO2 equivalent of the C retained in the cake; permanence of the landfilled carbonate is assumed", "assumption"),
     ]
     return [dict(item=a, status=b, indicative_kgCO2e_per_kg_dry=c, note=d, importance=e) for a, b, c, d, e in rows]
 
