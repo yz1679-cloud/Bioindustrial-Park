@@ -518,7 +518,7 @@ class ATTReactor(bst.Unit):
     mechanistic reaction model.
     """
 
-    _N_ins = 1
+    _N_ins = 2          # [0] feed, [1] PSA tail gas: fuel gas burned in the U2 furnace (empty without a PSA)
     _N_outs = 2
 
     # Official BioSTEAM auxiliary-unit pattern.
@@ -629,7 +629,7 @@ class ATTReactor(bst.Unit):
         self.auxiliary(
             "heat_exchanger",
             bst.HXutility,
-            ins=self.ins,
+            ins=self.ins[0],
             T=self.target_temperature_K,
             rigorous=False,
             heat_only=True,
@@ -1131,6 +1131,20 @@ class ATTReactor(bst.Unit):
             max(float(hu.duty), 0.0)
             for hu in hx.heat_utilities
         )
+
+        # PSA tail gas (ins[1]) is fuel for the furnace: its LHV x the burner efficiency replaces natural gas heat,
+        # up to the furnace duty. The natural gas utility above stays the gross furnace duty (heat demand); the
+        # purchased natural gas is that duty minus the tail gas heat (``natural_gas_purchased_duty_kJph``).
+        tail = self.ins[1]
+        eta_burner = float(_ATT_DATA["energy_sources"]["natural_gas"]["burner_efficiency"])
+        burn = _ATT_DATA["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
+        tail_LHV_kJph = float(tail.LHV) if tail.F_mol else 0.0
+        gross_ng_kJph = sum(max(float(hu.duty), 0.0) for hu in hx.heat_utilities
+                            if hu.agent is not None and hu.agent.ID == "natural_gas")
+        self.tail_gas_LHV_kJph = tail_LHV_kJph
+        self.tail_gas_heat_kJph = min(tail_LHV_kJph * eta_burner, gross_ng_kJph) if burn else 0.0
+        self.natural_gas_gross_duty_kJph = gross_ng_kJph
+        self.natural_gas_purchased_duty_kJph = gross_ng_kJph - self.tail_gas_heat_kJph
 
         heat_loss_kJph = max(
             utility_heat_duty_kJph - heat_duty_kJph,

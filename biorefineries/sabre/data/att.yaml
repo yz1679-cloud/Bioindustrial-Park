@@ -275,7 +275,7 @@ att:
     # exceeds one heater, so use parallel units; the 1 kg/h baseline is far
     # below the correlation minimum. See README_ATT.md, "Planned work".
     # heat-recovery modeling. No combustion credit is applied in Step 7.5.
-    tail_gas_combustion_status: "Simple offset only: tail gas burned in the U2 burner displaces natural gas (see tail_gas_combustion); no burner unit, flue gas or burner capital modeled."
+    tail_gas_combustion_status: "Simple offset only: tail gas fed to the U2 furnace (U2 ins[1]) displaces natural gas (see tail_gas_combustion); no separate burner unit, flue gas or burner capital modeled."
 
   downstream:
     # Dissolution before F1.

@@ -62,7 +62,6 @@ _STAGES = {
     "Natural gas boiler (LP steam): combustion": "Onsite fuel combustion",
     "Natural gas U2: upstream supply": "Natural gas supply chain",
     "Natural gas boiler (LP steam): upstream supply": "Natural gas supply chain",
-    "Natural gas displaced by PSA tail gas (burned in U2)": "Natural gas displaced by tail gas",
     "Electricity: process units": "Purchased electricity",
     "Electricity: cooling tower and CW pumps": "Purchased electricity",
     "Electricity: outside unit models (agitators, EC1 vacuum)": "Purchased electricity",
@@ -261,9 +260,12 @@ def get_att_gwp_contributions(sys, applied):
                                       eta["boiler_efficiency"])):
         gwp = sys.get_net_heat_utility_impact(agent, KEY)
         fuel_MJ_yr = sum(hu.duty for hu in sys.heat_utilities if hu.agent.ID == agent) / 1e3 / efficiency * hours
+        # The PSA tail gas burned in the U2/kiln burners replaces natural gas: the fuel bought is the total need
+        # minus the tail gas LHV (capped at the need), shown in the same lines instead of a separate line.
+        burned = inv.get_att_tail_gas_offset(sys)["offset_MJph"] * hours if agent == "natural_gas" else 0.0
         for part, name in (("natural_gas_combustion", "combustion"), ("natural_gas_upstream", "upstream supply")):
-            add(f"{label}: {name}", fuel_MJ_yr, "MJ fuel (LHV)", f[part], "kg CO2e/MJ",
-                gwp * f[part] / ng, _EF[part]["source"])
+            add(f"{label}: {name}", fuel_MJ_yr - burned, "MJ fuel (LHV, net of the PSA tail gas)" if burned else "MJ fuel (LHV)",
+                f[part], "kg CO2e/MJ", gwp * f[part] / ng - burned * f[part], _EF[part]["source"])
     cw_kg_yr = sum(hu.flow * hu.agent.MW for hu in sys.heat_utilities if hu.agent.ID == "cooling_water") * hours
     add("Electricity: cooling tower and CW pumps", cw_kg_yr * _cooling_water_kWh_per_kg(), "kWh",
         f["electricity"], "kg CO2e/kWh", sys.get_net_heat_utility_impact("cooling_water", KEY),
@@ -271,6 +273,8 @@ def get_att_gwp_contributions(sys, applied):
     add("Electricity: process units", sys.power_utility.rate * hours, "kWh", f["electricity"], "kg CO2e/kWh",
         sys.get_net_electricity_impact(KEY), _EF["electricity"]["source"])
     for item in sys.process_impact_items[KEY]:
+        if item.name.startswith("Natural gas displaced"):      # folded into the natural gas lines above
+            continue
         add(item.name, item.inventory(), item.basis, item.CF, f"kg CO2e/{item.basis}", item.impact(), "")
     total_yr = sys.get_net_impact(KEY)
     rows.append(dict(item="TOTAL (System.get_net_impact)", stage="", activity_per_kg_dry=float("nan"),

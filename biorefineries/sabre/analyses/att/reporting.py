@@ -1302,8 +1302,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
          c["NaOH makeup"]["activity_per_kg_dry"]),
         ("Ca(OH)2: TEA purchase = LCA activity [kg/kg dry]", float(s["lime"].F_mass) / dry,
          c["Ca(OH)2"]["activity_per_kg_dry"]),
-        ("U2 natural gas: TEA priced fuel = LCA fuel [MJ/kg dry]", ng_tea_MJ / hours / dry,
-         c["Natural gas U2: combustion"]["activity_per_kg_dry"]),
+        ("U2 natural gas: TEA priced fuel = LCA fuel + tail gas burned [MJ/kg dry]", ng_tea_MJ / hours / dry,
+         c["Natural gas U2: combustion"]["activity_per_kg_dry"] + inv.get_att_tail_gas_offset(sys)["offset_MJph"] / dry),
         ("U2 natural gas = inventory fuel [MJ/kg dry]", ng_tea_MJ / hours / dry, u["U2 natural gas: fuel input (LHV)"]),
         ("Electricity priced in TEA = LCA unit + auxiliary [kWh/kg dry]", elec_tea_kWh / hours / dry,
          c["Electricity: process units"]["activity_per_kg_dry"]

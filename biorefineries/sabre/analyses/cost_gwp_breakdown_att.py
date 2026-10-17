@@ -63,7 +63,6 @@ _SHORT = {
     "Natural gas boiler (LP steam): upstream supply": "Natural gas, LP steam boiler: upstream",
     "Natural gas U2: combustion": "Natural gas, U2: combustion",
     "Natural gas U2: upstream supply": "Natural gas, U2: upstream",
-    "Natural gas displaced by PSA tail gas (burned in U2)": "Natural gas displaced by tail gas",
     "Electricity: outside unit models (agitators, EC1 vacuum)": "Electricity: agitators, EC1 vacuum",
     "Electricity: cooling tower and CW pumps": "Electricity: cooling tower, pumps",
     "Sargassum feedstock (0 in baseline)": "Sargassum (0 in baseline)",

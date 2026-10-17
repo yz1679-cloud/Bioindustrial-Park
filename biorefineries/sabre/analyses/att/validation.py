@@ -337,8 +337,8 @@ def _checks(sys, warnings_list):
     for r in inv.get_att_unit_balances(sys):
         errors = [r["mass_relative_error"]] + [r[f"{e}_relative_error"] for e in ("C", "H", "O", "N", "Na", "Ca")]
         if r["unit"] == "U2":
-            unit_in = {e: sum(float(s.get_atomic_flow(e)) for s in U2.ins) for e in unresolved}
-            u2_mass_in = sum(float(s.F_mass) for s in U2.ins)
+            unit_in = {e: sum(float(s.get_atomic_flow(e)) for s in inv._process_ins(U2)) for e in unresolved}
+            u2_mass_in = sum(float(s.F_mass) for s in inv._process_ins(U2))
             errors[0] -= sum(v * _ATOMIC_MASS.get(e, 0.0) for e, v in unresolved.items()) / u2_mass_in
             for k, e in enumerate(("C", "H", "O", "N", "Na", "Ca"), start=1):
                 if e in unresolved:

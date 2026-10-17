@@ -55,12 +55,10 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertAlmostEqual(self.s["GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2"],
                                self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-        offset = self.t["GWP_by_contributor"]
-        offset = offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0]
-        if self.psa:       # the tail-gas natural gas offset is a negative contributor
-            self.assertLess(offset, 0.0)
-        else:              # no PSA, no tail gas
-            self.assertEqual(offset, 0.0)
+        # the PSA tail gas replaces natural gas inside the natural gas lines: no separate offset line
+        g = self.t["GWP_by_contributor"]
+        self.assertFalse(g["contributor"].str.startswith("Natural gas displaced").any())
+        self.assertTrue(g["contributor"].str.startswith("Natural gas U2").any())
 
 
 class TestATTBreakdownBaseline(TestATTBreakdown):

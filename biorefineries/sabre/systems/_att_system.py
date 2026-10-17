@@ -414,9 +414,12 @@ def create_att_system(
     # --------------------------------------------------------------
     # U2 - ATT reactor
     # --------------------------------------------------------------
+    # PSA tail gas is the fuel input of the U2 furnace; its stream is created here because the PSA (U3P)
+    # that makes it comes later in the flowsheet (a thermal-only loop: the gas does not enter the reaction).
+    tail_gas_fuel = bst.Stream("u3_tail_gas", phase="g")
     U2 = ATTReactor(
         "U2",
-        ins=M1 - 0,
+        ins=(M1 - 0, tail_gas_fuel),
         outs=(
             "att_gas",
             "att_residue",
@@ -581,7 +584,7 @@ def create_att_system(
         U3V = bst.IsenthalpicValve(
             "U3V",
             ins=U3P - 1,
-            outs=("u3_tail_gas",),
+            outs=tail_gas_fuel,
             P=float(_ATT_U3["tail_gas_pressure_Pa"]),
         )
 
@@ -1146,7 +1149,7 @@ def create_att_system(
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, *([recycled_lime] if use_lime_recycle else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([recycled_lime] if use_lime_recycle else [])),
         # Step 7.4 adds a nonlinear makeup/concentration specification.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

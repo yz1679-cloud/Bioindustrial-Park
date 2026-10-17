@@ -162,8 +162,9 @@ biorefineries/sabre/
 - MSP and GWP are per kg of H₂ in the product gas; without a PSA the CH₄ and CO in it are not credited.
 - TEA: preliminary; equipment in 2020 USD (CEPCI 596.2), 2024-2025 prices; no
   CaCO₃ or CH₄ revenue in the reference case. With `psa=True` the tail gas (mainly CH₄ and
-  unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
-  up to U2's fuel demand; no burner is modeled.
+  unrecovered H₂) is the second input of U2 (fuel for its furnace): its LHV x the burner efficiency replaces natural gas
+  heat up to the furnace duty. The natural gas utility of U2 stays the gross furnace duty (heat demand) and the gas bought is
+  that minus the tail gas heat; the flue gas is not modeled.
 - Lime recycle (scenario 2, `create_att_system(lime_recycle=True)`; the default is fresh lime): the F2 CaCO3 cake is calcined in a lime
   kiln (K1, natural gas), 5 % is purged (LP), the rest is slaked (S1) and returned to C1 with fresh Ca(OH)2 makeup.
   Sodium in the cake rides with the lime and returns to C1. The kiln is costed PRELIMINARY (drum-dryer shell
@@ -175,7 +176,7 @@ biorefineries/sabre/
   solids cooler RC1, the U3K intercoolers and the U3D regeneration are not. Where BioSTEAM
   carries a duty without an exchanger (C1, U3K, U3D) an auxiliary exchanger is costed.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
-  allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is burned in the U2 burner:
+  allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is fed to the U2 furnace:
   natural gas offset, no CH₄ emission.) The biogenic carbon stored in landfilled solids (CaCO₃ cake, ash/char cake, lime purge) is credited in the net as a negative emission (permanence assumed; carbon released as CO₂ anywhere, including the lime kiln, is not). The avoided emission if the Sargassum would otherwise rot on the beach is reported as a note (figure panel d, `att_scenarios.csv`), not in the net: the stored carbon already in the net plus the extra warming of the CH₄ that rotting would form (IPCC 2006 unmanaged-site defaults: DOCf 0.5, MCF 0.4, F 0.5, no oxidation; CH₄ counted as GWP 27 net of the CO₂ its carbon is already credited as, i.e. 27 − 44.01/16.04 per kg CH₄).
 - Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
   it is not helpful. At the presscake feed with recycled lime, splitting 10 % raises the MSP from 2.80 to

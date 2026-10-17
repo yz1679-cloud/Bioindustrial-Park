@@ -92,6 +92,18 @@ def _streams(sys):
     return streams
 
 
+def _boundary_products(sys):
+    """System products plus the PSA tail gas burned in the U2 furnace (it leaves the process there)."""
+    fuel = _units(sys)["U2"].ins[1]
+    extra = [fuel] if (fuel not in sys.feeds and fuel not in sys.products and float(fuel.F_mass) > 0.0) else []
+    return (*sys.products, *extra)
+
+
+def _process_ins(unit):
+    """Inlets that carry process material: U2's second inlet is the furnace fuel (tail gas), not reactor feed."""
+    return unit.ins[:1] if unit.ID == "U2" else unit.ins
+
+
 def _tail_gas(sys):
     """PSA tail gas, or an empty gas stream when the plant has no PSA (att.yaml gas_treatment.psa_enabled)."""
     streams = _streams(sys)
@@ -140,7 +152,7 @@ def get_att_external_flows(sys):
     dry = _dry_feed_kgph(sys)
     fates = _INV["stream_fates"]
     rows = []
-    for s in (*sys.feeds, *sys.products):
+    for s in (*sys.feeds, *_boundary_products(sys)):
         direction, category, note = fates[s.ID]  # KeyError: undocumented stream
         expected = "input" if s in sys.feeds else "output"
         if direction != expected:
@@ -228,7 +240,7 @@ def get_att_carbon_fate(sys):
     """Biogenic carbon from the feedstock to each external output [kg C]."""
     dry = _dry_feed_kgph(sys)
     rows = []
-    for s in (*sys.feeds, *sys.products):
+    for s in (*sys.feeds, *_boundary_products(sys)):
         C = float(s.get_atomic_flow("C")) * 12.011
         if C > 0.0:
             rows.append(dict(stream=s.ID, direction="input" if s in sys.feeds else "output",
@@ -287,21 +299,18 @@ def get_att_cost_estimates(sys):
 
 def get_att_tail_gas_offset(sys):
     """
-    Natural gas displaced by burning the PSA tail gas in the U2 burner
-    (simple offset; att.yaml gas_treatment.tail_gas_combustion). The tail gas
-    LHV replaces the same LHV of natural gas, up to U2's fuel demand
-    (delivered heat / burner efficiency). Fuel basis, MJ/h.
+    Natural gas replaced by the PSA tail gas, which is fed to the U2 furnace as fuel (U2 ``ins[1]``; att.yaml
+    gas_treatment.tail_gas_combustion): the tail gas LHV x burner efficiency replaces furnace heat, up to the
+    furnace duty. Fuel basis, MJ/h. The natural gas utility of U2 is the gross furnace duty; the natural gas
+    bought is that minus this.
     """
+    U2 = _units(sys)["U2"]
     enabled = load_assumptions("att.yaml")["att"]["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
-    s = _streams(sys)
-    tail = _tail_gas(sys)
-    tail_LHV = float(tail.LHV) / 1e3 if tail.F_mol else 0.0
-    ng = [hu for ID in ("U2", "K1") if ID in _units(sys) for hu in _units(sys)[ID].heat_utilities
-          if hu.agent and hu.agent.ID == "natural_gas"]   # direct-fired: U2 and the lime kiln
-    u2_fuel = sum(hu.duty for hu in ng) / 1e3 / float(_NG["burner_efficiency"])
-    offset = min(tail_LHV, u2_fuel) if enabled else 0.0
-    return dict(enabled=enabled, tail_gas_LHV_MJph=tail_LHV, u2_fuel_MJph=u2_fuel, offset_MJph=offset,
-                displaced_fraction=offset / u2_fuel if u2_fuel else 0.0)
+    burner = float(_NG["burner_efficiency"])
+    offset = float(U2.tail_gas_heat_kJph) / 1e3 / burner
+    u2_fuel = float(U2.natural_gas_gross_duty_kJph) / 1e3 / burner
+    return dict(enabled=enabled, tail_gas_LHV_MJph=float(U2.tail_gas_LHV_kJph) / 1e3, u2_fuel_MJph=u2_fuel,
+                offset_MJph=offset, displaced_fraction=offset / u2_fuel if u2_fuel else 0.0)
 
 
 def get_att_purchased_utilities(sys, cost_estimates=None):
@@ -554,12 +563,12 @@ def get_att_unit_balances(sys):
     """Total-mass and element balance of every unit (relative errors)."""
     rows = []
     for unit in sys.units:
-        m_in = sum(float(s.F_mass) for s in unit.ins)
+        m_in = sum(float(s.F_mass) for s in _process_ins(unit))
         m_out = sum(float(s.F_mass) for s in unit.outs)
         row = dict(unit=unit.ID, type=type(unit).__name__, mass_in_kgph=m_in, mass_out_kgph=m_out,
                    mass_relative_error=(m_out - m_in) / m_in if m_in else 0.0)
         for e in _ELEMENTS:
-            a_in = sum(float(s.get_atomic_flow(e)) for s in unit.ins)
+            a_in = sum(float(s.get_atomic_flow(e)) for s in _process_ins(unit))
             a_out = sum(float(s.get_atomic_flow(e)) for s in unit.outs)
             row[f"{e}_relative_error"] = (a_out - a_in) / a_in if a_in > 0.0 else a_out
         rows.append(row)
@@ -747,7 +756,7 @@ def get_att_unit_energy_balance(sys):
     dry = _dry_feed_kgph(sys)
     rows = []
     for unit in sys.units:
-        h_in = sum(float(s.Hnet) for s in unit.ins)
+        h_in = sum(float(s.Hnet) for s in _process_ins(unit))
         h_out = sum(float(s.Hnet) for s in unit.outs)
         heating = [hu for hu in unit.heat_utilities if hu.duty > 0.0]
         cooling = [hu for hu in unit.heat_utilities if hu.duty < 0.0]
@@ -918,7 +927,7 @@ def check_att_inventory(sys, flows=None, utilities=None):
     elements = {}
     for e in ("C", "H", "O", "N", "Na", "Ca"):
         a_in = sum(float(s.get_atomic_flow(e)) for s in sys.feeds)
-        a_out = sum(float(s.get_atomic_flow(e)) for s in sys.products)
+        a_out = sum(float(s.get_atomic_flow(e)) for s in _boundary_products(sys))
         elements[e] = (a_out - a_in) / max(a_in, 1e-30)
     hus = [hu for unit in sys.units for hu in unit.heat_utilities if hu.duty > 0.0]
     loss_ok = all(hu.duty >= hu.unit_duty - 1e-9 for hu in hus)
