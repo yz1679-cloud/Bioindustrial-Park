@@ -115,7 +115,7 @@ def _basis(sys):
         add("Gas yield", f"{gas}", float(y[gas]), model / daf, "mmol/g daf",
             "SPECIFIED (experimental team); CO2 includes the carbon not otherwise assigned" +
             f" | experiment-equivalent {mol_h:.4f} mol/h = {mol_h * _MW[gas] / 1e3:.6f} kg/h at 1 kg/h dry")
-    add("Gas yield", "H2 product after PSA (90 %)", float("nan"), float(s["h2_product"].imass["H2"]), "kg/h", "")
+    add("Gas yield", "H2 product", float("nan"), float(s["h2_product"].imass["H2"]), "kg/h", "")
     add("Conditions", "Temperature / hold", "500 C, 1 h", f"{_ATT['reactor']['target_temperature_K'] - 273.15:.0f} C",
         "-", "Experiment: N2 50 mL/min, Ni catalyst (Ni-CatATT); model: no N2, no catalyst species")
     return rows
@@ -174,7 +174,7 @@ def _mass_summary(sys):
     for ID in ("Na2CO3", "Ash", "NaOH"):
         add(f"  U2 residue {ID}", float(residue.imass[ID]))
     add("H2 before PSA", float(gas.imass["H2"]))
-    add("H2 product after PSA", float(s["h2_product"].imass["H2"]))
+    add("H2 product", float(s["h2_product"].imass["H2"]))
     add("Na2CO3 formed in U2", float(residue.imass["Na2CO3"] - U2.ins[0].imass["Na2CO3"]))
     C1 = u["C1"]
     add("Na2CO3 into C1", float(C1.ins[0].imass["Na2CO3"]))
@@ -185,7 +185,7 @@ def _mass_summary(sys):
     add("CaCO3 filter cake (F2)", float(s["caco3_cake"].F_mass))
     for ID in _LCA["waste_management"]["wastewater_streams"]:
         add(f"Wastewater/purge: {ID}", float(s[ID].F_mass))
-    add("PSA off-gas", float(s["u3_tail_gas"].F_mass))
+    add("PSA off-gas", float(inv._tail_gas(sys).F_mass))
     return rows
 
 

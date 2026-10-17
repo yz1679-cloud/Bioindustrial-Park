@@ -57,8 +57,9 @@ LOW, HIGH, HXN, TAIL = "#5b9bb8", "#d98a3d", "#9ccf9c", "#2e7d32"
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 UNIT_LABELS = {"D0": "D0\nfeed dryer", "U2": "U2\nreactor", "C1": "C1\ncausticizing", "EC1": "EC1\nNaOH conc.",
                "U3D": "U3D\ngas dryer", "K1": "K1\nlime kiln"}
-SCENARIOS = ("No heat integration, tail gas not used", "Tail gas burned in U2", "Tail gas + HXN")
-SCEN_SHORT = {SCENARIOS[0]: "no integration", SCENARIOS[1]: "+ tail gas in U2", SCENARIOS[2]: "+ tail gas + HXN"}
+SCEN_SHORT = {"No heat integration, tail gas not used": "no integration", "Tail gas burned in U2": "+ tail gas in U2",
+              "Tail gas + HXN": "+ tail gas + HXN", "No heat integration": "no integration",
+              "Heat integration (HXN)": "with HXN"}
 
 
 def _style():
@@ -146,7 +147,7 @@ def plot_grade_source(res):
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14.5, 5.8), gridspec_kw=dict(width_ratios=[1.5, 1]))
     rows = []
     for cfg, r in res.items():
-        for sc in SCENARIOS:
+        for sc in r["scenarios"]:
             rows.append((cfg, sc, r["scenarios"][sc], r["heat"]["dry"]))
     ys = list(range(len(rows)))[::-1]
     for y, (cfg, sc, d, dry) in zip(ys, rows):
@@ -168,7 +169,8 @@ def plot_grade_source(res):
     ax.set_title("External versus internal heat, low- versus high-grade", loc="left", color=INK)
     fig.legend(handles=[Patch(facecolor=LOW, label="external, low-grade (<= 100 C)"), Patch(facecolor=HIGH, label="external, high-grade (> 100 C)"),
                         Patch(facecolor=HXN, hatch="//", edgecolor="white", label="internal: recovered by the HXN"),
-                        Patch(facecolor=TAIL, hatch="//", edgecolor="white", label="internal: PSA tail gas (from the biomass)"),
+                        *([Patch(facecolor=TAIL, hatch="//", edgecolor="white", label="internal: PSA tail gas (from the biomass)")]
+                          if any(d["int_tail"] > 0 for r in res.values() for d in r["scenarios"].values()) else []),
                         Patch(facecolor="#2a78d6", label="EROI: " + CASE_LABELS["integrated_fresh"]),
                         Patch(facecolor="#eb6834", label="EROI: " + CASE_LABELS["integrated_recycled"])],
                loc="lower center", ncol=3, frameon=False, fontsize=8.8)

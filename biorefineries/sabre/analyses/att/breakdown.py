@@ -122,7 +122,7 @@ def _dcf_breakdown(sys, result):
     tea = result["tea"]
     hours = sys.operating_hours
     product = inv._streams(sys)[tea_mod._T["product"]]
-    h2_kg_yr = float(product.F_mass) * hours
+    h2_kg_yr = float(product.imass["H2"]) * hours       # per kg of H2 (the product gas also holds CH4 and CO)
     df = tea.get_cashflow_table()
     DF = df["Discount factor"].to_numpy()
 

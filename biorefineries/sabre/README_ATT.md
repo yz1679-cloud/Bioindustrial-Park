@@ -131,19 +131,25 @@ biorefineries/sabre/
   ATT-only case: P1 screw press (municipal biosolids press cost and power; the press
   liquid is the raw juice for biostimulant production, transferred at no price) and
   D0 dryer to 50 wt % moisture. Integration case: the presscake of the biostimulant
-  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf; gas cooling, drying, compression to 20 bar and PSA (90 % H₂ recovery,
-  tail gas let down to 1.3 bar); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
+  plant is fed directly (no P1). U2 at 773.15 K with 2.995 kg NaOH/kg daf (all CO₂ captured, see below); gas cooling, drying and compression to 20 bar (no PSA in
+  the baseline: the product gas is about 98.6 mol % H₂, the rest CH₄ and CO; `create_att_system(psa=True)` restores the PSA with 90 % H₂ recovery and
+  a burned tail gas); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
   (85 %, 1.1 equivalents, 90 °C), 5 % whole-liquor purge, evaporation to
   50 wt % NaOH and recycle.
-- U2 gas yields are specified (experimental team: H₂ 70.52, CH₄ 0.70, CO 0.31,
-  CO₂ 22.68 mmol/g daf; carbon not otherwise assigned leaves as CO₂); product
-  water closes oxygen. `ATTReactor.balance_checks()` reports (i) NaOH capacity for
+- U2 gas yields are specified (experimental team: H₂ 70.52, CH₄ 0.70, CO 0.31
+  mmol/g daf, measured at 1 g/g NaOH, where the gas also had CO₂ 22.68); carbon not otherwise assigned
+  leaves as CO₂, which the NaOH then captures; product water closes oxygen. `ATTReactor.balance_checks()` reports (i) NaOH capacity for
   the CO₂ generated and (ii) electron, mass and energy balances of the identified
   products. Unidentified reactions are not tracked.
+- NaOH dose (baseline since 2026-10-17): 2.995 g NaOH per g daf Sargassum, not the laboratory 1 g/g. It is the dose
+  that captures all the CO₂ generated as Na₂CO₃ (2 NaOH per CO₂, 74.9 mmol/g daf; at 1 g/g only a third is captured),
+  so the gas CO₂ yield is 0. H₂, CH₄ and CO yields stay at the team's slate, which was measured at 1 g/g; whether it
+  holds at the higher dose is an assumption to confirm. Without CO₂ in the gas no PSA is needed for a fuel-grade product.
+- MSP and GWP are per kg of H₂ in the product gas; the CH₄ and CO in it are not credited.
 - TEA: preliminary; equipment in 2020 USD (CEPCI 596.2), 2024-2025 prices; no
-  CaCO₃ or CH₄ revenue in the reference case. The PSA tail gas (mainly CH₄ and
+  CaCO₃ or CH₄ revenue in the reference case. With `psa=True` the tail gas (mainly CH₄ and
   unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
-  up to U2's fuel demand (about a third of it); no burner is modeled.
+  up to U2's fuel demand; no burner is modeled.
 - Lime recycle (default, `create_att_system(lime_recycle=True)`): the F2 CaCO3 cake is calcined in a lime
   kiln (K1, natural gas), 5 % is purged (LP), the rest is slaked (S1) and returned to C1 with fresh Ca(OH)2 makeup.
   Sodium in the cake rides with the lime and returns to C1. The kiln is costed PRELIMINARY (drum-dryer shell
@@ -155,10 +161,10 @@ biorefineries/sabre/
   solids cooler RC1, the U3K intercoolers and the U3D regeneration are not. Where BioSTEAM
   carries a duty without an exchanger (C1, U3K, U3D) an auxiliary exchanger is costed.
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
-  allocation or product credits; the PSA tail gas is burned in the U2 burner
-  (natural gas offset, biogenic CO₂ not counted, no CH₄ emission).
+  allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is burned in the U2 burner:
+  natural gas offset, no CH₄ emission.) The avoided landfill CH₄ of the feed is reported as a separate potential credit, not in the net.
 - Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
-  it is not helpful. With recycled lime (ATT-integration), splitting 10 % raises the MSP from 2.80 to
+  it is not helpful. At the earlier baseline (1 g/g NaOH, with PSA) and recycled lime (ATT-integration), splitting 10 % raises the MSP from 2.80 to
   3.01 USD/kg H2 and the GWP from 17.9 to 18.9 kg CO2e/kg H2 (20 %: 3.27 and 20.2; 50 %: 4.65 and
   27.1). The smaller PSA and compressor save only about 4 MUSD of FCI per 10 %, far less than the H2
   revenue lost, and the burned gas displaces natural gas that U2 would need anyway.

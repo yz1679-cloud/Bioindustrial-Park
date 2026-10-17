@@ -92,6 +92,12 @@ def _streams(sys):
     return streams
 
 
+def _tail_gas(sys):
+    """PSA tail gas, or an empty gas stream when the plant has no PSA (att.yaml gas_treatment.psa_enabled)."""
+    streams = _streams(sys)
+    return streams["u3_tail_gas"] if "u3_tail_gas" in streams else bst.Stream(None, phase="g")
+
+
 def _dry_feed_kgph(sys):
     feed = _streams(sys)["att_sargassum_feed"]
     return float(feed.F_mass - feed.imass["Water"])
@@ -161,8 +167,8 @@ def get_att_product_scenarios(sys):
     dry = _dry_feed_kgph(sys)
     streams = _streams(sys)
     U2_gas = U2.outs[0]
-    tail = streams["u3_tail_gas"]
-    psa = float(_ATT["gas_treatment"]["psa_h2_recovery"])
+    tail = _tail_gas(sys)
+    psa = float(_ATT["gas_treatment"]["psa_h2_recovery"]) if "u3_tail_gas" in streams else 1.0
     spec = {k: float(v) for k, v in U2.reported_gas_yield_mmol_per_g_daf.items()}
     method = "specified_yields"
     rows = []
@@ -172,8 +178,8 @@ def get_att_product_scenarios(sys):
                          kg_per_kg_dry=float(U2_gas.imass[k]) / dry,
                          status="specified (experimental team)" if k in spec else "not specified"))
     h2 = float(streams["h2_product"].imass["H2"])
-    rows.append(dict(closure=method, item="H2 product (after PSA)", kg_per_h_at_sim_basis=h2,
-                     kg_per_kg_dry=h2 / dry, status=f"PSA recovery {psa}"))
+    rows.append(dict(closure=method, item="H2 product", kg_per_h_at_sim_basis=h2,
+                     kg_per_kg_dry=h2 / dry, status=f"H2 recovery {psa}" + ("" if psa < 1.0 else " (no PSA)")))
     for k in _MW:
         v = float(tail.imass[k])
         rows.append(dict(closure=method, item=f"{k} in collected off-gas", kg_per_h_at_sim_basis=v,
@@ -288,7 +294,8 @@ def get_att_tail_gas_offset(sys):
     """
     enabled = load_assumptions("att.yaml")["att"]["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
     s = _streams(sys)
-    tail_LHV = float(s["u3_tail_gas"].LHV) / 1e3 if s["u3_tail_gas"].F_mol else 0.0
+    tail = _tail_gas(sys)
+    tail_LHV = float(tail.LHV) / 1e3 if tail.F_mol else 0.0
     ng = [hu for ID in ("U2", "K1") if ID in _units(sys) for hu in _units(sys)[ID].heat_utilities
           if hu.agent and hu.agent.ID == "natural_gas"]   # direct-fired: U2 and the lime kiln
     u2_fuel = sum(hu.duty for hu in ng) / 1e3 / float(_NG["burner_efficiency"])
@@ -398,7 +405,7 @@ def get_att_lci(flows, utilities, products, ca_source=None):
         add("Lime purge (burnt lime to disposal)", total[("lime_purge", "TOTAL")], "kg", None, None, "", "MISSING")
         add("Lime kiln exhaust (CO2 from CaCO3 is biogenic)", total[("kiln_exhaust", "TOTAL")], "kg", 0.0, None,
             "Biogenic CO2 (seaweed carbon captured as carbonate); kiln fuel is counted with the natural gas", "excluded by decision")
-    add("PSA off-gas (collected)", total[("u3_tail_gas", "TOTAL")], "kg", 0.0, None,
+    add("PSA off-gas (collected)", total.get(("u3_tail_gas", "TOTAL"), 0.0), "kg", 0.0, None,
         "Collected; no combustion credit. Its CO2 is biogenic (0 GWP if released); CH4 fugitive losses "
         "not modeled", "excluded by decision")
 
@@ -409,7 +416,7 @@ def get_att_lci(flows, utilities, products, ca_source=None):
     rows.append(dict(flow="TOTAL (excluding MISSING items)", amount_per_kg_dry=1.0, unit="kg dry feed",
                      EF=None, EF_source="", GWP_kgCO2e_per_kg_dry=gwp, GWP_low=lo, GWP_high=hi, status=""))
     for r in products:
-        if r["item"] == "H2 product (after PSA)":
+        if r["item"] == "H2 product":
             kg = r["kg_per_kg_dry"]
             rows.append(dict(flow=f"GWP per kg H2 ({r['closure']})", amount_per_kg_dry=kg, unit="kg H2/kg dry",
                              EF=None, EF_source="", GWP_kgCO2e_per_kg_dry=gwp / kg, GWP_low=lo / kg,
@@ -700,7 +707,9 @@ def get_att_gas_accounting(sys):
     # Path of the gas species through U3 (no unit absorbs CO2).
     for ID in ("att_gas", "u3_cooled_multiphase", "u3_wet_gas", "u3_dry_gas", "u3_compressed_gas",
                "h2_product", "u3_tail_gas_high_pressure", "u3_tail_gas"):
-        stream = next(s for unit in sys.units for s in (*unit.ins, *unit.outs) if s.ID == ID)
+        stream = next((s for unit in sys.units for s in (*unit.ins, *unit.outs) if s.ID == ID), None)
+        if stream is None:      # no PSA
+            continue
         rows.append(dict(species=f"path: {ID}", specified_mmol_per_g_daf=float("nan"),
                          model_mmol_per_g_daf=float("nan"),
                          model_kg_per_kg_dry=float("nan"),

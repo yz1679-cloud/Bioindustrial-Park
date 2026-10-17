@@ -22,6 +22,8 @@ claims).
 """
 import math
 
+import biosteam as bst
+
 from biorefineries.sabre.utils import load_assumptions
 
 __all__ = (
@@ -1033,9 +1035,8 @@ def get_att_u3_summary(sys):
     condensate = u.U3C.outs[1]
     dry_gas = u.U3D.outs[0]
     dryer_water = u.U3D.outs[1]
-    raw_h2 = u.U3P.outs[0]
-    tail_gas = u.U3V.outs[0]
-    h2_product = u.U3P.outs[0]
+    h2_product = u.U3P.outs[0] if hasattr(u, "U3P") else u.U3K.outs[0]
+    tail_gas = u.U3V.outs[0] if hasattr(u, "U3V") else bst.Stream(None, phase="g")      # no PSA: no tail gas
 
     def mass(stream, ID):
         return float(stream.imass[ID])

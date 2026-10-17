@@ -179,8 +179,9 @@ def get_material_usage(sys):
     add("output", "H2 product", h2)
     if "biostimulant_juice" in s:
         add("output", "Biostimulant juice (P1)", float(s["biostimulant_juice"].F_mass), "coproduct, zero price")
-    add("output", "PSA tail gas (CO2 mostly), burned in U2", float(s["u3_tail_gas"].F_mass))
-    add("output", "  of which CO2", float(s["u3_tail_gas"].imass["CO2"]) if "CO2" in s["u3_tail_gas"].chemicals else float(s["u3_tail_gas"].imass["CarbonDioxide"]))
+    if "u3_tail_gas" in s:
+        add("output", "PSA tail gas, burned in U2", float(s["u3_tail_gas"].F_mass))
+        add("output", "  of which CO2", float(s["u3_tail_gas"].imass["CO2"]))
     if "lime_purge" in s:
         add("output", "Lime purge (burnt lime)", float(s["lime_purge"].F_mass))
         add("output", "Lime kiln exhaust (CO2, biogenic, + water vapor)", float(s["kiln_exhaust"].F_mass))
@@ -293,14 +294,22 @@ def get_energy_supply(sys_no, sys_hxn, heat):
     def fuel(sys, tail):   # primary fuel (LHV, MJ/h) for the heat purchased
         return (ng(sys) / 1e3 / burner - (offset["offset_MJph"] if tail else 0.0)) + steam(sys) / 1e3 / boiler
 
-    scen = {
-        "No heat integration, tail gas not used": dict(ext_low=ext_low_no, ext_high=ext_high_no, int_hxn=0.0, int_tail=0.0,
-                                                       fuel=fuel(sys_no, False), elec=elec_MJ_no),
-        "Tail gas burned in U2": dict(ext_low=ext_low_no, ext_high=ext_high_no - tail_delivered, int_hxn=0.0,
-                                      int_tail=tail_delivered, fuel=fuel(sys_no, True), elec=elec_MJ_no),
-        "Tail gas + HXN": dict(ext_low=ext_low, ext_high=ext_high, int_hxn=recovered, int_tail=tail_delivered,
-                               fuel=fuel(sys_hxn, True), elec=elec_MJ),
-    }
+    if tail_delivered > 0.0:      # a PSA tail gas is burned in U2
+        scen = {
+            "No heat integration, tail gas not used": dict(ext_low=ext_low_no, ext_high=ext_high_no, int_hxn=0.0, int_tail=0.0,
+                                                           fuel=fuel(sys_no, False), elec=elec_MJ_no),
+            "Tail gas burned in U2": dict(ext_low=ext_low_no, ext_high=ext_high_no - tail_delivered, int_hxn=0.0,
+                                          int_tail=tail_delivered, fuel=fuel(sys_no, True), elec=elec_MJ_no),
+            "Tail gas + HXN": dict(ext_low=ext_low, ext_high=ext_high, int_hxn=recovered, int_tail=tail_delivered,
+                                   fuel=fuel(sys_hxn, True), elec=elec_MJ),
+        }
+    else:                         # no PSA, no tail gas
+        scen = {
+            "No heat integration": dict(ext_low=ext_low_no, ext_high=ext_high_no, int_hxn=0.0, int_tail=0.0,
+                                        fuel=fuel(sys_no, False), elec=elec_MJ_no),
+            "Heat integration (HXN)": dict(ext_low=ext_low, ext_high=ext_high, int_hxn=recovered, int_tail=0.0,
+                                           fuel=fuel(sys_hxn, False), elec=elec_MJ),
+        }
     for k, v in scen.items():
         v["ext_total"] = v["ext_low"] + v["ext_high"]
         v["EROI_heat_delivered"] = h2_MJ * 1e3 / v["ext_total"]           # H2 LHV out / external heat in (slide definition)

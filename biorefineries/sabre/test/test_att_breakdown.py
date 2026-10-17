@@ -51,9 +51,9 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertAlmostEqual(self.s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"],
                                self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-        # the tail-gas natural gas offset is a negative contributor
+        # no PSA, no tail gas: nothing displaces natural gas
         offset = self.t["GWP_by_contributor"]
-        self.assertLess(offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0], 0.0)
+        self.assertEqual(offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0], 0.0)
 
 
 class TestATTBreakdownIntegrated(TestATTBreakdown):

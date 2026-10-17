@@ -8,10 +8,10 @@ lca:
   impact_key: GWP100
   impact_units: kg*CO2e
   method: "IPCC GWP100 as embodied in the source factors (no re-characterization)"
-  functional_unit: "1 kg H2 at the plant gate (PSA product, 20 bar); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
+  functional_unit: "1 kg H2 in the compressed product gas at the plant gate (20 bar, no PSA; the gas also holds CH4 and CO, not credited); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
   secondary_unit: "1 kg dry Sargassum processed"
   boundary: "Cradle-to-plant-gate. Sargassum is waste biomass with zero production burden; its collection and transport are a pending boundary component."
-  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits. The PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation)."
+  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits. With psa_enabled the PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation); the baseline has no PSA."
   energy_basis: LHV
   water_density_kg_per_m3: 1000.0   # wastewater volume = mass / 1000 kg/m3
 

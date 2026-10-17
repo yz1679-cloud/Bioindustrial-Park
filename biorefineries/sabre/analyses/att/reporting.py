@@ -303,7 +303,7 @@ _UNIT_INFO = {
     "U3C": ("Separate condensate at 40 C, 1 atm", "att.yaml:att.gas_treatment.condenser_*"),
     "U3D": ("Dry gas (molecular sieve)", "att.yaml:att.gas_treatment.dryer_water_to_dry_gas_fraction"),
     "U3P": ("PSA surrogate: 90 % H2 to product, rest to off-gas", "att.yaml:att.gas_treatment.psa_*"),
-    "U3K": ("Compress dried gas to the 2 MPa PSA feed pressure", "att.yaml:att.gas_treatment.h2_*"),
+    "U3K": ("Compress dried gas to the 2 MPa H2 delivery pressure (PSA feed pressure if there is a PSA)", "att.yaml:att.gas_treatment.h2_*"),
     "RC1": ("Cool ATT residue to 90 C", "att.yaml:att.heat_recovery.residue_cooling_target_temperature_K"),
     "D1": ("Dissolve Na2CO3 residue in water (3 kg/kg Na2CO3)", "att.yaml:att.downstream.dissolution_water_kg_per_kg_Na2CO3"),
     "F1": ("Remove ash/char cake (pressure filter)", "att.yaml:att.downstream.f1_*"),
@@ -689,7 +689,7 @@ def _opex_detail(sys, result):
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     hours = sys.operating_hours
-    h2_yr = float(s["h2_product"].F_mass) * hours
+    h2_yr = float(s["h2_product"].imass["H2"]) * hours
     rows = []
 
     def add(name, cons_per_kg_dry, cons_unit, price, price_unit, annual_usd, source, year, purchased):
@@ -733,6 +733,8 @@ def _opex_detail(sys, result):
         next(v for n, v in result["voc_items"] if n.startswith("Purge")), P["H2SO4"]["source"], "not stated", "purchased")
     for ID in (*tea_mod._T["prices"]["wastewater_streams"], *tea_mod._T["prices"]["solid_waste_streams"],
                "caco3_cake", "u3_tail_gas"):
+        if ID not in s:      # no PSA, no off-gas
+            continue
         add(f"Disposal: {ID}", float(s[ID].F_mass) / dry, "kg", -s[ID].price, "USD/kg (cost)",
             -s[ID].price * float(s[ID].F_mass) * hours, "tea.yaml disposal price" if ID != "caco3_cake"
             else "reference: 0; Case A: tea.yaml disposal_solid", "-", "service")
@@ -1112,7 +1114,7 @@ traceability only: no model, LCA or TEA parameter is changed.
 ## Modeling framework
 
 - **Process model (frozen):** `biorefineries/sabre/systems/_att_system.py` builds the
-  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3K-U3P-U3V / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
+  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3K (no PSA in the baseline; att.yaml gas_treatment.psa_enabled) / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
   with custom units in `biorefineries/sabre/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/sabre/data/att.yaml`.
 - **Configuration:** `biorefineries/sabre/data/att.yaml` (process),
@@ -1237,7 +1239,7 @@ def _process_and_materials(sys, utilities):
     _row(rows, M, "Ash/char cake to disposal", float(s["ash_residue_cake"].F_mass) / dry, "kg/kg dry", "")
     ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"]) / dry
     _row(rows, M, "Wastewater incl. alkaline purge", ww, "kg/kg dry", "")
-    tail = s["u3_tail_gas"]
+    tail = inv._tail_gas(sys)
     _row(rows, M, "PSA off-gas (total)", float(tail.F_mass) / dry, "kg/kg dry",
          "explicit collected stream; final fate unresolved; direct CH4 emission not in baseline GWP; "
          "treatment equipment and cost not in baseline TEA")
@@ -1293,7 +1295,7 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
     elec_tea_kWh = (sys.power_utility.rate * hours + aux / tea_mod.bst.PowerUtility.price)
     checks = [
         ("Operating hours (TEA = LCA)", tea.operating_days * 24, sys.operating_hours),
-        ("H2 product for MSP = LCA functional-unit basis [kg/yr]", float(s["h2_product"].F_mass) * hours,
+        ("H2 product for MSP = LCA functional-unit basis [kg/yr]", float(s["h2_product"].imass["H2"]) * hours,
          c["TOTAL (System.get_net_impact)"]["GWP_kgCO2e_per_kg_dry"] / c["TOTAL (System.get_net_impact)"][
              "GWP_kgCO2e_per_kg_H2"] * dry * hours),
         ("NaOH: TEA purchase = LCA activity [kg/kg dry]", float(s["fresh_naoh_solid"].F_mass) / dry,

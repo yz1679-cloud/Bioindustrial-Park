@@ -15,7 +15,7 @@ class TestATTTEA(unittest.TestCase):
         cls.fingerprint = [float(x) for st in (*cls.sys.feeds, *cls.sys.products) for x in st.mass]
         cls.estimates = inv.get_att_cost_estimates(cls.sys)
         cls.result = tea_mod.evaluate_att_tea(cls.sys, cls.estimates)
-        cls.h2_yr = float(inv._streams(cls.sys)["h2_product"].F_mass) * cls.sys.operating_hours
+        cls.h2_yr = float(inv._streams(cls.sys)["h2_product"].imass["H2"]) * cls.sys.operating_hours
 
     def test_checks_pass(self):
         for r in tea_mod._checks(self.sys, self.result, self.fingerprint):
@@ -35,11 +35,12 @@ class TestATTTEA(unittest.TestCase):
 
     def test_no_coproduct_revenue_and_capital_items(self):
         s = inv._streams(self.sys)
-        self.assertEqual(s["u3_tail_gas"].price, 0.0)
+        self.assertNotIn("u3_tail_gas", s)      # no PSA, no off-gas
         self.assertEqual(s["caco3_cake"].price, 0.0)
-        # the PSA and the compressor are costed inside U3P and U3K, not added by the TEA
+        # the compressor is costed inside U3K, not added by the TEA; the baseline has no PSA
         units = inv._units(self.sys)
-        self.assertGreater(units["U3P"].installed_cost, 0.0)
+        self.assertNotIn("U3P", units)
+        self.assertGreater(units["U3K"].installed_cost, 0.0)
         self.assertEqual(type(units["U3K"]).__name__, "ATTCompressor")
         self.assertEqual(units["U3K"].compressor_type, "Reciprocating")
 
@@ -48,7 +49,7 @@ class TestATTTEA(unittest.TestCase):
         # The CaCO3 cake is a disposed or sold coproduct only without the lime recycle (otherwise it feeds the kiln).
         self.sys = tea_mod.create_att_tea_system(lime_recycle=False)
         self.estimates = inv.get_att_cost_estimates(self.sys)
-        self.h2_yr = float(inv._streams(self.sys)["h2_product"].F_mass) * self.sys.operating_hours
+        self.h2_yr = float(inv._streams(self.sys)["h2_product"].imass["H2"]) * self.sys.operating_hours
         self.result = tea_mod.evaluate_att_tea(self.sys, self.estimates)
         s = inv._streams(self.sys)
         hours = self.sys.operating_hours

@@ -345,7 +345,7 @@ def get_att_gwp_summary(sys, applied):
                / _LCA["natural_gas"]["burner_efficiency"]
                + sum(hu.duty for hu in sys.heat_utilities if hu.agent.ID == "low_pressure_steam")
                / _LCA["natural_gas"]["boiler_efficiency"]) / 1e3
-    tail = s["u3_tail_gas"]
+    tail = inv._tail_gas(sys)
     U2 = inv._units(sys)["U2"]
     daf = float(U2._daf_sargassum_kgph)
     credit = get_att_landfill_credit(sys)
@@ -356,8 +356,8 @@ def get_att_gwp_summary(sys, applied):
         ("GWP100 per kg dry Sargassum", total_yr / dry_yr, "kg CO2e/kg dry", ""),
         ("Annual GWP100 at reference scale", total_yr / 1e3, "t CO2e/yr",
          f"{dry * 24 / 1e3:.0f} dry t/d, {hours:.0f} h/yr"),
-        ("H2 product", s["h2_product"].F_mass / dry, "kg/kg dry",
-         f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x 90 % PSA ({U2.gas_closure_method})"),
+        ("H2 product", float(s["h2_product"].imass["H2"]) / dry, "kg/kg dry",
+         f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x PSA recovery if any ({U2.gas_closure_method})"),
         ("CH4 in PSA off-gas (model)", float(tail.imass["CH4"]) / dry, "kg/kg dry",
          "explicit collected stream; final fate UNRESOLVED; direct CH4 emission not in baseline GWP; no credit"),
         ("Potential credit: avoided landfill CH4 (not in net)", credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
@@ -510,9 +510,10 @@ def check_att_lca(sys, applied, contributions, utilities):
          u["Electricity: total"]),
         ("Water m3 = kg / 1000", s["dissolution_water"].get_impact(KEY) / f["water_supply"],
          float(s["dissolution_water"].F_mass) / 1000.0),
-        ("H2 basis = model yield x daf x PSA [kg/kg dry]", h2_yr / dry_yr,
+        ("H2 basis = model yield x daf x PSA recovery [kg/kg dry]", h2_yr / dry_yr,
          inv._units(sys)["U2"]._model_gas_yield_mmol_per_g_daf["H2"]
-         * float(inv._units(sys)["U2"]._daf_sargassum_kgph) * 2.01588 / 1e3 * 0.9
+         * float(inv._units(sys)["U2"]._daf_sargassum_kgph) * 2.01588 / 1e3
+         * (float(inv._ATT["gas_treatment"]["psa_h2_recovery"]) if "U3P" in inv._units(sys) else 1.0)
          / inv._dry_feed_kgph(sys)),
     ]
     return [dict(check=a, value=b, expected=d,

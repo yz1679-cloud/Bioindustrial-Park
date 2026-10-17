@@ -116,7 +116,8 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         if ID in s:
             s[ID].price = float(_PRICE["disposal_solid"]["baseline"])
     s["caco3_cake"].price = float(_T["prices"]["CaCO3_cake"]) if cake_price is None else float(cake_price)
-    s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
+    if "u3_tail_gas" in s:
+        s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
     s[_T["product"]].price = 0.0
 
 
@@ -146,7 +147,7 @@ def _capital_items(sys, estimates, psa_factor=1.0, p1_biosteam_screwpress=False)
     u = inv._units(sys)
     items = [(f"{r['item']} (estimate)", r["installed_cost"], r["method"])
              for r in estimates if r["installed_cost"] == r["installed_cost"]]
-    if psa_factor != 1.0:
+    if psa_factor != 1.0 and "U3P" in u:
         items.append((f"PSA capital x{psa_factor} (adjustment of the U3P cost)",
                       (psa_factor - 1.0) * u["U3P"].installed_cost, "att_tea.yaml sensitivities.PSA_capex_factor"))
     alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
@@ -217,8 +218,11 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
         extra_installed_cost=extra_capital, extra_VOC=sum(v for _, v in voc),
     )
     product = inv._streams(sys)[_T["product"]]
-    msp = tea.solve_price(product)
-    product.price = msp
+    # The functional unit is 1 kg H2. Without a PSA the product gas also holds CH4 and CO (no credit), so the
+    # price solved per kg of gas is restated per kg of H2 it contains (identical with a PSA: pure H2).
+    gas_msp = tea.solve_price(product)
+    msp = gas_msp * float(product.F_mass) / float(product.imass["H2"])
+    product.price = gas_msp
     return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates)
 
 
@@ -255,7 +259,7 @@ def _opex_table(sys, result):
     tea = result["tea"]
     hours = sys.operating_hours
     s = inv._streams(sys)
-    h2_yr = float(s[_T["product"]].F_mass) * hours
+    h2_yr = float(s[_T["product"]].imass["H2"]) * hours
     dry_yr = inv._dry_feed_kgph(sys) * hours
     rows = []
 
@@ -285,8 +289,8 @@ def _opex_table(sys, result):
     if s["caco3_cake"] in sys.products:      # with the lime recycle the cake is an internal stream
         add("CaCO3 cake: disposal (+) or net sales (-)", "CaCO3 cake", -s["caco3_cake"].price * s["caco3_cake"].F_mass * hours,
             f"{s['caco3_cake'].price:.6g} USD/kg wet cake")
-    add("PSA off-gas handling", "off-gas", -s["u3_tail_gas"].price * s["u3_tail_gas"].F_mass * hours,
-        f"{s['u3_tail_gas'].price:.6g} USD/kg")
+    tail = inv._tail_gas(sys)
+    add("PSA off-gas handling", "off-gas", -tail.price * tail.F_mass * hours, f"{tail.price:.6g} USD/kg")
     add("Fixed operating cost (4 % of FCI; labor, maintenance, overhead)", "FOC", tea.FOC, "tea.yaml")
     covered = sum(r["USD_per_kg_H2"] for r in rows)
     rows.append(dict(item="Capital recovery, taxes and financing (MSP remainder)", category="capital",
@@ -302,7 +306,7 @@ def get_att_tea_sensitivity(sys, estimates):
     sens = _T["sensitivities"]
     base = evaluate_att_tea(sys, estimates)["msp"]
     cases = [("Baseline", {})]
-    for f in sens["PSA_capex_factor"]:
+    for f in (sens["PSA_capex_factor"] if "U3P" in inv._units(sys) else ()):      # only with a PSA
         cases.append((f"PSA CAPEX x{f}", dict(psa_factor=f)))
     for v in sens["CaOH2_price"]:
         cases.append((f"Ca(OH)2 {v} USD/kg", dict(price_overrides={"CaOH2": v})))
@@ -422,9 +426,11 @@ def get_att_p1_power_cases(sys, estimates):
 
 
 def get_att_offgas_cases(sys, estimates):
-    tail = inv._streams(sys)["u3_tail_gas"]
+    tail = inv._tail_gas(sys)
     dry = inv._dry_feed_kgph(sys)
     hours = sys.operating_hours
+    if not tail.F_mass:      # no PSA, no off-gas
+        return [dict(item="Off-gas flow", value=0.0, unit="kg/kg dry (no PSA)", MSP_USD_per_kg_H2=_msp(sys, estimates))]
     mol = {ID: float(tail.imol[ID]) for ID in ("H2", "CO2", "CH4", "CO") if tail.imol[ID] > 0}
     total_mol = sum(mol.values())
     rows = [dict(item="Off-gas flow", value=float(tail.F_mass) / dry, unit="kg/kg dry", MSP_USD_per_kg_H2=float("nan")),
@@ -501,11 +507,11 @@ def _checks(sys, result, fingerprint):
         ("FCI = unit installed + extra capital", tea.FCI,
          sum(u.installed_cost for u in sys.units) + tea.extra_installed_cost),
         ("Natural gas cost = fuel (duty/0.90) x USD/MJ", ng_cost, fuel * _ng_usd_per_MJ()),
-        ("H2 product = model yield x daf x PSA [kg/kg dry]", h2,
+        ("H2 product = model yield x daf x PSA recovery [kg/kg dry]", h2,
          inv._units(sys)["U2"]._model_gas_yield_mmol_per_g_daf["H2"]
-         * float(inv._units(sys)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(sys) * 2.01588 / 1e3 * 0.9),
+         * float(inv._units(sys)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(sys) * 2.01588 / 1e3 * (float(inv._ATT["gas_treatment"]["psa_h2_recovery"]) if "U3P" in inv._units(sys) else 1.0)),
         ("NPV at MSP", tea.NPV, 0.0),
-        ("Off-gas and CaCO3 revenue (baseline)", inv._streams(sys)["u3_tail_gas"].price
+        ("Off-gas and CaCO3 revenue (baseline)", inv._tail_gas(sys).price
          + inv._streams(sys)["caco3_cake"].price, 0.0),
         ("Frozen model flows unchanged", float(unchanged), 1.0),
     ]
@@ -534,7 +540,7 @@ def export_att_tea(out_dir=None):
     result = evaluate_att_tea(sys, estimates)
     scale = inv.get_att_reference_scale()
     hours = sys.operating_hours
-    h2_yr = float(inv._streams(sys)["h2_product"].F_mass) * hours
+    h2_yr = float(inv._streams(sys)["h2_product"].imass["H2"]) * hours
     tea = result["tea"]
     summary = [
         ("H2 MSP", result["msp"], "USD/kg H2"),

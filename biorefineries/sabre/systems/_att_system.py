@@ -88,6 +88,7 @@ def create_att_system(
     hxn_T_min_app_K=None,
     lime_recycle=None,
     configuration="att_only",
+    psa=None,
 ):
     """
     Build the alkaline thermal treatment (ATT) process.
@@ -126,6 +127,10 @@ def create_att_system(
         excluded. False gives the flowsheet with every duty on utilities.
     hxn_T_min_app_K : float or None
         HXN minimum approach temperature. None uses att.yaml.
+    psa : bool or None
+        Purify the compressed gas in a PSA (U3P, 90 % H2 recovery, tail gas burned) or not. None uses
+        att.yaml gas_treatment.psa_enabled (baseline: False; with all CO2 captured as carbonate the gas
+        is mostly H2 and the compressed gas leaves as h2_product).
     lime_recycle : bool or None
         Calcine the F2 cake in a lime kiln (K1), slake it (S1) and recycle the Ca(OH)2
         to C1 (a purge of the burnt lime and fresh makeup close the loop). False sends the
@@ -532,13 +537,15 @@ def create_att_system(
         _ATT_U3["psa_h2_recovery"]
     )
 
-    # U3K - Native BioSTEAM compressor of the dried gas to the PSA feed
-    # pressure (= H2 delivery pressure). Pressure/efficiency are provisional
-    # and live in att.yaml.
+    psa = bool(_ATT_U3["psa_enabled"] if psa is None else psa)
+
+    # U3K - Native BioSTEAM compressor of the dried gas to the H2 delivery
+    # pressure (= PSA feed pressure when there is a PSA). Pressure/efficiency
+    # are provisional and live in att.yaml. Without a PSA its outlet is the product.
     U3K = ATTCompressor(
         "U3K",
         ins=U3D - 0,
-        outs=("u3_compressed_gas",),
+        outs=("u3_compressed_gas" if psa else "h2_product",),
         P=float(
             _ATT_U3["h2_product_pressure_Pa"]
         ),
@@ -554,26 +561,28 @@ def create_att_system(
 
     # U3P - PSA surrogate at the PSA feed pressure; the H2 product leaves at
     # that pressure and the tail gas is let down to the burner pressure (U3V).
-    U3P = ATTPSA(
-        "U3P",
-        ins=U3K - 0,
-        outs=(
-            "h2_product",
-            "u3_tail_gas_high_pressure",
-        ),
-        split=psa_split,
-        anchor_installed_cost_usd=float(_ATT_U3["psa_cost"]["anchor_installed_cost_usd"]),
-        anchor_capacity_t_H2_per_day=float(_ATT_U3["psa_cost"]["anchor_capacity_t_H2_per_day"]),
-        exponent=float(_ATT_U3["psa_cost"]["exponent"]),
-        cost_factor=float(_ATT_U3["psa_cost"]["cost_factor"]),
-    )
+    U3P = U3V = None
+    if psa:
+        U3P = ATTPSA(
+            "U3P",
+            ins=U3K - 0,
+            outs=(
+                "h2_product",
+                "u3_tail_gas_high_pressure",
+            ),
+            split=psa_split,
+            anchor_installed_cost_usd=float(_ATT_U3["psa_cost"]["anchor_installed_cost_usd"]),
+            anchor_capacity_t_H2_per_day=float(_ATT_U3["psa_cost"]["anchor_capacity_t_H2_per_day"]),
+            exponent=float(_ATT_U3["psa_cost"]["exponent"]),
+            cost_factor=float(_ATT_U3["psa_cost"]["cost_factor"]),
+        )
 
-    U3V = bst.IsenthalpicValve(
-        "U3V",
-        ins=U3P - 1,
-        outs=("u3_tail_gas",),
-        P=float(_ATT_U3["tail_gas_pressure_Pa"]),
-    )
+        U3V = bst.IsenthalpicValve(
+            "U3V",
+            ins=U3P - 1,
+            outs=("u3_tail_gas",),
+            P=float(_ATT_U3["tail_gas_pressure_Pa"]),
+        )
 
     # --------------------------------------------------------------
     # RC1 - Post-ATT RESIDUE cooling to 90 degC
@@ -1110,8 +1119,7 @@ def create_att_system(
         U3C,
         U3D,
         U3K,
-        U3P,
-        U3V,
+        *([U3P, U3V] if psa else []),
         RC1,
         W3,
         SW,
