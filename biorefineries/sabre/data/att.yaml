@@ -52,8 +52,8 @@ att:
       decision: "User-confirmed original process design 2026-10-09: D0 is required; mechanical dewatering alone is not assumed to reach 50 wt%."
     naoh_loading:
       workbook: "Experimental sheet: 0.5 g seaweed + 1 g NaOH (seaweed mass basis not stated); energy-analysis sheet: NaOH:seaweed (daf) = 1 g/g"
-      model_value: "2.995 kg NaOH / kg daf (full CO2 capture)"
-      decision: "Raised from the advisor-confirmed 1 g/g daf to the dose that captures all CO2 generated (user decision 2026-10-17)."
+      model_value: "1 kg NaOH / kg daf (scenario 4: 2.995, full CO2 capture)"
+      decision: "Advisor-confirmed basis (1 g NaOH per 0.5 g daf) is the baseline (scenario 1); the full-capture dose is an alternative scenario (user decision 2026-10-17)."
     ec1_concentration_target:
       workbook: "'Water left in recovered NaOH' = 50 wt% (a water fraction)"
       model_value: "NaOH = 50 wt% of the total recycle liquor (NaOH + Na2CO3 + water); water is then ~41 wt%"
@@ -145,18 +145,16 @@ att:
         # carbon, hydrogen, sodium and the electron balance of the feed (gas
         # electrons 149.9 mmol/g daf against a feed capacity of 148-150), unlike
         # the absolute yields measured in the laboratory run (204 mmol e-/g daf).
-        # BASELINE CHANGE (2026-10-17, user decision): the NaOH is raised from the team's 1 g/g to 2.995 g/g so
-        # that it captures ALL the CO2 generated (2 NaOH per CO2). CO2 generated at 1 g/g = 22.68 (team's gas CO2)
-        # + 2.26 (carbon-closure CO2) + 12.50 (carbonate from the NaOH) = 37.44 mmol/g daf; 2 x 37.44 = 74.88 mmol
-        # NaOH/g daf = 2.995 g/g. The carbonate then takes all of that carbon and the gas CO2 yield is 0. The
-        # H2, CH4 and CO yields stay at the team's slate (measured at 1 g/g; not confirmed at the higher dose).
-        naoh_kg_per_kg_daf: 2.995
-        naoh_loading_basis: 'Full-capture dose: 2 mol NaOH per mol CO2 generated (the team and the lab run used 1 g/g, 1 g NaOH per 0.5 g seaweed).'
+        # BASELINE (scenario 1, 2026-10-17): the team's 1 g/g. Scenario 4 (analyses/att/scenarios.py) overrides it with the
+        # dose that captures all the CO2 generated: 2 NaOH per CO2, CO2 generated at 1 g/g = 22.68 (gas) + 2.26 (carbon
+        # closure) + 12.50 (carbonate) = 37.44 mmol/g daf, so 74.88 mmol NaOH/g daf = 2.995 g/g and the gas CO2 is 0.
+        naoh_kg_per_kg_daf: 1.0
+        naoh_loading_basis: 'Experimental team energy calculation: NaOH : biomass (daf) = 1 g/g (the lab run used 1 g NaOH per 0.5 g seaweed).'
         gas_yield_mmol_per_g_daf:
           H2: 70.52
           CH4: 0.70
           CO: 0.31
-          CO2: 0.0       # all CO2 captured as Na2CO3 (the team's 22.68 is at 1 g/g NaOH)
+          CO2: 22.68
         gas_yield_basis: Experimental team energy and exergy calculation (Excel), U2 outlet gas per kg total solids converted to mmol per g daf with their 71.7 wt % volatile solids.
         ignored_reported_gas_yields_mmol_per_g_daf: {}
         excluded_baseline_gas_species:
@@ -230,10 +228,9 @@ att:
     # H2 recovery is provisional; all non-H2 gases are sent to tail gas.
     # This gives an ideal-purity H2 product and intentionally does not yet
     # represent PSA adsorbent/cycle/power/capital correlations.
-    # BASELINE: no PSA (user decision 2026-10-17). With all CO2 captured as carbonate the dried gas is about
-    # 98.6 mol % H2 (CH4 1.0 %, CO 0.4 %), so the compressed gas leaves as h2_product and nothing is burned as tail
-    # gas. psa_enabled: true restores U3P (90 % recovery, tail gas burned in the U2 burner).
-    psa_enabled: false
+    # BASELINE (scenario 1): PSA on, as before. Scenario 4 (full CO2 capture, about 98.6 mol % H2 in the dried gas) runs
+    # without it (analyses/att/scenarios.py); psa_enabled false compresses the gas straight to h2_product.
+    psa_enabled: true
     psa_h2_recovery: 0.90
     psa_non_h2_to_product_fraction: 0.0
     psa_status: "Provisional ideal-selectivity PSA surrogate; H2 recovery/purity require collaborator confirmation."
@@ -331,8 +328,8 @@ att:
     # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
     # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
     # up the lime purge and the shortfall. Sodium in the cake rides with the lime and returns to C1.
-    lime_recycle:
-      enabled: true
+    lime_recycle:      # BASELINE (scenario 1): fresh Ca(OH)2, cake disposed; scenario 2 recycles it (analyses/att/scenarios.py)
+      enabled: false
       calcination_conversion: 0.98      # CaCO3 -> CaO; the rest recycles as inert dead load
       purge_fraction: 0.05              # share of the burnt lime sent to disposal (impurities; kraft makeup is 5-10 %)
       solids_outlet_temperature_K: 363.15   # lime leaves cooled: its heat is recovered inside the kiln (air preheat)

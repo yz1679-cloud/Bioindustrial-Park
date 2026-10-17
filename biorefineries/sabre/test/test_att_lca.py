@@ -28,7 +28,7 @@ class TestATTGWP(unittest.TestCase):
         h2 = float(inv._streams(self.sys)["h2_product"].imass["H2"]) / self.dry
         U2 = inv._units(self.sys)["U2"]
         self.assertAlmostEqual(h2, U2._model_gas_yield_mmol_per_g_daf["H2"] * U2._daf_sargassum_kgph / self.dry
-                               * 2.01588e-3, places=10)      # no PSA: all the H2 is product
+                               * 2.01588e-3 * 0.9, places=10)
         self.assertAlmostEqual(total["GWP_kgCO2e_per_kg_H2"], total["GWP_kgCO2e_per_kg_dry"] / h2, places=9)
 
     def test_no_credits_or_unmodeled_ch4(self):

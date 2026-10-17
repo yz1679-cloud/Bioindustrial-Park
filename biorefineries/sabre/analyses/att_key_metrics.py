@@ -62,6 +62,9 @@ SCEN_SHORT = {"No heat integration, tail gas not used": "no integration", "Tail 
               "Heat integration (HXN)": "with HXN"}
 
 
+SCEN_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1"}     # one colour per scenario
+
+
 def _style():
     plt.rcParams.update({
         "font.family": "DejaVu Sans", "font.size": 9.5, "axes.titlesize": 12, "axes.labelsize": 10,
@@ -107,22 +110,23 @@ def _save(fig, name):
 
 def plot_by_unit(res):
     _style()
-    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.6), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10.5), sharey=True)
     ymax = 1.2 * max(r["heat"]["total"] / r["heat"]["dry"] / 1e3 for r in res.values())
-    for ax, (cfg, r) in zip(axes, res.items()):
+    for ax, (cfg, r) in zip(axes.flat, res.items()):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(UNIT_LABELS[k], v / dry / 1e3) for k, v in h["unit"].items()]
         big = sum(v for k, v in h["unit"].items() if k in ("U2", "D0", "EC1")) / h["total"]
         _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax,
                    note=f"reactor + feed dryer + NaOH concentrator\n= {big:.0%} of the duty")
-    axes[0].set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by unit operation: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
+    fig.suptitle("Heat duty by unit operation: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_unit.png")
 
 
 def plot_by_origin(res):
     _style()
-    fig, axes = plt.subplots(1, 2, figsize=(18, 6.2), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(18, 11.5), sharey=True)
     ymax = 1.2 * max(r["heat"]["total"] / r["heat"]["dry"] / 1e3 for r in res.values())
     short = {"Reaction enthalpy (U2)": "Reaction\nenthalpy", "NaOH heat of solution (not recovered)": "NaOH heat\nof solution",
              "Water heating and vaporization (U2)": "Water vap.\nreactor", "Sensible heat of solids and NaOH (U2)": "Sensible\nheat (U2)",
@@ -131,14 +135,15 @@ def plot_by_origin(res):
              "Gas-drying regeneration (U3D)": "Gas dryer\nregen.", "Heat losses": "Heat\nlosses",
              "Lime kiln: calcination and cake drying (K1)": "Lime kiln\n(K1)"}
     water = [short[k] for k in short if k.startswith("Water")]
-    for ax, (cfg, r) in zip(axes, res.items()):
+    for ax, (cfg, r) in zip(axes.flat, res.items()):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(short[k], v[0] / dry / 1e3) for k, v in h["origin"].items()]
         share = h["water_handling"] / h["total"]
         _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax, water_steps=water,
                    note=f"water handling = {share:.0%}\nof the heat duty")
-    axes[0].set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by physical origin: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
+    fig.suptitle("Heat duty by physical origin: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_origin.png")
 
 
@@ -171,14 +176,12 @@ def plot_grade_source(res):
                         Patch(facecolor=HXN, hatch="//", edgecolor="white", label="internal: recovered by the HXN"),
                         *([Patch(facecolor=TAIL, hatch="//", edgecolor="white", label="internal: PSA tail gas (from the biomass)")]
                           if any(d["int_tail"] > 0 for r in res.values() for d in r["scenarios"].values()) else []),
-                        Patch(facecolor="#2a78d6", label="EROI: " + CASE_LABELS["integrated_fresh"]),
-                        Patch(facecolor="#eb6834", label="EROI: " + CASE_LABELS["integrated_recycled"])],
-               loc="lower center", ncol=3, frameon=False, fontsize=8.8)
+                        *[Patch(facecolor=SCEN_COLORS[c], label="EROI: " + CASE_LABELS[c]) for c in res]],
+               loc="lower center", ncol=2, frameon=False, fontsize=8.8)
     ax.xaxis.grid(True, color=GRID, lw=0.7); ax.set_axisbelow(True)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
-    colors = {"integrated_fresh": "#2a78d6", "integrated_recycled": "#eb6834",
-              "att_only_fresh": "#2a78d6", "att_only_recycled": "#eb6834"}
+    colors = SCEN_COLORS
     for y, (cfg, sc, d, dry) in zip(ys, rows):
         ax2.barh(y, d["EROI_heat_delivered"], color=colors[cfg], height=0.62)
         ax2.text(d["EROI_heat_delivered"] + 0.015, y, f"{d['EROI_heat_delivered']:.2f}", va="center", fontsize=9)
@@ -191,8 +194,8 @@ def plot_grade_source(res):
     ax2.xaxis.grid(True, color=GRID, lw=0.7); ax2.set_axisbelow(True)
     for side in ("top", "right", "left"):
         ax2.spines[side].set_visible(False)
-    fig.suptitle("Heat supply, heat integration and energy return: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
-    fig.tight_layout(rect=(0, 0.1, 1, 0.97))
+    fig.suptitle("Heat supply, heat integration and energy return: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.tight_layout(rect=(0, 0.13, 1, 0.97))
     fig.savefig(FIGURES_OUT / "fig_att_heat_grade_source_eroi.png", bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
 
@@ -227,10 +230,9 @@ def write_tables(res):
 
 
 if __name__ == "__main__":
-    res = build_att_key_metrics()                      # all four cases in the tables (ATT-only kept)
+    res = build_att_key_metrics()                      # the four scenarios of analyses/att/scenarios.py
     write_tables(res)
-    fig_res = {c: res[c] for c in FIGURE_CASES}        # the figures compare fresh vs recycled lime (ATT-integration)
-    plot_by_unit(fig_res)
-    plot_by_origin(fig_res)
-    plot_grade_source(fig_res)
+    plot_by_unit(res)
+    plot_by_origin(res)
+    plot_grade_source(res)
     print(f"Saved tables to {TABLES_OUT} and figures to {FIGURES_OUT}")

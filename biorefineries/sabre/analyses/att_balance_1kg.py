@@ -9,12 +9,10 @@
 """
 att_balance_1kg.py
 ------------------
-Mass, electron and energy balance of the ATT route per 1 kg of dry raw
-Sargassum (ATT-only configuration: raw Sargassum, press P1, dryer D0, U2),
-at the baseline settings of att.yaml: NaOH dose that captures all the CO2
-generated (2 NaOH per CO2, gas CO2 = 0), no PSA. Both lime cases are run
-(recycled lime: kiln K1 + slaker S1; fresh lime: all Ca(OH)2 bought, cake
-disposed).
+Mass, electron and energy balance of the ATT route per 1 kg of dry raw Sargassum (ATT-only configuration: raw
+Sargassum, press P1, dryer D0, U2) for the four scenarios of ``analyses/att/scenarios.py``: s1 baseline (NaOH 1 g/g,
+PSA, fresh lime), s2 recycled lime, s3 waste lime, s4 waste lime with the NaOH dose that captures all the CO2 and no
+PSA. Per kg of feed the balance does not depend on the plant scale, so s3 and s4 use the same 1 kg basis.
 
 Output: ../results/tables/att_balance_1kg_raw.csv
 
@@ -32,8 +30,7 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.sabre.analyses.att import inventory as inv, key_metrics as km
-from biorefineries.sabre.systems import _att_system
+from biorefineries.sabre.analyses.att import inventory as inv, key_metrics as km, scenarios as scen
 
 OUT = SCRIPT_DIR.parent / "results" / "tables" / "att_balance_1kg_raw.csv"
 MW = dict(H2=2.01588, C=12.011, NaOH=39.99711, CaOH2=74.09268)
@@ -51,12 +48,6 @@ def _organic_formula(stream):
     C = atoms["C"]
     dry = float(stream.F_mass - stream.imass["Water"])
     return {e: atoms.get(e, 0.0) / C for e in "CHONS"}, {e: atoms.get(e, 0.0) * dict(C=12.011, H=1.008, O=15.999, N=14.007, S=32.06)[e] / dry for e in "CHONS"}
-
-
-def simulate(lime_recycle):
-    warnings.filterwarnings("ignore")
-    return inv._simulate(_att_system.create_att_system(dry_sargassum_kgph=1.0, configuration="att_only",
-                                                        lime_recycle=lime_recycle), 1.0)
 
 
 def balance(sys):
@@ -166,13 +157,17 @@ def balance(sys):
 
 
 if __name__ == "__main__":
-    cases = {"recycled lime": balance(simulate(True)), "fresh lime": balance(simulate(False))}
-    base, other = cases["recycled lime"], cases["fresh lime"]
-    table = pd.DataFrame([dict(section=a["section"], item=a["item"], value_recycled_lime=a["value"],
-                               value_fresh_lime=b["value"], unit=a["unit"], note=a["note"])
-                          for a, b in zip(base, other)])
+    warnings.filterwarnings("ignore")
+    results = {}
+    for case, spec in scen.SCENARIOS.items():
+        with scen.dose(spec):
+            results[case] = balance(scen.create(spec, dry_kgph=1.0))
+    base = results["s1"]
+    table = pd.DataFrame([dict(section=r["section"], item=r["item"],
+                               **{f"value_{c}": results[c][k]["value"] for c in results}, unit=r["unit"], note=r["note"])
+                          for k, r in enumerate(base)])
     OUT.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(OUT, index=False)
-    with pd.option_context("display.max_colwidth", 70, "display.width", 250):
+    with pd.option_context("display.max_colwidth", 60, "display.width", 300):
         print(table.drop(columns="note").to_string(index=False, float_format=lambda x: f"{x:.4g}"))
     print(f"Saved {OUT}")

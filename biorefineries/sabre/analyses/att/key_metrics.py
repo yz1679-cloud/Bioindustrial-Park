@@ -30,6 +30,7 @@ import pandas as pd
 
 from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.analyses.att import lca
+from biorefineries.sabre.analyses.att import scenarios as scen
 from biorefineries.sabre.units._att import _SARGASSUM_DRY_IDS
 from biorefineries.sabre.utils import load_assumptions
 
@@ -42,15 +43,9 @@ _ELECTRICITY_MJ_PER_KWH = 3.6     # primary-energy convention of att.inventory
 _ATT = load_assumptions("att.yaml")["att"]
 
 
-def simulate(configuration, hxn, lime_recycle=True):
-    from biorefineries.sabre.systems._att_system import create_att_system
-
-    scale = inv.get_att_reference_scale(configuration)
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration,
-                                          heat_exchanger_network=hxn, lime_recycle=lime_recycle),
-                        scale["dry_feed_kgph"])
-    sys.operating_hours = scale["operating_hours_per_year"]
-    return sys
+def simulate(case, hxn):
+    """Simulated system of a scenario (call inside ``scenarios.dose(CASES[case])``)."""
+    return scen.create(CASES[case], hxn=hxn)
 
 
 def _lhv_MJ_per_kg(ID):
@@ -322,12 +317,11 @@ def build_att_key_metrics(cases=None):
     """Metrics per case (keys of CASES; default all four)."""
     out = {}
     for name in (cases or CASES):
-        cfg, recycle = CASES[name]
-        sys_no = simulate(cfg, hxn=False, lime_recycle=recycle)
-        conv, mat = get_conversions(sys_no), get_material_usage(sys_no)
-        heat = get_heat(sys_no)
-        sys_h = simulate(cfg, hxn=True, lime_recycle=recycle)
-        scen, extra = get_energy_supply(sys_no, sys_h, heat)
-        conv_h, mat_h = get_conversions(sys_h), get_material_usage(sys_h)
-        out[name] = dict(conversions=conv_h, materials=mat_h, heat=heat, scenarios=scen, extra=extra)
+        with scen.dose(CASES[name]):
+            sys_no = simulate(name, hxn=False)
+            heat = get_heat(sys_no)
+            sys_h = simulate(name, hxn=True)
+            supply, extra = get_energy_supply(sys_no, sys_h, heat)
+            conv_h, mat_h = get_conversions(sys_h), get_material_usage(sys_h)
+        out[name] = dict(conversions=conv_h, materials=mat_h, heat=heat, scenarios=supply, extra=extra)
     return out

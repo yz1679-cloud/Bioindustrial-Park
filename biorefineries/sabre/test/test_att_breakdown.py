@@ -2,17 +2,18 @@
 import unittest
 import warnings
 
-from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST_TYPES, CONFIGURATIONS
+from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST_TYPES
 
 
 class TestATTBreakdown(unittest.TestCase):
-    configuration = "att_only"
-    lime_recycle = True
+    """Scenario 2 (recycled lime, PSA); the other scenarios of analyses/att/scenarios.py subclass it."""
+    case = "s2"
+    psa = True
 
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.t = build_att_breakdown(cls.configuration, cls.lime_recycle)
+        cls.t = build_att_breakdown(cls.case)
         cls.s = cls.t["summary"]
 
     def test_u2_checks_pass(self):
@@ -53,28 +54,48 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertAlmostEqual(self.s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"],
                                self.s["GWP_kgCO2e_per_kg_H2"] - stored + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-        # no PSA, no tail gas: nothing displaces natural gas
         offset = self.t["GWP_by_contributor"]
-        self.assertEqual(offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0], 0.0)
+        offset = offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0]
+        if self.psa:       # the tail-gas natural gas offset is a negative contributor
+            self.assertLess(offset, 0.0)
+        else:              # no PSA, no tail gas
+            self.assertEqual(offset, 0.0)
 
 
-class TestATTBreakdownIntegrated(TestATTBreakdown):
-    configuration = "integrated"
-
-    def test_no_press(self):
-        self.assertNotIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))
-
-
-
-class TestATTBreakdownFreshLime(TestATTBreakdown):
-    """No lime recycle: all Ca(OH)2 is bought and the CaCO3 cake is disposed of (TEA Case A)."""
-    configuration = "integrated"
-    lime_recycle = False
+class TestATTBreakdownBaseline(TestATTBreakdown):
+    """Scenario 1: all Ca(OH)2 is bought and the CaCO3 cake is disposed of (TEA Case A)."""
+    case = "s1"
 
     def test_cake_disposal_is_costed_and_no_kiln(self):
         self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
         groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
         self.assertGreater(groups["CaCO3 cake disposal"], 0.0)
+        self.assertGreater(groups["Ca(OH)2"], 0.0)
+
+
+class TestATTBreakdownWasteLime(TestATTBreakdown):
+    """Scenario 3: free waste lime replaces all the lime (no kiln, cake disposed), at the waste scale."""
+    case = "s3"
+
+    def test_waste_lime_is_free_and_burden_free(self):
+        self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
+        groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
+        self.assertEqual(groups.get("Ca(OH)2", 0.0), 0.0)
+        g = self.t["GWP_by_contributor"].set_index("contributor")["kgCO2e_per_kg_H2"]
+        self.assertEqual(g["Ca(OH)2"], 0.0)
+        self.assertLess(self.s["dry_feed_t_per_day"], 300.0)
+        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.6e3)
+
+
+class TestATTBreakdownFullCapture(TestATTBreakdownWasteLime):
+    """Scenario 4: NaOH for full CO2 capture, no PSA, same waste-lime supply and scale as scenario 3."""
+    case = "s4"
+    psa = False
+
+    def test_no_psa_and_the_whole_supply_is_used(self):
+        self.assertNotIn("PSA (U3P)", set(self.t["CAPEX_by_area"]["area"]))
+        self.assertAlmostEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.5e3, delta=0.2e3)
+        self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 2.995)
 
 
 if __name__ == "__main__":

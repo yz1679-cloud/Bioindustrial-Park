@@ -1312,7 +1312,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
          sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"]) / 1e3 / dry,
          c["Wastewater treatment"]["activity_per_kg_dry"]),
         ("Ash/char cake: TEA disposal = LCA landfill [kg/kg dry]",
-         sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["solid_waste_streams"]) / dry,
+         sum(float(s[ID].F_mass) for ID in (*tea_mod._T["prices"]["solid_waste_streams"], "caco3_cake")
+             if ID in s and s[ID] in sys.products) / dry,      # the CaCO3 cake leaves only without the lime recycle
          c["Landfill: solid residues"]["activity_per_kg_dry"]),
     ]
     rows = [dict(check=a, TEA_or_model=b, LCA_or_reference=d,

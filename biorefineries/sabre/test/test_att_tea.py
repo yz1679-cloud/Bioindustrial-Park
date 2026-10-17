@@ -35,12 +35,11 @@ class TestATTTEA(unittest.TestCase):
 
     def test_no_coproduct_revenue_and_capital_items(self):
         s = inv._streams(self.sys)
-        self.assertNotIn("u3_tail_gas", s)      # no PSA, no off-gas
+        self.assertEqual(s["u3_tail_gas"].price, 0.0)
         self.assertEqual(s["caco3_cake"].price, 0.0)
-        # the compressor is costed inside U3K, not added by the TEA; the baseline has no PSA
+        # the PSA and the compressor are costed inside U3P and U3K, not added by the TEA
         units = inv._units(self.sys)
-        self.assertNotIn("U3P", units)
-        self.assertGreater(units["U3K"].installed_cost, 0.0)
+        self.assertGreater(units["U3P"].installed_cost, 0.0)
         self.assertEqual(type(units["U3K"]).__name__, "ATTCompressor")
         self.assertEqual(units["U3K"].compressor_type, "Reciprocating")
 

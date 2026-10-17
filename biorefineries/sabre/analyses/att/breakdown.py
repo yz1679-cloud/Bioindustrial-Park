@@ -36,28 +36,17 @@ import numpy as np
 import pandas as pd
 
 from biorefineries.sabre.analyses.att import inventory as inv
+from biorefineries.sabre.analyses.att import scenarios as scen
 from biorefineries.sabre.analyses.att import lca
 from biorefineries.sabre.analyses.att import tea as tea_mod
 
 __all__ = ("build_att_breakdown", "COST_TYPES", "CONFIGURATIONS", "CASES", "FIGURE_CASES", "CASE_LABELS", "LIME_LABELS")
 
-# (configuration, lime_recycle) per case. ATT-only is kept, but the figures compare fresh vs recycled lime
-# in the ATT-integration configuration (FIGURE_CASES).
-CASES = {
-    "integrated_fresh": ("integrated", False),
-    "integrated_recycled": ("integrated", True),
-    "att_only_fresh": ("att_only", False),
-    "att_only_recycled": ("att_only", True),
-}
-FIGURE_CASES = ("integrated_fresh", "integrated_recycled")
-CASE_LABELS = {
-    "integrated_fresh": "ATT-integration, fresh Ca(OH)2 (cake disposed)",
-    "integrated_recycled": "ATT-integration, recycled lime (kiln + slaker)",
-    "att_only_fresh": "ATT-only, fresh Ca(OH)2 (cake disposed)",
-    "att_only_recycled": "ATT-only, recycled lime (kiln + slaker)",
-}
-LIME_LABELS = {"integrated_fresh": "Fresh Ca(OH)2", "integrated_recycled": "Recycled lime",
-               "att_only_fresh": "Fresh Ca(OH)2", "att_only_recycled": "Recycled lime"}
+# The four scenarios of analyses/att/scenarios.py: s1 is the baseline, s2-s4 are alternatives.
+CASES = scen.SCENARIOS
+FIGURE_CASES = tuple(CASES)
+CASE_LABELS = scen.CASE_LABELS
+LIME_LABELS = scen.SHORT_LABELS
 CONFIGURATIONS = {
     "att_only": "ATT-only (wet Sargassum)",
     "integrated": "ATT-integration (presscake)",
@@ -232,22 +221,29 @@ def _gwp_tables(contributions):
     return by_item, by_stage, total
 
 
-def build_att_breakdown(configuration="integrated", lime_recycle=True):
+def build_att_breakdown(case="s1"):
     """
-    One simulation of a case; returns a dict of DataFrames and a summary dict.
+    One simulation of a scenario of analyses/att/scenarios.py; returns a dict of DataFrames and a summary dict.
 
-    lime_recycle False buys all the Ca(OH)2 and disposes of the CaCO3 cake at the solid-waste price
-    (TEA Case A: the 520 kt/yr cake has to go somewhere); True recycles the lime through the kiln.
+    s1 buys all the Ca(OH)2 and disposes of the CaCO3 cake at the solid-waste price (TEA Case A: the cake has to go
+    somewhere); s2 recycles the lime through the kiln; s3 and s4 take free waste lime and dispose of the cake.
     """
-    sys = tea_mod.create_att_tea_system(configuration, lime_recycle=lime_recycle)
+    spec = CASES[case]
+    with scen.dose(spec):
+        return _build(case, spec, scen.create(spec))
+
+
+def _build(case, spec, sys):
+    waste, lime_recycle = spec["lime"] == "waste", spec["lime"] == "recycled"
     estimates = inv.get_att_cost_estimates(sys)
-    result = tea_mod.evaluate_att_tea(sys, estimates, caco3=None if lime_recycle else dict(fraction=0.0))
+    result = tea_mod.evaluate_att_tea(sys, estimates, price_overrides={"CaOH2": 0.0} if waste else None,
+                                      caco3=None if lime_recycle else dict(fraction=0.0))
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)
     msp_group, msp_type = _msp_tables(dcf, result["msp"])
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
     capex_equipment, capex_area = _capex_tables(sys, result, capital_msp)
     opex = _opex_table(sys, result, h2_kg_yr)
-    applied = lca.apply_att_gwp(sys, estimates=estimates)
+    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides={"CaOH2_limestone": 0.0} if waste else None)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
     credit = lca.get_att_landfill_credit(sys)
@@ -257,8 +253,10 @@ def build_att_breakdown(configuration="integrated", lime_recycle=True):
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
-    summary = dict(configuration=configuration, lime="recycled" if lime_recycle else "fresh",
-                   description=CONFIGURATIONS[configuration] + ", " + ("recycled lime" if lime_recycle else "fresh lime"),
+    summary = dict(scenario=spec["label"], lime=spec["lime"], PSA=spec["psa"], NaOH_kg_per_kg_daf=spec["dose"],
+                   description=spec["label"],
+                   fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,
+                   Ca_OH_2_used_t_per_yr=float(inv._streams(sys)["lime"].imass["CaOH2"]) * sys.operating_hours / 1e3,
                    dry_feed_t_per_day=dry * 24 / 1e3,
                    MSP_USD_per_kg_H2=result["msp"], GWP_kgCO2e_per_kg_H2=gwp_total,
                    GWP_landfill_credit_kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],

@@ -9,13 +9,15 @@
 """
 cost_gwp_breakdown_att.py
 ----------------------
-Breakdown of the ATT H2 minimum selling price and GWP100 at the SaBRe
-reference scale for two cases: the ATT-only plant (wet Sargassum, press P1,
-dryer D0; the press liquid goes to biostimulant production) and the
-ATT-integration case (presscake of a biostimulant plant, no P1). MSP by cost
-type and group, CAPEX by equipment and process area, OPEX by group, and
-GWP100 by contributor. The numbers come from ``analyses/att/breakdown.py``
-(one simulation per case; see its docstring for the definitions).
+Breakdown of the ATT H2 minimum selling price and GWP100 for the baseline
+(scenario 1: NaOH 1 g/g, PSA, fresh lime, NLR scale) and the alternative
+scenarios 2-4 (recycled lime; waste lime; waste lime with full CO2 capture and
+no PSA) of ``analyses/att/scenarios.py``, all for the ATT-only plant (wet
+Sargassum, press P1, dryer D0; the press liquid goes to biostimulant
+production). MSP by cost type and group, CAPEX by equipment and process area,
+OPEX by group, and GWP100 by contributor. The numbers come from
+``analyses/att/breakdown.py`` (one simulation per scenario; see its docstring
+for the definitions).
 
 Kept as its own script, like cost_breakdown_3hp.py: the ATT system sets its
 own chemical set and must not share a Python process with the other systems.
@@ -54,8 +56,7 @@ TABLES_OUT.mkdir(parents=True, exist_ok=True)
 FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
 # One color per case (categorical slots 1-2, dataviz reference palette, light mode).
-CASE_COLORS = {"integrated_fresh": "#2a78d6", "integrated_recycled": "#eb6834",
-               "att_only_fresh": "#2a78d6", "att_only_recycled": "#eb6834"}
+CASE_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1"}
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 _SHORT = {
@@ -104,7 +105,7 @@ def _grouped_hbar(ax, frames, label_col, value_col, label_fmt, xlabel, title, mi
             v = cats[lab][case]
             y = y0 + 0.4 - h * (j + 0.5)
             ax.barh(y, v, height=h * 0.9, color=CASE_COLORS[case], edgecolor=SURFACE, linewidth=1.0)
-            ax.text(max(v, 0.0) + 0.012 * span, y, label_fmt(v), va="center", ha="left", fontsize=7.5, color=INK)
+            ax.text(max(v, 0.0) + 0.012 * span, y, label_fmt(v), va="center", ha="left", fontsize=6.8, color=INK)
     ax.set_yticks(range(len(order)))
     ax.set_yticklabels([_SHORT.get(l, l) for l in order[::-1]])
     ax.set_xlim(lo * 1.2 if lo < 0 else 0, span * 1.22)
@@ -121,7 +122,7 @@ def _grouped_hbar(ax, frames, label_col, value_col, label_fmt, xlabel, title, mi
 def plot_breakdown(tables, path):
     _style()
     summ = {c: t["summary"] for c, t in tables.items()}
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(17, 15))
     both = lambda f: " / ".join(f(s) for s in summ.values())
 
     _grouped_hbar(axes[0, 0], {c: t["MSP_by_type"] for c, t in tables.items()}, "cost_type", "USD_per_kg_H2",
@@ -146,9 +147,9 @@ def plot_breakdown(tables, path):
 
     handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CASE_LABELS[c]) for c in tables]
     fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False, fontsize=9.5, labelcolor=INK_2)
-    fig.suptitle("ATT-integration H2 (NLR scale): cost and GWP100 breakdown, fresh vs recycled lime",
+    fig.suptitle("ATT H2: cost and GWP100 breakdown, baseline (1) and alternative scenarios (2-4)",
                  fontsize=12, color=INK, x=0.01, ha="left")
-    fig.tight_layout(rect=(0, 0.04, 1, 0.96))
+    fig.tight_layout(rect=(0, 0.06, 1, 0.96))
     fig.savefig(path, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
 
@@ -166,9 +167,9 @@ def write_tables(tables):
 
 
 if __name__ == "__main__":
-    tables = {c: build_att_breakdown(*CASES[c]) for c in CASES}     # tables: all four cases (ATT-only kept)
+    tables = {c: build_att_breakdown(c) for c in CASES}     # the four scenarios of analyses/att/scenarios.py
     write_tables(tables)
-    plot_breakdown({c: tables[c] for c in FIGURE_CASES}, FIGURES_OUT / "fig_cost_gwp_breakdown_att.png")
+    plot_breakdown(tables, FIGURES_OUT / "fig_cost_gwp_breakdown_att.png")
     print(f"Saved tables to {TABLES_OUT}")
     print(f"Saved figure to {FIGURES_OUT / 'fig_cost_gwp_breakdown_att.png'}")
     for c, t in tables.items():
