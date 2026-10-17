@@ -244,10 +244,10 @@ def _build(case, spec, sys):
     applied = lca.apply_att_gwp(sys, estimates=estimates, overrides={"CaOH2_limestone": 0.0} if waste else None)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
-    credit = lca.get_att_landfill_credit(sys)
-    gwp_item = pd.concat([gwp_item, pd.DataFrame([dict(contributor=lca.LANDFILL_CREDIT_ITEM, stage="Alternative credit (not in net)",
-                                                       counted_in_net=False, kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
-                                                       share_of_total=credit["GWP_kgCO2e_per_kg_H2"] / gwp_total)])],
+    credit = lca.get_att_avoided_emission(sys)
+    gwp_item = pd.concat([gwp_item, pd.DataFrame([dict(contributor=lca.AVOIDED_CH4_ITEM, stage="Extra credit (not in net)",
+                                                       counted_in_net=False, kgCO2e_per_kg_H2=credit["CH4_extra_kgCO2e_per_kg_H2"],
+                                                       share_of_total=credit["CH4_extra_kgCO2e_per_kg_H2"] / gwp_total)])],
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
@@ -257,9 +257,9 @@ def _build(case, spec, sys):
                    Ca_OH_2_used_t_per_yr=float(inv._streams(sys)["lime"].imass["CaOH2"]) * sys.operating_hours / 1e3,
                    dry_feed_t_per_day=dry * 24 / 1e3,
                    MSP_USD_per_kg_H2=result["msp"], GWP_kgCO2e_per_kg_H2=gwp_total,
-                   GWP_landfill_credit_kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
-                   GWP_with_landfill_credit_kgCO2e_per_kg_H2=gwp_total - lca.get_att_stored_carbon_credit(sys)
-                   + credit["GWP_kgCO2e_per_kg_H2"],
+                   GWP_avoided_CH4_extra_credit_kgCO2e_per_kg_H2=credit["CH4_extra_kgCO2e_per_kg_H2"],
+                   GWP_avoided_emission_total_kgCO2e_per_kg_H2=credit["total_kgCO2e_per_kg_H2"],
+                   GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2=gwp_total + credit["CH4_extra_kgCO2e_per_kg_H2"],
                    H2_t_per_yr=h2_kg_yr / 1e3, FCI_MUSD=t.FCI / 1e6, working_capital_MUSD=t.working_capital / 1e6,
                    TCI_MUSD=t.TCI / 1e6, AOC_MUSD_per_yr=float(opex["MUSD_per_yr"].sum()),
                    capital_related_MSP_USD_per_kg_H2=capital_msp,

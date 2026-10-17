@@ -11,7 +11,7 @@ att_scenarios.py
 ----------------
 Summary table of the four ATT scenarios of ``analyses/att/scenarios.py`` (fresh-Sargassum configuration; s1 is the
 baseline, s2-s4 are alternatives): scale, H2, NaOH and lime use, MSP, FCI and GWP100 (net, with the stored-carbon
-credit, and the alternatives for the landfill-CH4 counterfactual).
+credit, and the avoided-emission note for the beach-rot counterfactual).
 
 Output: ../results/tables/att_scenarios.csv
 
@@ -47,8 +47,9 @@ if __name__ == "__main__":
             MSP_USD_per_kg_H2=s["MSP_USD_per_kg_H2"], FCI_MUSD=s["FCI_MUSD"],
             GWP_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"], stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored,
             GWP_without_stored_carbon_credit_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"] - stored,
-            landfill_CH4_credit_alternative_kgCO2e_per_kg_H2=s["GWP_landfill_credit_kgCO2e_per_kg_H2"],
-            GWP_with_landfill_CH4_credit_instead_kgCO2e_per_kg_H2=s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"]))
+            avoided_CH4_extra_credit_kgCO2e_per_kg_H2=s["GWP_avoided_CH4_extra_credit_kgCO2e_per_kg_H2"],
+            avoided_emission_total_kgCO2e_per_kg_H2=s["GWP_avoided_emission_total_kgCO2e_per_kg_H2"],
+            GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2=s["GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2"]))
     df = pd.DataFrame(rows)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUT, index=False)

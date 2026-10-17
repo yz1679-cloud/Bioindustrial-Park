@@ -109,26 +109,28 @@ lca:
   # solids (CaCO3 cake, ash/char cake, lime purge; waste_management.landfill_streams that are system products) is
   # stored instead of being released as CO2 when the Sargassum decomposes, so it earns -44.01/12.011 kg CO2e per kg C.
   # Permanence is assumed (carbonate and char in a landfill). Carbon released as CO2 anywhere (PSA tail gas, product
-  # gas, lime-kiln exhaust) is not credited. The credit is not additive with the landfill-CH4 credit below: both
-  # start from the same feed carbon with a different fate (decomposition to CO2 against landfill CH4).
+  # gas, lime-kiln exhaust) is not credited. The avoided CH4 of the beach-rot counterfactual below is added to it only
+  # in the note, never in the net.
   carbon_storage:
     credit_stored_carbon: true
     note: "Net GWP counts the biogenic carbon stored in landfilled solids as a negative emission."
 
-  # ALTERNATIVE COUNTERFACTUAL, NOT in the net GWP (user request 2026-10-17): methane that the incoming Sargassum would
-  # emit if it were landfilled instead of processed. Reported as a separate memo line beside the net result.
-  # IPCC 2006 Guidelines Vol. 5 Ch. 3 (first-order-decay potential, all methane over the long term, no timing):
-  #   CH4 = C_feed x DOCf x MCF x F x (1 - R) x (1 - OX) x 16/12
-  landfill_counterfactual:
-    status: "potential credit; not counted in the net GWP"
+  # AVOIDED EMISSION IF THE SARGASSUM WOULD ROT ON THE BEACH (user request 2026-10-17). Reported as a note, not in the
+  # net. Total avoided = (a) the carbon the plant stores, already credited in the net as CO2 (carbon_storage above),
+  # plus (b) the extra warming of the CH4 that rotting would form. The CH4 carbon is already counted as CO2 in (a)
+  # (a kg CH4 stands for 44.01/16.04 = 2.74 kg CO2 of the carbon), so (b) = CH4 x (GWP_CH4 - 44.01/16.04); on the CO2
+  # mass of that carbon this is (27 x 16.04/44.01 - 1) = 8.84, the "minus 1" being the biogenic CO2 already counted.
+  # CH4 formed = C_feed x DOCf x MCF x F x (1 - R) x (1 - OX) x 16.04/12.011  (IPCC 2006 Vol. 5 Ch. 3, long-term potential).
+  beach_rot_counterfactual:
+    status: "note only; not counted in the net GWP"
     carbon_basis: "total carbon of the feed stream (CHN carbon of the feedstock, taken as degradable; inorganic carbon in the ash is not separated, so this is an upper bound)"
     dissimilated_fraction_DOCf: 0.5       # IPCC 2006 default
-    methane_correction_factor_MCF: 1.0    # managed anaerobic landfill (IPCC 2006); 0.8 semi-aerobic, 0.4 unmanaged deep
-    methane_fraction_F: 0.5               # CH4 in landfill gas (IPCC 2006 default)
-    gas_capture_fraction_R: 0.0           # no landfill gas recovery (set 0.5-0.75 for a landfill with capture)
-    oxidation_in_cover_OX: 0.1            # IPCC 2006 managed landfill with cover
+    methane_correction_factor_MCF: 0.4    # share of the decomposition that is anaerobic: IPCC 2006 unmanaged shallow site (< 5 m) 0.4; deep (>= 5 m) or high water table 0.8; managed anaerobic 1.0. Measured beach CH4 fluxes of stranded Sargassum are weak against CO2 (Westphalen 2022, Nova Southeastern thesis), so 0.4 is not a low estimate.
+    methane_fraction_F: 0.5               # CH4 in the gas formed (IPCC 2006 default)
+    gas_capture_fraction_R: 0.0           # no gas recovery
+    oxidation_OX: 0.0                     # IPCC 2006 default for unmanaged sites (no cover)
     CH4_GWP100: 27.0                      # non-fossil CH4, IPCC AR6 WG1 Table 7.15
-    note: "Biogenic CO2 from the landfill is not counted (as for all biogenic CO2 here). Counterfactual-dependent: beach rotting or open-sea disposal would give other values."
+    note: "Biogenic CO2 from the rotting is not counted (as for all biogenic CO2 here); only its carbon stored by the plant is credited. The beach-rot fractions are typical defaults, not measured for Sargassum piles."
 
   collection_transport:
     status: pending

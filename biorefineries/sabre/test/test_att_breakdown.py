@@ -45,14 +45,15 @@ class TestATTBreakdown(unittest.TestCase):
     def test_gwp_sums_to_total(self):
         g = self.t["GWP_by_contributor"]
         self.assertAlmostEqual(g[g["counted_in_net"]]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-        # the landfill credit is a memo line: negative, listed, and not in the net
+        # the extra avoided-CH4 credit is a memo line: negative, listed, and not in the net
         memo = g[~g["counted_in_net"]]["kgCO2e_per_kg_H2"]
         self.assertEqual(len(memo), 1)
         self.assertLess(float(memo.iloc[0]), 0.0)
-        # the landfill-CH4 credit replaces the stored-carbon credit (same carbon, different fate): not additive
+        # avoided emission if rotted on the beach = the stored carbon (already in the net) + the extra CH4 credit
         stored = g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum()
-        self.assertAlmostEqual(self.s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"],
-                               self.s["GWP_kgCO2e_per_kg_H2"] - stored + float(memo.iloc[0]), delta=1e-9)
+        self.assertAlmostEqual(self.s["GWP_avoided_emission_total_kgCO2e_per_kg_H2"], stored + float(memo.iloc[0]), delta=1e-9)
+        self.assertAlmostEqual(self.s["GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2"],
+                               self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
         offset = self.t["GWP_by_contributor"]
         offset = offset.loc[offset["contributor"].str.startswith("Natural gas displaced"), "kgCO2e_per_kg_H2"].iloc[0]

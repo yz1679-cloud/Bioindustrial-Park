@@ -39,7 +39,7 @@ __all__ = (
     "get_att_gwp_by_stage",
     "get_att_gwp_by_unit",
     "get_att_gwp_summary",
-    "get_att_landfill_credit",
+    "get_att_avoided_emission",
     "get_att_gwp_sensitivity",
     "get_att_lca_factor_register",
     "get_att_lca_data_gaps",
@@ -281,7 +281,7 @@ def get_att_gwp_contributions(sys, applied):
     return rows
 
 
-LANDFILL_CREDIT_ITEM = "Avoided landfill CH4 (alternative credit, not in net)"
+AVOIDED_CH4_ITEM = "Avoided CH4 if rotted on the beach (extra credit, not in net)"
 
 
 def get_att_stored_carbon_credit(sys):
@@ -291,21 +291,24 @@ def get_att_stored_carbon_credit(sys):
     return -(_stored_carbon_kgph(sys) * 44.0095 / 12.011 / h2) if on else 0.0
 
 
-def get_att_landfill_credit(sys):
+def get_att_avoided_emission(sys):
     """
-    Alternative credit for the methane the incoming Sargassum would emit in a landfill (IPCC 2006 Vol. 5 Ch. 3,
-    long-term potential). Not part of the net GWP, and not additive with the stored-carbon credit that is. Returns kg CH4 and kg CO2e (negative = credit) per kg dry
-    feed and per kg H2.
+    Avoided emission if the Sargassum would otherwise rot on the beach [kg CO2e per kg H2, negative = avoided]:
+    ``stored`` (the carbon the plant stores, already credited in the net GWP as CO2), ``CH4_extra`` (the extra
+    warming of the CH4 that rotting would form, net of the CO2 its carbon is already counted as in ``stored``; NOT in
+    the net) and ``total`` = stored + CH4_extra. CH4 formed: IPCC 2006 long-term potential (att_lca.yaml
+    beach_rot_counterfactual).
     """
-    c = _LCA["landfill_counterfactual"]
+    c = _LCA["beach_rot_counterfactual"]
     dry = inv._dry_feed_kgph(sys)
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
     carbon = sum(r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys) if r["direction"] == "input")
     ch4 = (carbon * c["dissimilated_fraction_DOCf"] * c["methane_correction_factor_MCF"] * c["methane_fraction_F"]
-           * (1.0 - c["gas_capture_fraction_R"]) * (1.0 - c["oxidation_in_cover_OX"]) * 16.04246 / 12.011)
-    return dict(feed_carbon_kg_per_kg_dry=carbon, CH4_kg_per_kg_dry=ch4,
-                GWP_kgCO2e_per_kg_dry=-ch4 * c["CH4_GWP100"],
-                GWP_kgCO2e_per_kg_H2=-ch4 * c["CH4_GWP100"] * dry / h2)
+           * (1.0 - c["gas_capture_fraction_R"]) * (1.0 - c["oxidation_OX"]) * 16.04246 / 12.011)
+    ch4_extra = -ch4 * (c["CH4_GWP100"] - 44.0095 / 16.04246) * dry / h2
+    stored = get_att_stored_carbon_credit(sys)
+    return dict(feed_carbon_kg_per_kg_dry=carbon, CH4_kg_per_kg_dry=ch4, stored_kgCO2e_per_kg_H2=stored,
+                CH4_extra_kgCO2e_per_kg_H2=ch4_extra, total_kgCO2e_per_kg_H2=stored + ch4_extra)
 
 
 def get_att_gwp_by_stage(contributions):
@@ -367,7 +370,7 @@ def get_att_gwp_summary(sys, applied):
     tail = inv._tail_gas(sys)
     U2 = inv._units(sys)["U2"]
     daf = float(U2._daf_sargassum_kgph)
-    credit = get_att_landfill_credit(sys)
+    credit = get_att_avoided_emission(sys)
     carbon = {r["stream"]: r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys)}
     ch4_reported = float(U2.reported_gas_yield_mmol_per_g_daf["CH4"]) * daf * 16.04246 / 1e3 / dry
     rows = [
@@ -379,12 +382,13 @@ def get_att_gwp_summary(sys, applied):
          f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x PSA recovery if any ({U2.gas_closure_method})"),
         ("CH4 in PSA off-gas (model)", float(tail.imass["CH4"]) / dry, "kg/kg dry",
          "explicit collected stream; final fate UNRESOLVED; direct CH4 emission not in baseline GWP; no credit"),
-        ("Alternative credit: avoided landfill CH4 (not in net)", credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
-         f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 landfill potential, MCF/F/OX in att_lca.yaml); "
-         "counterfactual-dependent; replaces the stored-carbon credit, not additive with it"),
-        ("GWP100 per kg H2 with the landfill-CH4 credit instead of the stored-carbon credit",
-         total_yr / h2_yr - get_att_stored_carbon_credit(sys) + credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
-         "net without the stored-carbon credit, plus the landfill-CH4 credit"),
+        ("Avoided CH4 if rotted on the beach: extra credit (not in net)", credit["CH4_extra_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 defaults, att_lca.yaml beach_rot_counterfactual), "
+         "net of the CO2 its carbon is counted as in the stored-carbon credit; counterfactual-dependent"),
+        ("Avoided emission if rotted on the beach: stored carbon + extra CH4", credit["total_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         "the stored-carbon credit already in the net plus the extra CH4 credit"),
+        ("GWP100 per kg H2 with the extra CH4 credit", total_yr / h2_yr + credit["CH4_extra_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         "net (incl. the stored-carbon credit) plus the extra CH4 credit"),
         ("Lime source", float("nan"), "", applied["lime_source"]),
         ("Boundary status", float("nan"), "",
          "PARTIAL: Sargassum collection/transport pending" if _LCA["collection_transport"][
