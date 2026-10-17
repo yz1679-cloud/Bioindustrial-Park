@@ -40,12 +40,12 @@ lca:
       source: "ATT collaborators (IPCC 2006 default 56.1 t CO2/TJ on a net calorific value basis)"
       boundary: onsite combustion, CO2 only
     natural_gas_upstream:
-      value: 0.0199
+      value: 0.0066
       range: [0.0066, 0.0199]
       unit: kg CO2e/MJ fuel
-      source: "DOE/NETL-2019/2039, Life Cycle Analysis of Natural Gas Extraction and Power Generation (value as provided; report table not retrieved in this review)"
-      boundary: extraction, processing and transmission to a large end user
-      note: "NETL 2020 supply-chain update: 14.1 (10.0-19.2) g CO2e/MJ. GREET factor used in this repository (biorefineries/HP, lactic): 0.33-0.40 kg CO2e/kg CH4 = 6.6-8.0 g CO2e/MJ LHV (lower bound of the range). LHV/HHV basis of the NETL value not confirmed; on an HHV basis the LHV-equivalent value would be ~11 % higher."
+      source: "GREET, as used in this repository (biorefineries/HP/process_settings.py: 0.33 kg CO2e per kg CH4, North American natural gas from shale and conventional recovery) = 6.6 g CO2e/MJ LHV (CH4 LHV 50.0 MJ/kg). biorefineries/lactic uses 0.40 kg/kg = 8.0 g/MJ. User decision 2026-10-17 (was the NETL value below)."
+      boundary: extraction, processing and transmission
+      note: "Previous value 0.0199 (DOE/NETL-2019/2039, high end of the range; NETL 2020 supply-chain update 14.1 (10.0-19.2) g CO2e/MJ; LHV/HHV basis not confirmed)."
     electricity:
       value: 0.449
       range: [0.30, 0.90]
@@ -69,7 +69,9 @@ lca:
       source: "GREET, as used in biorefineries/lactic/_process_settings.py (project)"
       boundary: cradle-to-gate
     inert_landfill:
-      value: 0.02205
+      # NOT COUNTED (user decision 2026-10-17): landfill of the solid residues is excluded from the GWP, so the
+      # factor is 0. The earlier screening proxy was 0.02205 kg CO2e/kg waste (EPA WARM, below).
+      value: 0.0
       unit: kg CO2e/kg waste
       source: "EPA WARM v15 (May 2019), Fly Ash chapter, Exhibit 8-4: landfilling 0.02 MTCO2E/short ton (https://www.epa.gov/sites/default/files/2019-06/documents/warm_v15_construction_materials.pdf)"
       boundary: "transport to landfill and landfill machinery; inert, no landfill CH4"
@@ -94,7 +96,7 @@ lca:
 
   waste_management:
     wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge]
-    landfill_streams: [ash_residue_cake]
+    landfill_streams: [ash_residue_cake, lime_purge, caco3_cake]
 
   coproduct:
     CaCO3_treatment: none            # none | substitution
@@ -102,6 +104,21 @@ lca:
 
   offgas:
     treatment: "BURNED: assumed collected and burned in the U2 burner; its LHV displaces natural gas (up to U2's fuel demand, att.yaml gas_treatment.tail_gas_combustion); no CH4 emission; biogenic combustion CO2 not counted"
+
+  # POTENTIAL CREDIT, NOT in the net GWP (user request 2026-10-17): methane that the incoming Sargassum would
+  # emit if it were landfilled instead of processed. Reported as a separate memo line beside the net result.
+  # IPCC 2006 Guidelines Vol. 5 Ch. 3 (first-order-decay potential, all methane over the long term, no timing):
+  #   CH4 = C_feed x DOCf x MCF x F x (1 - R) x (1 - OX) x 16/12
+  landfill_counterfactual:
+    status: "potential credit; not counted in the net GWP"
+    carbon_basis: "total carbon of the feed stream (CHN carbon of the feedstock, taken as degradable; inorganic carbon in the ash is not separated, so this is an upper bound)"
+    dissimilated_fraction_DOCf: 0.5       # IPCC 2006 default
+    methane_correction_factor_MCF: 1.0    # managed anaerobic landfill (IPCC 2006); 0.8 semi-aerobic, 0.4 unmanaged deep
+    methane_fraction_F: 0.5               # CH4 in landfill gas (IPCC 2006 default)
+    gas_capture_fraction_R: 0.0           # no landfill gas recovery (set 0.5-0.75 for a landfill with capture)
+    oxidation_in_cover_OX: 0.1            # IPCC 2006 managed landfill with cover
+    CH4_GWP100: 27.0                      # non-fossil CH4, IPCC AR6 WG1 Table 7.15
+    note: "Biogenic CO2 from the landfill is not counted (as for all biogenic CO2 here). Counterfactual-dependent: beach rotting or open-sea disposal would give other values."
 
   collection_transport:
     status: pending

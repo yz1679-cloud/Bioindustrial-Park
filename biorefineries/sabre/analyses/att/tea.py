@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """
 Preliminary TEA of the frozen ATT model: minimum H2 selling price (MSP).
 
@@ -62,13 +70,13 @@ class ATTTEA(SaBReTEA):
         return super().VOC + self.extra_VOC
 
 
-def create_att_tea_system(configuration="att_only"):
-    """ATT model at the SaBRe reference scale ("att_only" or "integrated")."""
+def create_att_tea_system(configuration="att_only", lime_recycle=None):
+    """ATT model at the SaBRe reference scale ("att_only" or "integrated"); lime_recycle None = att.yaml."""
     from biorefineries.sabre.systems._att_system import create_att_system
 
     scale = inv.get_att_reference_scale(configuration)
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration),
-                        scale["dry_feed_kgph"])
+    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration,
+                                          lime_recycle=lime_recycle), scale["dry_feed_kgph"])
     sys.operating_hours = scale["operating_hours_per_year"]
     return sys
 
@@ -100,10 +108,13 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
     s["dissolution_water"].price = p["process_water"]
     if "biostimulant_juice" in s:
         s["biostimulant_juice"].price = float(_T["prices"]["juice"])
+    if "slaking_water" in s:
+        s["slaking_water"].price = p["process_water"]
     for ID in _T["prices"]["wastewater_streams"]:
         s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
     for ID in _T["prices"]["solid_waste_streams"]:
-        s[ID].price = float(_PRICE["disposal_solid"]["baseline"])
+        if ID in s:
+            s[ID].price = float(_PRICE["disposal_solid"]["baseline"])
     s["caco3_cake"].price = float(_T["prices"]["CaCO3_cake"]) if cake_price is None else float(cake_price)
     s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
     s[_T["product"]].price = 0.0
@@ -255,6 +266,8 @@ def _opex_table(sys, result):
     for ID, label in (("fresh_naoh_solid", "NaOH makeup"), ("lime", "Ca(OH)2"),
                       ("dissolution_water", "Process water"), ("att_sargassum_feed", "Sargassum feedstock")):
         add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
+    if "slaking_water" in s:
+        add("Process water", "materials", s["slaking_water"].cost * hours, f"{s['slaking_water'].price:.6g} USD/kg (slaking)")
     if "biostimulant_juice" in s:
         add("Biostimulant juice transfer (coproduct)", "juice", -s["biostimulant_juice"].cost * hours,
             f"{s['biostimulant_juice'].price:.6g} USD/kg")
@@ -266,9 +279,12 @@ def _opex_table(sys, result):
     for name, value in result["voc_items"]:
         add(name, "extra VOC", value, "att_tea.yaml")
     for ID in (*_T["prices"]["wastewater_streams"], *_T["prices"]["solid_waste_streams"]):
+        if ID not in {p.ID for p in sys.products}:
+            continue
         add(f"Disposal: {ID}", "waste disposal", -s[ID].price * s[ID].F_mass * hours, f"{s[ID].price} USD/kg")
-    add("CaCO3 cake: disposal (+) or net sales (-)", "CaCO3 cake", -s["caco3_cake"].price * s["caco3_cake"].F_mass * hours,
-        f"{s['caco3_cake'].price:.6g} USD/kg wet cake")
+    if s["caco3_cake"] in sys.products:      # with the lime recycle the cake is an internal stream
+        add("CaCO3 cake: disposal (+) or net sales (-)", "CaCO3 cake", -s["caco3_cake"].price * s["caco3_cake"].F_mass * hours,
+            f"{s['caco3_cake'].price:.6g} USD/kg wet cake")
     add("PSA off-gas handling", "off-gas", -s["u3_tail_gas"].price * s["u3_tail_gas"].F_mass * hours,
         f"{s['u3_tail_gas'].price:.6g} USD/kg")
     add("Fixed operating cost (4 % of FCI; labor, maintenance, overhead)", "FOC", tea.FOC, "tea.yaml")

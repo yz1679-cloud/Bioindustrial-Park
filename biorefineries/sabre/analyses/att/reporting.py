@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """ATT reporting: consolidated results and the master documentation package.
 
 Consolidated research-stage ATT results (process, TEA, GWP100) on one frozen
@@ -654,7 +662,7 @@ def _lca_register(contributions, applied):
              "Electricity: outside unit models (agitators, EC1 vacuum)": "GREET 2022",
              "Process water (D1)": "Zib et al. 2021", "Wastewater treatment": "Zib et al. 2021",
              "Purge neutralization (H2SO4)": "GREET (version not stated in repository)",
-             "Landfill: ash/char cake": "EPA WARM v15, 2019"}
+             "Landfill: solid residues": "EPA WARM v15, 2019"}
     coverage = {"NaOH makeup": "BioSTEAM stream CF (fresh_naoh_solid)", "Ca(OH)2": "BioSTEAM stream CF (lime)",
                 "Process water (D1)": "BioSTEAM stream CF (dissolution_water)",
                 "Natural gas U2: combustion": "BioSTEAM utility-agent CF (natural_gas, kg basis)",
@@ -1303,7 +1311,7 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
          c["Wastewater treatment"]["activity_per_kg_dry"]),
         ("Ash/char cake: TEA disposal = LCA landfill [kg/kg dry]",
          sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["solid_waste_streams"]) / dry,
-         c["Landfill: ash/char cake"]["activity_per_kg_dry"]),
+         c["Landfill: solid residues"]["activity_per_kg_dry"]),
     ]
     rows = [dict(check=a, TEA_or_model=b, LCA_or_reference=d,
                  status="PASS" if abs(b - d) <= 1e-6 * max(1.0, abs(d)) else "FAIL") for a, b, d in checks]

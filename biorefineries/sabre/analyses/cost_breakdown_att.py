@@ -1,5 +1,6 @@
 # Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
-# Copyright (C) 2026-, Yalin Li <mailto.yalin.li@gmail.com>
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
 #
 # This module is under the UIUC open-source license. See
 # github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
@@ -45,7 +46,7 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.sabre.analyses.att.breakdown import CONFIGURATIONS, build_att_breakdown
+from biorefineries.sabre.analyses.att.breakdown import CASES, CASE_LABELS, FIGURE_CASES, build_att_breakdown
 
 TABLES_OUT = SCRIPT_DIR.parent / "results" / "tables"
 FIGURES_OUT = SCRIPT_DIR.parent / "results" / "figures"
@@ -53,7 +54,8 @@ TABLES_OUT.mkdir(parents=True, exist_ok=True)
 FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
 # One color per case (categorical slots 1-2, dataviz reference palette, light mode).
-CASE_COLORS = {"att_only": "#2a78d6", "integrated": "#eb6834"}
+CASE_COLORS = {"integrated_fresh": "#2a78d6", "integrated_recycled": "#eb6834",
+               "att_only_fresh": "#2a78d6", "att_only_recycled": "#eb6834"}
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 _SHORT = {
@@ -66,7 +68,7 @@ _SHORT = {
     "Electricity: cooling tower and CW pumps": "Electricity: cooling tower, pumps",
     "Sargassum feedstock (0 in baseline)": "Sargassum (0 in baseline)",
     "PSA off-gas handling (0; fate unresolved)": "PSA off-gas handling (0)",
-    "CaCO3 filter cake disposal (TEA Case A)": "CaCO3 cake disposal (Case A)",
+    "CaCO3 cake disposal": "CaCO3 cake disposal (fresh-lime case)",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost (4 % of FCI)",
     "Capital (FCI + WC, net of loan)": "Capital (FCI + WC, net of loan)",
 }
@@ -131,14 +133,19 @@ def plot_breakdown(tables, path):
                   lambda v: f"{v:.1f}", "MUSD per year",
                   "(c) OPEX by group (annual operating cost " + both(lambda s: f"{s['AOC_MUSD_per_yr']:.0f}") + " MUSD/yr)",
                   min_abs=1e-9)
-    _grouped_hbar(axes[1, 1], {c: t["GWP_by_contributor"] for c, t in tables.items()}, "contributor", "kgCO2e_per_kg_H2",
+    _grouped_hbar(axes[1, 1], {c: t["GWP_by_contributor"].query("counted_in_net") for c, t in tables.items()},
+                  "contributor", "kgCO2e_per_kg_H2",
                   lambda v: f"{v:.1f}", "kg CO2e per kg H2",
                   "(d) H2 GWP100 by contributor (net " + both(lambda s: f"{s['GWP_kgCO2e_per_kg_H2']:.1f}") + " kg CO2e/kg)",
                   min_abs=0.01 * max(abs(s["GWP_kgCO2e_per_kg_H2"]) for s in summ.values()))
+    axes[1, 1].set_title(axes[1, 1].get_title(loc="left"), loc="left", color=INK, pad=17)
+    axes[1, 1].text(0.0, 1.012, "Not included: avoided landfill CH4, a potential credit of "
+                    + " / ".join(sorted({f"{s['GWP_landfill_credit_kgCO2e_per_kg_H2']:.1f}" for s in summ.values()})) + " kg CO2e/kg H2 (IPCC 2006, no gas capture)",
+                    transform=axes[1, 1].transAxes, ha="left", va="bottom", fontsize=8, color=INK_2)
 
-    handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CONFIGURATIONS[c]) for c in tables]
+    handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CASE_LABELS[c]) for c in tables]
     fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False, fontsize=9.5, labelcolor=INK_2)
-    fig.suptitle("ATT H2 (SaBRe reference scale): cost and GWP100 breakdown, ATT-only vs ATT-integration",
+    fig.suptitle("ATT-integration H2 (NLR scale): cost and GWP100 breakdown, fresh vs recycled lime",
                  fontsize=12, color=INK, x=0.01, ha="left")
     fig.tight_layout(rect=(0, 0.04, 1, 0.96))
     fig.savefig(path, bbox_inches="tight", facecolor=SURFACE)
@@ -153,18 +160,18 @@ def write_tables(tables):
         columns = ["case"] + list(next(iter(tables.values()))[key].columns)
         pd.concat([t[key].assign(case=c) for c, t in tables.items()], ignore_index=True)[columns].to_csv(
             TABLES_OUT / name, index=False)
-    pd.DataFrame([t["summary"] for t in tables.values()]).set_index("case").to_csv(
+    pd.DataFrame([dict(case=c, **t["summary"]) for c, t in tables.items()]).set_index("case").to_csv(
         TABLES_OUT / "cost_breakdown_summary_att.csv")
 
 
 if __name__ == "__main__":
-    tables = {c: build_att_breakdown(c) for c in CONFIGURATIONS}
+    tables = {c: build_att_breakdown(*CASES[c]) for c in CASES}     # tables: all four cases (ATT-only kept)
     write_tables(tables)
-    plot_breakdown(tables, FIGURES_OUT / "fig_cost_breakdown_att.png")
+    plot_breakdown({c: tables[c] for c in FIGURE_CASES}, FIGURES_OUT / "fig_cost_breakdown_att.png")
     print(f"Saved tables to {TABLES_OUT}")
     print(f"Saved figure to {FIGURES_OUT / 'fig_cost_breakdown_att.png'}")
     for c, t in tables.items():
-        print(f"\n=== {CONFIGURATIONS[c]} ===")
+        print(f"\n=== {CASE_LABELS[c]} ===")
         for k, v in t["summary"].items():
             print(f"  {k:<36}{v:,.4f}" if isinstance(v, float) else f"  {k:<36}{v}")
         for key in ("MSP_by_type", "CAPEX_by_area", "OPEX_by_group", "GWP_by_stage"):

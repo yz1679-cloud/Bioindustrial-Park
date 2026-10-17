@@ -7,11 +7,12 @@ from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST
 
 class TestATTBreakdown(unittest.TestCase):
     configuration = "att_only"
+    lime_recycle = True
 
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.t = build_att_breakdown(cls.configuration)
+        cls.t = build_att_breakdown(cls.configuration, cls.lime_recycle)
         cls.s = cls.t["summary"]
 
     def test_u2_checks_pass(self):
@@ -41,7 +42,14 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertAlmostEqual(self.s["TEA_VOC_plus_FOC_MUSD_per_yr"] + waste, self.s["AOC_MUSD_per_yr"], delta=1e-6)
 
     def test_gwp_sums_to_total(self):
-        self.assertAlmostEqual(self.t["GWP_by_contributor"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
+        g = self.t["GWP_by_contributor"]
+        self.assertAlmostEqual(g[g["counted_in_net"]]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
+        # the landfill credit is a memo line: negative, listed, and not in the net
+        memo = g[~g["counted_in_net"]]["kgCO2e_per_kg_H2"]
+        self.assertEqual(len(memo), 1)
+        self.assertLess(float(memo.iloc[0]), 0.0)
+        self.assertAlmostEqual(self.s["GWP_with_landfill_credit_kgCO2e_per_kg_H2"],
+                               self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
         self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
         # the tail-gas natural gas offset is a negative contributor
         offset = self.t["GWP_by_contributor"]
@@ -53,6 +61,18 @@ class TestATTBreakdownIntegrated(TestATTBreakdown):
 
     def test_no_press(self):
         self.assertNotIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))
+
+
+
+class TestATTBreakdownFreshLime(TestATTBreakdown):
+    """No lime recycle: all Ca(OH)2 is bought and the CaCO3 cake is disposed of (TEA Case A)."""
+    configuration = "integrated"
+    lime_recycle = False
+
+    def test_cake_disposal_is_costed_and_no_kiln(self):
+        self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
+        groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
+        self.assertGreater(groups["CaCO3 cake disposal"], 0.0)
 
 
 if __name__ == "__main__":

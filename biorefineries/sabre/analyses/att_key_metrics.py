@@ -1,5 +1,6 @@
 # Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
-# Copyright (C) 2026-, Yalin Li <mailto.yalin.li@gmail.com>
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
 #
 # This module is under the UIUC open-source license. See
 # github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
@@ -44,7 +45,7 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.sabre.analyses.att.key_metrics import CONFIGURATIONS, build_att_key_metrics
+from biorefineries.sabre.analyses.att.key_metrics import CASES, CASE_LABELS, FIGURE_CASES, LIME_LABELS, build_att_key_metrics
 
 TABLES_OUT = SCRIPT_DIR.parent / "results" / "tables"
 FIGURES_OUT = SCRIPT_DIR.parent / "results" / "figures"
@@ -55,7 +56,7 @@ TEAL, WATER, NEG, TOTAL = "#2f7f8a", "#b0492f", "#5b8c3a", "#1f3a60"     # as in
 LOW, HIGH, HXN, TAIL = "#5b9bb8", "#d98a3d", "#9ccf9c", "#2e7d32"
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 UNIT_LABELS = {"D0": "D0\nfeed dryer", "U2": "U2\nreactor", "C1": "C1\ncausticizing", "EC1": "EC1\nNaOH conc.",
-               "U3D": "U3D\ngas dryer"}
+               "U3D": "U3D\ngas dryer", "K1": "K1\nlime kiln"}
 SCENARIOS = ("No heat integration, tail gas not used", "Tail gas burned in U2", "Tail gas + HXN")
 SCEN_SHORT = {SCENARIOS[0]: "no integration", SCENARIOS[1]: "+ tail gas in U2", SCENARIOS[2]: "+ tail gas + HXN"}
 
@@ -111,10 +112,10 @@ def plot_by_unit(res):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(UNIT_LABELS[k], v / dry / 1e3) for k, v in h["unit"].items()]
         big = sum(v for k, v in h["unit"].items() if k in ("U2", "D0", "EC1")) / h["total"]
-        _waterfall(ax, steps, h["total"] / dry / 1e3, CONFIGURATIONS[cfg], ymax=ymax,
+        _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax,
                    note=f"reactor + feed dryer + NaOH concentrator\n= {big:.0%} of the duty")
     axes[0].set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by unit operation", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat duty by unit operation: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_unit.png")
 
 
@@ -126,16 +127,17 @@ def plot_by_origin(res):
              "Water heating and vaporization (U2)": "Water vap.\nreactor", "Sensible heat of solids and NaOH (U2)": "Sensible\nheat (U2)",
              "Water evaporation, feed dryer (D0)": "Water evap.\nfeed dryer", "Sensible heat in the dryer (D0)": "Sensible\nheat (D0)",
              "Causticizing (C1)": "Causti-\ncizing", "Water evaporation, NaOH concentrator (EC1)": "Water evap.\nNaOH conc.",
-             "Gas-drying regeneration (U3D)": "Gas dryer\nregen.", "Heat losses": "Heat\nlosses"}
+             "Gas-drying regeneration (U3D)": "Gas dryer\nregen.", "Heat losses": "Heat\nlosses",
+             "Lime kiln: calcination and cake drying (K1)": "Lime kiln\n(K1)"}
     water = [short[k] for k in short if k.startswith("Water")]
     for ax, (cfg, r) in zip(axes, res.items()):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(short[k], v[0] / dry / 1e3) for k, v in h["origin"].items()]
         share = h["water_handling"] / h["total"]
-        _waterfall(ax, steps, h["total"] / dry / 1e3, CONFIGURATIONS[cfg], ymax=ymax, water_steps=water,
+        _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax, water_steps=water,
                    note=f"water handling = {share:.0%}\nof the heat duty")
     axes[0].set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by physical origin", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat duty by physical origin: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_origin.png")
 
 
@@ -161,19 +163,20 @@ def plot_grade_source(res):
             left += v
         ax.text(left + 0.2, y, f"external {d['ext_total'] / dry / 1e3:.1f}", va="center", fontsize=9, color=INK)
     ax.set_yticks(ys)
-    ax.set_yticklabels([f"{CONFIGURATIONS[c].split(' (')[0]}\n{SCEN_SHORT[s]}" for c, s, _, _ in rows], fontsize=8.5)
+    ax.set_yticklabels([f"{LIME_LABELS[c]}\n{SCEN_SHORT[s]}" for c, s, _, _ in rows], fontsize=8.5)
     ax.set_xlabel("Heat demand by supply (MJ per kg dry seaweed)")
     ax.set_title("External versus internal heat, low- versus high-grade", loc="left", color=INK)
     fig.legend(handles=[Patch(facecolor=LOW, label="external, low-grade (<= 100 C)"), Patch(facecolor=HIGH, label="external, high-grade (> 100 C)"),
                         Patch(facecolor=HXN, hatch="//", edgecolor="white", label="internal: recovered by the HXN"),
                         Patch(facecolor=TAIL, hatch="//", edgecolor="white", label="internal: PSA tail gas (from the biomass)"),
-                        Patch(facecolor="#2a78d6", label=CONFIGURATIONS["att_only"] + " (EROI)"),
-                        Patch(facecolor="#eb6834", label=CONFIGURATIONS["integrated"] + " (EROI)")],
+                        Patch(facecolor="#2a78d6", label="EROI: " + CASE_LABELS["integrated_fresh"]),
+                        Patch(facecolor="#eb6834", label="EROI: " + CASE_LABELS["integrated_recycled"])],
                loc="lower center", ncol=3, frameon=False, fontsize=8.8)
     ax.xaxis.grid(True, color=GRID, lw=0.7); ax.set_axisbelow(True)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
-    colors = {"att_only": "#2a78d6", "integrated": "#eb6834"}
+    colors = {"integrated_fresh": "#2a78d6", "integrated_recycled": "#eb6834",
+              "att_only_fresh": "#2a78d6", "att_only_recycled": "#eb6834"}
     for y, (cfg, sc, d, dry) in zip(ys, rows):
         ax2.barh(y, d["EROI_heat_delivered"], color=colors[cfg], height=0.62)
         ax2.text(d["EROI_heat_delivered"] + 0.015, y, f"{d['EROI_heat_delivered']:.2f}", va="center", fontsize=9)
@@ -186,7 +189,7 @@ def plot_grade_source(res):
     ax2.xaxis.grid(True, color=GRID, lw=0.7); ax2.set_axisbelow(True)
     for side in ("top", "right", "left"):
         ax2.spines[side].set_visible(False)
-    fig.suptitle("Heat supply, heat integration and energy return", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat supply, heat integration and energy return: fresh vs recycled lime (ATT-integration)", fontsize=13, x=0.01, ha="left", color=INK)
     fig.tight_layout(rect=(0, 0.1, 1, 0.97))
     fig.savefig(FIGURES_OUT / "fig_att_heat_grade_source_eroi.png", bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
@@ -222,9 +225,10 @@ def write_tables(res):
 
 
 if __name__ == "__main__":
-    res = build_att_key_metrics()
+    res = build_att_key_metrics()                      # all four cases in the tables (ATT-only kept)
     write_tables(res)
-    plot_by_unit(res)
-    plot_by_origin(res)
-    plot_grade_source(res)
+    fig_res = {c: res[c] for c in FIGURE_CASES}        # the figures compare fresh vs recycled lime (ATT-integration)
+    plot_by_unit(fig_res)
+    plot_by_origin(fig_res)
+    plot_grade_source(fig_res)
     print(f"Saved tables to {TABLES_OUT} and figures to {FIGURES_OUT}")

@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """ATT mass and energy accounting.
 
 Energy accounting helpers for the SaBRe ATT flowsheet are analysis/reporting

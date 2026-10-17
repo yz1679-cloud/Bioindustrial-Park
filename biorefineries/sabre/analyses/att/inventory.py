@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """
 Research-stage material/energy inventory, preliminary LCI and TEA cost inputs
 for the ATT baseline (user decisions 2026-10-09; att.yaml ``inventory``).
@@ -279,9 +287,10 @@ def get_att_tail_gas_offset(sys):
     (delivered heat / burner efficiency). Fuel basis, MJ/h.
     """
     enabled = load_assumptions("att.yaml")["att"]["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
-    tail = _streams(sys)["u3_tail_gas"]
-    tail_LHV = float(tail.LHV) / 1e3 if tail.F_mol else 0.0
-    ng = [hu for hu in sys.heat_utilities if hu.agent and hu.agent.ID == "natural_gas"]
+    s = _streams(sys)
+    tail_LHV = float(s["u3_tail_gas"].LHV) / 1e3 if s["u3_tail_gas"].F_mol else 0.0
+    ng = [hu for ID in ("U2", "K1") if ID in _units(sys) for hu in _units(sys)[ID].heat_utilities
+          if hu.agent and hu.agent.ID == "natural_gas"]   # direct-fired: U2 and the lime kiln
     u2_fuel = sum(hu.duty for hu in ng) / 1e3 / float(_NG["burner_efficiency"])
     offset = min(tail_LHV, u2_fuel) if enabled else 0.0
     return dict(enabled=enabled, tail_gas_LHV_MJph=tail_LHV, u2_fuel_MJph=u2_fuel, offset_MJph=offset,
@@ -382,8 +391,13 @@ def get_att_lci(flows, utilities, products, ca_source=None):
                           ("u3_dryer_removed_water", "Wastewater: U3D removed water"),
                           ("excess_condensate", "Wastewater: condensate in excess of D1 demand")):
         add(label, total[(stream, "TOTAL")], "kg", None, None, "", "MISSING")
-    add("CaCO3 cake (coproduct)", total[("caco3_cake", "TOTAL")], "kg", 0.0, None,
-        "No credit or burden by decision", "excluded by decision")
+    if ("caco3_cake", "TOTAL") in total:
+        add("CaCO3 cake (coproduct)", total[("caco3_cake", "TOTAL")], "kg", 0.0, None,
+            "No credit or burden by decision", "excluded by decision")
+    if ("lime_purge", "TOTAL") in total:
+        add("Lime purge (burnt lime to disposal)", total[("lime_purge", "TOTAL")], "kg", None, None, "", "MISSING")
+        add("Lime kiln exhaust (CO2 from CaCO3 is biogenic)", total[("kiln_exhaust", "TOTAL")], "kg", 0.0, None,
+            "Biogenic CO2 (seaweed carbon captured as carbonate); kiln fuel is counted with the natural gas", "excluded by decision")
     add("PSA off-gas (collected)", total[("u3_tail_gas", "TOTAL")], "kg", 0.0, None,
         "Collected; no combustion credit. Its CO2 is biogenic (0 GWP if released); CH4 fugitive losses "
         "not modeled", "excluded by decision")
@@ -584,6 +598,12 @@ def get_att_water_balance(sys):
     formation = u["U2"]._net_water_formation_kmolph * 18.01528
     rows.append(dict(group="reaction", item="U2 net water formation (negative = consumed)",
                      kg_per_kg_dry=formation / dry))
+    if "K1" in u:   # lime recycle: Ca(OH)2 -> CaO + H2O in the kiln, CaO + H2O -> Ca(OH)2 in the slaker
+        kiln = float(u["K1"].outs[1].imass["Water"] - u["K1"].ins[0].imass["Water"])
+        slaker = float(u["S1"].outs[0].imass["Water"] - sum(x.imass["Water"] for x in u["S1"].ins))
+        rows.append(dict(group="reaction", item="Lime kiln water formation (Ca(OH)2 dehydration)", kg_per_kg_dry=kiln / dry))
+        rows.append(dict(group="reaction", item="Slaker water consumption (CaO hydration)", kg_per_kg_dry=slaker / dry))
+        formation += kiln + slaker
     w_out = 0.0
     for p in sys.products:
         w = float(p.imass["Water"])
@@ -633,6 +653,11 @@ def get_att_sodium_calcium_ledger(sys):
         ("EC1: Na2CO3 crystallized (recycled as solid)", float(EC1._na2co3_crystals_kgph)),
         ("Loss: NaOH in CaCO3 cake", float(s["caco3_cake"].imass["NaOH"])),
         ("Loss: Na2CO3 in CaCO3 cake", float(s["caco3_cake"].imass["Na2CO3"])),
+        ("Loss: NaOH in lime purge", float(s["lime_purge"].imass["NaOH"]) if "lime_purge" in s else 0.0),
+        ("Loss: Na2CO3 in lime purge", float(s["lime_purge"].imass["Na2CO3"]) if "lime_purge" in s else 0.0),
+        ("Lime recycle: NaOH + Na2CO3 returned to C1 with the lime [kg NaOH eq]",
+         (float(s["recycled_lime"].imass["NaOH"]) + 2 * 39.99711 / 105.9888 * float(s["recycled_lime"].imass["Na2CO3"]))
+         if "recycled_lime" in s else 0.0),
         ("Loss: NaOH in liquor purge", float(s["liquor_purge"].imass["NaOH"])),
         ("Loss: Na2CO3 in liquor purge", float(s["liquor_purge"].imass["Na2CO3"])),
         ("Loss: Na2CO3 in ash/char cake", float(s["ash_residue_cake"].imass["Na2CO3"])),

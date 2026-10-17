@@ -319,6 +319,20 @@ att:
 
     # Step 7.13: hypothetical wash-displacement model; disabled reproduces baseline.
     # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
+    # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
+    # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
+    # up the lime purge and the shortfall. Sodium in the cake rides with the lime and returns to C1.
+    lime_recycle:
+      enabled: true
+      calcination_conversion: 0.98      # CaCO3 -> CaO; the rest recycles as inert dead load
+      purge_fraction: 0.05              # share of the burnt lime sent to disposal (impurities; kraft makeup is 5-10 %)
+      solids_outlet_temperature_K: 363.15   # lime leaves cooled: its heat is recovered inside the kiln (air preheat)
+      exhaust_temperature_K: 473.15
+      heat_loss_fraction: 0.45          # lumps flue-gas, shell and discharge losses on the net duty; calibrated so the fuel is about 7.4 GJ LHV per t CaO (7 MMBtu/ton, the low end of the 7-8 MMBtu/ton quoted for kraft kilns)
+      slaking_water_ratio: 1.0          # kmol water per kmol CaO (semi-dry slaking to a dry hydrate)
+      kiln_area_m2_per_t_CaO_per_day: 3.14   # a kraft kiln of ~400 t CaO/d is about 4 m x 100 m (1,257 m2)
+      refractory_factor: 2.0            # kiln shell cost = BioSTEAM drum-dryer correlation x this (refractory lining; assumed)
+      status: "PRELIMINARY: no sourced modern kiln cost; the rotating shell is costed with BioSTEAM's drum-dryer correlation (area-based) times an assumed refractory factor, the firing with the BioSTEAM furnace correlation. +/-50 % or worse."
     f2_washing:
       enabled: false
       wash_ratio_kg_per_kg_dry_cake: 1.0
@@ -476,6 +490,9 @@ att:
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
+      lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
+      kiln_exhaust: [output, air_emission, "Lime kiln exhaust: CO2 from CaCO3 (biogenic, from the seaweed carbon) and water vapor."]
+      slaking_water: [input, process_water, "Water for slaking CaO to Ca(OH)2."]
       excess_condensate: [output, wastewater, "Condensate (EC1 and U3C) in excess of the D1 dissolution-water demand; normally zero."]
       u3_condensate: [internal, recycle, "U3C gas condensate, recycled to D1 (dissolution water)."]
       ec1_condensate: [internal, recycle, "EC1 evaporator condensate, recycled to D1 (dissolution water)."]

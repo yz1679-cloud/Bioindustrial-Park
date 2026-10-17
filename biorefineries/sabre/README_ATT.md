@@ -63,6 +63,8 @@ physical origin), low- versus high-grade and external versus internal heat, and 
 python biorefineries/sabre/analyses/att_key_metrics.py
 ```
 
+Process flow diagram: `results/figures/att_sys.svg` (BioSTEAM auto-generated, `test/run_att_diagram.py`).
+
 Cost and GWP breakdown of H2 for both cases (MSP by cost type, CAPEX by process
 area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):
@@ -142,6 +144,11 @@ biorefineries/sabre/
   CaCO₃ or CH₄ revenue in the reference case. The PSA tail gas (mainly CH₄ and
   unrecovered H₂) is assumed burned in the U2 burner and displaces natural gas
   up to U2's fuel demand (about a third of it); no burner is modeled.
+- Lime recycle (default, `create_att_system(lime_recycle=True)`): the F2 CaCO3 cake is calcined in a lime
+  kiln (K1, natural gas), 5 % is purged (LP), the rest is slaked (S1) and returned to C1 with fresh Ca(OH)2 makeup.
+  Sodium in the cake rides with the lime and returns to C1. The kiln is costed PRELIMINARY (drum-dryer shell
+  correlation x an assumed refractory factor + furnace) and fuelled to about 7.3 GJ per t CaO; its natural gas is
+  counted under "Natural gas U2" in the LCA. `lime_recycle=False` buys all the Ca(OH)2 and disposes of the cake.
 - Heat recovery: BioSTEAM's `HeatExchangerNetwork` (HXN, 10 K minimum approach) is in the
   system by default (`create_att_system(heat_exchanger_network=True)`). Heating and cooling
   duties of D0, C1, EC1 (evaporator and condenser) and U3HX are matched; U2's fired duty, the
@@ -150,11 +157,16 @@ biorefineries/sabre/
 - LCA: GWP100 cradle-to-gate excluding Sargassum collection/transport; no
   allocation or product credits; the PSA tail gas is burned in the U2 burner
   (natural gas offset, biogenic CO₂ not counted, no CH₄ emission).
+- Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
+  it is not helpful. With recycled lime (ATT-integration), splitting 10 % raises the MSP from 2.80 to
+  3.01 USD/kg H2 and the GWP from 17.9 to 18.9 kg CO2e/kg H2 (20 %: 3.27 and 20.2; 50 %: 4.65 and
+  27.1). The smaller PSA and compressor save only about 4 MUSD of FCI per 10 %, far less than the H2
+  revenue lost, and the burned gas displaces natural gas that U2 would need anyway.
 - Main unvalidated items are listed in the documentation sheets 23-24.
 
 ## Credits
 
-SaBRe framework: Azhar Razin and Yalin Li (UIUC open-source license, see the
+ATT model: Yu Zhou and Yalin Li (UIUC open-source license, see the
 module headers). Laboratory data: UCLA collaborators (unpublished; permission
 required, see above).
 

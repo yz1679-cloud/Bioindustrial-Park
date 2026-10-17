@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """
 GWP100 of the frozen ATT process model using BioSTEAM's impact framework.
 
@@ -31,6 +39,7 @@ __all__ = (
     "get_att_gwp_by_stage",
     "get_att_gwp_by_unit",
     "get_att_gwp_summary",
+    "get_att_landfill_credit",
     "get_att_gwp_sensitivity",
     "get_att_lca_factor_register",
     "get_att_lca_data_gaps",
@@ -42,7 +51,8 @@ _LCA = load_assumptions("att_lca.yaml")["lca"]
 KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
-_FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply")}
+_FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
+                 "slaking_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
@@ -57,7 +67,7 @@ _STAGES = {
     "Electricity: cooling tower and CW pumps": "Purchased electricity",
     "Electricity: outside unit models (agitators, EC1 vacuum)": "Purchased electricity",
     "Wastewater treatment": "Waste management",
-    "Landfill: ash/char cake": "Waste management",
+    "Landfill: solid residues": "Waste management",
     "Sargassum collection and transport": "Feedstock collection and transport",
 }
 
@@ -86,7 +96,8 @@ def create_att_lca_system(configuration="att_only"):
 def _wastewater_m3ph(sys):
     s = inv._streams(sys)
     rho = float(_LCA["water_density_kg_per_m3"])
-    return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"]) / rho
+    products = {p.ID for p in sys.products}
+    return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"] if ID in products) / rho
 
 
 def _h2so4_kgph(sys):
@@ -99,7 +110,8 @@ def _h2so4_kgph(sys):
 
 def _landfill_kgph(sys):
     s = inv._streams(sys)
-    return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["landfill_streams"])
+    products = {p.ID for p in sys.products}
+    return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["landfill_streams"] if ID in products)
 
 
 def _cooling_water_kWh_per_kg():
@@ -126,6 +138,8 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
         stream.characterization_factors.pop(KEY, None)
     # Purchased materials (pure streams; checked).
     for ID, (component, name) in _FEED_FACTORS.items():
+        if ID not in s:      # slaking water exists only with the lime recycle
+            continue
         stream = s[ID]
         if abs(float(stream.imass[component]) - float(stream.F_mass)) > 1e-9 * max(1.0, stream.F_mass):
             raise ValueError(f"{ID} is not pure {component}; per-kg stream factor invalid")
@@ -168,7 +182,7 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
                               lambda: _wastewater_m3ph(sys) * hours, f["wastewater_treatment"])
     sys.define_process_impact(KEY, "Purge neutralization (H2SO4)", "kg",
                               lambda: _h2so4_kgph(sys) * hours, f["H2SO4"])
-    sys.define_process_impact(KEY, "Landfill: ash/char cake", "kg",
+    sys.define_process_impact(KEY, "Landfill: solid residues", "kg",
                               lambda: _landfill_kgph(sys) * hours, f["inert_landfill"])
     sys.define_process_impact(KEY, "Electricity: outside unit models (agitators, EC1 vacuum)", "kWh",
                               lambda: aux_kW * hours, f["electricity"])
@@ -218,14 +232,15 @@ def get_att_gwp_contributions(sys, applied):
                          GWP_kgCO2e_per_kg_dry=gwp_yr / dry_yr, GWP_kgCO2e_per_kg_H2=gwp_yr / h2_yr,
                          source=source))
 
-    naoh, lime, water = s["fresh_naoh_solid"], s["lime"], s["dissolution_water"]
+    naoh, lime = s["fresh_naoh_solid"], s["lime"]
+    waters = [s[ID] for ID in ("dissolution_water", "slaking_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
     add("Ca(OH)2", lime.F_mass * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
         lime.get_impact(KEY) * hours, f"{applied['lime_source']}: {_EF[applied['lime_source']]['source']}")
     rho = float(_LCA["water_density_kg_per_m3"])
-    add("Process water (D1)", water.F_mass / rho * hours, "m3", f["water_supply"], "kg CO2e/m3",
-        water.get_impact(KEY) * hours, _EF["water_supply"]["source"])
+    add("Process water (D1)", sum(w.F_mass for w in waters) / rho * hours, "m3", f["water_supply"], "kg CO2e/m3",
+        sum(w.get_impact(KEY) for w in waters) * hours, _EF["water_supply"]["source"])
 
     eta = _LCA["natural_gas"]
     ng = f["natural_gas_combustion"] + f["natural_gas_upstream"]
@@ -252,6 +267,26 @@ def get_att_gwp_contributions(sys, applied):
     for r in rows:
         r["share"] = r["GWP_kgCO2e_per_kg_dry"] / (total_yr / dry_yr)
     return rows
+
+
+LANDFILL_CREDIT_ITEM = "Avoided landfill CH4 (potential credit, not in net)"
+
+
+def get_att_landfill_credit(sys):
+    """
+    Potential credit for the methane the incoming Sargassum would emit in a landfill (IPCC 2006 Vol. 5 Ch. 3,
+    long-term potential). Not part of the net GWP. Returns kg CH4 and kg CO2e (negative = credit) per kg dry
+    feed and per kg H2.
+    """
+    c = _LCA["landfill_counterfactual"]
+    dry = inv._dry_feed_kgph(sys)
+    h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
+    carbon = sum(r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys) if r["direction"] == "input")
+    ch4 = (carbon * c["dissimilated_fraction_DOCf"] * c["methane_correction_factor_MCF"] * c["methane_fraction_F"]
+           * (1.0 - c["gas_capture_fraction_R"]) * (1.0 - c["oxidation_in_cover_OX"]) * 16.04246 / 12.011)
+    return dict(feed_carbon_kg_per_kg_dry=carbon, CH4_kg_per_kg_dry=ch4,
+                GWP_kgCO2e_per_kg_dry=-ch4 * c["CH4_GWP100"],
+                GWP_kgCO2e_per_kg_H2=-ch4 * c["CH4_GWP100"] * dry / h2)
 
 
 def get_att_gwp_by_stage(contributions):
@@ -313,6 +348,7 @@ def get_att_gwp_summary(sys, applied):
     tail = s["u3_tail_gas"]
     U2 = inv._units(sys)["U2"]
     daf = float(U2._daf_sargassum_kgph)
+    credit = get_att_landfill_credit(sys)
     carbon = {r["stream"]: r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys)}
     ch4_reported = float(U2.reported_gas_yield_mmol_per_g_daf["CH4"]) * daf * 16.04246 / 1e3 / dry
     rows = [
@@ -324,6 +360,11 @@ def get_att_gwp_summary(sys, applied):
          f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x 90 % PSA ({U2.gas_closure_method})"),
         ("CH4 in PSA off-gas (model)", float(tail.imass["CH4"]) / dry, "kg/kg dry",
          "explicit collected stream; final fate UNRESOLVED; direct CH4 emission not in baseline GWP; no credit"),
+        ("Potential credit: avoided landfill CH4 (not in net)", credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 landfill potential, MCF/F/OX in att_lca.yaml); "
+         "counterfactual-dependent"),
+        ("GWP100 per kg H2 with the landfill credit", total_yr / h2_yr + credit["GWP_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
+         "net plus the potential credit above"),
         ("Lime source", float("nan"), "", applied["lime_source"]),
         ("Boundary status", float("nan"), "",
          "PARTIAL: Sargassum collection/transport pending" if _LCA["collection_transport"][

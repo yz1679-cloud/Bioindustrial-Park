@@ -45,6 +45,11 @@ class TestATTTEA(unittest.TestCase):
 
 
     def test_caco3_case_b_dcf_matches_cash_change(self):
+        # The CaCO3 cake is a disposed or sold coproduct only without the lime recycle (otherwise it feeds the kiln).
+        self.sys = tea_mod.create_att_tea_system(lime_recycle=False)
+        self.estimates = inv.get_att_cost_estimates(self.sys)
+        self.h2_yr = float(inv._streams(self.sys)["h2_product"].F_mass) * self.sys.operating_hours
+        self.result = tea_mod.evaluate_att_tea(self.sys, self.estimates)
         s = inv._streams(self.sys)
         hours = self.sys.operating_hours
         case_a = tea_mod.evaluate_att_tea(self.sys, self.estimates, caco3=dict(fraction=0.0))["msp"]

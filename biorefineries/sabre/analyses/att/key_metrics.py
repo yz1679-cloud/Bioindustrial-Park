@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """
 Key conversions, material usage, heat duties and energy return of the ATT
 cases (ATT-only and ATT-integration), in the format of the UCLA energy and
@@ -25,21 +33,22 @@ from biorefineries.sabre.analyses.att import lca
 from biorefineries.sabre.units._att import _SARGASSUM_DRY_IDS
 from biorefineries.sabre.utils import load_assumptions
 
-__all__ = ("build_att_key_metrics", "CONFIGURATIONS")
+from biorefineries.sabre.analyses.att.breakdown import CASES, CASE_LABELS, FIGURE_CASES, LIME_LABELS
 
-CONFIGURATIONS = {"att_only": "ATT-only (wet Sargassum)", "integrated": "ATT-integration (presscake)"}
+__all__ = ("build_att_key_metrics", "CASES", "CASE_LABELS", "FIGURE_CASES", "LIME_LABELS")
 LOW_GRADE_T_K = 373.15            # <= 100 C = low-grade (waste-heat usable), as in the slides
 _NA_MW, _NA2CO3_MW = 39.99711, 105.9888
 _ELECTRICITY_MJ_PER_KWH = 3.6     # primary-energy convention of att.inventory
 _ATT = load_assumptions("att.yaml")["att"]
 
 
-def simulate(configuration, hxn):
+def simulate(configuration, hxn, lime_recycle=True):
     from biorefineries.sabre.systems._att_system import create_att_system
 
     scale = inv.get_att_reference_scale(configuration)
     sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration,
-                                          heat_exchanger_network=hxn), scale["dry_feed_kgph"])
+                                          heat_exchanger_network=hxn, lime_recycle=lime_recycle),
+                        scale["dry_feed_kgph"])
     sys.operating_hours = scale["operating_hours_per_year"]
     return sys
 
@@ -81,13 +90,17 @@ def get_conversions(sys):
     gross_kg = float(feed.imass["NaOH"])
     ledger = {r["item"]: r["value"] for r in inv.get_att_sodium_calcium_ledger(sys)}
     f = _NA_MW * 2 / _NA2CO3_MW                    # kg NaOH-eq per kg Na2CO3
+    recycled = "recycled_lime" in s     # with the lime recycle the cake sodium returns with the lime; only the lime purge is lost
     losses = {
-        "CaCO3 cake (F2)": ledger["Loss: NaOH in CaCO3 cake"] + f * ledger["Loss: Na2CO3 in CaCO3 cake"],
+        ("Lime purge" if recycled else "CaCO3 cake (F2)"): (
+            ledger["Loss: NaOH in lime purge"] + f * ledger["Loss: Na2CO3 in lime purge"]) if recycled else (
+            ledger["Loss: NaOH in CaCO3 cake"] + f * ledger["Loss: Na2CO3 in CaCO3 cake"]),
         "Ash/char cake (F1)": f * ledger["Loss: Na2CO3 in ash/char cake"],
         "Liquor purge": ledger["Loss: NaOH in liquor purge"] + f * ledger["Loss: Na2CO3 in liquor purge"],
     }
     loss_total = sum(losses.values())
-    lime = float(s["lime"].imass["CaOH2"])
+    lime = float(C1.ins[1].imass["CaOH2"])            # all Ca(OH)2 fed to C1 (recycled + fresh makeup)
+    lime_fresh = float(s["lime"].imass["CaOH2"])
     lime_stoich = float(C1.ins[0].imol["Na2CO3"]) * 74.093 / 1.0   # kg Ca(OH)2 for all Na2CO3 into C1 (1 mol / mol)
     caco3 = float(C1.outs[0].imass["CaCO3"])
     feed_HHV = float(U2.feed_HHV_MJ_per_kg_daf) * daf                # MJ/h
@@ -131,8 +144,11 @@ def get_conversions(sys):
         add("NaOH", f"NaOH loss share: {k}", v / loss_total if loss_total else 0.0, "-", note="NaOH equivalent")
     add("Ca(OH)2", "Ca(OH)2 fed / stoichiometric for the Na2CO3 into C1", lime / lime_stoich, "-", 1.0, "stoichiometric",
         "specified excess 1.1")
-    add("Ca(OH)2", "Ca(OH)2 per kg H2", lime / h2_kg, "kg/kg H2", carbonate * 74.093 / h2_kg,
-        "Ca(OH)2 for the carbonate formed in U2 (regeneration of the NaOH consumed)")
+    add("Ca(OH)2", "Ca(OH)2 fresh makeup per kg H2", lime_fresh / h2_kg, "kg/kg H2", 0.0,
+        "perfect lime recycle (nothing purchased)", "lime_recycle" if "recycled_lime" in s else "no lime recycle")
+    add("Ca(OH)2", "Ca(OH)2 recycled / Ca(OH)2 fed to C1", 1 - lime_fresh / lime, "-", 1.0, "all lime recycled")
+    add("Ca(OH)2", "Ca(OH)2 per kg H2 without recycle (carbonate formed in U2)", carbonate * 74.093 / h2_kg, "kg/kg H2",
+        note="regeneration of the NaOH consumed; the minimum purchase if the cake is not recycled")
     add("Ca(OH)2", "CaCO3 formed per kg Ca(OH)2 fed (utilization)", caco3 * 74.093 / 100.087 / lime, "-", 1.0, "full utilization")
     water_in_u2 = float(feed.imass["Water"])
     add("Water", "Water fed to U2 per kg daf", water_in_u2 / daf, "kg/kg daf", note="experiment: 7.2 kg steam per kg daf (flow-through)")
@@ -155,15 +171,21 @@ def get_material_usage(sys):
     f = s["att_sargassum_feed"]
     add("input", "Sargassum, dry", dry); add("input", "Sargassum, water as received", float(f.imass["Water"]))
     add("input", "NaOH makeup", float(s["fresh_naoh_solid"].imass["NaOH"]))
-    add("input", "Ca(OH)2", float(s["lime"].imass["CaOH2"]))
+    add("input", "Ca(OH)2 makeup", float(s["lime"].imass["CaOH2"]))
     add("input", "Fresh water (D1 makeup)", float(s["dissolution_water"].F_mass))
+    if "slaking_water" in s:
+        add("input", "Slaking water", float(s["slaking_water"].F_mass))
     add("input", "Drying air", float(s["dryer_air"].F_mass))
     add("output", "H2 product", h2)
     if "biostimulant_juice" in s:
         add("output", "Biostimulant juice (P1)", float(s["biostimulant_juice"].F_mass), "coproduct, zero price")
     add("output", "PSA tail gas (CO2 mostly), burned in U2", float(s["u3_tail_gas"].F_mass))
     add("output", "  of which CO2", float(s["u3_tail_gas"].imass["CO2"]) if "CO2" in s["u3_tail_gas"].chemicals else float(s["u3_tail_gas"].imass["CarbonDioxide"]))
-    add("output", "CaCO3 cake (wet)", float(s["caco3_cake"].F_mass))
+    if "lime_purge" in s:
+        add("output", "Lime purge (burnt lime)", float(s["lime_purge"].F_mass))
+        add("output", "Lime kiln exhaust (CO2, biogenic, + water vapor)", float(s["kiln_exhaust"].F_mass))
+    else:
+        add("output", "CaCO3 cake (wet)", float(s["caco3_cake"].F_mass))
     add("output", "Ash/char cake (wet)", float(s["ash_residue_cake"].F_mass))
     add("output", "Liquor purge", float(s["liquor_purge"].F_mass))
     add("output", "Wastewater (U3D water + excess condensate)",
@@ -202,6 +224,8 @@ def get_heat(sys):
         return sum(hu.duty for hu in unit.heat_utilities if hu.duty > 0.0)
 
     unit_heat = {"D0": heating(D0), "U2": heating(U2), "C1": heating(C1), "EC1": heating(EC1), "U3D": heating(U3D)}
+    if "K1" in u:
+        unit_heat["K1"] = heating(u["K1"])        # lime kiln (lime recycle): natural gas, high-grade
     loss = {"U2": float(U2._heat_loss_kJph), "C1": float(C1._heat_loss_kJph), "EC1": float(EC1._heat_loss_kJph)}
     # D0: latent heat of the evaporated water; the rest is sensible (solids, air)
     d0_latent = float(D0.design_results["Evaporation"]) * float(water.Hvap(D0.T)) / float(water.MW)
@@ -230,6 +254,7 @@ def get_heat(sys):
         "Causticizing (C1)": (c1_process, c1_process),
         "Water evaporation, NaOH concentrator (EC1)": (ec1_process, ec1_process),
         "Gas-drying regeneration (U3D)": (u3d_heat, 0.0),
+        **({"Lime kiln: calcination and cake drying (K1)": (unit_heat["K1"], 0.0)} if "K1" in unit_heat else {}),
         "Heat losses": (sum(loss.values()),
                         loss["U2"] * u2_low_share + loss["C1"] + loss["EC1"]),
     }
@@ -284,14 +309,16 @@ def get_energy_supply(sys_no, sys_hxn, heat):
     return scen, dict(h2_MJph=h2_MJ, recovered_kJph=recovered, tail_delivered_kJph=tail_delivered, total_kJph=total)
 
 
-def build_att_key_metrics():
+def build_att_key_metrics(cases=None):
+    """Metrics per case (keys of CASES; default all four)."""
     out = {}
-    for cfg in CONFIGURATIONS:
-        sys_no = simulate(cfg, hxn=False)
+    for name in (cases or CASES):
+        cfg, recycle = CASES[name]
+        sys_no = simulate(cfg, hxn=False, lime_recycle=recycle)
         conv, mat = get_conversions(sys_no), get_material_usage(sys_no)
         heat = get_heat(sys_no)
-        sys_h = simulate(cfg, hxn=True)
+        sys_h = simulate(cfg, hxn=True, lime_recycle=recycle)
         scen, extra = get_energy_supply(sys_no, sys_h, heat)
         conv_h, mat_h = get_conversions(sys_h), get_material_usage(sys_h)
-        out[cfg] = dict(conversions=conv_h, materials=mat_h, heat=heat, scenarios=scen, extra=extra)
+        out[name] = dict(conversions=conv_h, materials=mat_h, heat=heat, scenarios=scen, extra=extra)
     return out

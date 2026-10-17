@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 """
 Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 at the SaBRe
 reference scale for the two cases:
@@ -31,8 +39,25 @@ from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.analyses.att import lca
 from biorefineries.sabre.analyses.att import tea as tea_mod
 
-__all__ = ("build_att_breakdown", "COST_TYPES", "CONFIGURATIONS")
+__all__ = ("build_att_breakdown", "COST_TYPES", "CONFIGURATIONS", "CASES", "FIGURE_CASES", "CASE_LABELS", "LIME_LABELS")
 
+# (configuration, lime_recycle) per case. ATT-only is kept, but the figures compare fresh vs recycled lime
+# in the ATT-integration configuration (FIGURE_CASES).
+CASES = {
+    "integrated_fresh": ("integrated", False),
+    "integrated_recycled": ("integrated", True),
+    "att_only_fresh": ("att_only", False),
+    "att_only_recycled": ("att_only", True),
+}
+FIGURE_CASES = ("integrated_fresh", "integrated_recycled")
+CASE_LABELS = {
+    "integrated_fresh": "ATT-integration, fresh Ca(OH)2 (cake disposed)",
+    "integrated_recycled": "ATT-integration, recycled lime (kiln + slaker)",
+    "att_only_fresh": "ATT-only, fresh Ca(OH)2 (cake disposed)",
+    "att_only_recycled": "ATT-only, recycled lime (kiln + slaker)",
+}
+LIME_LABELS = {"integrated_fresh": "Fresh Ca(OH)2", "integrated_recycled": "Recycled lime",
+               "att_only_fresh": "Fresh Ca(OH)2", "att_only_recycled": "Recycled lime"}
 CONFIGURATIONS = {
     "att_only": "ATT-only (wet Sargassum)",
     "integrated": "ATT-integration (presscake)",
@@ -51,7 +76,7 @@ COST_TYPES = {
     "Neutralization (H2SO4)": "Waste treatment and disposal",
     "Wastewater treatment": "Waste treatment and disposal",
     "Ash/char cake disposal": "Waste treatment and disposal",
-    "CaCO3 filter cake disposal (TEA Case A)": "Waste treatment and disposal",
+    "CaCO3 cake disposal": "Waste treatment and disposal",
     "PSA off-gas handling (0; fate unresolved)": "Waste treatment and disposal",
     "Biostimulant juice transfer (coproduct)": "Waste treatment and disposal",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost",
@@ -65,7 +90,7 @@ _AREAS = {
     "U3D": "Gas cooling and drying (U3HX, U3C, U3D)", "U3P": "PSA (U3P)", "U3K": "H2 compression (U3K)",
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
-    "EC1": "NaOH evaporation (EC1)",
+    "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
 }
 
 
@@ -83,7 +108,7 @@ def _cost_group(item, category):
                           ("Utility: cooling_water", "Cooling water (agent price)"),
                           ("Electricity", "Electricity"), ("Purge neutralization", "Neutralization (H2SO4)"),
                           ("P1 power", "Electricity"),
-                          ("CaCO3 cake", "CaCO3 filter cake disposal (TEA Case A)"),
+                          ("CaCO3 cake", "CaCO3 cake disposal"),
                           ("PSA off-gas", "PSA off-gas handling (0; fate unresolved)")):
         if item.startswith(prefix):
             return group
@@ -203,14 +228,20 @@ def _gwp_tables(contributions):
     by_item = by_item.sort_values("kgCO2e_per_kg_H2", ascending=False).reset_index(drop=True)
     by_stage = by_item.groupby("stage", as_index=False)[["kgCO2e_per_kg_H2", "share_of_total"]].sum()
     by_stage = by_stage.sort_values("kgCO2e_per_kg_H2", ascending=False).reset_index(drop=True)
+    by_item.insert(2, "counted_in_net", True)
     return by_item, by_stage, total
 
 
-def build_att_breakdown(configuration="att_only"):
-    """One simulation of a case; returns a dict of DataFrames and a summary dict."""
-    sys = tea_mod.create_att_tea_system(configuration)
+def build_att_breakdown(configuration="integrated", lime_recycle=True):
+    """
+    One simulation of a case; returns a dict of DataFrames and a summary dict.
+
+    lime_recycle False buys all the Ca(OH)2 and disposes of the CaCO3 cake at the solid-waste price
+    (TEA Case A: the 520 kt/yr cake has to go somewhere); True recycles the lime through the kiln.
+    """
+    sys = tea_mod.create_att_tea_system(configuration, lime_recycle=lime_recycle)
     estimates = inv.get_att_cost_estimates(sys)
-    result = tea_mod.evaluate_att_tea(sys, estimates)
+    result = tea_mod.evaluate_att_tea(sys, estimates, caco3=None if lime_recycle else dict(fraction=0.0))
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)
     msp_group, msp_type = _msp_tables(dcf, result["msp"])
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
@@ -219,11 +250,19 @@ def build_att_breakdown(configuration="att_only"):
     applied = lca.apply_att_gwp(sys, estimates=estimates)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
+    credit = lca.get_att_landfill_credit(sys)
+    gwp_item = pd.concat([gwp_item, pd.DataFrame([dict(contributor=lca.LANDFILL_CREDIT_ITEM, stage="Potential credit (not in net)",
+                                                       counted_in_net=False, kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
+                                                       share_of_total=credit["GWP_kgCO2e_per_kg_H2"] / gwp_total)])],
+                         ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
-    summary = dict(case=configuration, description=CONFIGURATIONS[configuration],
+    summary = dict(configuration=configuration, lime="recycled" if lime_recycle else "fresh",
+                   description=CONFIGURATIONS[configuration] + ", " + ("recycled lime" if lime_recycle else "fresh lime"),
                    dry_feed_t_per_day=dry * 24 / 1e3,
                    MSP_USD_per_kg_H2=result["msp"], GWP_kgCO2e_per_kg_H2=gwp_total,
+                   GWP_landfill_credit_kgCO2e_per_kg_H2=credit["GWP_kgCO2e_per_kg_H2"],
+                   GWP_with_landfill_credit_kgCO2e_per_kg_H2=gwp_total + credit["GWP_kgCO2e_per_kg_H2"],
                    H2_t_per_yr=h2_kg_yr / 1e3, FCI_MUSD=t.FCI / 1e6, working_capital_MUSD=t.working_capital / 1e6,
                    TCI_MUSD=t.TCI / 1e6, AOC_MUSD_per_yr=float(opex["MUSD_per_yr"].sum()),
                    capital_related_MSP_USD_per_kg_H2=capital_msp,

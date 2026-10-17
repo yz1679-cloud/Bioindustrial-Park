@@ -1,3 +1,11 @@
+# Bioindustrial-Park: BioSTEAM's Premier Biorefinery Models and Results
+# Copyright (C) 2026-, Yu Zhou,
+#                      Yalin Li <mailto.yalin.li@gmail.com>
+#
+# This module is under the UIUC open-source license. See
+# github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
+# for license details.
+
 from math import ceil, exp, log, pi
 
 import biosteam as bst
@@ -21,6 +29,8 @@ __all__ = (
     "ATTMolecularSieve",
     "ATTVesselCost",
     "ATTPSA",
+    "ATTLimeKiln",
+    "ATTLimeSlaker",
 )
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
@@ -259,6 +269,123 @@ class ATTPSA(bst.Splitter):
             self.anchor_installed_cost_usd * (tpd / self.anchor_capacity_t_H2_per_day) ** self.exponent
             * self.cost_factor
         )
+
+
+class ATTLimeKiln(bst.Unit):
+    """
+    Lime kiln of the lime recycle: dries and calcines the F2 cake.
+
+    CaCO3 -> CaO + CO2 (``calcination_conversion``) and Ca(OH)2 -> CaO + H2O; the cake water is
+    evaporated; NaOH, Na2CO3 and any other solids pass through unchanged (sodium rides with the lime).
+    ins: [0] cake. outs: [0] hot-end lime solids (cooled to ``solids_outlet_temperature_K``; the heat
+    of the lime is recovered inside the kiln), [1] exhaust (CO2, water vapor).
+
+    Heat: the net duty (products at their outlet temperatures minus the cake) is supplied by natural gas
+    through an auxiliary furnace (BioSTEAM furnace correlation). Shell: rotating drum costed with
+    BioSTEAM's drum-dryer correlation on a peripheral area proportional to the CaO capacity, times an
+    assumed refractory factor, with the dryer correlation's drive and fan power. PRELIMINARY.
+    """
+    _N_ins = 1
+    _N_outs = 2
+    auxiliary_unit_names = ("heat_exchanger",)
+    _F_BM_default = {"Rotary kiln": 2.06}
+    _units = {"CaO capacity": "t/d", "Kiln shell area": "m2"}
+
+    def _init(self, calcination_conversion=0.98, solids_outlet_temperature_K=363.15, exhaust_temperature_K=473.15,
+              heat_loss_fraction=0.10, kiln_area_m2_per_t_CaO_per_day=3.14, refractory_factor=2.0):
+        self.calcination_conversion = float(calcination_conversion)
+        self.solids_outlet_temperature_K = float(solids_outlet_temperature_K)
+        self.exhaust_temperature_K = float(exhaust_temperature_K)
+        self.heat_loss_fraction = float(heat_loss_fraction)
+        self.kiln_area_m2_per_t_CaO_per_day = float(kiln_area_m2_per_t_CaO_per_day)
+        self.refractory_factor = float(refractory_factor)
+        self.auxiliary("heat_exchanger", bst.HXutility, ins=self.ins, T=1173.15, rigorous=False, heat_only=True,
+                       heat_transfer_efficiency=1.0 / (1.0 + self.heat_loss_fraction))
+
+    def _run(self):
+        cake = self.ins[0]
+        solids, exhaust = self.outs
+        solids.empty()
+        exhaust.empty()
+        solids.phase, exhaust.phase = "s", "g"
+        for chemical in cake.chemicals:
+            ID = chemical.ID
+            n = float(cake.imol[ID])
+            if n and ID not in ("Water", "CaCO3", "CaOH2"):
+                solids.imol[ID] = n
+        caco3 = float(cake.imol["CaCO3"])
+        calcined = self.calcination_conversion * caco3
+        dehydrated = float(cake.imol["CaOH2"])
+        solids.imol["CaCO3"] = caco3 - calcined
+        solids.imol["BurntLime"] += calcined + dehydrated
+        exhaust.imol["CO2"] = calcined
+        exhaust.imol["Water"] = float(cake.imol["Water"]) + dehydrated
+        solids.T, exhaust.T = self.solids_outlet_temperature_K, self.exhaust_temperature_K
+        solids.P = exhaust.P = cake.P
+
+    def _design(self):
+        cake = self.ins[0]
+        solids, exhaust = self.outs
+        duty = float(solids.Hnet + exhaust.Hnet - cake.Hnet)          # kJ/h, net of the internal heat recovery
+        hx = self.heat_exchanger
+        hx.outs[0].copy_like(cake)
+        hx.outs[0].T = 1173.15
+        hx.simulate(run=False, design_kwargs={"duty": duty})
+        cao_tpd = float(solids.imol["BurntLime"]) * 56.0774 * 24.0 / 1e3
+        self._cao_tpd = cao_tpd
+        self.design_results["CaO capacity"] = cao_tpd
+        self.design_results["Kiln shell area"] = self.kiln_area_m2_per_t_CaO_per_day * cao_tpd
+        self.design_results["Net heat duty"] = duty
+        self._units["Net heat duty"] = "kJ/hr"
+
+    def _cost(self):
+        area = self.design_results["Kiln shell area"]
+        if area > 0.0:
+            ratio = area / 1235.35
+            # BioSTEAM DrumDryer: 0.52 x 2.268 MUSD at 1235 m2 peripheral area (CE 525.4, 2007), exponent 0.6, 939 kW.
+            self.baseline_purchase_costs["Rotary kiln"] = (
+                0.52 * 2268000.0 * bst.CE / 525.4 * ratio ** 0.6 * self.refractory_factor)
+            self.add_power_utility(938.866 * ratio ** 0.6)
+
+
+class ATTLimeSlaker(bst.Unit):
+    """
+    Slaker of the lime recycle: CaO + water -> Ca(OH)2 (semi-dry: ``water_ratio`` kmol water per kmol
+    CaO, so the hydrate leaves as a dry solid). The heat of slaking is removed by a costed auxiliary
+    cooler (water proxy) to ``T``; not matched in the HXN.
+    ins: [0] lime solids from the kiln (after the purge), [1] slaking water (set here). outs: [0] hydrated lime.
+    """
+    _N_ins = 2
+    _N_outs = 1
+
+    def _init(self, T=363.15, water_ratio=1.0):
+        self.T = float(T)
+        self.water_ratio = float(water_ratio)
+        _att_add_proxy_exchanger(self, "cooler")
+
+    def _run(self):
+        lime, water = self.ins
+        out = self.outs[0]
+        n_cao = float(lime.imol["BurntLime"])
+        water.empty()
+        water.imol["Water"] = self.water_ratio * n_cao
+        water.phase, water.T = "l", 298.15
+        out.empty()
+        out.phase = "s"
+        for chemical in lime.chemicals:
+            ID = chemical.ID
+            n = float(lime.imol[ID])
+            if n and ID != "BurntLime":
+                out.imol[ID] = n
+        out.imol["CaOH2"] += n_cao
+        out.imol["Water"] += (self.water_ratio - 1.0) * n_cao
+        out.T, out.P = self.T, lime.P
+
+    def _design(self):
+        lime, water = self.ins
+        duty = float(self.outs[0].Hnet - lime.Hnet - water.Hnet)       # kJ/h, negative: heat released
+        if duty < 0.0:
+            _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=False)
 
 
 class ATTPress(bst.Unit):
@@ -1182,9 +1309,12 @@ class CausticizationReactor(bst.Unit):
         lime_equiv=_ATT_DOWNSTREAM["lime_equiv"],
         target_temperature_K=_ATT_DOWNSTREAM["causticization_temperature_K"],
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
+        lime_supplied=False,
         **kwargs,
     ):
         super().__init__(ID, ins, outs, **kwargs)
+        # lime_supplied: the lime inlet is the dosed (recycled + makeup) lime of the system, not set here.
+        self.lime_supplied = bool(lime_supplied)
 
         self.conversion = float(conversion)
         self.lime_equiv = float(lime_equiv)
@@ -1209,10 +1339,11 @@ class CausticizationReactor(bst.Unit):
         na2co3_kmolph = float(carbonate_solution.imol["Na2CO3"])
         required_lime_kmolph = na2co3_kmolph * self.lime_equiv
 
-        # Automatically dose Ca(OH)2.
-        lime.empty()
-        lime.imol["CaOH2"] = required_lime_kmolph
-        lime.phase = "s"
+        # Automatically dose Ca(OH)2 (unless the system supplies the lime, as with lime recycle).
+        if not self.lime_supplied:
+            lime.empty()
+            lime.imol["CaOH2"] = required_lime_kmolph
+            lime.phase = "s"
         slurry.T = self.target_temperature_K
         slurry.P = carbonate_solution.P
 
