@@ -390,7 +390,7 @@ class ATTLimeSlaker(bst.Unit):
 
 class ATTPress(bst.Unit):
     """
-    P1: screw press of the ATT-only plant, with the cost and power basis of a
+    P1: screw press of the fresh-Sargassum plant, with the cost and power basis of a
     municipal biosolids screw press (att.yaml feed_preparation.press).
 
     ins: [0] fresh Sargassum. outs: [0] presscake, [1] press liquid (raw

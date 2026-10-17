@@ -9,7 +9,7 @@
 """
 att_scenarios.py
 ----------------
-Summary table of the four ATT scenarios of ``analyses/att/scenarios.py`` (ATT-only configuration; s1 is the
+Summary table of the four ATT scenarios of ``analyses/att/scenarios.py`` (fresh-Sargassum configuration; s1 is the
 baseline, s2-s4 are alternatives): scale, H2, NaOH and lime use, MSP, FCI and GWP100 (net, with the stored-carbon
 credit, and the alternatives for the landfill-CH4 counterfactual).
 

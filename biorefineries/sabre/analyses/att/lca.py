@@ -79,8 +79,8 @@ def _factors(overrides=None):
     return f
 
 
-def create_att_lca_system(configuration="att_only"):
-    """ATT model at the SaBRe reference scale ("att_only" or "integrated") with operating hours."""
+def create_att_lca_system(configuration="presscake"):
+    """ATT model at the SaBRe reference scale ("presscake" or "fresh_sargassum") with operating hours."""
     from biorefineries.sabre.systems._att_system import create_att_system
 
     scale = inv.get_att_reference_scale(configuration)

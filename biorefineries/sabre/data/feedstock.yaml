@@ -94,7 +94,7 @@ feedstock_type:
       OtherSolids: 0.2959
     source:
       key: wiatrowski2026_preprint
-      note: "Table 1, 'Pressed Solids (15 psi)': ash 32.07, protein 5.71, carbohydrates 14.89, uronic acids 17.74 %; CHN 31.36/3.88/1.16 %. Moisture from Table 2 (23.7 % solids). Used as the presscake of the ATT-integration case and as the cake composition of the ATT-only case. The 40 psi sample (ash 28.54, CHN 31.76/3.89/1.27) has a lower electron capacity (138 vs 149 mmol e-/g daf, O by difference) and does not close the electron balance with the experimental team's gas slate."
+      note: "Table 1, 'Pressed Solids (15 psi)': ash 32.07, protein 5.71, carbohydrates 14.89, uronic acids 17.74 %; CHN 31.36/3.88/1.16 %. Moisture from Table 2 (23.7 % solids). Used as the presscake feed of the presscake configuration and as the cake composition of the fresh_sargassum configuration. The 40 psi sample (ash 28.54, CHN 31.76/3.89/1.27) has a lower electron capacity (138 vs 149 mmol e-/g daf, O by difference) and does not close the electron balance with the experimental team's gas slate."
 
 policies:
   solids_loading_target_ts_wt_frac: 0.15

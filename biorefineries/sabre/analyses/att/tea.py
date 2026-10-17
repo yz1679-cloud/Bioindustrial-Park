@@ -70,8 +70,8 @@ class ATTTEA(SaBReTEA):
         return super().VOC + self.extra_VOC
 
 
-def create_att_tea_system(configuration="att_only", lime_recycle=None):
-    """ATT model at the SaBRe reference scale ("att_only" or "integrated"); lime_recycle None = att.yaml."""
+def create_att_tea_system(configuration="presscake", lime_recycle=None):
+    """ATT model at the SaBRe reference scale ("presscake" or "fresh_sargassum"); lime_recycle None = att.yaml."""
     from biorefineries.sabre.systems._att_system import create_att_system
 
     scale = inv.get_att_reference_scale(configuration)
@@ -394,7 +394,7 @@ def get_att_lime_price_cases(sys, estimates):
 
 def get_att_p1_power_cases(sys, estimates):
     """
-    P1 (ATT-only case): municipal biosolids press (adopted) vs BioSTEAM
+    P1 (fresh-Sargassum case): municipal biosolids press (adopted) vs BioSTEAM
     ScrewPress, power, installed cost, MSP and GWP deltas. Empty without P1.
     """
     from biorefineries.sabre.analyses.att import lca
@@ -482,13 +482,13 @@ def get_att_cost_year_comparison(sys):
     return rows
 
 
-def _configuration(sys):
-    return "att_only" if "P1" in inv._units(sys) else "integrated"
-
-
 def _same_flows(sys, fingerprint, rtol=1e-8):
     now = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     return all(abs(a - b) <= rtol * max(abs(b), 1e-6) for a, b in zip(now, fingerprint))
+
+
+def _configuration(sys):
+    return "fresh_sargassum" if "P1" in inv._units(sys) else "presscake"
 
 
 def _checks(sys, result, fingerprint):

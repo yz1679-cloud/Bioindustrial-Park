@@ -8,7 +8,7 @@
 
 """
 Key conversions, material usage, heat duties and energy return of the ATT
-cases (ATT-only and ATT-integration), in the format of the UCLA energy and
+cases (fresh-Sargassum and presscake feed), in the format of the UCLA energy and
 exergy slides (per kg dry seaweed):
 
 * conversions against theoretical values (H2 yield, carbon capture, NaOH
@@ -22,7 +22,7 @@ exergy slides (per kg dry seaweed):
   return on investment (EROI = H2 energy out / energy in).
 
 Basis of "dry seaweed": the dry solids fed to the plant (fresh Sargassum
-for the ATT-only case, the dry presscake for the integration case).
+for the fresh_sargassum configuration, the dry presscake for the presscake configuration).
 Written by ``analyses/att_key_metrics.py`` to ``results/``.
 """
 import biosteam as bst
@@ -45,7 +45,7 @@ _ATT = load_assumptions("att.yaml")["att"]
 
 def simulate(case, hxn):
     """Simulated system of a scenario (call inside ``scenarios.dose(CASES[case])``)."""
-    return scen.create(CASES[case], hxn=hxn)
+    return scen.create(scen.ALL_SCENARIOS[case], hxn=hxn)
 
 
 def _lhv_MJ_per_kg(ID):
@@ -317,7 +317,7 @@ def build_att_key_metrics(cases=None):
     """Metrics per case (keys of CASES; default all four)."""
     out = {}
     for name in (cases or CASES):
-        with scen.dose(CASES[name]):
+        with scen.dose(scen.ALL_SCENARIOS[name]):
             sys_no = simulate(name, hxn=False)
             heat = get_heat(sys_no)
             sys_h = simulate(name, hxn=True)

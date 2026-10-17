@@ -12,7 +12,7 @@ att_outputs/ at the repository root). Order:
  2 inventory         full-scale mass/energy inventory
  3 tea               MSP           (read by the cross-checks of 5, 6 and 8)
  4 lca               GWP100        (read by the cross-checks of 5, 6 and 8)
- 5 consolidated      full-scale summary (ATT-only case)
+ 5 consolidated      full-scale summary (fresh-Sargassum case)
  6 documentation     master model documentation
  7 diagram_svg/png   process flow diagrams
 

@@ -32,7 +32,7 @@ tea:
     wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge]
     solid_waste_streams: [ash_residue_cake, lime_purge]
     # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
-    juice: 0.0               # biostimulant_juice (ATT-only case): transferred to the biostimulant plant, no price
+    juice: 0.0               # biostimulant_juice (fresh-Sargassum case): transferred to the biostimulant plant, no price
     CaCO3_cake: 0.0          # coproduct; revenue to be set later
     offgas: 0.0              # no sale price; its fuel value is credited as natural gas displaced in the U2 burner (voc item)
     natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
@@ -76,8 +76,8 @@ tea:
     - "Equipment at CEPCI 596.2 (2020 USD) while chemical prices are 2024-2025 and utility prices are BioSTEAM defaults (older basis); the MSP is therefore not a single-year number. Only the municipal press anchor (3.1 MUSD, year unrecorded in the source) and the PSA anchor (year unknown) are not escalated."
     - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
     - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
-    - "P1 (ATT-only case) is costed as a municipal biosolids screw press (3.1 MUSD per 0.953 dry t/h, 5 kWh per dry t); the BioSTEAM ScrewPress (37.2 kWh per t of total wet feed, 115 parallel units) is reported as the alternative."
-    - "ATT-only case: the press liquid (raw juice for biostimulant production) is transferred at zero price and burden; the integrated case has no P1 and no juice."
+    - "P1 (fresh-Sargassum case) is costed as a municipal biosolids screw press (3.1 MUSD per 0.953 dry t/h, 5 kWh per dry t); the BioSTEAM ScrewPress (37.2 kWh per t of total wet feed, 115 parallel units) is reported as the alternative."
+    - "fresh-Sargassum case: the press liquid (raw juice for biostimulant production) is transferred at zero price and burden; the presscake case has no P1 and no juice."
     - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
     - "No lime regeneration (kiln) or alternative lime sourcing in the economics."
 
@@ -88,7 +88,7 @@ tea:
     natural_gas_price_factor: [0.7, 1.3]
     electricity_price_factor: [0.7, 1.3]
     FCI_factor: [0.7, 1.3]
-    # P1 (ATT-only case only): baseline = municipal biosolids press (5 kWh/t dry,
+    # P1 (fresh-Sargassum case only): baseline = municipal biosolids press (5 kWh/t dry,
     # 3.1 MUSD anchor). Alternative = BioSTEAM ScrewPress (power 37.2 kWh per t
     # of TOTAL wet feed, installed cost from its own correlations), applied by
     # evaluate_att_tea(p1_biosteam_screwpress=True).

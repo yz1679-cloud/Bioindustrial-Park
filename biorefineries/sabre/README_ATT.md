@@ -3,8 +3,8 @@
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
 (Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (NLR preprint scale, 3 million wet t/yr) with material, element, Na, water and energy balances, a
-preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, for the ATT-only plant (wet *Sargassum*) in four scenarios:
-a baseline (scenario 1) and three alternatives (recycled lime, waste lime, and full CO₂ capture without a PSA; see Run).
+preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, in four scenarios: a baseline fed with the presscake of a biostimulant plant (scenario 1) and
+three alternatives (recycled lime, waste lime, and waste lime with full CO₂ capture and no PSA; see Run).
 
 > **Data availability.** The measured gas yields and the workbook values in
 > `data/att.yaml` are unpublished laboratory
@@ -72,18 +72,19 @@ area, OPEX by group, GWP100 by contributor), as tables and a figure under
 python biorefineries/sabre/analyses/cost_gwp_breakdown_att.py
 ```
 
-Scenarios (`analyses/att/scenarios.py`, all ATT-only: raw Sargassum, press P1, dryer D0; scenario 1 is the baseline):
+Scenarios (`analyses/att/scenarios.py`; scenario 1 is the baseline):
 
-| | NaOH (g/g daf) | PSA | Lime | Scale |
-|---|---|---|---|---|
-| 1 baseline | 1 (the team's lab dose) | yes | fresh Ca(OH)2, cake disposed | NLR (1,300 dry t/d) |
-| 2 | 1 | yes | recycled (kiln + slaker) | NLR |
-| 3 | 1 | yes | waste lime, free and emission-free | set by the waste supply |
-| 4 | 2.995 (captures all CO₂) | no | waste lime | same as 3 |
+| | Feed | NaOH (g/g daf) | PSA | Lime | Scale |
+|---|---|---|---|---|---|
+| 1 baseline | presscake of a biostimulant plant | 1 (the team's lab dose) | yes | fresh Ca(OH)2, cake disposed | NLR (1,191 dry t/d) |
+| 2 | presscake | 1 | yes | recycled (kiln + slaker) | NLR |
+| 3 | presscake | 1 | yes | waste lime, free and emission-free | set by the waste supply |
+| 4 | presscake | 2.995 (captures all CO₂) | no | waste lime | same as 3 |
 
 Waste lime is carbide lime, which is already Ca(OH)₂ and needs no recalcination; one reference-size carbide plant
-(80 kt/yr CaC₂) gives 92.5 kt/yr Ca(OH)₂, which sets the scale of 3 and 4 (about 136 dry t/d, where 4 uses it all).
-It replaces all the lime (no kiln; cake disposed). Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
+(80 kt/yr CaC₂) gives 92.5 kt/yr Ca(OH)₂, which sets the scale of 3 and 4 (about 121 dry t/d, where 4 uses it all).
+It replaces all the lime (no kiln; cake disposed). The fresh-Sargassum feed (press P1, juice coproduct; scenario 5 of
+`OPTIONAL_SCENARIOS`) is kept for on-request analysis, e.g. `build_att_breakdown("s5")`, but is not part of the standard analyses and figures. Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
 (`results/tables/att_scenarios.csv`); balance per kg dry Sargassum: `analyses/att_balance_1kg.py`.
 
 Every runner accepts `--out`. Results are written below `att_outputs/` at the
@@ -141,10 +142,10 @@ biorefineries/sabre/
   500 °C, 1 h, N₂ carrier and 3.6 g steam; measured H₂, CH₄, CO, CO₂ (mmol/g daf).
   N₂ and the catalyst are laboratory conditions, not plant feeds.
 - Plant: NLR preprint scale, 3 million wet t/yr (9,091 wet t/d, about 1,300 dry t/d) of fresh *Sargassum* (NLR preprint composition), 330 d/yr.
-  ATT-only case: P1 screw press (municipal biosolids press cost and power; the press
+  P1 screw press (municipal biosolids press cost and power; the press
   liquid is the raw juice for biostimulant production, transferred at no price) and
-  D0 dryer to 50 wt % moisture. Integration case: the presscake of the biostimulant
-  plant is fed directly (no P1; available as `configuration="integrated"` but not used in the scenarios). U2 at 773.15 K with 1 kg NaOH/kg daf;
+  D0 dryer to 50 wt % moisture. Presscake configuration (`configuration="presscake"`, the default and the baseline of the scenarios): the presscake of the biostimulant
+  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf;
   gas cooling, drying, compression to 20 bar and PSA (90 % H₂ recovery, tail gas let down to 1.3 bar; `create_att_system(psa=False)`
   leaves it out, as in scenario 4); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
   (85 %, 1.1 equivalents, 90 °C), 5 % whole-liquor purge, evaporation to
@@ -177,7 +178,7 @@ biorefineries/sabre/
   allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is burned in the U2 burner:
   natural gas offset, no CH₄ emission.) The biogenic carbon stored in landfilled solids (CaCO₃ cake, ash/char cake, lime purge) is credited in the net as a negative emission (permanence assumed; carbon released as CO₂ anywhere, including the lime kiln, is not). The avoided landfill CH₄ of the feed is reported as an alternative credit (same carbon, different fate), not in the net and not additive with the stored-carbon credit.
 - Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
-  it is not helpful. At the ATT-integration configuration with recycled lime, splitting 10 % raises the MSP from 2.80 to
+  it is not helpful. At the presscake feed with recycled lime, splitting 10 % raises the MSP from 2.80 to
   3.01 USD/kg H2 and the GWP from 17.9 to 18.9 kg CO2e/kg H2 (20 %: 3.27 and 20.2; 50 %: 4.65 and
   27.1). The smaller PSA and compressor save only about 4 MUSD of FCI per 10 %, far less than the H2
   revenue lost, and the burned gas displaces natural gas that U2 would need anyway.

@@ -91,13 +91,13 @@ def _register_rows():
                       uncertainty_or_limitation=uncertainty, collaborator_confirmation_needed=confirm))
 
     fs = "feedstock.yaml"
-    add("Feedstock", "Feedstock type (ATT-only)", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
+    add("Feedstock", "Feedstock type (fresh-Sargassum)", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
         "NLR preprint fresh Sargassum", SDB, "NLR preprint (Wiatrowski et al.)", "att.yaml:att.feed_preparation.feedstock_type",
-        "ATT-only case; 3 million wet t/yr of fresh Sargassum (NLR scale)")
-    add("Feedstock", "Feedstock type (integrated)", Y("att.yaml", "att.feed_preparation.integrated_feedstock_type"), "-",
+        "fresh-Sargassum case; 3 million wet t/yr of fresh Sargassum (NLR scale)")
+    add("Feedstock", "Feedstock type (presscake)", Y("att.yaml", "att.feed_preparation.presscake_feedstock_type"), "-",
         "feed", "NLR preprint pressed Sargassum", SDB, "NLR preprint (Wiatrowski et al.)",
-        "att.yaml:att.feed_preparation.integrated_feedstock_type",
-        "Integrated case: presscake of the biostimulant plant, no P1")
+        "att.yaml:att.feed_preparation.presscake_feedstock_type",
+        "Presscake case: presscake of the biostimulant plant, no P1; also the composition of the press cake leaving P1")
     ftype = Y("att.yaml", "att.feed_preparation.feedstock_type")
     add("Feedstock", "Moisture as harvested", Y(fs, f"feedstock_type.{ftype}.moisture_frac"), "kg/kg wet", "feed",
         "Initial wet-basis moisture", SDB, "NLR preprint", f"feedstock.yaml:feedstock_type.{ftype}.moisture_frac",
@@ -132,7 +132,7 @@ def _register_rows():
         "Equipment specific-energy ranges reported, not used", "Process, LCA, TEA",
         uncertainty="Real drum dryers 3.2-6.5 MJ/kg water vs ~3.0 ideal")
     add("Preparation", "P1 power", Y("att.yaml", "att.feed_preparation.press.power_kWh_per_dry_ton"),
-        "kWh/t dry solids", "P1", "Municipal biosolids screw press (ATT-only case)", ENG,
+        "kWh/t dry solids", "P1", "Municipal biosolids screw press (fresh-Sargassum case)", ENG,
         "HUBER municipal screw press, 5 kWh per dry t", "att.yaml:att.feed_preparation.press.power_kWh_per_dry_ton",
         "Specified", "BioSTEAM ScrewPress alternative: 37.2 kWh/t total wet feed (see P1 comparison in the TEA tables)",
         "Process, LCA, TEA", "Baseline")
@@ -295,7 +295,7 @@ def _register_rows():
 # ---------------------------------------------------------------------------
 
 _UNIT_INFO = {
-    "P1": ("Mechanical dewatering of wet Sargassum (municipal-type screw press; ATT-only case)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
+    "P1": ("Mechanical dewatering of wet Sargassum (municipal-type screw press; fresh-Sargassum case)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
     "D0": ("Thermal drying to 50 wt% moisture (steam drum dryer)", "att.yaml:att.feed_preparation.*"),
     "M1": ("Mix dried feed with recycled NaOH liquor", "-"),
     "U2": ("Alkaline thermal treatment at 500 C; NG-fired (auxiliary HXutility furnace)", "att.yaml:att.reactor.*"),

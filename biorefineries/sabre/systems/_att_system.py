@@ -55,23 +55,23 @@ def get_att_press_retention():
     """
     types = _FEEDSTOCK_DATA["feedstock_type"]
     fresh = types[_ATT_FEED_PREP["feedstock_type"]]["dry_composition"]
-    pressed = types[_ATT_FEED_PREP["integrated_feedstock_type"]]["dry_composition"]
+    pressed = types[_ATT_FEED_PREP["presscake_feedstock_type"]]["dry_composition"]
     recovery = float(_ATT_FEED_PREP["press"]["solids_recovery"])
     return {ID: min(1.0, recovery * pressed[ID] / fresh[ID]) for ID in fresh}
 
 
-def get_att_reference_dry_feed_kgph(configuration="att_only"):
+def get_att_reference_dry_feed_kgph(configuration="presscake"):
     """
     Dry solids fed to the ATT plant at the NLR preprint scale (3 million wet
-    t/yr of fresh Sargassum, att.yaml feed_preparation.scale): the fresh
-    Sargassum of the ATT-only plant, or the dry presscake that the same
-    Sargassum leaves at a biostimulant plant (integration).
+    t/yr of fresh Sargassum, att.yaml feed_preparation.scale): the dry
+    presscake that the same Sargassum leaves at a biostimulant plant
+    ('presscake'), or the fresh Sargassum itself ('fresh_sargassum').
     """
     from biorefineries.sabre.utils import OPERATING_DAYS_PER_YEAR
     fresh = _FEEDSTOCK_DATA["feedstock_type"][_ATT_FEED_PREP["feedstock_type"]]
     wet_kgph = float(_ATT_FEED_PREP["scale"]["wet_feed_tonnes_per_year"]) * 1e3 / (OPERATING_DAYS_PER_YEAR * 24.0)
     dry = wet_kgph * (1.0 - float(fresh["moisture_frac"]))
-    if configuration == "att_only":
+    if configuration == "fresh_sargassum":
         return dry
     retention = get_att_press_retention()
     return dry * sum(retention[ID] * x for ID, x in fresh["dry_composition"].items())
@@ -87,7 +87,7 @@ def create_att_system(
     heat_exchanger_network=True,
     hxn_T_min_app_K=None,
     lime_recycle=None,
-    configuration="att_only",
+    configuration="presscake",
     psa=None,
 ):
     """
@@ -103,11 +103,11 @@ def create_att_system(
         ATT process case. None selects the baseline case defined in
         data/att.yaml (currently Ni-CatATT).
     configuration : str
-        'att_only' (default): ATT plant that starts from fresh wet Sargassum,
-        with the press P1 (its liquid is the raw juice for biostimulant
-        production, a coproduct). 'integrated': ATT plant that receives the
-        presscake of a biostimulant plant (normally a waste), without P1;
-        ``dry_sargassum_kgph`` is then the dry presscake.
+        'presscake' (default): ATT plant that receives the presscake of a
+        biostimulant plant (normally a waste), without P1; ``dry_sargassum_kgph``
+        is then the dry presscake. 'fresh_sargassum': ATT plant that starts from
+        fresh wet Sargassum, with the press P1 (its liquid is the raw juice for
+        biostimulant production, a coproduct).
     f2_wash_enabled : bool or None
         Add the W2 F2-cake washer. None uses att.yaml downstream.f2_washing.
     f2_wash_ratio : float or None
@@ -153,8 +153,8 @@ def create_att_system(
         chemicals = None
     if chemicals is None or "Char" not in chemicals:
         create_chemicals(include_att=True)
-    if configuration not in ("att_only", "integrated"):
-        raise ValueError("configuration must be 'att_only' or 'integrated'.")
+    if configuration not in ("fresh_sargassum", "presscake"):
+        raise ValueError("configuration must be 'fresh_sargassum' or 'presscake'.")
     # All equipment is costed at the cost-year CEPCI of att_tea.yaml (2020 USD).
     bst.CE = float(_COST_YEAR["reference_CE"])
 
@@ -181,7 +181,7 @@ def create_att_system(
     # scaling basis.
     # --------------------------------------------------------------
     feedstock_type = _ATT_FEED_PREP[
-        "feedstock_type" if configuration == "att_only" else "integrated_feedstock_type"
+        "feedstock_type" if configuration == "fresh_sargassum" else "presscake_feedstock_type"
     ]
     feed_params = get_feedstock_type_params(
         _FEEDSTOCK_DATA,
@@ -220,7 +220,8 @@ def create_att_system(
     # basis is identified).
     # --------------------------------------------------------------
     press_cfg = _ATT_FEED_PREP["press"]
-    if configuration == "att_only":
+    if configuration == "fresh_sargassum":
+        # P1 - screw press; its liquid is the raw juice for biostimulant production (a coproduct).
         P1 = ATTPress(
             "P1",
             ins=raw_feed,
@@ -334,7 +335,7 @@ def create_att_system(
     # target. Na2CO3 is initialized at zero and is determined by recycle
     # convergence.
     # --------------------------------------------------------------
-    if configuration == "att_only":
+    if configuration == "fresh_sargassum":
         # daf of the presscake (the press leaves part of the solids in the juice)
         _retention = get_att_press_retention()
         initial_daf_kgph = dry_sargassum_kgph * sum(

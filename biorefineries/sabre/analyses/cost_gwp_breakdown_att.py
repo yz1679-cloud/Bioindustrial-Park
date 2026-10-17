@@ -10,11 +10,9 @@
 cost_gwp_breakdown_att.py
 ----------------------
 Breakdown of the ATT H2 minimum selling price and GWP100 for the baseline
-(scenario 1: NaOH 1 g/g, PSA, fresh lime, NLR scale) and the alternative
-scenarios 2-4 (recycled lime; waste lime; waste lime with full CO2 capture and
-no PSA) of ``analyses/att/scenarios.py``, all for the ATT-only plant (wet
-Sargassum, press P1, dryer D0; the press liquid goes to biostimulant
-production). MSP by cost type and group, CAPEX by equipment and process area,
+(scenario 1: presscake feed, NaOH 1 g/g, PSA, fresh lime, NLR scale) and the
+alternative scenarios 2-4 (recycled lime; waste lime; waste lime with full CO2
+capture and no PSA) of ``analyses/att/scenarios.py``. MSP by cost type and group, CAPEX by equipment and process area,
 OPEX by group, and GWP100 by contributor. The numbers come from
 ``analyses/att/breakdown.py`` (one simulation per scenario; see its docstring
 for the definitions).
@@ -56,7 +54,7 @@ TABLES_OUT.mkdir(parents=True, exist_ok=True)
 FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
 # One color per case (categorical slots 1-2, dataviz reference palette, light mode).
-CASE_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1"}
+CASE_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14"}
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 _SHORT = {

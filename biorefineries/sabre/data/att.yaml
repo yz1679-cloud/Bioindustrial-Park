@@ -61,16 +61,15 @@ att:
 
   feed_preparation:
     # Feed composition (data/feedstock.yaml, NLR Sargassum preprint): the
-    # ATT-only plant starts from fresh Sargassum (nlr_fresh); the ATT-
-    # integration case receives the presscake of a biostimulant plant
-    # (nlr_pressed) and has no P1.
+    # The fresh_sargassum configuration starts from fresh Sargassum (nlr_fresh) and has P1; the presscake
+    # configuration receives the presscake of a biostimulant plant (nlr_pressed) and has no P1.
     # Plant scale of the NLR preprint TEA (3 million wet t/yr; 1,306 dry t/d in
     # the preprint; 3e6 / 330 d = 9,091 wet t/d here), replacing the SaBRe
     # common 15,000 wet t/d for the ATT cases.
     scale:
       wet_feed_tonnes_per_year: 3000000
     feedstock_type: nlr_fresh
-    integrated_feedstock_type: nlr_pressed
+    presscake_feedstock_type: nlr_pressed
     # P1 mechanical dewatering to the 15 psi screw-press result of the
     # preprint (23.7 % solids), then D0 thermal drying to 50 wt% moisture
     # before U2. D0 is required: the press reaches only 73-76 % moisture, not
@@ -96,7 +95,7 @@ att:
       # WET feed instead (about 56x higher at this feed).
       power_kWh_per_dry_ton: 5.0
       # The press liquid is the raw juice for biostimulant production and is
-      # a coproduct of the ATT-only plant (no wastewater charge; transfer
+      # a coproduct of the fresh-Sargassum plant (no wastewater charge; transfer
       # price in att_tea.yaml).
     att_sargassum_moisture_wt_frac: 0.5
     dryer_temperature_K: 343.15
@@ -502,7 +501,7 @@ att:
       excess_condensate: [output, wastewater, "Condensate (EC1 and U3C) in excess of the D1 dissolution-water demand; normally zero."]
       u3_condensate: [internal, recycle, "U3C gas condensate, recycled to D1 (dissolution water)."]
       ec1_condensate: [internal, recycle, "EC1 evaporator condensate, recycled to D1 (dissolution water)."]
-      biostimulant_juice: [output, coproduct, "ATT-only case: press liquid of P1 = raw juice for biostimulant production (water, plus the solids not retained by the press). Transferred at zero price and burden; present only in the att_only configuration."]
+      biostimulant_juice: [output, coproduct, "fresh-Sargassum case: press liquid of P1 = raw juice for biostimulant production (water, plus the solids not retained by the press). Transferred at zero price and burden; present only in the fresh_sargassum configuration."]
       u3_condensate: [output, wastewater, "U3 gas condensate."]
       u3_dryer_removed_water: [output, wastewater, "U3D removed water."]
       ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]

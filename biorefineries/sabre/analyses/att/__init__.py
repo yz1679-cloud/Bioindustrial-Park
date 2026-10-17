@@ -24,7 +24,7 @@ Full-scale analyses (frozen BioSTEAM model)
 
 Reporting
     reporting        consolidated results; master documentation package
-    breakdown        MSP / CAPEX / OPEX / GWP breakdown of the ATT-only and integrated cases
+    breakdown        MSP / CAPEX / OPEX / GWP breakdown of the four scenarios (fresh-Sargassum feed)
 
 Diagnostics (read-only audits)
     validation       1 kg/h mass/energy audit; sodium ledger

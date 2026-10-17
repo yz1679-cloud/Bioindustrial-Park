@@ -8,14 +8,12 @@
 
 """
 Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 at the SaBRe
-reference scale for the two cases:
+reference scale for the scenarios of ``analyses/att/scenarios.py``, all with the ``fresh_sargassum`` feed:
 
-* ``att_only``   ATT plant fed with wet Sargassum (NLR scale: 3 million wet t/yr): P1 press
-                 (municipal biosolids screw press), D0 dryer and the ATT
-                 process; the press liquid is the raw juice for biostimulant
-                 production (transferred at zero price).
-* ``integrated`` ATT plant fed with the presscake of a biostimulant plant
-                 (normally a waste), without P1.
+* ``fresh_sargassum`` ATT plant fed with wet fresh Sargassum (NLR scale: 3 million wet t/yr): P1 press
+                      (municipal biosolids screw press), D0 dryer and the ATT process; the press liquid is the raw
+                      juice for biostimulant production (transferred at zero price).
+* ``presscake``       ATT plant fed with the presscake of a biostimulant plant (normally a waste), without P1.
 
 * MSP by cost type and group: SaBReTEA's cash-flow table levelized at the
   solved MSP (NPV = 0), so the parts add up to the MSP. CAPEX-related =
@@ -48,8 +46,8 @@ FIGURE_CASES = tuple(CASES)
 CASE_LABELS = scen.CASE_LABELS
 LIME_LABELS = scen.SHORT_LABELS
 CONFIGURATIONS = {
-    "att_only": "ATT-only (wet Sargassum)",
-    "integrated": "ATT-integration (presscake)",
+    "fresh_sargassum": "Fresh Sargassum feed (press P1, dryer D0)",
+    "presscake": "Presscake feed (presscake of a biostimulant plant, no P1)",
 }
 
 # Cost group -> cost type.
@@ -228,7 +226,7 @@ def build_att_breakdown(case="s1"):
     s1 buys all the Ca(OH)2 and disposes of the CaCO3 cake at the solid-waste price (TEA Case A: the cake has to go
     somewhere); s2 recycles the lime through the kiln; s3 and s4 take free waste lime and dispose of the cake.
     """
-    spec = CASES[case]
+    spec = scen.ALL_SCENARIOS[case]
     with scen.dose(spec):
         return _build(case, spec, scen.create(spec))
 

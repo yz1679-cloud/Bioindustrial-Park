@@ -98,5 +98,14 @@ class TestATTBreakdownFullCapture(TestATTBreakdownWasteLime):
         self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 2.995)
 
 
+class TestATTBreakdownFreshSargassum(TestATTBreakdown):
+    """Scenario 5: the baseline chemistry with fresh Sargassum fed to the press P1 (a juice coproduct)."""
+    case = "s5"
+
+    def test_press_is_costed(self):
+        self.assertIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))
+        self.assertNotIn("Feed dewatering (P1)", set(build_att_breakdown("s1")["CAPEX_by_area"]["area"]))
+
+
 if __name__ == "__main__":
     unittest.main()

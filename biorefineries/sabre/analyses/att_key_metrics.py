@@ -13,7 +13,7 @@ Key conversions against theoretical values, material usage, heat duty
 waterfalls (by unit operation and by physical origin), low- versus
 high-grade heat, external versus internal heat (including the effect of
 heat integration) and the energy return on investment of the two ATT
-cases (ATT-only and ATT-integration). See ``analyses/att/key_metrics.py``
+scenarios of ``analyses/att/scenarios.py``. See ``analyses/att/key_metrics.py``
 for the definitions.
 
 Kept as its own script like cost_gwp_breakdown_att.py (the ATT system sets its
@@ -37,6 +37,8 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import textwrap
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
@@ -62,7 +64,7 @@ SCEN_SHORT = {"No heat integration, tail gas not used": "no integration", "Tail 
               "Heat integration (HXN)": "with HXN"}
 
 
-SCEN_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1"}     # one colour per scenario
+SCEN_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14"}     # one colour per scenario
 
 
 def _style():
@@ -116,7 +118,7 @@ def plot_by_unit(res):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(UNIT_LABELS[k], v / dry / 1e3) for k, v in h["unit"].items()]
         big = sum(v for k, v in h["unit"].items() if k in ("U2", "D0", "EC1")) / h["total"]
-        _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax,
+        _waterfall(ax, steps, h["total"] / dry / 1e3, textwrap.fill(CASE_LABELS[cfg], 44), ymax=ymax,
                    note=f"reactor + feed dryer + NaOH concentrator\n= {big:.0%} of the duty")
     for ax in axes[:, 0]:
         ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
@@ -139,7 +141,7 @@ def plot_by_origin(res):
         h, dry = r["heat"], r["heat"]["dry"]
         steps = [(short[k], v[0] / dry / 1e3) for k, v in h["origin"].items()]
         share = h["water_handling"] / h["total"]
-        _waterfall(ax, steps, h["total"] / dry / 1e3, CASE_LABELS[cfg], ymax=ymax, water_steps=water,
+        _waterfall(ax, steps, h["total"] / dry / 1e3, textwrap.fill(CASE_LABELS[cfg], 44), ymax=ymax, water_steps=water,
                    note=f"water handling = {share:.0%}\nof the heat duty")
     for ax in axes[:, 0]:
         ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")

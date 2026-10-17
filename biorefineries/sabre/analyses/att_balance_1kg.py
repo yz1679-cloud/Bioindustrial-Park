@@ -9,10 +9,11 @@
 """
 att_balance_1kg.py
 ------------------
-Mass, electron and energy balance of the ATT route per 1 kg of dry raw Sargassum (ATT-only configuration: raw
-Sargassum, press P1, dryer D0, U2) for the four scenarios of ``analyses/att/scenarios.py``: s1 baseline (NaOH 1 g/g,
-PSA, fresh lime), s2 recycled lime, s3 waste lime, s4 waste lime with the NaOH dose that captures all the CO2 and no
-PSA. Per kg of feed the balance does not depend on the plant scale, so s3 and s4 use the same 1 kg basis.
+Mass, electron and energy balance of the ATT route per 1 kg of dry feed (dry presscake) for the scenarios of
+``analyses/att/scenarios.py``: s1 baseline (NaOH 1 g/g, PSA, fresh lime), s2 recycled lime, s3 waste lime, s4 waste
+lime with the NaOH dose that captures all the CO2 and no PSA. Per kg of feed the balance does not depend on the plant
+scale, so s3 and s4 use the same 1 kg basis. The raw-Sargassum and press rows are filled for the optional
+fresh-Sargassum scenario s5 only.
 
 Output: ../results/tables/att_balance_1kg_raw.csv
 
@@ -53,7 +54,10 @@ def _organic_formula(stream):
 def balance(sys):
     s, u = inv._streams(sys), inv._units(sys)
     U2, C1 = u["U2"], u["C1"]
-    raw, cake, juice = s["att_sargassum_feed"], s["pressed_sargassum"], s["biostimulant_juice"]
+    has_press = "pressed_sargassum" in s       # fresh_sargassum feed only
+    raw = s["att_sargassum_feed"]
+    cake, juice = (s["pressed_sargassum"], s["biostimulant_juice"]) if has_press else (raw, None)
+    nan = float("nan")
     feed, (gas, residue) = U2.ins[0], U2.outs
     daf = float(U2._daf_sargassum_kgph)
     rows = []
@@ -63,21 +67,21 @@ def balance(sys):
 
     # 1. Raw Sargassum and press cake ------------------------------------------------
     dry_raw = float(raw.F_mass - raw.imass["Water"])
-    add("1 Feed", "Raw Sargassum, dry", dry_raw, "kg")
-    add("1 Feed", "  ash", float(raw.imass["Ash"]), "kg")
-    add("1 Feed", "  organic (daf)", dry_raw - float(raw.imass["Ash"]), "kg")
-    add("1 Feed", "Raw Sargassum, wet (14.3 % solids)", float(raw.F_mass), "kg")
+    add("1 Feed", "Raw Sargassum, dry", dry_raw if has_press else nan, "kg", "" if has_press else "presscake feed: no raw Sargassum")
+    add("1 Feed", "  ash", float(raw.imass["Ash"]) if has_press else nan, "kg")
+    add("1 Feed", "  organic (daf)", dry_raw - float(raw.imass["Ash"]) if has_press else nan, "kg")
+    add("1 Feed", "Raw Sargassum, wet (14.3 % solids)", float(raw.F_mass) if has_press else nan, "kg")
     f_raw, w_raw = _organic_formula(raw)
     f_cake, w_cake = _organic_formula(cake)
     add("1 Feed", "Empirical formula of the raw organics (per C)",
-        "CH{H:.3f}O{O:.3f}N{N:.4f}S{S:.5f}".format(**f_raw), "-", "C/H/O/N/S in the model chemicals; O is by composition")
-    add("1 Feed", "  CHN of the raw dry solids (C / H / N)", f"{w_raw['C']*100:.2f} / {w_raw['H']*100:.2f} / {w_raw['N']*100:.2f}",
+        "CH{H:.3f}O{O:.3f}N{N:.4f}S{S:.5f}".format(**f_raw) if has_press else "n/a", "-", "C/H/O/N/S in the model chemicals; O is by composition")
+    add("1 Feed", "  CHN of the raw dry solids (C / H / N)", f"{w_raw['C']*100:.2f} / {w_raw['H']*100:.2f} / {w_raw['N']*100:.2f}" if has_press else "n/a",
         "wt %", "preprint Table 1: 26.94 / 3.34 / 1.26")
-    add("1 Feed", "Press cake, wet (23.7 % solids)", float(cake.F_mass), "kg", "P1 screw press, att.yaml")
+    add("1 Feed", "Press cake, wet (23.7 % solids)", float(cake.F_mass), "kg", "P1 screw press, att.yaml" if has_press else "presscake feed")
     add("1 Feed", "  dry solids", float(cake.F_mass - cake.imass["Water"]), "kg", "component-wise retention")
     add("1 Feed", "  ash", float(cake.imass["Ash"]), "kg")
     add("1 Feed", "  organic (daf, to U2)", daf, "kg")
-    add("1 Feed", "Press liquid (juice), wet", float(juice.F_mass), "kg", "carries 0.048 kg ash and the mannitol/protein lost")
+    add("1 Feed", "Press liquid (juice), wet", float(juice.F_mass) if has_press else nan, "kg", "carries 0.048 kg ash and the mannitol/protein lost")
     add("1 Feed", "Empirical formula of the cake organics (per C)",
         "CH{H:.3f}O{O:.3f}N{N:.4f}S{S:.5f}".format(**f_cake), "-")
     add("1 Feed", "Feed HHV of the cake organics", float(U2.feed_HHV_MJ_per_kg_daf), "MJ/kg daf", "att.yaml energy_basis")
@@ -94,9 +98,9 @@ def balance(sys):
             "all CO2 captured as carbonate (the team's slate at 1 g/g NaOH had 22.68)")
     add("2 Gas", "Theoretical H2 limit (all electrons to H2, C -> CO2)", e_feed / 2 * per_g, "mmol H2/g daf")
     add("2 Gas", "Current H2 / theoretical limit", h2 / (e_feed / 2), "-")
-    add("2 Gas", "H2 at the U2 outlet", h2 * MW["H2"], "kg per kg raw dry")
-    add("2 Gas", "Theoretical H2 limit", e_feed / 2 * MW["H2"], "kg per kg raw dry")
-    add("2 Gas", "H2 in the product gas", float(s["h2_product"].imass["H2"]), "kg per kg raw dry",
+    add("2 Gas", "H2 at the U2 outlet", h2 * MW["H2"], "kg per kg dry feed")
+    add("2 Gas", "Theoretical H2 limit", e_feed / 2 * MW["H2"], "kg per kg dry feed")
+    add("2 Gas", "H2 in the product gas", float(s["h2_product"].imass["H2"]), "kg per kg dry feed",
         "no PSA: all the H2 (98.6 mol %, the rest CH4 and CO) is product")
     add("2 Gas", "Reducing power in H2 / CH4 + CO / unidentified", f"{2*h2/e_feed:.3f} / {(8*ch4+2*co)/e_feed:.3f} / "
         f"{1-(2*h2+8*ch4+2*co)/e_feed:.3f}", "fraction of electrons")
@@ -109,9 +113,9 @@ def balance(sys):
     add("3 NaOH", "CO2 generated", co2_total * per_g, "mmol/g daf", "all captured as Na2CO3")
     add("3 NaOH", "NaOH dose to capture all CO2 (2 per CO2)", 2 * co2_total * per_g, "mmol/g daf")
     add("3 NaOH", "NaOH dose to capture all CO2", gross / daf, "kg/kg daf", "the team's lab dose was 1.0")
-    add("3 NaOH", "NaOH fed to U2 (fresh + recycled)", gross, "kg per kg raw dry")
-    add("3 NaOH", "  fresh makeup", makeup, "kg per kg raw dry")
-    add("3 NaOH", "  recycled", gross - makeup, "kg per kg raw dry")
+    add("3 NaOH", "NaOH fed to U2 (fresh + recycled)", gross, "kg per kg dry feed")
+    add("3 NaOH", "  fresh makeup", makeup, "kg per kg dry feed")
+    add("3 NaOH", "  recycled", gross - makeup, "kg per kg dry feed")
     add("3 NaOH", "NaOH recycle rate (recycled / fed)", 1 - makeup / gross, "-",
         "SP1 whole-liquor recycle 95 %, C1 conversion and the losses set it")
 
@@ -120,15 +124,15 @@ def balance(sys):
     stoich = na2co3_c1 * MW["CaOH2"]
     fed = float(C1.ins[1].imass["CaOH2"])
     fresh = float(s["lime"].imass["CaOH2"])
-    add("4 Ca(OH)2", "Stoichiometric Ca(OH)2 to regenerate the NaOH (1 per Na2CO3)", stoich, "kg per kg raw dry")
-    add("4 Ca(OH)2", "Ca(OH)2 fed to C1 (1.1 x stoichiometric)", fed, "kg per kg raw dry")
-    add("4 Ca(OH)2", "  fresh (bought)", fresh, "kg per kg raw dry")
-    add("4 Ca(OH)2", "  recycled (kiln + slaker)", fed - fresh, "kg per kg raw dry")
+    add("4 Ca(OH)2", "Stoichiometric Ca(OH)2 to regenerate the NaOH (1 per Na2CO3)", stoich, "kg per kg dry feed")
+    add("4 Ca(OH)2", "Ca(OH)2 fed to C1 (1.1 x stoichiometric)", fed, "kg per kg dry feed")
+    add("4 Ca(OH)2", "  fresh (bought)", fresh, "kg per kg dry feed")
+    add("4 Ca(OH)2", "  recycled (kiln + slaker)", fed - fresh, "kg per kg dry feed")
     add("4 Ca(OH)2", "Ca(OH)2 recycle rate", 1 - fresh / fed, "-")
-    add("4 Ca(OH)2", "CaCO3 formed", float(C1.outs[0].imass["CaCO3"]), "kg per kg raw dry")
+    add("4 Ca(OH)2", "CaCO3 formed", float(C1.outs[0].imass["CaCO3"]), "kg per kg dry feed")
 
     # 5. Fate of the feed energy ---------------------------------------------------------
-    feed_HHV = float(U2.feed_HHV_MJ_per_kg_daf) * daf               # MJ per kg raw dry
+    feed_HHV = float(U2.feed_HHV_MJ_per_kg_daf) * daf               # MJ per kg dry feed
     hhv = {i: km._hhv_MJ_per_kg(i) for i in ("H2", "CH4", "CO")}
     gas_HHV = {i: float(gas.imass[i]) * hhv[i] for i in hhv}
     h2_prod_HHV = float(s["h2_product"].imass["H2"]) * hhv["H2"]
@@ -137,7 +141,7 @@ def balance(sys):
         hu.duty for hu in sys.heat_utilities if hu.agent.ID == "low_pressure_steam") / 1e3 / 0.80
     elec = float(sys.power_utility.rate) * 3.6                        # kW -> MJ/h
     heat_u2 = float(U2._heat_duty_kJph) / 1e3                        # MJ/h, net process heat into U2 (incl. reaction)
-    add("5 Energy", "Feed HHV (cake organics)", feed_HHV, "MJ per kg raw dry")
+    add("5 Energy", "Feed HHV (cake organics)", feed_HHV, "MJ per kg dry feed")
     add("5 Energy", "Process heat into U2 (500 C, reaction enthalpy included)", heat_u2, "MJ",
         f"{heat_u2/feed_HHV:.2f} x feed HHV; the gas carries more HHV than the feed because the heat and the "
         "NaOH/carbonate chemistry drive the reaction")

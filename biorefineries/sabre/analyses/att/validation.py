@@ -393,7 +393,7 @@ def _limitations():
         "U2 takes the specified gas yields of the experimental team; carbon not otherwise assigned leaves as CO2 and "
         "oxygen closes with water. Unidentified products are not tracked.",
         "Feed composition is the NLR preprint composition, not an analysis of the UCLA sample.",
-        "P1 (ATT-only case) uses municipal-press cost and power (5 kWh per dry t); the BioSTEAM ScrewPress is the reported alternative.",
+        "P1 (fresh-Sargassum case) uses municipal-press cost and power (5 kWh per dry t); the BioSTEAM ScrewPress is the reported alternative.",
         "Cost-estimate equipment (C1 tank, EC1 vacuum) power is included in the utility table only as an estimate.",
     )]
 
@@ -445,8 +445,8 @@ def build_att_1kgph_audit():
     }
     # Full-scale reference run for the comparison only (separate system object).
     from biorefineries.sabre.systems._att_system import create_att_system
-    scale = inv.get_att_reference_scale("att_only")
-    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration="att_only"),
+    scale = inv.get_att_reference_scale()
+    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]),
                         scale["dry_feed_kgph"])
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
     aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
