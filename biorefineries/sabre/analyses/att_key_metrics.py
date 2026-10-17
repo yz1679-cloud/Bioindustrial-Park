@@ -64,7 +64,7 @@ SCEN_SHORT = {"No heat integration, tail gas not used": "no integration", "Tail 
               "Heat integration (HXN)": "with HXN"}
 
 
-SCEN_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14"}     # one colour per scenario
+SCEN_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14", "s6": "#7a7a7a"}     # one colour per scenario
 
 
 def _style():
@@ -112,7 +112,7 @@ def _save(fig, name):
 
 def plot_by_unit(res):
     _style()
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10.5), sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(20, 10.5), sharey=True)
     ymax = 1.2 * max(r["heat"]["total"] / r["heat"]["dry"] / 1e3 for r in res.values())
     for ax, (cfg, r) in zip(axes.flat, res.items()):
         h, dry = r["heat"], r["heat"]["dry"]
@@ -122,13 +122,13 @@ def plot_by_unit(res):
                    note=f"reactor + feed dryer + NaOH concentrator\n= {big:.0%} of the duty")
     for ax in axes[:, 0]:
         ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by unit operation: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat duty by unit operation: baseline (1) and alternative scenarios (2-5)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_unit.png")
 
 
 def plot_by_origin(res):
     _style()
-    fig, axes = plt.subplots(2, 2, figsize=(18, 11.5), sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(24, 11.5), sharey=True)
     ymax = 1.2 * max(r["heat"]["total"] / r["heat"]["dry"] / 1e3 for r in res.values())
     short = {"Reaction enthalpy (U2)": "Reaction\nenthalpy", "NaOH heat of solution (not recovered)": "NaOH heat\nof solution",
              "Water heating and vaporization (U2)": "Water vap.\nreactor", "Sensible heat of solids and NaOH (U2)": "Sensible\nheat (U2)",
@@ -145,7 +145,7 @@ def plot_by_origin(res):
                    note=f"water handling = {share:.0%}\nof the heat duty")
     for ax in axes[:, 0]:
         ax.set_ylabel("Heating duty before heat integration\n(MJ per kg dry seaweed)")
-    fig.suptitle("Heat duty by physical origin: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat duty by physical origin: baseline (1) and alternative scenarios (2-5)", fontsize=13, x=0.01, ha="left", color=INK)
     _save(fig, "fig_att_heat_by_origin.png")
 
 
@@ -196,7 +196,7 @@ def plot_grade_source(res):
     ax2.xaxis.grid(True, color=GRID, lw=0.7); ax2.set_axisbelow(True)
     for side in ("top", "right", "left"):
         ax2.spines[side].set_visible(False)
-    fig.suptitle("Heat supply, heat integration and energy return: baseline (1) and alternative scenarios (2-4)", fontsize=13, x=0.01, ha="left", color=INK)
+    fig.suptitle("Heat supply, heat integration and energy return: baseline (1) and alternative scenarios (2-5)", fontsize=13, x=0.01, ha="left", color=INK)
     fig.tight_layout(rect=(0, 0.13, 1, 0.97))
     fig.savefig(FIGURES_OUT / "fig_att_heat_grade_source_eroi.png", bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)

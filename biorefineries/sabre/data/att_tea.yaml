@@ -30,7 +30,7 @@ tea:
       value: 0.000441
       source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
     wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge]
-    solid_waste_streams: [ash_residue_cake, lime_purge]
+    solid_waste_streams: [ash_residue_cake, lime_purge, scrubber_cake]
     # tea.yaml disposal_wastewater / disposal_solid (negative = cost).
     juice: 0.0               # biostimulant_juice (fresh-Sargassum case): transferred to the biostimulant plant, no price
     CaCO3_cake: 0.0          # coproduct; revenue to be set later

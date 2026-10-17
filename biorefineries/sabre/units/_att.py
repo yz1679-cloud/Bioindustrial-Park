@@ -31,6 +31,7 @@ __all__ = (
     "ATTPSA",
     "ATTLimeKiln",
     "ATTLimeSlaker",
+    "ATTCO2Scrubber",
 )
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
@@ -386,6 +387,62 @@ class ATTLimeSlaker(bst.Unit):
         duty = float(self.outs[0].Hnet - lime.Hnet - water.Hnet)       # kJ/h, negative: heat released
         if duty < 0.0:
             _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=False)
+
+
+class ATTCO2Scrubber(bst.Unit):
+    """
+    CO2 scrubber: the cooled gas (after the condensate separator U3C) bubbles through a Ca(OH)2 slurry,
+    Ca(OH)2 + CO2 -> CaCO3 + H2O (carbonation). ``co2_capture`` of the CO2 is fixed; the lime fed is
+    ``lime_excess`` x the CO2 captured (set here); the slurry water is the recycled filtrate (ins[2]) plus a
+    makeup (ins[3], set here) so that the slurry leaves at ``slurry_solids_wt_frac`` solids. The reaction heat is
+    removed by a costed auxiliary cooler (water proxy) to ``T``. PRELIMINARY costing: a stirred slurry tank with
+    ``tau_h`` residence time; the gas-liquid contactor internals, blower and pressure drop are not costed.
+    ins: [0] cooled gas, [1] lime (waste Ca(OH)2), [2] recycled filtrate, [3] makeup water.
+    outs: [0] scrubbed gas, [1] CaCO3 slurry (to the dewatering filter).
+    """
+    _N_ins = 4
+    _N_outs = 2
+
+    def _init(self, T=313.15, co2_capture=0.99, lime_excess=1.1, slurry_solids_wt_frac=0.25, tau_h=0.5):
+        self.T = float(T)
+        self.co2_capture = float(co2_capture)
+        self.lime_excess = float(lime_excess)
+        self.slurry_solids_wt_frac = float(slurry_solids_wt_frac)
+        _att_add_proxy_exchanger(self, "cooler")
+        tank = self.auxiliary("tank", bst.MixTank, ins=bst.Stream(None), tau=float(tau_h))
+        self.register_auxiliary(tank, "tank")
+
+    def _run(self):
+        gas, lime, filtrate, makeup = self.ins
+        scrubbed, slurry = self.outs
+        n_co2 = float(gas.imol["CO2"])
+        captured = self.co2_capture * n_co2
+        unreacted = (self.lime_excess - 1.0) * captured
+        lime.empty()
+        lime.phase, lime.T = "s", 298.15
+        lime.imol["CaOH2"] = self.lime_excess * captured
+        solids_kg = captured * 100.0869 + unreacted * 74.09268
+        water_target_kmol = solids_kg * (1.0 - self.slurry_solids_wt_frac) / self.slurry_solids_wt_frac / 18.01528
+        makeup.empty()
+        makeup.phase, makeup.T = "l", 298.15
+        makeup.imol["Water"] = max(water_target_kmol - captured - float(filtrate.imol["Water"]), 0.0)
+        scrubbed.copy_like(gas)
+        scrubbed.imol["CO2"] = n_co2 - captured
+        scrubbed.T = self.T
+        slurry.empty()
+        slurry.phase = "l"
+        slurry.imol["CaCO3"] = captured
+        slurry.imol["CaOH2"] = unreacted
+        slurry.imol["Water"] = float(filtrate.imol["Water"]) + float(makeup.imol["Water"]) + captured
+        slurry.T, slurry.P = self.T, gas.P
+
+    def _design(self):
+        slurry = self.outs[1]
+        duty = float(sum(s.Hnet for s in self.outs) - sum(s.Hnet for s in self.ins))     # kJ/h, negative: heat released
+        self.tank.ins[0].copy_like(slurry)
+        self.tank.simulate()
+        if duty < 0.0:
+            _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=False)
 
 
 class ATTPress(bst.Unit):

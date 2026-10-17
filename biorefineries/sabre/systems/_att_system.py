@@ -24,6 +24,7 @@ from biorefineries.sabre.units._att import (
     ATTCompressor,
     ATTMolecularSieve,
     ATTPSA,
+    ATTCO2Scrubber,
     ATTLimeKiln,
     ATTLimeSlaker,
     aqueous_naoh_enthalpy_correction_kJph,
@@ -89,6 +90,7 @@ def create_att_system(
     lime_recycle=None,
     configuration="presscake",
     psa=None,
+    co2_scrubber=None,
 ):
     """
     Build the alkaline thermal treatment (ATT) process.
@@ -127,6 +129,11 @@ def create_att_system(
         excluded. False gives the flowsheet with every duty on utilities.
     hxn_T_min_app_K : float or None
         HXN minimum approach temperature. None uses att.yaml.
+    co2_scrubber : bool or None
+        Scrub the CO2 out of the cooled gas (after U3C, before U3D) with a Ca(OH)2 slurry (SCRUB) and dewater the
+        CaCO3 slurry in the filter F3 (cake at the F2 moisture, filtrate recycled to the scrubber). The scrubber lime
+        is the feed stream ``scrubber_lime`` (priced like ``lime``). None uses att.yaml
+        downstream.co2_scrubber.enabled (baseline: False).
     psa : bool or None
         Purify the compressed gas in a PSA (U3P, 90 % H2 recovery, tail gas burned) or not. None uses
         att.yaml gas_treatment.psa_enabled (baseline: False; with all CO2 captured as carbonate the gas
@@ -515,9 +522,27 @@ def create_att_system(
         ]
     )
 
+    # SCRUB - optional CO2 scrubber on the cooled gas (Ca(OH)2 slurry, carbonation to CaCO3); its slurry is dewatered in
+    # F3 (defined with the other filters) and the filtrate returns to the scrubber.
+    scrub_cfg = _ATT_DOWNSTREAM["co2_scrubber"]
+    co2_scrubber = bool(scrub_cfg["enabled"] if co2_scrubber is None else co2_scrubber)
+    SCRUB = scrubber_filtrate = None
+    if co2_scrubber:
+        scrubber_filtrate = bst.Stream("scrubber_filtrate", Water=1.0, units="kg/hr")
+        SCRUB = ATTCO2Scrubber(
+            "SCRUB",
+            ins=(U3C - 0, bst.Stream("scrubber_lime"), scrubber_filtrate, bst.Stream("scrubber_makeup_water")),
+            outs=("u3_scrubbed_gas", "scrubber_slurry"),
+            T=float(scrub_cfg["temperature_K"]),
+            co2_capture=float(scrub_cfg["co2_capture"]),
+            lime_excess=float(scrub_cfg["lime_excess"]),
+            slurry_solids_wt_frac=float(scrub_cfg["slurry_solids_wt_frac"]),
+            tau_h=float(scrub_cfg["tank_tau_h"]),
+        )
+
     U3D = ATTMolecularSieve(
         "U3D",
-        ins=U3C - 0,
+        ins=(SCRUB - 0) if SCRUB is not None else (U3C - 0),
         outs=(
             "u3_dry_gas",
             "u3_dryer_removed_water",
@@ -929,6 +954,21 @@ def create_att_system(
     )
 
     # --------------------------------------------------------------
+    # F3 - dewatering filter of the CO2-scrubber slurry (same filter type and cake moisture as F2): the cake is
+    # the disposed CaCO3 (smaller than the slurry), the filtrate is recycled to the scrubber.
+    # --------------------------------------------------------------
+    F3 = None
+    if SCRUB is not None:
+        F3 = bst.RotaryVacuumFilter(
+            "F3",
+            ins=SCRUB - 1,
+            outs=("scrubber_cake", scrubber_filtrate),
+            split=make_initial_filter_split(SCRUB.outs[1].chemicals),
+            moisture_content=_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"],
+        )
+        add_mother_liquor_entrainment_spec(F3, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"])
+
+    # --------------------------------------------------------------
     # W2 - Optional F2 cake washer. Material-only engineering scenario.
     # BOTH cake and filtrate enter W2, so recovered solutes flow to SP1.
     # In the wash-enabled case, the unwashed F2 cake is not the final cake.
@@ -1121,6 +1161,7 @@ def create_att_system(
         U2,
         U3HX,
         U3C,
+        *([SCRUB, F3] if SCRUB is not None else []),
         U3D,
         U3K,
         *([U3P, U3V] if psa else []),
@@ -1149,7 +1190,7 @@ def create_att_system(
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([recycled_lime] if use_lime_recycle else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else [])),
         # Step 7.4 adds a nonlinear makeup/concentration specification.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

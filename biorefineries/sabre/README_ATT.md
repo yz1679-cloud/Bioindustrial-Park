@@ -3,8 +3,8 @@
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
 (Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (NLR preprint scale, 3 million wet t/yr) with material, element, Na, water and energy balances, a
-preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, in four scenarios: a baseline fed with the presscake of a biostimulant plant (scenario 1) and
-three alternatives (recycled lime, waste lime, and waste lime with full CO₂ capture and no PSA; see Run).
+preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, in five scenarios: a baseline fed with the presscake of a biostimulant plant (scenario 1) and
+four alternatives (recycled lime, waste lime, waste lime with full CO₂ capture and no PSA, and a waste-lime CO₂ scrubber without PSA; see Run).
 
 > **Data availability.** The measured gas yields and the workbook values in
 > `data/att.yaml` are unpublished laboratory
@@ -55,7 +55,7 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
 Key conversions against theoretical values, material usage, heat-duty waterfalls (by unit and by
-physical origin), low- versus high-grade and external versus internal heat, and EROI, for the four scenarios
+physical origin), low- versus high-grade and external versus internal heat, and EROI, for the five scenarios
 (`results/tables/att_*.csv`, `results/figures/fig_att_heat_*.png`):
 
 ```
@@ -64,7 +64,7 @@ python biorefineries/sabre/analyses/att_key_metrics.py
 
 Process flow diagram: `results/figures/att_sys.svg` (BioSTEAM auto-generated, `test/run_att_diagram.py`).
 
-Cost and GWP breakdown of H2 for the four scenarios (MSP by cost type, CAPEX by process
+Cost and GWP breakdown of H2 for the five scenarios (MSP by cost type, CAPEX by process
 area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):
 
@@ -80,11 +80,12 @@ Scenarios (`analyses/att/scenarios.py`; scenario 1 is the baseline):
 | 2 | presscake | 1 | yes | recycled (kiln + slaker) | NLR |
 | 3 | presscake | 1 | yes | waste lime, free and emission-free | set by the waste supply |
 | 4 | presscake | 2.995 (captures all CO₂) | no | waste lime | same as 3 |
+| 5 | presscake | 1 | no (CO₂ scrubbed from the gas with a waste-lime slurry) | waste lime | same as 3 |
 
 Waste lime is carbide lime, which is already Ca(OH)₂ and needs no recalcination; one reference-size carbide plant
-(80 kt/yr CaC₂) gives 92.5 kt/yr Ca(OH)₂, which sets the scale of 3 and 4 (about 121 dry t/d, where 4 uses it all).
-It replaces all the lime (no kiln; cake disposed). The fresh-Sargassum feed (press P1, juice coproduct; scenario 5 of
-`OPTIONAL_SCENARIOS`) is kept for on-request analysis, e.g. `build_att_breakdown("s5")`, but is not part of the standard analyses and figures. Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
+(80 kt/yr CaC₂) gives 92.5 kt/yr Ca(OH)₂, which sets the scale of 3, 4 and 5 (about 121 dry t/d, where 4 uses it all). Scenario 5 scrubs the CO₂ out of the cooled gas (after U3C, before the gas dryer) in a stirred Ca(OH)₂ slurry (CO₂ + Ca(OH)₂ → CaCO₃ + H₂O, 99 % capture, 1.1× lime), dewaters the slurry in the filter F3 to the F2 cake moisture (the filtrate returns to the scrubber) and costs the scrubber only as a stirred tank plus a reaction-heat cooler (PRELIMINARY: no gas-liquid contactor internals or blower).
+It replaces all the lime (no kiln; cake disposed). The fresh-Sargassum feed (press P1, juice coproduct; scenario 6 of
+`OPTIONAL_SCENARIOS`) is kept for on-request analysis, e.g. `build_att_breakdown("s6")`, but is not part of the standard analyses and figures. Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
 (`results/tables/att_scenarios.csv`); balance per kg dry Sargassum: `analyses/att_balance_1kg.py`.
 
 Every runner accepts `--out`. Results are written below `att_outputs/` at the

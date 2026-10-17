@@ -52,7 +52,7 @@ KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
 _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
-                 "slaking_water": ("Water", "water_supply")}
+                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
@@ -156,6 +156,8 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
     if abs(float(s["lime"].imass["CaOH2"]) - float(s["lime"].F_mass)) > 1e-9 * max(1.0, s["lime"].F_mass):
         raise ValueError("lime is not pure Ca(OH)2")
     s["lime"].set_CF(KEY, f[lime_key])
+    if "scrubber_lime" in s:
+        s["scrubber_lime"].set_CF(KEY, f[lime_key])
 
     # Heat utilities: CF per kJ of delivered utility heat.
     ng = f["natural_gas_combustion"] + f["natural_gas_upstream"]
@@ -244,7 +246,7 @@ def get_att_gwp_contributions(sys, applied):
                          source=source))
 
     naoh, lime = s["fresh_naoh_solid"], s["lime"]
-    waters = [s[ID] for ID in ("dissolution_water", "slaking_water") if ID in s]
+    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
     add("Ca(OH)2", lime.F_mass * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",

@@ -7,17 +7,19 @@
 # for license details.
 
 """
-The ATT scenarios. s1-s4 (``SCENARIOS``, used by every analysis and figure) start from the presscake of a
-biostimulant plant (configuration ``presscake``: no press P1, dry presscake fed to the dryer D0). s5 starts from fresh
+The ATT scenarios. s1-s5 (``SCENARIOS``, used by every analysis and figure) start from the presscake of a
+biostimulant plant (configuration ``presscake``: no press P1, dry presscake fed to the dryer D0). s6 starts from fresh
 Sargassum (configuration ``fresh_sargassum``: press P1, its liquid is a biostimulant coproduct); it is kept in
-``OPTIONAL_SCENARIOS`` so that it can be analyzed on request (``build_att_breakdown("s5")``, ``create(ALL_SCENARIOS["s5"])``)
+``OPTIONAL_SCENARIOS`` so that it can be analyzed on request (``build_att_breakdown("s6")``, ``create(ALL_SCENARIOS["s6"])``)
 but is not part of the standard analyses and figures.
 
     s1  BASELINE   presscake feed, NaOH 1 g/g daf (the team's lab dose), PSA, fresh Ca(OH)2 (cake disposed), NLR scale
     s2  ALTERNATIVE  as s1 with recycled lime (kiln + slaker)
     s3  ALTERNATIVE  as s1 with waste lime, at the scale of the waste supply
     s4  ALTERNATIVE  NaOH for full CO2 capture (2.995 g/g, gas CO2 = 0), no PSA, waste lime, same scale as s3
-    s5  OPTIONAL     as s1 but starting from fresh Sargassum (press P1, juice coproduct), NLR scale (not analyzed by default)
+    s5  ALTERNATIVE  NaOH 1 g/g, no PSA, CO2 scrubbed from the cooled gas (after U3C) with a waste Ca(OH)2 slurry
+                     (carbonation to CaCO3, cake dewatered in the filter F3), waste lime, same scale as s3 and s4
+    s6  OPTIONAL     as s1 but starting from fresh Sargassum (press P1, juice coproduct), NLR scale (not analyzed by default)
 
 Waste lime: a Ca(OH)2 source that needs no recalcination (carbide lime from acetylene generation), assumed pure, free
 of cost and of emissions, delivered at no charge. It replaces all the lime (no kiln; the CaCO3 cake is disposed as in
@@ -52,9 +54,12 @@ SCENARIOS = {
                configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="waste", scale="waste"),
     "s4": dict(label="4 Presscake, waste lime, no PSA, full CO2 capture, waste scale", short="4 waste lime, full capture",
                configuration="presscake", dose=FULL_DOSE, co2=FULL_GAS_CO2, psa=False, lime="waste", scale="waste"),
+    "s5": dict(label="5 Presscake, waste-lime CO2 scrubber, no PSA, NaOH 1 g/g, waste scale", short="5 CO2 scrubber",
+               configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=False, lime="waste", scale="waste",
+               scrubber=True),
 }
 OPTIONAL_SCENARIOS = {
-    "s5": dict(label="5 Fresh Sargassum feed (press P1): fresh lime, PSA, NaOH 1 g/g, NLR scale", short="5 fresh Sargassum",
+    "s6": dict(label="6 Fresh Sargassum feed (press P1): fresh lime, PSA, NaOH 1 g/g, NLR scale", short="6 fresh Sargassum",
                configuration="fresh_sargassum", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="fresh", scale="NLR"),
 }
 ALL_SCENARIOS = {**SCENARIOS, **OPTIONAL_SCENARIOS}
@@ -84,7 +89,7 @@ def create(spec, dry_kgph=None, hxn=True):
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(_att_system.create_att_system(
         dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
-        lime_recycle=spec["lime"] == "recycled", psa=spec["psa"]), dry_kgph)
+        lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec.get("scrubber", False)), dry_kgph)
     system.operating_hours = ref["operating_hours_per_year"]
     return system
 

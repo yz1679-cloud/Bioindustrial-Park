@@ -78,6 +78,7 @@ _AREAS = {
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
+    "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
 }
 
 
@@ -99,6 +100,8 @@ def _cost_group(item, category):
                           ("PSA off-gas", "PSA off-gas handling (0; fate unresolved)")):
         if item.startswith(prefix):
             return group
+    if item == "Disposal: scrubber_cake":
+        return "CaCO3 cake disposal"
     if item.startswith("Disposal: "):
         return "Ash/char cake disposal" if item.split(": ")[1] in solid else "Wastewater treatment"
     raise KeyError(item)
@@ -254,7 +257,8 @@ def _build(case, spec, sys):
     summary = dict(scenario=spec["label"], lime=spec["lime"], PSA=spec["psa"], NaOH_kg_per_kg_daf=spec["dose"],
                    description=spec["label"],
                    fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,
-                   Ca_OH_2_used_t_per_yr=float(inv._streams(sys)["lime"].imass["CaOH2"]) * sys.operating_hours / 1e3,
+                   Ca_OH_2_used_t_per_yr=sum(float(inv._streams(sys)[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime")
+                                             if ID in inv._streams(sys)) * sys.operating_hours / 1e3,
                    dry_feed_t_per_day=dry * 24 / 1e3,
                    MSP_USD_per_kg_H2=result["msp"], GWP_kgCO2e_per_kg_H2=gwp_total,
                    GWP_avoided_CH4_extra_credit_kgCO2e_per_kg_H2=credit["CH4_extra_kgCO2e_per_kg_H2"],

@@ -110,6 +110,10 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         s["biostimulant_juice"].price = float(_T["prices"]["juice"])
     if "slaking_water" in s:
         s["slaking_water"].price = p["process_water"]
+    if "scrubber_makeup_water" in s:
+        s["scrubber_makeup_water"].price = p["process_water"]
+    if "scrubber_lime" in s:
+        s["scrubber_lime"].price = p["CaOH2"]
     for ID in _T["prices"]["wastewater_streams"]:
         s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
     for ID in _T["prices"]["solid_waste_streams"]:
@@ -272,6 +276,10 @@ def _opex_table(sys, result):
         add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
     if "slaking_water" in s:
         add("Process water", "materials", s["slaking_water"].cost * hours, f"{s['slaking_water'].price:.6g} USD/kg (slaking)")
+    if "scrubber_lime" in s:
+        add("Ca(OH)2", "materials", s["scrubber_lime"].cost * hours, f"{s['scrubber_lime'].price:.6g} USD/kg (CO2 scrubber)")
+        add("Process water", "materials", s["scrubber_makeup_water"].cost * hours,
+            f"{s['scrubber_makeup_water'].price:.6g} USD/kg (CO2 scrubber makeup)")
     if "biostimulant_juice" in s:
         add("Biostimulant juice transfer (coproduct)", "juice", -s["biostimulant_juice"].cost * hours,
             f"{s['biostimulant_juice'].price:.6g} USD/kg")

@@ -327,6 +327,17 @@ att:
     # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
     # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
     # up the lime purge and the shortfall. Sodium in the cake rides with the lime and returns to C1.
+    # CO2 scrubber (optional, scenario 5): the cooled gas bubbles through a Ca(OH)2 slurry (waste lime), Ca(OH)2 + CO2
+    # -> CaCO3 + H2O, before the gas dryer and compressor; the CaCO3 slurry is dewatered in the filter F3 (cake at the
+    # F2 moisture) and the filtrate is recycled. PRELIMINARY (no vendor data): capture, excess and slurry loading
+    # are engineering assumptions; the cost is a stirred slurry tank (0.5 h) plus the reaction-heat cooler.
+    co2_scrubber:
+      enabled: false
+      temperature_K: 313.15
+      co2_capture: 0.99                 # share of the gas CO2 fixed as CaCO3
+      lime_excess: 1.1                  # Ca(OH)2 fed per CO2 captured (the excess leaves with the cake)
+      slurry_solids_wt_frac: 0.25       # solids of the slurry leaving the scrubber
+      tank_tau_h: 0.5                   # slurry residence time (costing)
     lime_recycle:      # BASELINE (scenario 1): fresh Ca(OH)2, cake disposed; scenario 2 recycles it (analyses/att/scenarios.py)
       enabled: false
       calcination_conversion: 0.98      # CaCO3 -> CaO; the rest recycles as inert dead load
@@ -498,6 +509,12 @@ att:
       lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
       kiln_exhaust: [output, air_emission, "Lime kiln exhaust: CO2 from CaCO3 (biogenic, from the seaweed carbon) and water vapor."]
       slaking_water: [input, process_water, "Water for slaking CaO to Ca(OH)2."]
+      scrubber_lime: [input, reagent, "Ca(OH)2 of the CO2 scrubber (waste lime in scenario 5)."]
+      scrubber_makeup_water: [input, process_water, "Makeup slurry water of the CO2 scrubber."]
+      u3_scrubbed_gas: [internal, process, "Gas leaving the CO2 scrubber."]
+      scrubber_slurry: [internal, process, "CaCO3 slurry of the CO2 scrubber, to the filter F3."]
+      scrubber_filtrate: [internal, recycle, "F3 filtrate, recycled to the CO2 scrubber."]
+      scrubber_cake: [output, solid_waste, "CaCO3 cake of the CO2 scrubber (F3, at the F2 cake moisture); disposal, carbon stored."]
       excess_condensate: [output, wastewater, "Condensate (EC1 and U3C) in excess of the D1 dissolution-water demand; normally zero."]
       u3_condensate: [internal, recycle, "U3C gas condensate, recycled to D1 (dissolution water)."]
       ec1_condensate: [internal, recycle, "EC1 evaporator condensate, recycled to D1 (dissolution water)."]

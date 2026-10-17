@@ -11,8 +11,8 @@ cost_gwp_breakdown_att.py
 ----------------------
 Breakdown of the ATT H2 minimum selling price and GWP100 for the baseline
 (scenario 1: presscake feed, NaOH 1 g/g, PSA, fresh lime, NLR scale) and the
-alternative scenarios 2-4 (recycled lime; waste lime; waste lime with full CO2
-capture and no PSA) of ``analyses/att/scenarios.py``. MSP by cost type and group, CAPEX by equipment and process area,
+alternative scenarios 2-5 (recycled lime; waste lime; waste lime with full CO2
+capture and no PSA; waste-lime CO2 scrubber, no PSA) of ``analyses/att/scenarios.py``. MSP by cost type and group, CAPEX by equipment and process area,
 OPEX by group, and GWP100 by contributor. The numbers come from
 ``analyses/att/breakdown.py`` (one simulation per scenario; see its docstring
 for the definitions).
@@ -55,7 +55,7 @@ TABLES_OUT.mkdir(parents=True, exist_ok=True)
 FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
 # One color per case (categorical slots 1-2, dataviz reference palette, light mode).
-CASE_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14"}
+CASE_COLORS = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1c9e5b", "s4": "#8f5bd1", "s5": "#c49a14", "s6": "#7a7a7a"}
 INK, INK_2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 _SHORT = {
@@ -120,7 +120,7 @@ def _grouped_hbar(ax, frames, label_col, value_col, label_fmt, xlabel, title, mi
 def plot_breakdown(tables, path):
     _style()
     summ = {c: t["summary"] for c, t in tables.items()}
-    fig, axes = plt.subplots(2, 2, figsize=(17, 15))
+    fig, axes = plt.subplots(2, 2, figsize=(17, 17))
     both = lambda f: " / ".join(f(s) for s in summ.values())
 
     _grouped_hbar(axes[0, 0], {c: t["MSP_by_type"] for c, t in tables.items()}, "cost_type", "USD_per_kg_H2",
@@ -148,7 +148,7 @@ def plot_breakdown(tables, path):
 
     handles = [Patch(facecolor=CASE_COLORS[c], edgecolor=SURFACE, label=CASE_LABELS[c]) for c in tables]
     fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False, fontsize=9.5, labelcolor=INK_2)
-    fig.suptitle("ATT H2: cost and GWP100 breakdown, baseline (1) and alternative scenarios (2-4)",
+    fig.suptitle("ATT H2: cost and GWP100 breakdown, baseline (1) and alternative scenarios (2-5)",
                  fontsize=12, color=INK, x=0.01, ha="left")
     fig.tight_layout(rect=(0, 0.06, 1, 0.96))
     fig.savefig(path, bbox_inches="tight", facecolor=SURFACE)

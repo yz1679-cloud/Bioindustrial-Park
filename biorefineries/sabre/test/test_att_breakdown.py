@@ -97,9 +97,22 @@ class TestATTBreakdownFullCapture(TestATTBreakdownWasteLime):
         self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 2.995)
 
 
-class TestATTBreakdownFreshSargassum(TestATTBreakdown):
-    """Scenario 5: the baseline chemistry with fresh Sargassum fed to the press P1 (a juice coproduct)."""
+class TestATTBreakdownScrubber(TestATTBreakdownWasteLime):
+    """Scenario 5: NaOH 1 g/g, no PSA, the gas CO2 fixed in a waste-lime scrubber (cake dewatered in F3)."""
     case = "s5"
+    psa = False
+
+    def test_scrubber_fixes_the_co2_within_the_supply(self):
+        area = "CO2 scrubber and filter (SCRUB, F3)"
+        self.assertIn(area, set(self.t["CAPEX_by_area"]["area"]))
+        self.assertNotIn("PSA (U3P)", set(self.t["CAPEX_by_area"]["area"]))
+        self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 1.0)
+        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.6e3)
+
+
+class TestATTBreakdownFreshSargassum(TestATTBreakdown):
+    """Scenario 6 (optional): the baseline chemistry with fresh Sargassum fed to the press P1 (a juice coproduct)."""
+    case = "s6"
 
     def test_press_is_costed(self):
         self.assertIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))

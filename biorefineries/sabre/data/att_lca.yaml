@@ -96,7 +96,7 @@ lca:
 
   waste_management:
     wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge]
-    landfill_streams: [ash_residue_cake, lime_purge, caco3_cake]
+    landfill_streams: [ash_residue_cake, lime_purge, caco3_cake, scrubber_cake]
 
   coproduct:
     CaCO3_treatment: none            # none | substitution
