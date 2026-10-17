@@ -70,7 +70,7 @@ area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):
 
 ```
-python biorefineries/sabre/analyses/cost_breakdown_att.py
+python biorefineries/sabre/analyses/cost_gwp_breakdown_att.py
 ```
 
 Every runner accepts `--out`. Results are written below `att_outputs/` at the

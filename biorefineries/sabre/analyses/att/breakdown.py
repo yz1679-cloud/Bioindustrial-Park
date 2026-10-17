@@ -29,7 +29,7 @@ reference scale for the two cases:
   waste treatment and disposal, which SaBReTEA books as negative sales.
 * GWP100: contribution of each input, with the stage totals.
 
-Written by ``analyses/cost_breakdown_att.py`` to ``results/tables`` and
+Written by ``analyses/cost_gwp_breakdown_att.py`` to ``results/tables`` and
 ``results/figures``.
 """
 import numpy as np

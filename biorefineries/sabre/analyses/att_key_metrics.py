@@ -16,7 +16,7 @@ heat integration) and the energy return on investment of the two ATT
 cases (ATT-only and ATT-integration). See ``analyses/att/key_metrics.py``
 for the definitions.
 
-Kept as its own script like cost_breakdown_att.py (the ATT system sets its
+Kept as its own script like cost_gwp_breakdown_att.py (the ATT system sets its
 own chemical set).
 
 Outputs (relative to this script's directory), each with a ``case`` column:

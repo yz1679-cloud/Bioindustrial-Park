@@ -7,7 +7,7 @@
 # for license details.
 
 """
-cost_breakdown_att.py
+cost_gwp_breakdown_att.py
 ----------------------
 Breakdown of the ATT H2 minimum selling price and GWP100 at the SaBRe
 reference scale for two cases: the ATT-only plant (wet Sargassum, press P1,
@@ -28,10 +28,10 @@ Outputs (relative to this script's directory), each with a ``case`` column:
     ../results/tables/cost_breakdown_att_gwp.csv         GWP100 by contributor
     ../results/tables/cost_breakdown_att_u2_checks.csv   U2 balance checks
     ../results/tables/cost_breakdown_summary_att.csv     one row per case
-    ../results/figures/fig_cost_breakdown_att.png        MSP / CAPEX / OPEX / GWP panels
+    ../results/figures/fig_cost_gwp_breakdown_att.png        MSP / CAPEX / OPEX / GWP panels
 
 Run from the repo root:
-    python biorefineries/sabre/analyses/cost_breakdown_att.py
+    python biorefineries/sabre/analyses/cost_gwp_breakdown_att.py
 """
 
 import sys
@@ -167,9 +167,9 @@ def write_tables(tables):
 if __name__ == "__main__":
     tables = {c: build_att_breakdown(*CASES[c]) for c in CASES}     # tables: all four cases (ATT-only kept)
     write_tables(tables)
-    plot_breakdown({c: tables[c] for c in FIGURE_CASES}, FIGURES_OUT / "fig_cost_breakdown_att.png")
+    plot_breakdown({c: tables[c] for c in FIGURE_CASES}, FIGURES_OUT / "fig_cost_gwp_breakdown_att.png")
     print(f"Saved tables to {TABLES_OUT}")
-    print(f"Saved figure to {FIGURES_OUT / 'fig_cost_breakdown_att.png'}")
+    print(f"Saved figure to {FIGURES_OUT / 'fig_cost_gwp_breakdown_att.png'}")
     for c, t in tables.items():
         print(f"\n=== {CASE_LABELS[c]} ===")
         for k, v in t["summary"].items():
