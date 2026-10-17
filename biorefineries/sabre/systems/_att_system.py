@@ -24,7 +24,7 @@ from biorefineries.sabre.units._att import (
     ATTCompressor,
     ATTMolecularSieve,
     ATTPSA,
-    ATTCO2Scrubber,
+    ATTScrubber,
     ATTLimeKiln,
     ATTLimeSlaker,
     aqueous_naoh_enthalpy_correction_kJph,
@@ -529,7 +529,7 @@ def create_att_system(
     SCRUB = scrubber_filtrate = None
     if co2_scrubber:
         scrubber_filtrate = bst.Stream("scrubber_filtrate", Water=1.0, units="kg/hr")
-        SCRUB = ATTCO2Scrubber(
+        SCRUB = ATTScrubber(
             "SCRUB",
             ins=(U3C - 0, bst.Stream("scrubber_lime"), scrubber_filtrate, bst.Stream("scrubber_makeup_water")),
             outs=("u3_scrubbed_gas", "scrubber_slurry"),

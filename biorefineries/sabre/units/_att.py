@@ -31,7 +31,7 @@ __all__ = (
     "ATTPSA",
     "ATTLimeKiln",
     "ATTLimeSlaker",
-    "ATTCO2Scrubber",
+    "ATTScrubber",
 )
 
 _ATT_DATA = load_assumptions("att.yaml")["att"]
@@ -389,10 +389,11 @@ class ATTLimeSlaker(bst.Unit):
             _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=False)
 
 
-class ATTCO2Scrubber(bst.Unit):
+class ATTScrubber(bst.Unit):
     """
-    CO2 scrubber: the cooled gas (after the condensate separator U3C) bubbles through a Ca(OH)2 slurry,
-    Ca(OH)2 + CO2 -> CaCO3 + H2O (carbonation). ``co2_capture`` of the CO2 is fixed; the lime fed is
+    Lime-slurry gas scrubber: the cooled gas (after the condensate separator U3C) bubbles through a Ca(OH)2 slurry,
+    Ca(OH)2 + CO2 -> CaCO3 + H2O (carbonation). Only the CO2 is modeled; the slurry would also take other acid gases
+    (H2S, HCl, SO2), which the model does not carry. ``co2_capture`` of the CO2 is fixed; the lime fed is
     ``lime_excess`` x the CO2 captured (set here); the slurry water is the recycled filtrate (ins[2]) plus a
     makeup (ins[3], set here) so that the slurry leaves at ``slurry_solids_wt_frac`` solids. The reaction heat is
     removed by a costed auxiliary cooler (water proxy) to ``T``. PRELIMINARY costing: a stirred slurry tank with
