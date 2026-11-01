@@ -1,0 +1,150 @@
+# Model Assumptions: Techno-Economic Analysis (TEA)
+
+# Plant uptime, in operating days per year.
+operating_days: 330
+
+# create_tea()/SaBReTEA default economic and financing assumptions.
+tea:
+  IRR: 0.10
+  duration: [2026, 2046]
+  depreciation: "MACRS7"
+  income_tax: 0.21
+  construction_schedule: [0.4, 0.6]
+  WC_over_FCI: 0.05
+  finance_interest: 0.08
+  finance_years: 10
+  finance_fraction: 0.6
+  startup_months: 3
+  startup_FOCfrac: 1.0
+  startup_VOCfrac: 0.5
+  startup_salesfrac: 0.5
+  foc_frac_of_fci: 0.04
+
+price:
+  note:
+    - "all prices are USD per wet kg unless noted otherwisely."
+    - "different values for baseline, scenario, and uncertainty/sensitivity analysis."
+    - "for waste streams, cod_basis means disposal prices estimated vased on stream COD load (rate -$0.3676 kg-COD, Schueller (2020) Municipal Residential Wastewater Rates excess-COD surcharge), see details in biorefineries/wwt module. Cost might have deviated due to system update."
+
+  # Feedstock
+  sargassum:
+    baseline: 0.0
+    scenario:
+      tipping_fee: -0.02
+      low_cost_collect: 0.02
+      mid_cost_collect: 0.05
+      high_cost_collect: 0.05
+    range: [-0.02, 0.1]
+    distribution: "uniform"
+    source: "Rodriguez-Martinez et al. 2023 (Sci Total Environ); cleanup costs $19-85/m3 wet = $0.024-0.106/kg wet"
+  
+  # Reagents
+  mgso4:
+    baseline: 0.40
+    note: "fermentation medium, industrial grade"
+    source: "no literature source cited in legacy scripts"
+  ammonia:
+    baseline: 0.50
+    note: "liquid ammonia, N source for fermentation medium"
+    source: "no literature source cited in legacy scripts"
+  phosphate:
+    baseline: 0.80
+    note: "KH2PO4, P source for fermentation medium"
+    source: "no literature source cited in legacy scripts"
+  naoh:
+    baseline: 0.35
+    note: "fermentation medium, pH base"
+    source: "no literature source cited in legacy scripts"
+  enzyme:
+    baseline: 2.68
+    note: "$6.16/kg hydrolysis enzyme cocktail (cellulase + alginate lyase) dosed in EnzymaticPress, sabre/units/_preprocessing.py; priced as soy protein (isolate) since no separate published price exists for this cocktail, applied on the same $/kg protein basis as the prior Davis et al. (2018) enzyme price."
+    source: "$2.68/kg protein, 100%-protein-equivalent basis for soy protein isolate ($2.52/kg as-is at ~95% protein); Green Circle Capital, 'GC Protein Pricing Review Year End 2023' (Mar 2024), average of Alibaba wholesale prices for 1-MT shipments."
+  lime:
+    baseline: 0.262
+    note: "CalciumDihydroxide (Ca(OH)2), dosed in HPFermentation (sabre/units/_3hp.py) for in-situ neutralization; same value biorefineries.HP.process_settings uses for its own 'Lime' price."
+    source: "biorefineries.HP.process_settings.py, lime_price = 0.1189 * _lb_per_kg (hydrated-lime $/ton at plant, Mineral Commodity Summaries 2020, 2015-2019 average; see the comment block above that line)."
+  sulfuric_acid:
+    baseline: 0.0897171175961359
+    note: "$/kg of ~93.3 wt% H2SO4 SOLUTION (1800 kg H2SO4 : 130 kg water), dosed in the dilute-acid pretreatment of the 3-HP cake configurations (systems/_3hp_system.py)."
+    source: "biorefineries.cellulosic.streams.sulfuric_acid price (corn stover dilute-acid pretreatment)."
+
+  # Waste streams, negative price to indicate as a cost
+  disposal_solid:
+    baseline: -0.04
+    range: [-0.08, 0]
+    distribution: "uniform"
+    note:
+      acidogenic_residual_solids:
+        legacy_assumption: -0.04
+        cod_basis: -0.02846
+        sensitivity_range: [-0.02, -0.04, -0.10]
+        note: renamed solid_digestate
+        source: "standard biosolids, $30-80/dry ton (~$0.03-0.08/kg wet)"
+      solid_digestate:
+        legacy_assumption: -0.02
+        cod_basis: -0.03691
+        note: previously named soil_amendment
+        source: "standard biosolids, heavy metal contamination (As, Cd, Pb) from pelagic Sargassum digestate prevents land application as fertilizer"
+      vfa_retentate:
+        legacy_assumption: -0.005 # treated as a wastewater
+        cod_basis: -0.14904
+        note: >
+          - reanmed to vfa_cake
+          - mixed upstream into the fermentation_wastewater stream so shares its disposal price.
+          - "Dominated (~97% of COD) by Alginate/Fucoidan/OtherSolids, excluded here as
+          insoluble solids, consistent with how Glucan/Protein/CellMass are
+          already excluded; counting them as soluble organics instead would give
+          -0.1027, ~33x higher."
+        source: "biological wastewater treatment, $3-8/m3 (~$0.003-0.008/kg)"
+  disposal_wastewater:
+    baseline: -0.004
+    range: [-0.008, 0]
+    distribution: "uniform"
+    note:
+      fermentation_wastewater:
+        legacy_assumption: -0.005
+        cod_basis: -0.02432
+        source: "biological wastewater treatment, $3-8/m3 (~$0.003-0.008/kg)"
+      liquid_digestate:
+        legacy_assumption: -0.002
+        cod_basis: -0.02702
+        source: "$2/m3 wastewater disposal"
+
+  # Products
+  biostimulant:
+    baseline: 1.00
+    range: [0.50, 2.00]
+    distribution: "uniform"
+    source: >
+      Market.us Seaweed Extract Biostimulant Market (2024): global market
+      $1.1B (2024), brown seaweed 64.7% share, liquid 76.8% share;
+      wholesale bulk liquid concentrate $0.50-2.00/kg.
+  vfa:
+    baseline: 1.00
+    range: [0.5, 2]
+    distribution: "triangular"
+    note: "price is for individual purified acids, not a mixture, hence needs updating"
+    source: "lower range of VFAs at https://encyclopedia.pub/entry/history/show/32510"
+  biomethane_mmbtu: # $/mmbtu
+    baseline: 10
+    scenario:
+      low: 5
+      mid: 10
+      high: 20
+    range: [2, 30]
+    mmbtu_per_kg: 0.0526
+    distribution: "triangular"
+    source:
+      - "US Henry Hub $2-8/MMBtu typical range for natural gas."
+      - "$10/MMBtu for European TTF, $14/MMBtu for Asian JKM."
+      - "$10-30/GJ ($1/GJ=$1.055/MMBtu) for biomethane per IEA (https://www.iea.org/reports/outlook-for-biogas-and-biomethane/key-findings)"
+  microbial_oil:
+    baseline: 1.00
+    range: [0.6, 1.5]
+    distribution: "triangular"
+    source: "midpoint of soybean oil $0.62-1.50/kg market price benchmark"
+  3hp:
+    baseline: 1.1
+    note: >
+      Back-calculated based on the market price of acrylic acid of $1.3-1.5/kg for North America.
+    source: "Expert Market Research: https://www.expertmarketresearch.com/price-forecast/acrylic-acid-price-trends; IMARC Group: https://www.imarcgroup.com/acrylic-acid-pricing-report"
