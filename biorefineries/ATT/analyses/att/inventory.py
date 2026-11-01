@@ -1184,7 +1184,7 @@ def build_att_inventory_tables():
 
 
 def export_att_inventory(out_dir=None, tables=None):
-    """Write each table as CSV and all tables to one Excel workbook (default att_outputs/full_scale/mass_energy)."""
+    """Write each table as CSV and all tables to one Excel workbook (default results/full_scale/mass_energy)."""
     import os
     import pandas as pd
     from biorefineries.ATT.analyses.att.paths import output_dir

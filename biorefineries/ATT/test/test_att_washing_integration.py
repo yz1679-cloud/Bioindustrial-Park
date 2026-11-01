@@ -6,6 +6,7 @@ import biosteam as bst
 from biorefineries.ATT.analyses.att import scenarios as scen, inventory as inv, lca, tea
 from biorefineries.ATT.analyses.att import marine_tea as mt, marine_whr as mw, reporting
 from biorefineries.ATT.analyses.att_washing import washing_checks
+from biorefineries.ATT.test._options import sales_option
 
 
 class TestNativeF2Washing(unittest.TestCase):
@@ -88,27 +89,26 @@ class TestNativeF2Washing(unittest.TestCase):
         self.assertGreater(self.s["f2_wash_water"].get_CF(lca.KEY), 0)
 
     def test_conservative_f2_sales_disposes_whole_cake(self):
-        result = tea.evaluate_att_tea(self.on, **scen.tea_config(f2_sales=False))
-        f2, f3 = result["caco3_sales"]["caco3_cake"], result["caco3_sales"]["scrubber_cake"]
-        self.assertEqual(f2["revenue_usd_ph"], 0)
-        self.assertAlmostEqual(f2["disposed_kgph"], self.s["caco3_cake"].F_mass, places=8)
-        self.assertGreater(f3["revenue_usd_ph"], 0)
-        optimistic = tea.evaluate_att_tea(self.on, **scen.tea_config())
-        self.assertGreater(result["msp"], optimistic["msp"])
+        with sales_option():            # the CaCO3-sales option (the baseline disposes both cakes)
+            result = tea.evaluate_att_tea(self.on, **scen.tea_config(f2_sales=False))
+            f2, f3 = result["caco3_sales"]["caco3_cake"], result["caco3_sales"]["scrubber_cake"]
+            self.assertEqual(f2["revenue_usd_ph"], 0)
+            self.assertAlmostEqual(f2["disposed_kgph"], self.s["caco3_cake"].F_mass, places=8)
+            self.assertGreater(f3["revenue_usd_ph"], 0)
+            optimistic = tea.evaluate_att_tea(self.on, **scen.tea_config())
+            self.assertGreater(result["msp"], optimistic["msp"])
 
     def test_washing_off_reference_values(self):
         ref = mt.land_reference(self.off)
         self.assertAlmostEqual(ref["row"]["H2_t_per_yr"], 2953.563, delta=.001)
-        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 3.029244, delta=1e-6)
+        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 5.206415, delta=1e-6)   # baseline: CaCO3 disposed
         self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1857.8462335, delta=1e-5)
-        for hours, expected in ((7920., 3.204215), (2640., 5.136015)):
+        for hours, expected in ((7920., 5.381386), (2640., 7.313186)):
             row, _ = mt.evaluate_case(self.off, ref, "reference", hours=hours)
             self.assertAlmostEqual(row["MSP_USD_per_kg_H2"], expected, delta=1e-6)
-            # inherited carbonate credit (optimistic comparison) keeps the earlier published value; the conservative
-            # net GWP drops the credit of the CaCO3 that the TEA sells (all of it here)
-            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 12.653875, delta=1e-6)
-            inherited = lca.get_att_stored_carbon_credit(self.off, accounting="inherited")
-            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 12.653875 - inherited, delta=1e-6)
+            # baseline: inherited accounting with the residue credited, so the net GWP equals the inherited-credit GWP
+            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 4.909519, delta=1e-6)
+            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 4.909519, delta=1e-6)
 
     def test_floating_capex_includes_washing_once(self):
         ref = mt.land_reference(self.on)

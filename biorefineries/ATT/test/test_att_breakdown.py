@@ -47,9 +47,14 @@ class TestATTBreakdown(unittest.TestCase):
                                delta=1e-6)
 
     def test_caco3_sales_counted_once(self):
-        # Revenue on the CaCO3 COMPONENT of each listed cake (not the wet cake); disposal only on the cake mass that
-        # is not sold CaCO3; no separate whole-cake disposal line for a sold cake.
+        # The CaCO3-sales OPTION (off in the baseline). Revenue on the CaCO3 COMPONENT of each listed cake (not the wet
+        # cake); disposal only on the cake mass that is not sold CaCO3; no separate whole-cake disposal line for a sold cake.
         from biorefineries.ATT.analyses.att import inventory as inv, tea as tea_mod
+        from biorefineries.ATT.test._options import sales_option
+        with sales_option():
+            self._caco3_sales_counted_once(inv, tea_mod, build_att_breakdown)
+
+    def _caco3_sales_counted_once(self, inv, tea_mod, build_att_breakdown):
         system = scen.create(scen.ATT_S1)
         t = build_att_breakdown(self.case, sys=system)
         s, cfg, hours = inv._streams(system), tea_mod._T["caco3_sales"], system.operating_hours

@@ -9,11 +9,10 @@
 """
 Default output locations of the ATT runners.
 
-All generated results go to ``biorefineries/ATT/outputs/`` (inside the ATT
-project, located from this file, not from the current working directory), so
-ATT never writes into SaBRe's ``att_outputs/``. Set the ``ATT_PROJECT_OUTPUTS_DIR``
-environment variable (``OUTPUTS_ENV``; SaBRe's ``ATT_OUTPUTS_DIR`` is not read) to use
-another root; ``run_att_all --out`` sets it for every step, and each runner also
+All generated results go to ``biorefineries/ATT/results/`` (inside the ATT
+project, located from this file, not from the current working directory; the
+folder is git-ignored, like the other ``results`` folders). Set the ``ATT_PROJECT_RESULTS_DIR``
+environment variable (``RESULTS_ENV``) to use another root; ``run_att_all --out`` sets it for every step, and each runner also
 accepts ``--out``.
 Nothing is ever written to ``data/``.
 
@@ -32,14 +31,14 @@ Layout (keys of ``output_dir``)::
 import os
 from pathlib import Path
 
-__all__ = ("PROJECT_ROOT", "ATT_ROOT", "OUTPUTS_ENV", "SUBDIRS", "outputs_root", "output_dir")
+__all__ = ("PROJECT_ROOT", "ATT_ROOT", "RESULTS_ENV", "SUBDIRS", "results_root", "output_dir")
 
 # biorefineries/ATT/analyses/att/paths.py -> repository root
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 # biorefineries/ATT/
 ATT_ROOT = Path(__file__).resolve().parents[2]
 # The one environment variable that overrides the output root (read here, set by test/run_att_all.py).
-OUTPUTS_ENV = "ATT_PROJECT_OUTPUTS_DIR"
+RESULTS_ENV = "ATT_PROJECT_RESULTS_DIR"
 
 SUBDIRS = {
     "baseline_1kg": "baseline_1kg",
@@ -54,14 +53,14 @@ SUBDIRS = {
 }
 
 
-def outputs_root():
-    """biorefineries/ATT/outputs/ (or the OUTPUTS_ENV environment variable)."""
-    env = os.environ.get(OUTPUTS_ENV)
+def results_root():
+    """biorefineries/ATT/results/ (or the RESULTS_ENV environment variable)."""
+    env = os.environ.get(RESULTS_ENV)
     if env:
         return Path(env).resolve()
-    return ATT_ROOT / "outputs"
+    return ATT_ROOT / "results"
 
 
 def output_dir(key, root=None):
-    """Directory for one result group (see module docstring), under ``root`` or ``outputs_root()``."""
-    return (Path(root) if root is not None else outputs_root()) / SUBDIRS[key]
+    """Directory for one result group (see module docstring), under ``root`` or ``results_root()``."""
+    return (Path(root) if root is not None else results_root()) / SUBDIRS[key]

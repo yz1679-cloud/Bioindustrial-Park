@@ -6,7 +6,7 @@ from biorefineries.ATT.analyses.att.lca import export_att_lca
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=None, help=f"output directory (default att_outputs/{SUBDIRS['lca']})")
+    parser.add_argument("--out", default=None, help=f"output directory (default results/{SUBDIRS['lca']})")
     args = parser.parse_args()
     out = args.out or output_dir("lca")
     export_att_lca(out)

@@ -11,14 +11,14 @@
 Consolidated research-stage ATT results (process, TEA, GWP100) on one frozen
 system, built only from the inventory (mass/energy), tea (SaBReTEA cases) and
 lca (BioSTEAM GWP100) modules. Adds only the collection/transport sensitivity
-and TEA-LCA consistency checks. Writes outputs/full_scale/summary/att_consolidated_results.xlsx.
+and TEA-LCA consistency checks. Writes results/full_scale/summary/att_consolidated_results.xlsx.
 The system and the headline TEA/LCA are ATT S1 (scenarios.create, tea_config,
 lca_overrides); rows built on the SaBRe reference treatment (purchased lime, no
 CaCO3 sales) are labeled LEGACY.
 
 The master documentation package (data extraction and traceability only)
 builds ATT_Master_Model_Documentation.xlsx, one CSV per sheet and README.md
-in outputs/documentation/ from the frozen ATT S1 system (its capacity) and
+in results/documentation/ from the frozen ATT S1 system (its capacity) and
 the existing analysis functions in inventory, lca, tea and the consolidated
 results above. Nothing here changes the process model or the LCA/TEA
 parameters; every value is either read from the frozen system, computed by an
@@ -1143,13 +1143,13 @@ traceability only: no model, LCA or TEA parameter is changed.
   `feedstock.yaml`, `tea.yaml` (SaBRe common), `att_lca.yaml` (GWP100 factors),
   `att_tea.yaml` (ATT prices and capital items).
 - **Inventory:** `analyses/att/inventory.py` (mass, element, water, Na/Ca,
-  energy, utilities, equipment estimates) -> `att_outputs/full_scale/mass_energy/`.
+  energy, utilities, equipment estimates) -> `results/full_scale/mass_energy/`.
 - **LCA:** `analyses/att/lca.py` (BioSTEAM characterization factors and
-  process impacts, `System.get_net_impact`) -> `att_outputs/full_scale/lca/`.
+  process impacts, `System.get_net_impact`) -> `results/full_scale/lca/`.
 - **TEA:** `analyses/att/tea.py` (`ATTTEA` = SaBReTEA + extra capital/VOC,
-  `solve_price`) -> `att_outputs/full_scale/tea/`.
-- **Consolidation:** `analyses/att/reporting.py` -> `att_outputs/full_scale/summary/`.
-- **This package:** `analyses/att/reporting.py` -> `att_outputs/documentation/`.
+  `solve_price`) -> `results/full_scale/tea/`.
+- **Consolidation:** `analyses/att/reporting.py` -> `results/full_scale/summary/`.
+- **This package:** `analyses/att/reporting.py` -> `results/documentation/`.
 
 All analyses run on the frozen system at the NLR preprint scale (3 million wet
 t/yr; about 1,300 dry t/d; 7,920 h/yr). Electricity and equipment costs are taken

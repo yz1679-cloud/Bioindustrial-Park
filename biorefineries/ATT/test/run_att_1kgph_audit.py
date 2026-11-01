@@ -6,7 +6,7 @@ from biorefineries.ATT.analyses.att.validation import export_att_1kgph_audit
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=None, help=f"output directory (default att_outputs/{SUBDIRS['baseline_1kg']})")
+    parser.add_argument("--out", default=None, help=f"output directory (default results/{SUBDIRS['baseline_1kg']})")
     args = parser.parse_args()
     out = args.out or output_dir("baseline_1kg")
     export_att_1kgph_audit(out)

@@ -105,16 +105,17 @@ class TestATTScenario1Parameters(unittest.TestCase):
         for e in inn:
             self.assertAlmostEqual(out[e], inn[e], delta=1e-9 * max(1.0, inn[e]), msg=e)
 
-    def test_residue_carbon_not_in_net_storage_credit(self):
+    def test_residue_carbon_is_in_net_storage_credit(self):
         from biorefineries.ATT.analyses.att import inventory as inv, lca
         s = inv._streams(self.sys)
         cake = s["ash_residue_cake"]
         char_C = sum(float(cake.imol[ID]) * cake.chemicals[ID].atoms["C"]
                      for ID in lca._LCA["carbon_storage"]["provisional_residue_species"]) * 12.011
         self.assertGreater(char_C, 0.0)
-        self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys, include_char=True) - lca._stored_carbon_kgph(self.sys),
-                               char_C, places=12)
-        self.assertFalse(lca._LCA["carbon_storage"]["credit_char_carbon"])
+        self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys, include_char=True)
+                               - lca._stored_carbon_kgph(self.sys, include_char=False), char_C, places=12)
+        self.assertTrue(lca._LCA["carbon_storage"]["credit_char_carbon"])      # user decision 2026-11-01
+        self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys), lca._stored_carbon_kgph(self.sys, include_char=True), places=12)
 
 
 if __name__ == "__main__":

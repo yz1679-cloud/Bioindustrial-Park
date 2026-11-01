@@ -203,11 +203,6 @@ att:
         naoh_kg_per_kg_dry: 1.0
         naoh_loading_basis: "User decision 2026-10-31: NaOH : Sargassum (dry weight) = 1 : 1 (gross NaOH incl. the recycled NaOH). SaBRe Scenario 5 used 1 kg/kg daf (= 0.6793 kg/kg dry)."
         ignored_reported_gas_yields_mmol_per_g_daf: {}
-        excluded_baseline_gas_species:
-        - C2H4          # not reported in the 261023 slate
-        - C2H6
-        - N2            # experimental sweep gas, not a product
-        - H2S
     material_balance:
       # Workbook 261023 B15, retained: all NaOH is converted to Na2CO3 in U2.
       naoh_to_na2co3_conversion: 1.0

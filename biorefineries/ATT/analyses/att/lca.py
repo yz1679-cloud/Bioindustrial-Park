@@ -635,7 +635,7 @@ def check_att_lca(sys, applied, contributions, utilities):
 def export_att_lca(out_dir=None, scenario="att_s1"):
     """
     Baseline, sensitivities and checks of an ATT scenario (default ATT S1, waste lime burden-free per
-    scenarios.lca_overrides); write CSV files and one workbook (default outputs/full_scale/lca).
+    scenarios.lca_overrides); write CSV files and one workbook (default results/full_scale/lca).
     """
     import os
     import pandas as pd

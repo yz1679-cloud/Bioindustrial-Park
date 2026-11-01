@@ -11,7 +11,7 @@ KINDS = ("cluster", "thorough", "surface", "minimal")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=None, help="output directory (default att_outputs/documentation/diagrams)")
+    parser.add_argument("--out", default=None, help="output directory (default results/documentation/diagrams)")
     parser.add_argument("--format", default="svg", help="svg, png or pdf")
     parser.add_argument("--dry-feed", type=float, default=1.0, help="dry Sargassum basis [kg/h]")
     parser.add_argument("--dark", action="store_true", help="use the dark theme instead of light")

@@ -17,6 +17,7 @@ from biorefineries.ATT.analyses.att import lca
 from biorefineries.ATT.analyses.att import marine_tea as mt
 from biorefineries.ATT.analyses.att import marine_whr as mw
 from biorefineries.ATT.analyses.att import paths
+from biorefineries.ATT.test._options import sales_option
 from biorefineries.ATT.analyses.att import scenarios as scen
 from biorefineries.ATT.analyses.att import tea as tea_mod
 from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
@@ -60,13 +61,18 @@ class TestS1EntryPoints(unittest.TestCase):
     def test_single_source_of_scenario_assumptions(self):
         cfg = scen.tea_config(scen.ATT_S1)
         self.assertEqual(cfg["price_overrides"], {"CaOH2": 0.0})
-        self.assertEqual(cfg["caco3_sales"]["price_usd_per_metric_ton"], 100.0)
-        self.assertEqual(list(cfg["caco3_sales"]["streams"]), ["caco3_cake", "scrubber_cake"])
+        self.assertIsNone(cfg["caco3_sales"])                          # baseline: the CaCO3 cakes are disposed
+        self.assertEqual(cfg["caco3"], dict(fraction=0.0))
         self.assertEqual(scen.lca_overrides(scen.ATT_S1), {"CaOH2_limestone": 0.0})
         self.assertEqual(scen.tea_config(scen.ATT_S2), cfg)            # S2 = the S1 process and S1 TEA basis
         self.assertEqual(scen.lca_overrides(scen.ATT_S2), scen.lca_overrides(scen.ATT_S1))
-        self.assertEqual(scen.tea_config(scen.ATT_S1, caco3_price=315.0)["caco3_sales"]["price_usd_per_metric_ton"], 315.0)
-        self.assertEqual(scen.tea_config(scen.ATT_S1)["caco3_sales"]["price_usd_per_metric_ton"], 100.0)   # not mutated
+        with sales_option():                                           # the CaCO3-sales option
+            cfg = scen.tea_config(scen.ATT_S1)
+            self.assertEqual(cfg["caco3_sales"]["price_usd_per_metric_ton"], 100.0)
+            self.assertEqual(list(cfg["caco3_sales"]["streams"]), ["caco3_cake", "scrubber_cake"])
+            self.assertEqual(scen.tea_config(scen.ATT_S2), cfg)
+            self.assertEqual(scen.tea_config(scen.ATT_S1, caco3_price=315.0)["caco3_sales"]["price_usd_per_metric_ton"], 315.0)
+            self.assertEqual(scen.tea_config(scen.ATT_S1)["caco3_sales"]["price_usd_per_metric_ton"], 100.0)   # not mutated
 
     def test_tea_export_matches_s1(self):
         summary = {r["item"]: r["value"] for r in self.tea_tables["00_summary"]}
@@ -118,9 +124,9 @@ class TestOutputDirectory(unittest.TestCase):
 
     def test_default_root(self):
         with mock.patch.dict(os.environ):
-            os.environ.pop(paths.OUTPUTS_ENV, None)
-            self.assertEqual(paths.outputs_root(), paths.ATT_ROOT / "outputs")
-            self.assertEqual(paths.output_dir("tables"), paths.ATT_ROOT / "outputs" / "tables")
+            os.environ.pop(paths.RESULTS_ENV, None)
+            self.assertEqual(paths.results_root(), paths.ATT_ROOT / "results")
+            self.assertEqual(paths.output_dir("tables"), paths.ATT_ROOT / "results" / "tables")
 
     def test_runner_and_exports_resolve_the_same_root(self):
         code = ("from biorefineries.ATT.analyses.att.paths import output_dir\n"
@@ -129,7 +135,7 @@ class TestOutputDirectory(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d).resolve()
             env = run_att_all.step_env(root)
-            self.assertEqual(env[paths.OUTPUTS_ENV], str(root))
+            self.assertEqual(env[paths.RESULTS_ENV], str(root))
             out = subprocess.run([sys.executable, "-c", code], env=env, cwd=d, capture_output=True, text=True,
                                  check=True).stdout.split("\n")
             self.assertEqual([Path(x) for x in out[:4]],
@@ -137,8 +143,8 @@ class TestOutputDirectory(unittest.TestCase):
 
     def test_sabre_variable_is_not_read(self):
         with mock.patch.dict(os.environ, {"ATT_OUTPUTS_DIR": "elsewhere"}):
-            os.environ.pop(paths.OUTPUTS_ENV, None)
-            self.assertEqual(paths.outputs_root(), paths.ATT_ROOT / "outputs")
+            os.environ.pop(paths.RESULTS_ENV, None)
+            self.assertEqual(paths.results_root(), paths.ATT_ROOT / "results")
 
 
 class TestS2EngineLoad(unittest.TestCase):

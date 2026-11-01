@@ -18,7 +18,7 @@ ENG (preliminary engineering estimate) and MISSING.
   construction; `test_att_s2.test_s1_reference_unchanged` checks this.
 - **LCA** is incremental (`analyses/att/marine_lca.py`): avoided purchased heat plus pump electricity, applied to
   the S1 LCA. It is not a ship lifecycle assessment.
-- **Driver:** `analyses/att_s2_marine.py`. Outputs go to `outputs/tables/att_s2_*.csv`. Tests:
+- **Driver:** `analyses/att_s2_marine.py`. Outputs go to `results/tables/att_s2_*.csv`. Tests:
   `test/test_att_s2.py`.
 
 ## 2. Reference vessel (R-V1, R-V2)
@@ -151,7 +151,7 @@ actually purchases.
 - **Not estimated:** a ship-system GWP with fuel allocation.
 - The provisional items of S1 (lumped residue, CaCO3 end use, no residue storage credit) are kept as they are.
 
-## 9. Results (`outputs/tables/att_s2_*.csv`, all PROVISIONAL)
+## 9. Results (`results/tables/att_s2_*.csv`, all PROVISIONAL)
 
 | Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
 |---|---|---|---|---|---|---|---|

@@ -14,7 +14,7 @@ equipment, energy performance and load sensitivity, the S1/S2 TEA comparison for
 idealized) and Mode B (8 h/d underway = 2640 h), floating-cost / heat / hours sensitivities, incremental GWP and
 the accounting checks. One simulation of the (unchanged) ATT S1 process at its capacity.
 
-Outputs: biorefineries/ATT/outputs/tables/att_s2_*.csv (root: paths.outputs_root)
+Outputs: biorefineries/ATT/results/tables/att_s2_*.csv (root: paths.results_root)
 
 Run from the repo root:
     python biorefineries/ATT/analyses/att_s2_marine.py

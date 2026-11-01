@@ -14,7 +14,7 @@ mass, dry and wet cake, dry-basis purity), the previous treatment (whole cakes d
 the sensitivity prices (0, 100, 315 USD/t). One process simulation; only the CaCO3 price changes between the
 sensitivity cases (overridden per call, the configuration file is not changed).
 
-Output: biorefineries/ATT/outputs/tables/att_s1_caco3_sales.csv (and _recovery.csv; root: paths.outputs_root)
+Output: biorefineries/ATT/results/tables/att_s1_caco3_sales.csv (and _recovery.csv; root: paths.results_root)
 
 Run from the repo root:
     python biorefineries/ATT/analyses/att_caco3_sales.py

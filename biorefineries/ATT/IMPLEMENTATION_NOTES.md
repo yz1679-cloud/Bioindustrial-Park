@@ -16,7 +16,7 @@ and after the work, and the two hash lists match.
 | `test/` | `test_att_s1_parameters.py` (new) and the adapted SaBRe tests |
 | `reference_data/ATT Inputs and Assumptions_261023.xlsx` | Read-only copy (sha256 `db8ff0f4...f949`, identical to the original) |
 | `README_SABRE_ATT_original.md` | SaBRe ATT README, for reference only (describes SaBRe, not ATT S1) |
-| `outputs/` | Default output folder of the runners (`analyses/att/paths.py`) |
+| `results/` | Default output folder of the runners (`analyses/att/paths.py`) |
 
 All imports are `biorefineries.ATT.*`. Importing or running ATT loads no `biorefineries.sabre` module; the
 test `test_no_sabre_import` checks this.
@@ -35,7 +35,7 @@ test `test_no_sabre_import` checks this.
 | D0 dryer | `DrumDryer(R=...)` (fails on BioSTEAM 2.53) | `DrumDryer(RH=0.8)`, the same air sizing in the installed API | `_att_system.py` |
 | Defaults | PSA on, scrubber off | `psa_enabled: false`, `co2_scrubber.enabled: true` (= ATT S1) | `att.yaml` |
 | LCA contributions | the Ca(OH)2 line omitted `scrubber_lime` (latent SaBRe bug; zero effect with waste lime) | both lime streams counted | `analyses/att/lca.py` |
-| Outputs | `<repo>/att_outputs/` | `biorefineries/ATT/outputs/` | `analyses/att/paths.py` |
+| Outputs | `<repo>/results/` | `biorefineries/ATT/results/` | `analyses/att/paths.py` |
 
 **Unchanged from SaBRe S5:**
 - Feed: presscake `nlr_pressed`, 76.3 % moisture, ash 32.07 wt % dry; no P1; D0 dries to 50 %; U2 at 500 C.
@@ -83,7 +83,7 @@ intentionally kept failing. Not run: the `test/run_att_*.py` export scripts and 
 ## Targeted repair (after commit 76fc5527)
 
 Scope: the measured gas yields, NaOH 1 kg/kg dry, C1 0.88, feed, capacity and flowsheet are all unchanged.
-Diagnostics: `outputs/validation/u2_ec1_lca_diagnostics_att_s1_1kgph.txt`.
+Diagnostics: `results/validation/u2_ec1_lca_diagnostics_att_s1_1kgph.txt`.
 
 **U2 (no code error found).**
 - Per g daf: C, O, N, S and Na close exactly. Feed organics reproduce the presscake CHN (C 46.16, H 5.71, N 1.72 % of daf).
@@ -168,7 +168,7 @@ nothing is experimentally validated.
 
 ## U2 elemental-balance investigation (second pass, no model change)
 
-Full table: `outputs/validation/u2_element_balance_att_s1_1kgph.txt` (1 kg/h dry basis).
+Full table: `results/validation/u2_element_balance_att_s1_1kgph.txt` (1 kg/h dry basis).
 - U2 reacts only `ins[0]`. The tail-gas inlet is furnace fuel and is empty without a PSA.
 - C, O, N, S and Na close exactly. H is +40.877 mmol/g daf (+9.7 % of the H fed); that mass, 0.02799 kg/h, is
   the whole +0.676 % mass error.
@@ -217,7 +217,7 @@ Status unchanged: operational; U2 elemental balance unresolved; U2 duty, MSP and
 - `systems/_att_system.py`: the chemical-set check only.
 - `test/test_att_s1_parameters.py`.
 
-**ATT S1, U2, per g daf** (`outputs/validation/u2_element_balance_att_s1_1kgph_lumped.txt`):
+**ATT S1, U2, per g daf** (`results/validation/u2_element_balance_att_s1_1kgph_lumped.txt`):
 - All residuals are 0: C 40.297, H 420.305, O 234.778, N 1.227, S 0.026, Na 40.531. Mass error 3e-9;
   electron residual ~1e-13. All PASS under the unchanged standards.
 - Solved formula **CH0.5O1.1953** (2.109 available e⁻/C); residual C 18.661 mmol.
@@ -268,7 +268,7 @@ unchanged.
     and drops the generic whole-cake lines for a sold cake.
 - `analyses/att/breakdown.py`: applies the configuration to ATT S1, adds `caco3_price` and `sys` arguments,
   maps the group "CaCO3 byproduct sales" (cost type "Coproduct revenue"), and adds summary fields.
-- `analyses/att_caco3_sales.py` (new): recovery table and price sensitivity. Outputs in `outputs/tables/`.
+- `analyses/att_caco3_sales.py` (new): recovery table and price sensitivity. Outputs in `results/tables/`.
 - Tests: `test/test_att_breakdown.py` (reconciliation including the revenue; `test_caco3_sales_counted_once`).
 
 **Recovered CaCO3 at capacity** (component mass; the upstream slurries are internal and not counted):
@@ -320,7 +320,7 @@ and the floating TEA.
   - `check_whr`.
 - `analyses/att/marine_tea.py`: floating CAPEX and labor; WHR utility savings and pumps.
 - `analyses/att/marine_lca.py`: incremental GWP.
-- `analyses/att_s2_marine.py`: driver; writes `outputs/tables/att_s2_*.csv`.
+- `analyses/att_s2_marine.py`: driver; writes `results/tables/att_s2_*.csv`.
 - `test/test_att_s2.py`.
 
 **Changed files** (hooks are neutral by default; S1 results unchanged).
@@ -383,10 +383,10 @@ The SaBRe reference-treatment tables are kept and labeled **LEGACY**:
 The reference-scale model itself is `scenarios.create_legacy_reference()`. A `configuration` argument, or a
 `lime_recycle` value that contradicts the scenario, raises an error instead of silently changing S1.
 
-**Output directory.** `analyses/att/paths.py` reads the `ATT_PROJECT_OUTPUTS_DIR` environment variable
-(`paths.OUTPUTS_ENV`). `run_att_all --out` now sets the same variable; it previously set `ATT_OUTPUTS_DIR`, which
+**Output directory.** `analyses/att/paths.py` reads the `ATT_PROJECT_RESULTS_DIR` environment variable
+(`paths.RESULTS_ENV`). `run_att_all --out` now sets the same variable; it previously set `ATT_OUTPUTS_DIR`, which
 nothing read. The S1/S2 table scripts (`analyses/att_*.py`) write to `output_dir("tables")`. The default location
-is unchanged: `biorefineries/ATT/outputs/tables`.
+is unchanged: `biorefineries/ATT/results/tables`.
 
 **S2 engine load.** `marine_tea.operating_modes()` returns the hours and the `engine_load` of Modes A and B
 (`marine_whr.yaml`), and `att_s2_marine.mode_tea_cases()` passes that load to `evaluate_case`. Both modes are at
@@ -475,7 +475,7 @@ At 5029.17 kg dry/h and 7920 h/yr:
 - washing_off reproduces the six requested S1/S2 numerical references.
 - Final complete test discovery: 111 tests, zero failures/errors/skips (existing 96
   plus 15 native washing/regression tests). Additional exported component checks: 88 PASS.
-  Logs: outputs/validation/logs/washing_final_validation.log.
+  Logs: results/validation/logs/washing_final_validation.log.
 - run_att_all was executed: Steps 1-5 passed; Step 6 documentation stopped on the
   pre-existing missing preprocessing.yaml registry reference. The Step-1 water QC
   separately exposes a pre-existing omission of SCRUB reaction-water generation

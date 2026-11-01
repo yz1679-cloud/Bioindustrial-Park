@@ -116,20 +116,22 @@ lca:
     # CARBONATE STORAGE ACCOUNTING (finalization 2026-11-01). The credited carbonate carbon is biogenic (U2 converts
     # Sargassum carbon to CO2/Na2CO3; C1 and the scrubber fix it as CaCO3; lime and NaOH carry no carbon), but a
     # credit needs the material to be landfilled, and the TEA sells the CaCO3 (att_tea.yaml caco3_sales):
-    #   conservative (baseline): credit only the CaCO3 carbon that is physically landfilled, i.e. the cake CaCO3 NOT
+    #   conservative (option): credit only the CaCO3 carbon that is physically landfilled, i.e. the cake CaCO3 NOT
     #       sold under the TEA disposition (lca.apply_att_gwp caco3_sales). Sold CaCO3 gets no storage credit (end
     #       use unknown; calcination or acid use would release it) and no substitution credit; soluble Na2CO3 in
     #       landfilled solids gets none either (leachable, no permanence basis).
-    #   inherited (optimistic comparison only): the earlier treatment, all non-residue carbon of landfill_streams
-    #       credited whether sold or not (sold CaCO3 counted as landfilled).
-    carbonate_storage_accounting: conservative
-    # ATT Scenario 1 (2026-10-31): the U2 char is the PROVISIONAL bookkeeping sink of the organic carbon that is not
-    # in the measured gases or the carbonate; neither its amount (the U2 H/electron balance fails with it) nor its
-    # permanence in a landfill is supported by data. Its carbon is therefore NOT credited in the baseline net GWP;
-    # the char-inclusive credit is reported separately (lca.get_att_stored_carbon_credit(sys, include_char=True)).
-    credit_char_carbon: false
+    #   inherited (BASELINE since 2026-11-01, user decision): all non-residue carbon of landfill_streams credited, as
+    #       carbon in a landfilled solid (CaCO3 and Na2CO3 of the cakes). The baseline TEA disposes the cakes (no CaCO3
+    #       sales), so this is what is physically landfilled.
+    carbonate_storage_accounting: inherited
+    # ATT Scenario 1: the U2 residual product (lumped residue = ATT char) is a bookkeeping sink of the organic carbon
+    # that is not in the measured gases or the carbonate; its composition is an assumed surrogate and its permanence in
+    # a landfill is not measured. By user decision (2026-11-01) its carbon is carbon in a landfilled solid and IS credited
+    # in the baseline net GWP (about half of the stored-carbon credit). The credit without it is reported separately
+    # (lca.get_att_stored_carbon_credit(sys, include_char=False)).
+    credit_char_carbon: true
     # U2 residual-product species covered by credit_char_carbon: the char and the basis species of the lumped
-    # residual product (att.yaml reactor.material_balance; a stoichiometric surrogate, never credited by default).
+    # residual product (att.yaml reactor.material_balance; a stoichiometric surrogate; credited since 2026-11-01).
     provisional_residue_species: [Char, ResidueCH, ResidueCHO]
     note: "Net GWP counts the biogenic carbon stored in landfilled solids (carbonates; char only if credit_char_carbon) as a negative emission."
 

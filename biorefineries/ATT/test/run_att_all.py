@@ -5,9 +5,9 @@ Regenerate every ATT result in dependency order, run the tests and tally the QC 
 
 Works from any working directory (``python path/to/run_att_all.py`` also
 works). Each step runs in its own Python process, exactly as when the runners
-are called one by one, with ATT_PROJECT_OUTPUTS_DIR (paths.OUTPUTS_ENV) set to the
+are called one by one, with ATT_PROJECT_RESULTS_DIR (paths.RESULTS_ENV) set to the
 output root, so every runner resolves the same paths as this script (default
-biorefineries/ATT/outputs/). Order:
+biorefineries/ATT/results/). Order:
 
  1 baseline_1kg      1 kg/h mass and energy audit
  2 inventory         full-scale mass/energy inventory
@@ -37,7 +37,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 if str(_ROOT) not in sys.path:  # run as a script without the package installed
     sys.path.insert(0, str(_ROOT))
 
-from biorefineries.ATT.analyses.att.paths import OUTPUTS_ENV, PROJECT_ROOT, SUBDIRS, outputs_root  # noqa: E402
+from biorefineries.ATT.analyses.att.paths import RESULTS_ENV, PROJECT_ROOT, SUBDIRS, results_root  # noqa: E402
 
 STEPS = (
     ("baseline_1kg", "run_att_1kgph_audit", ()),
@@ -87,9 +87,9 @@ def _qc_tally(root):
 
 
 def step_env(root, base=None):
-    """Environment of every step and of the tests: the output root in paths.OUTPUTS_ENV, the repository on the path."""
+    """Environment of every step and of the tests: the output root in paths.RESULTS_ENV, the repository on the path."""
     base = os.environ if base is None else base
-    return dict(base, **{OUTPUTS_ENV: str(root)}, PYTHONWARNINGS="ignore",
+    return dict(base, **{RESULTS_ENV: str(root)}, PYTHONWARNINGS="ignore",
                 PYTHONPATH=os.pathsep.join(x for x in (str(PROJECT_ROOT), base.get("PYTHONPATH")) if x))
 
 
@@ -102,13 +102,13 @@ def _run(cmd, log, env, cwd):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--out", default=None, help="output root (default biorefineries/ATT/outputs/)")
+    p.add_argument("--out", default=None, help="output root (default biorefineries/ATT/results/)")
     p.add_argument("--skip-tests", action="store_true", help="do not run the ATT unit tests")
     p.add_argument("--real-system-test", action="store_true",
                    help="also run the real-flowsheet smoke test (ATT_RUN_REAL_SYSTEM_TEST=1)")
     args = p.parse_args(argv)
 
-    root = Path(args.out).resolve() if args.out else outputs_root()
+    root = Path(args.out).resolve() if args.out else results_root()
     logs = root / SUBDIRS["validation"] / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     env = step_env(root)

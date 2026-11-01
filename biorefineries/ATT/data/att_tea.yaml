@@ -44,7 +44,9 @@ tea:
   # condenser and vacuum system, the PSA in U3P, the reciprocating compressor U3K; see att.yaml).
   # The TEA only adds the P1 press alternative and the PSA cost-factor adjustment.
 
-  # ATT Scenario 1 CaCO3 BYPRODUCT SALES (user decision 2026-10-31; TEA marketing ASSUMPTION, no sales agreement).
+  # ATT Scenario 1 CaCO3 BYPRODUCT SALES: OFF in the baseline (user decision 2026-11-01: the CaCO3 cakes are disposed at
+  # the tea.yaml solid-waste price, no CaCO3 revenue; TEA Case A). The sales accounting below is kept as an option
+  # (enabled: true; user decision 2026-10-31, TEA marketing ASSUMPTION, no sales agreement).
   # Applied by analyses/att/breakdown.py (the ATT S1 TEA) to each listed cake stream that is a system product:
   #   revenue  = saleable_fraction x CaCO3 component mass x price (the CaCO3 content only, not the wet cake);
   #   disposal = tea.yaml disposal_solid x (cake mass - sold CaCO3 mass): the moisture, excess Ca(OH)2 and entrained
@@ -60,7 +62,7 @@ tea:
   # sales (scenarios.tea_config f2_sales=False; whole F2 cake disposed). The LCA follows the same disposition: sold
   # CaCO3 earns no storage credit (att_lca.yaml carbonate_storage_accounting).
   caco3_sales:
-    enabled: true
+    enabled: false
     streams: [caco3_cake, scrubber_cake]   # F2 causticizing cake and F3 CO2-scrubber cake (distinct CaCO3 flows)
     saleable_fraction: 1.0
     price_usd_per_metric_ton: 100.0        # OPTIMISTIC unverified reference, no confirmed product specification or buyer

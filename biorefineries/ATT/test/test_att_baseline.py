@@ -1,0 +1,108 @@
+"""
+Key metrics of the ATT scenarios (S1, S2; add S3 and later ones as new entries below).
+
+Baseline assumptions (data/*.yaml): presscake feed, NaOH 1 kg/kg dry, Ni-CatATT 1:1 gas yields, lumped residue (ATT
+char), 88 % causticization, F2 washing, waste-lime CO2 scrubber, no PSA, free waste lime, CaCO3 cakes DISPOSED (no
+CaCO3 sales), and the storage credit for ALL carbon in landfilled solids (CaCO3, Na2CO3, the residue).
+
+Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The S1 values were cross-checked to 9 digits against an independent
+model of the same process (SaBRe Scenario 5). If a deliberate model change moves a value, update it in the same commit
+and say why.
+"""
+import unittest
+import warnings
+
+from biorefineries.ATT.analyses.att import marine_tea as mt
+from biorefineries.ATT.analyses.att import marine_whr as mw
+from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+
+RTOL = 1e-5
+ALL_WHR = ("jacket", "scavenge", "exhaust")
+
+# ---- S1: land-based plant (analyses/att/breakdown.build_att_breakdown("att_s1")) ----------------------------------
+S1_METRICS = {
+    "MSP_USD_per_kg_H2": 5.40656916,
+    "GWP_kgCO2e_per_kg_H2": 6.49866239,
+    "FCI_MUSD": 12.4754519,
+    "AOC_MUSD_per_yr": 14.35187,
+    "H2_t_per_yr": 2953.56307,
+    "fresh_NaOH_t_per_yr": 10262.8704,
+    "Ca_OH_2_used_t_per_yr": 42623.9135,
+    "U2_heat_duty_MJ_per_kg_dry": 9.06587487,
+    "dry_feed_t_per_day": 120.7001,
+}
+S1_STORED_CARBON_CREDIT = -15.1280751        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 21.6267375
+
+# ---- S2: the S1 process on a ship (analyses/att/marine_tea.evaluate_case) -----------------------------------------
+S2_WHR_UTILIZED_KW = 1857.84623353
+# (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
+S2_CASES = {
+    ("A", "no WHR"): (5.64992672, 6.49866239, 15594314.9),
+    ("A", "all WHR"): (5.59289358, 5.10825610, 16602431.2),
+    ("B", "no WHR"): (7.56934604, 6.49866239, 15594314.9),
+    ("B", "all WHR"): (7.61423754, 5.10825610, 16602431.2),
+}
+
+
+def close(test, value, expected, msg=""):
+    test.assertAlmostEqual(value / expected, 1.0, delta=RTOL, msg=f"{msg}: {value} vs {expected}")
+
+
+class TestATTS1(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        warnings.filterwarnings("ignore")
+        cls.t = build_att_breakdown("att_s1")
+        cls.s = cls.t["summary"]
+
+    def test_key_metrics(self):
+        for key, expected in S1_METRICS.items():
+            close(self, self.s[key], expected, key)
+
+    def test_caco3_is_disposed_not_sold(self):
+        self.assertEqual(self.s["CaCO3_sold_t_per_yr"], 0.0)
+        self.assertGreater(self.s["CaCO3_cake_disposal_USD_per_yr"], 0.0)
+
+    def test_all_landfilled_carbon_is_credited(self):
+        g = self.t["GWP_by_contributor"]
+        credit = float(g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum())
+        close(self, credit, S1_STORED_CARBON_CREDIT, "stored carbon credit")
+        close(self, self.s["GWP_kgCO2e_per_kg_H2"] - credit, S1_GWP_WITHOUT_CREDIT, "GWP without the credit")
+
+    def test_u2_balance_and_residue(self):
+        self.assertEqual(self.s["U2_balance_status"], "PASS")
+        self.assertTrue(self.s["U2_residual_product"].startswith("lumped: CH0.5O1.19"), self.s["U2_residual_product"])
+
+
+class TestATTS2(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        warnings.filterwarnings("ignore")
+        cls.system = scen.create(scen.ATT_S2)
+        cls.ref = mt.land_reference(cls.system)
+
+    def test_land_reference_is_s1(self):
+        close(self, self.ref["row"]["MSP_USD_per_kg_H2"], S1_METRICS["MSP_USD_per_kg_H2"], "MSP")
+        close(self, self.ref["row"]["GWP_kgCO2e_per_kg_H2"], S1_METRICS["GWP_kgCO2e_per_kg_H2"], "GWP")
+        close(self, self.ref["row"]["H2_t_per_yr"], S1_METRICS["H2_t_per_yr"], "H2")
+
+    def test_waste_heat_recovery(self):
+        close(self, mw.evaluate_whr(self.system)["utilized_kW"], S2_WHR_UTILIZED_KW, "utilized WHR")
+
+    def test_floating_cases(self):
+        modes = {m[0][:1]: m for m in mt.operating_modes()}
+        for (mode, name), (msp, gwp, fci) in S2_CASES.items():
+            _, hours, load = modes[mode]
+            sources = ALL_WHR if name == "all WHR" else ()
+            row, _ = mt.evaluate_case(self.system, self.ref, f"S2 {name}", sources=sources, hours=hours, load=load)
+            close(self, row["MSP_USD_per_kg_H2"], msp, f"{mode} {name} MSP")
+            close(self, row["GWP_kgCO2e_per_kg_H2"], gwp, f"{mode} {name} GWP")
+            close(self, row["FCI_USD"], fci, f"{mode} {name} FCI")
+
+
+if __name__ == "__main__":
+    unittest.main()

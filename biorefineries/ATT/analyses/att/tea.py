@@ -643,7 +643,7 @@ def _checks(sys, result, fingerprint, scenario="att_s1"):
 def export_att_tea(out_dir=None, scenario="att_s1"):
     """
     MSP, CAPEX/OPEX tables, sensitivity and checks of an ATT scenario (default ATT S1, with its waste-lime and
-    CaCO3-sales assumptions from scenarios.tea_config) to CSV/Excel (default outputs/full_scale/tea). The SaBRe
+    CaCO3-sales assumptions from scenarios.tea_config) to CSV/Excel (default results/full_scale/tea). The SaBRe
     Case A/B and lime-price tables (06, 07) are LEGACY sensitivities on the reference treatment.
     """
     import os
