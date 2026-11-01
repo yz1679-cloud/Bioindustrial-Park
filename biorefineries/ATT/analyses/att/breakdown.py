@@ -257,18 +257,19 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
     capex_equipment, capex_area = _capex_tables(sys, result, capital_msp)
     opex = _opex_table(sys, result, h2_kg_yr)
-    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec))
+    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec), caco3_sales=sales_cfg)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
-    credit = lca.get_att_avoided_emission(sys)
+    credit = lca.get_att_avoided_emission(sys, sales_cfg)
     gwp_item = pd.concat([gwp_item, pd.DataFrame([dict(contributor=lca.AVOIDED_CH4_ITEM, stage="Extra credit (not in net)",
                                                        counted_in_net=False, kgCO2e_per_kg_H2=credit["CH4_extra_kgCO2e_per_kg_H2"],
                                                        share_of_total=credit["CH4_extra_kgCO2e_per_kg_H2"] / gwp_total)])],
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
-    stored_net = lca.get_att_stored_carbon_credit(sys)                     # credit in the net GWP
-    stored_with_char = lca.get_att_stored_carbon_credit(sys, include_char=True)
+    stored_net = lca.get_att_stored_carbon_credit(sys, caco3_sales=sales_cfg)        # credit in the net GWP
+    stored_with_char = lca.get_att_stored_carbon_credit(sys, include_char=True, caco3_sales=sales_cfg)
+    stored_inherited = lca.get_att_stored_carbon_credit(sys, caco3_sales=sales_cfg, accounting="inherited")
     u2_checks = pd.DataFrame(inv.get_att_u2_balance_checks(sys))
     u2_fail = bool(u2_checks["status"].dropna().astype(str).str.startswith("FAIL").any())
     U2 = inv._units(sys)["U2"]
@@ -291,6 +292,9 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
                    NaOH_recycled_t_per_yr=float(inv._streams(sys)["naoh_recycle"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored_net,
                    GWP_without_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net,
+                   carbonate_storage_accounting=applied["carbonate_storage_accounting"],
+                   GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2=gwp_total - stored_net + stored_inherited,
+                   GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2=stored_inherited,
                    GWP_with_provisional_residue_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net + stored_with_char,
                    description=spec["label"],
                    fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,

@@ -47,7 +47,9 @@ def _summary_row(case, t, labor, whr_capex, hours, extra=None):
                waste_disposal_USD_per_yr=float(by_type.get("Waste treatment and disposal", 0.0)) * 1e6,
                CaCO3_revenue_USD_per_yr=s.get("CaCO3_sales_revenue_USD_per_yr", 0.0),
                AOC_net_USD_per_yr=s["AOC_MUSD_per_yr"] * 1e6, MSP_USD_per_kg_H2=s["MSP_USD_per_kg_H2"],
-               GWP_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"], results_status=s["results_status"])
+               GWP_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"],
+               GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2=s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"],
+               results_status=s["results_status"])
     row.update(extra or {})
     return row
 
@@ -108,4 +110,5 @@ def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, c
                  GWP_WHR_change_kgCO2e_per_kg_H2=d_gwp)
     row = _summary_row(case, t, lab_mult * labor_s1, whr_capex, hours, extra)
     row["GWP_kgCO2e_per_kg_H2"] = t["summary"]["GWP_kgCO2e_per_kg_H2"] + d_gwp     # incremental process GWP
+    row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"] += d_gwp                    # comparison basis
     return row, whr

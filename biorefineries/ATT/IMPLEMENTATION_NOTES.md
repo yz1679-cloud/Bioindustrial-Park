@@ -487,3 +487,53 @@ At 5029.17 kg dry/h and 7920 h/yr:
   lime + scrubber_lime consistency check (PASS, 1.0701183803 kg/kg dry).
 - SABRE's 106 tracked source files have the same aggregate SHA256 before/after;
   HEAD remains 92cc3f0b. No installed BioSTEAM source, DCF, commit or push changed.
+
+## Finalization: CaCO3 sales and carbonate storage accounting (after commit 26981907)
+
+Accounting only. The flowsheet, units, washing, WHR, TEA prices, DCF, H2 and every physical stream are unchanged,
+and so is every MSP.
+
+**What was inconsistent.** The TEA sells the CaCO3 of the F2 and F3 cakes (`att_tea.yaml caco3_sales`). The LCA
+still treated both cakes as landfilled and credited all of their carbon as permanently stored. That is 773.98 kg
+C/h, or -7.6046 kg CO2e/kg H2 with washing on:
+
+| Credited carbon | kg C/h | Credit, kg CO2e/kg H2 |
+|---|---:|---:|
+| CaCO3, F2 and F3 (sold in the TEA) | 701.70 | -6.894 |
+| Soluble Na2CO3 in landfilled solids | 72.28 | -0.710 |
+
+The same CaCO3 therefore earned both revenue and a storage credit, and the GWP did not depend on whether F2 was
+sold.
+
+The credited carbon is biogenic. The feed has no carbonate, and the lime and NaOH carry no carbon. The plant
+carbon balance closes. The F2 wash-liquor carbonate (8.40 kg C/h) goes to wastewater and is not credited.
+
+**Fix: `att_lca.yaml carbon_storage.carbonate_storage_accounting`.**
+- `conservative` (the baseline) credits only CaCO3 that is physically landfilled, meaning cake CaCO3 not sold under
+  the TEA disposition.
+  - Sold CaCO3 gets no storage credit and no substitution credit.
+  - Soluble Na2CO3 gets no storage credit.
+- `inherited` gives the previous result and is kept as an optimistic comparison:
+  - `GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2` in the breakdown and S2 rows;
+  - `lca.get_att_stored_carbon_credit(..., accounting="inherited")`.
+
+`lca.apply_att_gwp(caco3_sales=...)` receives the case's TEA disposition from `breakdown`. The sold share comes
+from one helper, `lca.caco3_saleable_fraction`, which `tea.caco3_sales_accounting` also uses.
+
+**TEA sales calculation.** No unit separates CaCO3 from the cake. The revenue/disposal split is a net price on the
+whole wet cake: the CaCO3 content times the price, minus `disposal_solid` times the non-CaCO3 mass. It is not double
+counted. It remains an upper-bound case, and "no F2 sales" is the conservative case.
+
+**Results (washing on, kg CO2e/kg H2).**
+
+| Case | Conservative, F2+F3 sold | Conservative, no F2 sales | Inherited (comparison) |
+|---|---:|---:|---:|
+| S1 | 21.847577 | 15.260492 | 14.243019 |
+| S2 with WHR (7920 h or 2640 h) | 20.457170 | 13.870086 | 12.852612 |
+
+- WHR contributes -1.390407 kg CO2e/kg H2.
+- Washing adds +0.116188 under conservative accounting and +0.198737 under inherited accounting. In the inherited
+  case, 0.082549 of that came from removing Na2CO3 that had been credited.
+
+Tests: `test/test_att_carbon_accounting.py` (new). In `test_att_washing_integration.py`, the 12.653875 reference
+now applies to the inherited column, and the conservative value is asserted beside it.

@@ -50,8 +50,15 @@ tea:
   #   disposal = tea.yaml disposal_solid x (cake mass - sold CaCO3 mass): the moisture, excess Ca(OH)2 and entrained
   #              NaOH/Na2CO3 stay a disposed residue (dispose_non_caco3_mass); the sold CaCO3 is not disposed
   #              (disposal_of_sold_caco3: false). Net = one stream price, so revenue and disposal enter the DCF once.
-  # Simplification: the cake is sold as recovered (no washing, drying, classification, packaging or transport is
-  # modeled or costed); industrial grade only. Modeled purity is far below the experimental ~97 % (see notes).
+  # Simplification: the cake is sold as recovered (no drying, classification, packaging or transport is modeled or
+  # costed; F2 washing W2/F2R is modeled); industrial grade only. Modeled purity (F2 82.5 %, F3 93.1 % dry basis) is
+  # below the experimental ~97 %, whose measurement basis is not confirmed (see notes).
+  # ACCOUNTING APPROXIMATION (finalization 2026-11-01): no unit separates the CaCO3 from the cake. Physically the
+  # whole wet cake leaves; the split above is a NET CAKE PRICE = CaCO3 content x price - disposal_solid x the
+  # non-CaCO3 mass, i.e. a buyer discount for moisture, Ca(OH)2 and sodium. It is not double counted (one stream
+  # price) but it is an UPPER-BOUND case: no buyer or specification exists for this cake. Conservative case: no F2
+  # sales (scenarios.tea_config f2_sales=False; whole F2 cake disposed). The LCA follows the same disposition: sold
+  # CaCO3 earns no storage credit (att_lca.yaml carbonate_storage_accounting).
   caco3_sales:
     enabled: true
     streams: [caco3_cake, scrubber_cake]   # F2 causticizing cake and F3 CO2-scrubber cake (distinct CaCO3 flows)

@@ -42,6 +42,8 @@ The corresponding marine functions accept f2_sales=False.
 Run python -m biorefineries.ATT.analyses.att_washing to export both operating
 configurations, equipment, material/component checks, itemized costs, optimistic and
 conservative S1/S2 economics, and LCA contributions to outputs/tables/att_washing_*.csv.
-The inherited DCF and LCA carbon-storage methodology are unchanged. The known
-inconsistency between CaCO3 sales and landfill-storage credits remains a scientific
-limitation, not evidence of permanent storage.
+The inherited DCF methodology is unchanged. The carbonate storage credit now follows the
+CaCO3 disposition (att_lca.yaml carbonate_storage_accounting: conservative): only CaCO3
+that is landfilled (not sold) is credited, so sold CaCO3 earns no storage credit. The
+earlier credit is kept as GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2, an optimistic
+comparison only (see IMPLEMENTATION_NOTES.md, "Finalization").

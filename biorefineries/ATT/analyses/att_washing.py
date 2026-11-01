@@ -70,16 +70,17 @@ def run():
                     rows.append(row)
             for row in rows:
                 economics.append(dict(washing=mode, sales_basis=label, F2_sales=f2_sales, **row))
-            # Stream prices do not alter physical GWP; report one decomposition per mode.
-            if f2_sales:
-                for row in base["GWP_by_contributor"].to_dict("records"):
-                    impacts.append(dict(washing=mode, **row))
+            # The carbonate storage credit follows the CaCO3 disposition (att_lca.yaml
+            # carbonate_storage_accounting), so the GWP depends on whether the F2 cake is sold.
+            for row in base["GWP_by_contributor"].to_dict("records"):
+                impacts.append(dict(washing=mode, F2_sales=f2_sales, **row))
         # Restore the optimistic configured S1 accounting after the comparisons.
         build_att_breakdown(sys=system)
     df = pd.DataFrame(economics)
     key = ["case", "hours", "F2_sales"]
     off = df.loc[df.washing == "washing_off"].set_index(key)
-    for metric in ("MSP_USD_per_kg_H2", "FCI_USD", "AOC_net_USD_per_yr", "GWP_kgCO2e_per_kg_H2"):
+    for metric in ("MSP_USD_per_kg_H2", "FCI_USD", "AOC_net_USD_per_yr", "GWP_kgCO2e_per_kg_H2",
+                   "GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"):
         df[f"washing_increment_{metric}"] = [
             r[metric] - off.loc[tuple(r[k] for k in key), metric] for r in df.to_dict("records")]
     return dict(materials=pd.DataFrame(materials), equipment=pd.DataFrame(equipment),

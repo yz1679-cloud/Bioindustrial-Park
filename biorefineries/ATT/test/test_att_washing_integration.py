@@ -104,7 +104,11 @@ class TestNativeF2Washing(unittest.TestCase):
         for hours, expected in ((7920., 3.204215), (2640., 5.136015)):
             row, _ = mt.evaluate_case(self.off, ref, "reference", hours=hours)
             self.assertAlmostEqual(row["MSP_USD_per_kg_H2"], expected, delta=1e-6)
-            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 12.653875, delta=1e-6)
+            # inherited carbonate credit (optimistic comparison) keeps the earlier published value; the conservative
+            # net GWP drops the credit of the CaCO3 that the TEA sells (all of it here)
+            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 12.653875, delta=1e-6)
+            inherited = lca.get_att_stored_carbon_credit(self.off, accounting="inherited")
+            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 12.653875 - inherited, delta=1e-6)
 
     def test_floating_capex_includes_washing_once(self):
         ref = mt.land_reference(self.on)
