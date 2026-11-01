@@ -153,6 +153,9 @@ def get_att_external_flows(sys):
     fates = _INV["stream_fates"]
     rows = []
     for s in (*sys.feeds, *_boundary_products(sys)):
+        # Without a PSA the furnace inlet u3_tail_gas is an empty placeholder, not an external feed.
+        if s.ID == "u3_tail_gas" and s in sys.feeds and not any(s.mol):
+            continue
         direction, category, note = fates[s.ID]  # KeyError: undocumented stream
         expected = "input" if s in sys.feeds else "output"
         if direction != expected:
@@ -620,6 +623,14 @@ def get_att_water_balance(sys):
         rows.append(dict(group="reaction", item="Lime kiln water formation (Ca(OH)2 dehydration)", kg_per_kg_dry=kiln / dry))
         rows.append(dict(group="reaction", item="Slaker water consumption (CaO hydration)", kg_per_kg_dry=slaker / dry))
         formation += kiln + slaker
+    if "SCRUB" in u:
+        # Ca(OH)2 + CO2 -> CaCO3 + H2O in the CO2 scrubber, read from the simulated streams.
+        scrubber = u["SCRUB"]
+        scrubber_water = (sum(float(st.imass["Water"]) for st in scrubber.outs)
+                          - sum(float(st.imass["Water"]) for st in scrubber.ins))
+        rows.append(dict(group="reaction", item="SCRUB water formation (carbonation)",
+                         kg_per_kg_dry=scrubber_water / dry))
+        formation += scrubber_water
     w_out = 0.0
     for p in sys.products:
         w = float(p.imass["Water"])

@@ -145,18 +145,18 @@ def _register_rows():
         "h", "U2", "Vessel sizing for TEA", EXP, "Workbook footnote '1 h hold'",
         "att.yaml:att.inventory.cost_estimates.U2_vessel.tau_h", "Experimental hold time used for sizing",
         affects="TEA")
-    add("ATT reaction", "NaOH : daf Sargassum", Y("att.yaml", "att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf"),
-        "kg/kg daf", "U2", "NaOH loading", EXP, "Experimental team Excel (energy and exergy calculation)",
-        "att.yaml:att.reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf", "Experimental team value",
+    add("ATT reaction", "NaOH : dry Sargassum (gross)", Y("att.yaml", "att.reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry"),
+        "kg/kg dry", "M1", "NaOH loading", EXP, "User decision 2026-10-31 (workbook 261023 B14, basis not stated)",
+        "att.yaml:att.reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry", "Specified",
         affects="Process, LCA, TEA")
     add("ATT reaction", "Fresh NaOH form", Y("att.yaml", "att.feed_preparation.fresh_naoh_form"), "-", "M1",
         "Makeup NaOH physical form", ENG, NV, "att.yaml:att.feed_preparation.fresh_naoh_form", "Specified")
     for gas in ("H2", "CH4", "CO", "CO2"):
-        add("ATT reaction", f"Specified {gas} yield (Ni-CatATT)",
-            Y("att.yaml", f"att.reactor.cases.Ni-CatATT.gas_yield_mmol_per_g_daf.{gas}"), "mmol/g daf", "U2",
-            "Gas yield specified to U2", EXP, "Experimental team Excel (energy and exergy calculation)",
-            f"att.yaml:att.reactor.cases.Ni-CatATT.gas_yield_mmol_per_g_daf.{gas}",
-            "Specified; CO2 is topped up with the carbon not otherwise assigned",
+        add("ATT reaction", f"Specified {gas} yield (Ni-CatATT 1:1)",
+            Y("att.yaml", f"att.reactor.cases.Ni-CatATT_1to1.gas_yield_mmol_per_g_daf.{gas}"), "mmol/g daf", "U2",
+            "Gas yield specified to U2", EXP, "Workbook 261023, sheet '1. Gas Yield (Ni-ATT)', row 5",
+            f"att.yaml:att.reactor.cases.Ni-CatATT_1to1.gas_yield_mmol_per_g_daf.{gas}",
+            "Measured, held fixed; residual carbon goes to the lumped residue (ATT char)",
             "Closes the electron balance (see U2 balance checks)",
             "Process, LCA, TEA",
             confirm="Yes (gas quantification)")
@@ -215,7 +215,7 @@ def _register_rows():
         "(specific reference not recorded)", f"att.yaml:{ds}.f2_cake_moisture_wt_frac", "Engineering baseline",
         affects="Process, LCA, TEA", uncertainty=NV)
     add("Downstream", "C1 conversion", Y("att.yaml", f"{ds}.causticization_conversion"), "-", "C1",
-        "SPECIFIED causticizing efficiency (not measured)", LIT, "Workbook: 'commercial causticizing' 85 %",
+        "SPECIFIED causticizing efficiency", LIT, "Workbook 261023 B17: 'commercial causticizing' 88 % (experiment 88.3 %)",
         f"att.yaml:{ds}.causticization_conversion", "Specified (workbook)", affects="Process, LCA, TEA")
     add("Downstream", "Ca(OH)2 : Na2CO3", Y("att.yaml", f"{ds}.lime_equiv"), "mol/mol stoich.", "C1",
         "Lime excess", LIT, "Workbook: 'commercial causticizing' 1.1", f"att.yaml:{ds}.lime_equiv",
@@ -313,7 +313,7 @@ _UNIT_INFO = {
     "EC1": ("Evaporate excess water at 90 C (vacuum, single effect)", "att.yaml:att.downstream.concentration_*, recycle_naoh_*"),
 }
 _ATTRS = ("T", "P", "moisture_content", "conversion", "lime_equiv", "target_temperature_K", "heat_loss_fraction",
-          "eta", "compressor_type", "gas_closure_method", "naoh_kg_per_kg_daf",
+          "eta", "compressor_type", "gas_closure_method", "residual_carbon_fate", "naoh_kg_per_kg_dry",
           "naoh_to_na2co3_conversion", "feed_HHV_MJ_per_kg_daf", "vessel_material", "tau", "V")
 
 
@@ -541,7 +541,7 @@ def _products(sys):
     dry = inv._dry_feed_kgph(sys)
     rows = []
     for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge", "biostimulant_juice",
-               "excess_condensate", "u3_dryer_removed_water", "dryer_exhaust"):
+               "excess_condensate", "u3_dryer_removed_water", "dryer_exhaust", "scrubber_cake", "f2_wash_liquor"):
         if ID not in s:
             continue
         st = s[ID]
@@ -731,6 +731,10 @@ def _opex_detail(sys, result):
     h2so4 = lca._h2so4_kgph(sys)
     add("H2SO4 (purge neutralization)", h2so4 / dry, "kg", P["H2SO4"]["value"], "USD/kg",
         next(v for n, v in result["voc_items"] if n.startswith("Purge")), P["H2SO4"]["source"], "not stated", "purchased")
+    if "f2_wash_water" in s:
+        water = s["f2_wash_water"]
+        add("Process water (F2 washing)", float(water.F_mass) / dry, "kg", water.price,
+            "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
     for ID in (*tea_mod._T["prices"]["wastewater_streams"], *tea_mod._T["prices"]["solid_waste_streams"],
                "caco3_cake", "u3_tail_gas"):
         if ID not in s:      # no PSA, no off-gas
@@ -1233,11 +1237,11 @@ def _process_and_materials(sys, utilities):
         _row(rows, M, label, v, "kg/kg dry", "")
         _row(rows, M, f"{label} per kg H2", v / h2, "kg/kg H2", "")
     cake = s["caco3_cake"]
-    _row(rows, M, "CaCO3 equivalent in cake", float(cake.imass["CaCO3"]) / dry, "kg/kg dry", "model (C1 85 %)")
+    _row(rows, M, "CaCO3 equivalent in cake", float(cake.imass["CaCO3"]) / dry, "kg/kg dry", f"model (C1 {inv._units(sys)['C1'].conversion:.0%})")
     _row(rows, M, "CaCO3 wet filter cake (impure)", float(cake.F_mass) / dry, "kg/kg dry",
          "incl. Ca(OH)2, NaOH, Na2CO3, 25 % water")
     _row(rows, M, "Ash/char cake to disposal", float(s["ash_residue_cake"].F_mass) / dry, "kg/kg dry", "")
-    ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"]) / dry
+    ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"] if ID in s) / dry
     _row(rows, M, "Wastewater incl. alkaline purge", ww, "kg/kg dry", "")
     tail = inv._tail_gas(sys)
     _row(rows, M, "PSA off-gas (total)", float(tail.F_mass) / dry, "kg/kg dry",
@@ -1300,7 +1304,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
              "GWP_kgCO2e_per_kg_H2"] * dry * hours),
         ("NaOH: TEA purchase = LCA activity [kg/kg dry]", float(s["fresh_naoh_solid"].F_mass) / dry,
          c["NaOH makeup"]["activity_per_kg_dry"]),
-        ("Ca(OH)2: TEA purchase = LCA activity [kg/kg dry]", float(s["lime"].F_mass) / dry,
+        ("Ca(OH)2: TEA purchase = LCA activity [kg/kg dry]",
+         sum(float(s[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime") if ID in s) / dry,
          c["Ca(OH)2"]["activity_per_kg_dry"]),
         ("U2 natural gas: TEA priced fuel = LCA fuel + tail gas burned [MJ/kg dry]", ng_tea_MJ / hours / dry,
          c["Natural gas U2: combustion"]["activity_per_kg_dry"] + inv.get_att_tail_gas_offset(sys)["offset_MJph"] / dry),
@@ -1309,7 +1314,7 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
          c["Electricity: process units"]["activity_per_kg_dry"]
          + c["Electricity: outside unit models (agitators, EC1 vacuum)"]["activity_per_kg_dry"]),
         ("Wastewater: TEA disposal volume = LCA treatment volume [m3/kg dry]",
-         sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"]) / 1e3 / dry,
+         sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"] if ID in s) / 1e3 / dry,
          c["Wastewater treatment"]["activity_per_kg_dry"]),
         ("Ash/char cake: TEA disposal = LCA landfill [kg/kg dry]",
          sum(float(s[ID].F_mass) for ID in (*tea_mod._T["prices"]["solid_waste_streams"], "caco3_cake")
@@ -1401,9 +1406,9 @@ def _findings(msp, caco3, gwp, stage, slag, sens_tea, sens_lca, ct, case_a_lca, 
          "SENSITIVITY; main text"),
         ("Case-A-consistent GWP", f"Landfilling the CaCO3 cake (WARM proxy) adds {case_a_lca:.2f} kg CO2e/kg H2.",
          "SENSITIVITY; SI"),
-        ("Gas-yield basis", "Specified yields of the experimental team (H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 mmol/g daf; "
-         "NaOH 1 g/g daf); they close the electron balance (identified products hold less reducing power than the feed).",
-         "ROBUST as method; value depends on feed composition"),
+        ("Gas-yield basis", "Measured Ni-CatATT 1:1 yields (H2 54.15, CH4 0.60, CO 0, CO2 0.77 mmol/g daf; NaOH 1 kg/kg "
+         "dry); the remaining carbon goes to the lumped residue (ATT char), net water closes H.",
+         "PROVISIONAL; value depends on feed composition"),
         ("Open items before submission", "Collection/transport activity data; CaCO3 purity and outlet; delivered "
          "lime price and source; P1 press basis; PSA capital; plant-location grid factor; "
          "indirect capital; collaborator confirmation of gas analysis.", "TO RESOLVE"),

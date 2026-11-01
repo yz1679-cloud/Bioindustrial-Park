@@ -317,11 +317,10 @@ def build_att_key_metrics(cases=None):
     """Metrics per case (keys of CASES; default all four)."""
     out = {}
     for name in (cases or CASES):
-        with scen.dose(scen.ALL_SCENARIOS[name]):
-            sys_no = simulate(name, hxn=False)
-            heat = get_heat(sys_no)
-            sys_h = simulate(name, hxn=True)
-            supply, extra = get_energy_supply(sys_no, sys_h, heat)
-            conv_h, mat_h = get_conversions(sys_h), get_material_usage(sys_h)
+        sys_no = simulate(name, hxn=False)
+        heat = get_heat(sys_no)
+        sys_h = simulate(name, hxn=True)
+        supply, extra = get_energy_supply(sys_no, sys_h, heat)
+        conv_h, mat_h = get_conversions(sys_h), get_material_usage(sys_h)
         out[name] = dict(conversions=conv_h, materials=mat_h, heat=heat, scenarios=supply, extra=extra)
     return out

@@ -28,7 +28,8 @@ class TestATTTEA(unittest.TestCase):
 
     def test_deductible_cost_passes_through(self):
         # A change in a deductible annual cost moves the MSP by cost / H2.
-        lime = float(inv._streams(self.sys)["lime"].F_mass) * self.sys.operating_hours
+        s = inv._streams(self.sys)
+        lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber lime
         high = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.35})["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
         self.assertAlmostEqual(high - self.result["msp"], (0.35 - 0.24) * lime / self.h2_yr, places=4)
@@ -37,9 +38,10 @@ class TestATTTEA(unittest.TestCase):
         s = inv._streams(self.sys)
         self.assertEqual(s["u3_tail_gas"].price, 0.0)
         self.assertEqual(s["caco3_cake"].price, 0.0)
-        # the PSA and the compressor are costed inside U3P and U3K, not added by the TEA
+        # the PSA (if any; ATT Scenario 1 has none) and the compressor are costed inside U3P and U3K
         units = inv._units(self.sys)
-        self.assertGreater(units["U3P"].installed_cost, 0.0)
+        if "U3P" in units:
+            self.assertGreater(units["U3P"].installed_cost, 0.0)
         self.assertEqual(type(units["U3K"]).__name__, "ATTCompressor")
         self.assertEqual(units["U3K"].compressor_type, "Reciprocating")
 
@@ -62,7 +64,8 @@ class TestATTTEA(unittest.TestCase):
         self.assertGreater(case_a, self.result["msp"])                                # disposal added in Case A
 
     def test_updated_lime_price(self):
-        lime = float(inv._streams(self.sys)["lime"].F_mass) * self.sys.operating_hours
+        s = inv._streams(self.sys)
+        lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber lime
         msp = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.28})["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
         self.assertAlmostEqual(msp - self.result["msp"], 0.04 * lime / self.h2_yr, places=4)

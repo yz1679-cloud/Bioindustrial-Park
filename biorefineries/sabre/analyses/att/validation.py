@@ -81,7 +81,7 @@ def _basis(sys):
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     daf = float(U2._daf_sargassum_kgph)
-    case = _ATT["reactor"]["cases"]["Ni-CatATT"]
+    case = _ATT["reactor"]["cases"][_ATT["reactor"]["baseline_case"]]
     y = case["gas_yield_mmol_per_g_daf"]
     feed = U2.ins[0]
     rows = []
@@ -89,18 +89,18 @@ def _basis(sys):
     def add(group, item, experiment, model, unit, note):
         rows.append(dict(group=group, item=item, UCLA_experiment=experiment, model_1kgph=model, unit=unit, note=note))
 
-    add("Feed", "Sargassum (daf)", 0.5, daf * 1e3, "g (experiment) | g/h (model)",
-        "Experiment mass basis: 0.5 g daf (advisor-confirmed); model: 1 kg/h dry x daf fraction")
-    add("Feed", "daf / dry", float("nan"), daf / dry, "-", "1 - SaBRe ash 0.3453 (UCLA sample ash not reported)")
+    add("Feed", "Sargassum", 0.25, daf * 1e3, "g seaweed, basis not stated (experiment) | g daf/h (model)",
+        "Experiment: 0.25 g seaweed (workbook 261023, mass basis not stated); model: 1 kg/h dry x daf fraction")
+    add("Feed", "daf / dry", 1 - 0.172, daf / dry, "-", "workbook ash 17.2 wt% dry | model presscake ash 32.07 wt% dry")
     add("Feed", "Dry Sargassum", float("nan"), dry, "kg/h", "Model basis")
     add("Feed", "Wet Sargassum as harvested", float("nan"), float(s["att_sargassum_feed"].F_mass), "kg/h",
-        "moisture 0.8673 (SaBRe database)")
-    add("NaOH", "NaOH", 1.0, float(feed.imass["NaOH"]), "g (experiment) | kg/h (model)", "")
-    add("NaOH", "NaOH : daf", 1.0, float(feed.imass["NaOH"]) / daf, "kg/kg daf",
-        "att.yaml reactor.cases.Ni-CatATT.naoh_kg_per_kg_daf = 1.0 (experimental team Excel)")
-    steam_g_per_g_daf = 3.6 / 0.5
+        "presscake moisture 0.763 (feedstock.yaml nlr_pressed)")
+    add("NaOH", "NaOH", 0.25, float(feed.imass["NaOH"]), "g (experiment) | kg/h (model)", "")
+    add("NaOH", "NaOH : dry", float("nan"), float(feed.imass["NaOH"]) / dry, "kg/kg dry",
+        "att.yaml reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry = 1.0 (experiment: 0.25 g : 0.25 g, basis not stated)")
+    steam_g_per_g_daf = 3.6 / 0.25   # 3.6 g steam over the run (workbook 261023 footnote); seaweed basis not stated
     water_u2 = float(feed.imass["Water"])
-    add("Water/steam", "Steam over the run (3.6 g per 0.5 g daf)", steam_g_per_g_daf, steam_g_per_g_daf * daf,
+    add("Water/steam", "Steam over the run (3.6 g per 0.25 g seaweed)", steam_g_per_g_daf, steam_g_per_g_daf * daf,
         "g/g daf (exp.) | kg/h equivalent (model basis)",
         "Experiment: 0.03 mL/min steam for 1 h through a fixed bed with N2 carrier; NOT a model feed")
     add("Water/steam", "Water entering U2 (model)", float("nan"), water_u2, "kg/h",
@@ -113,11 +113,11 @@ def _basis(sys):
         mol_h = float(y[gas]) * daf  # mmol/g x kg/h = mol/h
         model = float(U2.outs[0].imol[gas]) * 1e3
         add("Gas yield", f"{gas}", float(y[gas]), model / daf, "mmol/g daf",
-            "SPECIFIED (experimental team); CO2 includes the carbon not otherwise assigned" +
+            "SPECIFIED (measured, Ni-CatATT 1:1); residual carbon goes to the char, not to CO2" +
             f" | experiment-equivalent {mol_h:.4f} mol/h = {mol_h * _MW[gas] / 1e3:.6f} kg/h at 1 kg/h dry")
     add("Gas yield", "H2 product", float("nan"), float(s["h2_product"].imass["H2"]), "kg/h", "")
     add("Conditions", "Temperature / hold", "500 C, 1 h", f"{_ATT['reactor']['target_temperature_K'] - 273.15:.0f} C",
-        "-", "Experiment: N2 50 mL/min, Ni catalyst (Ni-CatATT); model: no N2, no catalyst species")
+        "-", "Experiment: N2 25 mL/min, steam 0.03 mL/min, 10 wt% Ni/ZrO2 (Ni-CatATT); model: no N2, no catalyst species")
     return rows
 
 
@@ -184,7 +184,8 @@ def _mass_summary(sys):
     add("Ash/char filter cake (F1)", float(s["ash_residue_cake"].F_mass))
     add("CaCO3 filter cake (F2)", float(s["caco3_cake"].F_mass))
     for ID in _LCA["waste_management"]["wastewater_streams"]:
-        add(f"Wastewater/purge: {ID}", float(s[ID].F_mass))
+        if ID in s:
+            add(f"Wastewater/purge: {ID}", float(s[ID].F_mass))
     add("PSA off-gas", float(inv._tail_gas(sys).F_mass))
     return rows
 
@@ -263,7 +264,7 @@ def _comparison(small, ref):
         u = inv._units(sys)
         dry = inv._dry_feed_kgph(sys)
         hu = lambda unit, sign: sum(h.duty for h in u[unit].heat_utilities if h.duty * sign > 0) / dry
-        ww = sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"]) / dry
+        ww = sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"] if ID in s) / dry
         steam = sum(h.flow * h.agent.MW for h in sys.heat_utilities if h.agent.ID.endswith("steam")) / dry
         gas = sum(h.duty for h in sys.heat_utilities if h.agent.ID == "natural_gas") / dry / 0.9
         cooling = -sum(h.duty for h in sys.heat_utilities if h.duty < 0) / dry
@@ -305,8 +306,8 @@ def _comparison(small, ref):
                          relative_difference=diff, explanation=expl))
     rows.append(dict(parameter="Equipment sizes and purchase costs", actual_1kgph_simulation=float("nan"),
                      full_scale_normalized_per_kg_dry=float("nan"), relative_difference=float("nan"),
-                     explanation="Not comparable: minimum sizes, parallel units (U3K 3 compressors, "
-                                 "F2 9 filters at full scale); costs are not linear in capacity"))
+                     explanation="Not comparable: minimum sizes, parallel units at full scale "
+                                 "(e.g. U3K compressors, F2 filters); costs are not linear in capacity"))
     return rows
 
 
@@ -378,7 +379,7 @@ def _sources():
              role="model"),
         dict(item="Extraction functions", reference="biorefineries/sabre/analyses/att/inventory.py, att/reporting.py",
              role="analysis"),
-        dict(item="UCLA experimental data", reference="ATT Inputs and Assumptions_261005.xlsx, sheet 'Experimental results'",
+        dict(item="UCLA experimental data", reference="ATT Inputs and Assumptions_261023.xlsx, sheet '1. Gas Yield (Ni-ATT)'",
              role="experiment"),
     ]
     return rows
@@ -443,11 +444,9 @@ def build_att_1kgph_audit():
         "11_Products_Residues": [dict(r, kg_per_h=r.pop("kg_per_kg_dry")) for r in rep._products(small)],
         "13_Sources": _sources(),
     }
-    # Full-scale reference run for the comparison only (separate system object).
-    from biorefineries.sabre.systems._att_system import create_att_system
-    scale = inv.get_att_reference_scale()
-    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]),
-                        scale["dry_feed_kgph"])
+    # Full-scale run (baseline capacity) for the comparison only (separate system object).
+    from biorefineries.sabre.analyses.att import scenarios as scen
+    ref = scen.create(scen.BASELINE)
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
     aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
     a, b = aux(estimates, small), aux(inv.get_att_cost_estimates(ref), ref)

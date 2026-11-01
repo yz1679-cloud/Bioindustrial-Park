@@ -52,7 +52,8 @@ KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
 _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
-                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply")}
+                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply"),
+                 "f2_wash_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
@@ -245,12 +246,15 @@ def get_att_gwp_contributions(sys, applied):
                          GWP_kgCO2e_per_kg_dry=gwp_yr / dry_yr, GWP_kgCO2e_per_kg_H2=gwp_yr / h2_yr,
                          source=source))
 
-    naoh, lime = s["fresh_naoh_solid"], s["lime"]
-    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water") if ID in s]
+    naoh = s["fresh_naoh_solid"]
+    # C1 lime and the CO2-scrubber lime carry the same factor (apply_att_gwp); both are in this line.
+    limes = [s[ID] for ID in ("lime", "scrubber_lime") if ID in s]
+    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
-    add("Ca(OH)2", lime.F_mass * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
-        lime.get_impact(KEY) * hours, f"{applied['lime_source']}: {_EF[applied['lime_source']]['source']}")
+    add("Ca(OH)2", sum(l.F_mass for l in limes) * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
+        sum(l.get_impact(KEY) for l in limes) * hours,
+        f"{applied['lime_source']}: {_EF[applied['lime_source']]['source']}")
     rho = float(_LCA["water_density_kg_per_m3"])
     add("Process water (D1)", sum(w.F_mass for w in waters) / rho * hours, "m3", f["water_supply"], "kg CO2e/m3",
         sum(w.get_impact(KEY) for w in waters) * hours, _EF["water_supply"]["source"])

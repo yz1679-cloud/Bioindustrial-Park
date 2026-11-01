@@ -78,6 +78,7 @@ _AREAS = {
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
+    "W2": "F2 washing and refiltration", "F2R": "F2 washing and refiltration",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
 }
 
@@ -230,8 +231,7 @@ def build_att_breakdown(case="s1"):
     somewhere); s2 recycles the lime through the kiln; s3 and s4 take free waste lime and dispose of the cake.
     """
     spec = scen.ALL_SCENARIOS[case]
-    with scen.dose(spec):
-        return _build(case, spec, scen.create(spec))
+    return _build(case, spec, scen.create(spec))
 
 
 def _build(case, spec, sys):
@@ -254,8 +254,9 @@ def _build(case, spec, sys):
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
-    summary = dict(scenario=spec["label"], lime=spec["lime"], PSA=spec["psa"], NaOH_kg_per_kg_daf=spec["dose"],
+    summary = dict(scenario=spec["label"], lime=spec["lime"], PSA=spec["psa"], NaOH_kg_per_kg_dry=spec["naoh_kg_per_kg_dry"],
                    description=spec["label"],
+                   U2_heat_duty_MJ_per_kg_dry=float(inv._units(sys)["U2"]._heat_duty_kJph) / 1e3 / inv._dry_feed_kgph(sys),
                    fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    Ca_OH_2_used_t_per_yr=sum(float(inv._streams(sys)[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime")
                                              if ID in inv._streams(sys)) * sys.operating_hours / 1e3,

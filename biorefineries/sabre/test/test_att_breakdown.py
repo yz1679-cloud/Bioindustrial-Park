@@ -6,9 +6,9 @@ from biorefineries.sabre.analyses.att.breakdown import build_att_breakdown, COST
 
 
 class TestATTBreakdown(unittest.TestCase):
-    """Scenario 2 (recycled lime, PSA); the other scenarios of analyses/att/scenarios.py subclass it."""
-    case = "s2"
-    psa = True
+    """The baseline of analyses/att/scenarios.py (waste-lime CO2 scrubber, no PSA, F2 washing)."""
+    case = "baseline"
+    psa = False
 
     @classmethod
     def setUpClass(cls):
@@ -62,61 +62,36 @@ class TestATTBreakdown(unittest.TestCase):
 
 
 class TestATTBreakdownBaseline(TestATTBreakdown):
-    """Scenario 1: all Ca(OH)2 is bought and the CaCO3 cake is disposed of (TEA Case A)."""
-    case = "s1"
+    """Waste lime is free and burden-free; the CaCO3 cakes are disposed (no kiln, no CaCO3 revenue)."""
 
-    def test_cake_disposal_is_costed_and_no_kiln(self):
-        self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
-        groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
-        self.assertGreater(groups["CaCO3 cake disposal"], 0.0)
-        self.assertGreater(groups["Ca(OH)2"], 0.0)
-
-
-class TestATTBreakdownWasteLime(TestATTBreakdown):
-    """Scenario 3: free waste lime replaces all the lime (no kiln, cake disposed), at the waste scale."""
-    case = "s3"
-
-    def test_waste_lime_is_free_and_burden_free(self):
-        self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
+    def test_waste_lime_scrubber_and_washing(self):
+        areas = set(self.t["CAPEX_by_area"]["area"])
+        self.assertNotIn("Lime kiln (K1)", areas)
+        self.assertNotIn("PSA (U3P)", areas)
+        self.assertIn("CO2 scrubber and filter (SCRUB, F3)", areas)
+        self.assertIn("F2 washing and refiltration", areas)
         groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
         self.assertEqual(groups.get("Ca(OH)2", 0.0), 0.0)
+        self.assertGreater(groups["CaCO3 cake disposal"], 0.0)
         g = self.t["GWP_by_contributor"].set_index("contributor")["kgCO2e_per_kg_H2"]
         self.assertEqual(g["Ca(OH)2"], 0.0)
-        self.assertLess(self.s["dry_feed_t_per_day"], 300.0)
-        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.6e3)
+        self.assertEqual(self.s["NaOH_kg_per_kg_dry"], 1.0)
+        self.assertAlmostEqual(self.s["dry_feed_t_per_day"], 5029.17 * 24 / 1e3, delta=1e-3)
+        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.5e3)
 
-
-class TestATTBreakdownFullCapture(TestATTBreakdownWasteLime):
-    """Scenario 4: NaOH for full CO2 capture, no PSA, same waste-lime supply and scale as scenario 3."""
-    case = "s4"
-    psa = False
-
-    def test_no_psa_and_the_whole_supply_is_used(self):
-        self.assertNotIn("PSA (U3P)", set(self.t["CAPEX_by_area"]["area"]))
-        self.assertAlmostEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.5e3, delta=0.2e3)
-        self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 2.995)
-
-
-class TestATTBreakdownScrubber(TestATTBreakdownWasteLime):
-    """Scenario 5: NaOH 1 g/g, no PSA, the gas CO2 fixed in a waste-lime scrubber (cake dewatered in F3)."""
-    case = "s5"
-    psa = False
-
-    def test_scrubber_fixes_the_co2_within_the_supply(self):
-        area = "CO2 scrubber and filter (SCRUB, F3)"
-        self.assertIn(area, set(self.t["CAPEX_by_area"]["area"]))
-        self.assertNotIn("PSA (U3P)", set(self.t["CAPEX_by_area"]["area"]))
-        self.assertEqual(self.s["NaOH_kg_per_kg_daf"], 1.0)
-        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"], 92.6e3)
+    def test_residue_carbon_is_credited(self):
+        """The carbon of the lumped residue (ATT char) is carbon in a landfilled solid: it is credited."""
+        g = self.t["GWP_by_contributor"]
+        self.assertLess(g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum(), -10.0)
 
 
 class TestATTBreakdownFreshSargassum(TestATTBreakdown):
-    """Scenario 6 (optional): the baseline chemistry with fresh Sargassum fed to the press P1 (a juice coproduct)."""
-    case = "s6"
+    """Optional: the baseline chemistry with fresh Sargassum fed to the press P1 (a juice coproduct)."""
+    case = "fresh_sargassum"
 
     def test_press_is_costed(self):
         self.assertIn("Feed dewatering (P1)", set(self.t["CAPEX_by_area"]["area"]))
-        self.assertNotIn("Feed dewatering (P1)", set(build_att_breakdown("s1")["CAPEX_by_area"]["area"]))
+        self.assertNotIn("Feed dewatering (P1)", set(build_att_breakdown("baseline")["CAPEX_by_area"]["area"]))
 
 
 if __name__ == "__main__":

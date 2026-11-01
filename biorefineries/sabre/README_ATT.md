@@ -3,8 +3,9 @@
 Process model of alkaline thermal treatment (ATT) of *Sargassum* with NaOH at
 500 °C to hydrogen, with NaOH recovery by causticization, built on the SaBRe
 (Sargassum Biorefinery) framework in BioSTEAM. It provides a 1 kg dry/h baseline, a full-scale plant (NLR preprint scale, 3 million wet t/yr) with material, element, Na, water and energy balances, a
-preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, in five scenarios: a baseline fed with the presscake of a biostimulant plant (scenario 1) and
-four alternatives (recycled lime, waste lime, waste lime with full CO₂ capture and no PSA, and a waste-lime CO₂ scrubber without PSA; see Run).
+preliminary TEA (H₂ minimum selling price) and a GWP100 LCA, for one baseline scenario: the presscake of a
+biostimulant plant, NaOH 1 kg per kg dry Sargassum, the measured Ni-CatATT 1:1 gas yields, a waste-lime CO₂ scrubber and
+no PSA (formerly SaBRe Scenario 5, reconciled with ATT Scenario 1 of the `ATT` branch; see Run).
 
 > **Data availability.** The measured gas yields and the workbook values in
 > `data/att.yaml` are unpublished laboratory
@@ -55,7 +56,7 @@ are reported as NOT CHECKED, never as PASS. Single parts:
 | `run_att_diagram [--format png]` | `documentation/diagrams/` |
 
 Key conversions against theoretical values, material usage, heat-duty waterfalls (by unit and by
-physical origin), low- versus high-grade and external versus internal heat, and EROI, for the five scenarios
+physical origin), low- versus high-grade and external versus internal heat, and EROI, for the baseline scenario
 (`results/tables/att_*.csv`, `results/figures/fig_att_heat_*.png`):
 
 ```
@@ -64,7 +65,7 @@ python biorefineries/sabre/analyses/att_key_metrics.py
 
 Process flow diagram: `results/figures/att_sys.svg` (BioSTEAM auto-generated, `test/run_att_diagram.py`).
 
-Cost and GWP breakdown of H2 for the five scenarios (MSP by cost type, CAPEX by process
+Cost and GWP breakdown of H2 for the baseline scenario (MSP by cost type, CAPEX by process
 area, OPEX by group, GWP100 by contributor), as tables and a figure under
 `results/` (like the other SaBRe systems):
 
@@ -72,21 +73,14 @@ area, OPEX by group, GWP100 by contributor), as tables and a figure under
 python biorefineries/sabre/analyses/cost_gwp_breakdown_att.py
 ```
 
-Scenarios (`analyses/att/scenarios.py`; scenario 1 is the baseline):
-
-| | Feed | NaOH (g/g daf) | PSA | Lime | Scale |
-|---|---|---|---|---|---|
-| 1 baseline | presscake of a biostimulant plant | 1 (the team's lab dose) | yes | fresh Ca(OH)2, cake disposed | NLR (1,191 dry t/d) |
-| 2 | presscake | 1 | yes | recycled (kiln + slaker) | NLR |
-| 3 | presscake | 1 | yes | waste lime, free and emission-free | set by the waste supply |
-| 4 | presscake | 2.995 (captures all CO₂) | no | waste lime | same as 3 |
-| 5 | presscake | 1 | no (CO₂ scrubbed from the gas with a waste-lime slurry) | waste lime | same as 3 |
-
-Waste lime is carbide lime, which is already Ca(OH)₂ and needs no recalcination; one reference-size carbide plant
-(80 kt/yr CaC₂) gives 92.5 kt/yr Ca(OH)₂, which sets the scale of 3, 4 and 5 (about 121 dry t/d, where 4 uses it all). Scenario 5 scrubs the CO₂ out of the cooled gas (after U3C, before the gas dryer) in a stirred Ca(OH)₂ slurry (CO₂ + Ca(OH)₂ → CaCO₃ + H₂O, 99 % capture, 1.1× lime), dewaters the slurry in the filter F3 to the F2 cake moisture (the filtrate returns to the scrubber) and costs the scrubber only as a stirred tank plus a reaction-heat cooler (PRELIMINARY: no gas-liquid contactor internals or blower).
-It replaces all the lime (no kiln; cake disposed). The fresh-Sargassum feed (press P1, juice coproduct; scenario 6 of
-`OPTIONAL_SCENARIOS`) is kept for on-request analysis, e.g. `build_att_breakdown("s6")`, but is not part of the standard analyses and figures. Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
-(`results/tables/att_scenarios.csv`); balance per kg dry Sargassum: `analyses/att_balance_1kg.py`.
+Baseline scenario (`analyses/att/scenarios.py`, `data/att.yaml` `att.scenarios.baseline`): presscake feed (no press P1), D0 to 50 wt %
+moisture, NaOH 1 kg/kg dry Sargassum, measured Ni-CatATT 1:1 gas yields (H₂ 54.15, CH₄ 0.60, CO 0, CO₂ 0.77 mmol/g daf), the
+remaining carbon in a lumped solid residue ("ATT char", CH0.5Ob), 100 % NaOH to Na₂CO₃, causticization 88 %, F2 cake washing,
+a waste-lime CO₂ scrubber (after U3C), no PSA, free and emission-free waste carbide lime (Ca(OH)₂, no recalcination; one 80 kt/yr
+CaC₂ plant gives 92.5 kt/yr), CaCO₃ cakes disposed at the solid-waste price (no CaCO₃ sales), and a capacity of 5,029.17 kg dry/h
+(about 121 dry t/d). The fresh-Sargassum feed (press P1, juice coproduct; `OPTIONAL_SCENARIOS`) is kept for analysis on request,
+e.g. `build_att_breakdown("fresh_sargassum")`. Summary table: `python biorefineries/sabre/analyses/att_scenarios.py`
+(`results/tables/att_scenarios.csv`); balance per kg dry feed: `analyses/att_balance_1kg.py`.
 
 Every runner accepts `--out`. Results are written below `att_outputs/` at the
 repository root (or `ATT_OUTPUTS_DIR`), never into `data/`. `att_outputs/` is
@@ -146,27 +140,24 @@ biorefineries/sabre/
   P1 screw press (municipal biosolids press cost and power; the press
   liquid is the raw juice for biostimulant production, transferred at no price) and
   D0 dryer to 50 wt % moisture. Presscake configuration (`configuration="presscake"`, the default and the baseline of the scenarios): the presscake of the biostimulant
-  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg daf;
-  gas cooling, drying, compression to 20 bar and PSA (90 % H₂ recovery, tail gas let down to 1.3 bar; `create_att_system(psa=False)`
-  leaves it out, as in scenario 4); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
-  (85 %, 1.1 equivalents, 90 °C), 5 % whole-liquor purge, evaporation to
+  plant is fed directly (no P1). U2 at 773.15 K with 1 kg NaOH/kg dry Sargassum;
+  gas cooling, CO₂ scrubbing, drying and compression to 20 bar (`create_att_system(psa=True)` adds a PSA, 90 % H₂ recovery, tail gas
+  to the U2 furnace); residue dissolution (in the EC1 and U3C condensates, with fresh water only as makeup), causticization with Ca(OH)₂
+  (88 %, 1.1 equivalents, 90 °C, F2 cake washing), 5 % whole-liquor purge, evaporation to
   50 wt % NaOH and recycle.
-- U2 gas yields are specified (experimental team: H₂ 70.52, CH₄ 0.70, CO 0.31
-  mmol/g daf, measured at 1 g/g NaOH, where the gas also had CO₂ 22.68); carbon not otherwise assigned
-  leaves as CO₂, which the NaOH then captures; product water closes oxygen. `ATTReactor.balance_checks()` reports (i) NaOH capacity for
-  the CO₂ generated and (ii) electron, mass and energy balances of the identified
-  products. Unidentified reactions are not tracked.
-- NaOH dose: the baseline is the team's 1 g/g. Scenario 4 uses 2.995 g/g, the dose that captures all the CO₂ generated
-  as Na₂CO₃ (2 NaOH per CO₂, 74.9 mmol/g daf; at 1 g/g only a third is captured), so its gas CO₂ yield is 0. H₂, CH₄ and CO yields
-  stay at the team's slate, which was measured at 1 g/g; whether it holds at the higher dose is an assumption to confirm.
-  Without CO₂ in the gas the product is about 98.6 mol % H₂ (rest CH₄, CO) and no PSA is needed for a fuel-grade product.
+- U2 gas yields are specified and never changed (workbook 261023, Ni-soaked Sargassum with Ni/ZrO₂, 1:1 NaOH: H₂ 54.15, CH₄ 0.60,
+  CO 0, CO₂ 0.77 mmol/g daf, transferred per g daf to the presscake). All NaOH becomes Na₂CO₃. The carbon not in the gases or the
+  carbonate goes to a lumped solid residue CH0.5Ob (H/C = 0.5 assumed, b solved, about 1.2; a surrogate, not measured char), net
+  water closes hydrogen (about 160 kg/h of the feed water is consumed per 1,000 kg/h dry feed), and N and S go to `CharN` and
+  `CharS`; the residue species together are the "ATT char" and leave in the ash cake. `ATTReactor.balance_checks()` reports the
+  NaOH capacity for the CO₂ and the electron, mass and energy balances. The dose is on a dry basis: 1 kg/kg dry is 1.47 kg/kg daf.
 - MSP and GWP are per kg of H₂ in the product gas; without a PSA the CH₄ and CO in it are not credited.
 - TEA: preliminary; equipment in 2020 USD (CEPCI 596.2), 2024-2025 prices; no
-  CaCO₃ or CH₄ revenue in the reference case. With `psa=True` the tail gas (mainly CH₄ and
+  CaCO₃ or CH₄ revenue (the CaCO₃ cakes are disposed). With `psa=True` the tail gas (mainly CH₄ and
   unrecovered H₂) is the second input of U2 (fuel for its furnace): its LHV x the burner efficiency replaces natural gas
   heat up to the furnace duty. The natural gas utility of U2 stays the gross furnace duty (heat demand) and the gas bought is
   that minus the tail gas heat; the flue gas is not modeled.
-- Lime recycle (scenario 2, `create_att_system(lime_recycle=True)`; the default is fresh lime): the F2 CaCO3 cake is calcined in a lime
+- Lime recycle (an option, `create_att_system(lime_recycle=True)`; the baseline uses free waste lime and no kiln): the F2 CaCO3 cake is calcined in a lime
   kiln (K1, natural gas), 5 % is purged (LP), the rest is slaked (S1) and returned to C1 with fresh Ca(OH)2 makeup.
   Sodium in the cake rides with the lime and returns to C1. The kiln is costed PRELIMINARY (drum-dryer shell
   correlation x an assumed refractory factor + furnace) and fuelled to about 7.3 GJ per t CaO; its natural gas is
@@ -180,7 +171,7 @@ biorefineries/sabre/
   allocation or product credits; biogenic CO₂ not counted. (With `psa=True` the tail gas is fed to the U2 furnace:
   natural gas offset, no CH₄ emission.) The biogenic carbon stored in landfilled solids (CaCO₃ cake, ash/char cake, lime purge) is credited in the net as a negative emission (permanence assumed; carbon released as CO₂ anywhere, including the lime kiln, is not). The avoided emission if the Sargassum would otherwise rot on the beach is reported as a note (figure panel d, `att_scenarios.csv`), not in the net: the stored carbon already in the net plus the extra warming of the CH₄ that rotting would form (IPCC 2006 unmanaged-site defaults: DOCf 0.5, MCF 0.4, F 0.5, no oxidation; CH₄ counted as GWP 27 net of the CO₂ its carbon is already credited as, i.e. 27 − 44.01/16.04 per kg CH₄).
 - Burning part of the dried U2 gas as plant fuel instead of selling it as H2 was tested and removed:
-  it is not helpful. At the presscake feed with recycled lime, splitting 10 % raises the MSP from 2.80 to
+  it is not helpful. At the earlier setup (presscake, 1 g/g daf NaOH, old gas slate, PSA, recycled lime), splitting 10 % raises the MSP from 2.80 to
   3.01 USD/kg H2 and the GWP from 17.9 to 18.9 kg CO2e/kg H2 (20 %: 3.27 and 20.2; 50 %: 4.65 and
   27.1). The smaller PSA and compressor save only about 4 MUSD of FCI per 10 %, far less than the H2
   revenue lost, and the burned gas displaces natural gas that U2 would need anyway.

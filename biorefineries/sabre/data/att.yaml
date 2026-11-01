@@ -1,59 +1,93 @@
-# Alkaline Thermal Treatment (ATT) assumptions
-# Baseline process case: Ni-CatATT.
-# Raw Sargassum composition/moisture/ash are called from SaBRe feedstock.yaml.
+# Alkaline Thermal Treatment (ATT) assumptions -- independent ATT project.
+# Baseline: ATT Scenario 1 (analyses/att/scenarios.py, "att_s1"), started from
+# SaBRe Scenario 5 (biorefineries/sabre, branch sabre at 17c75376).
+# Baseline process case: Ni-CatATT_1to1 (reactor.cases).
+# Raw Sargassum composition/moisture/ash are called from feedstock.yaml (ATT copy).
 #
-# U2 basis (2026-10-09): full C/H/O/N/S/Na/Ca closure with redox-reconciled
-# gas yields. See reactor.material_balance for the derivation.
+# U2 basis: C/H/O/N/S/Na closure with the measured gas yields held fixed; the
+# organic carbon not in the gases or the carbonate goes to a lumped residual
+# product CH0.5O_b, b solved from the balance (reactor.material_balance,
+# ASSUMED surrogate, not measured).
 #
 att:
+  # ---------------------------------------------------------------------
+  # BASELINE SCENARIO (formerly SaBRe Scenario 5; analyses/att/scenarios.py reads it)
+  # ---------------------------------------------------------------------
+  # Reconciled with ATT Scenario 1 of the ATT branch (gas yields, dry-basis NaOH dose, lumped residue, 88 %
+  # causticization, F2 washing). Process chemistry is in reactor (case Ni-CatATT_1to1) and downstream; the
+  # flowsheet switches below are also the create_att_system() defaults (gas_treatment.psa_enabled,
+  # downstream.co2_scrubber.enabled, downstream.lime_recycle.enabled).
+  scenarios:
+    baseline:
+      label: "Baseline: presscake, NaOH 1 kg/kg dry, Ni-CatATT 1:1 yields, waste-lime CO2 scrubber, no PSA"
+      short: "baseline"
+      derived_from: "SaBRe Scenario 5, reconciled with ATT Scenario 1 (branch ATT)"
+      configuration: presscake
+      psa: false
+      co2_scrubber: true
+      lime: waste          # free, burden-free carbide lime (no kiln; CaCO3 cake disposed at the solid-waste price, no CaCO3 revenue)
+      # Plant capacity [kg dry presscake/h] for the annual TEA/LCA. FIXED at the
+      # SaBRe Scenario 5 value: the dry feed at which SaBRe Scenario 4 (NaOH
+      # 2.995 g/g daf, gas CO2 0, no PSA) uses one carbide plant's waste lime
+      # (80 kt/yr CaC2 x 74.09/64.10 = 92.47 kt/yr Ca(OH)2). Computed
+      # 2026-10-31 by running SaBRe's waste_scale_dry_kgph('presscake') on the
+      # unmodified S5 copy (with the D0 RH fix for BioSTEAM 2.53): 5029.17
+      # kg/h = 120.7 dry t/d. It is NOT recomputed from ATT Scenario 1 (whose
+      # NaOH dose and lime use differ), so ATT does not build SaBRe Scenario 4.
+      # The functional-unit results (per kg H2 / per kg dry feed) do not depend
+      # on it; only the annual TEA/LCA (scale economies) do.
+      dry_feed_kgph: 5029.17
+      dry_feed_basis: "SaBRe Scenario 5 waste-lime scale (kept, not re-derived); waste-lime supply 92.47 kt/yr Ca(OH)2 not re-checked against ATT Scenario 1 lime use (reported)."
+      waste_lime_supply_kg_per_yr: 92472373.33   # 80 kt/yr CaC2 x 74.09268/64.0993 (Intratec reference carbide plant); supply check only
   # ---------------------------------------------------------------------
   # DATA SOURCES (where the numbers in this file come from)
   # ---------------------------------------------------------------------
   data_sources:
     workbook:
-      file_name: "ATT Inputs and Assumptions_261005.xlsx"
-      sha256: "879812409893953d1692507437197ba8f62c0e218bdf37fe979df051e19b9c9c"
+      file_name: "ATT Inputs and Assumptions_261023.xlsx"
+      sha256: "db8ff0f4cfb4dbbcad8f7c87e8c3b576a5bdabcf9e2bc502ecacc1365040f949"
+      local_copy: "reference_data/ATT Inputs and Assumptions_261023.xlsx (read-only reference copy)"
       provider: "UCLA ATT collaborators (unpublished; redistribution needs their permission)"
-      sheets: ["Experimental results", "Assumptions for energy analysis"]
-      note: "The workbook is not distributed. Values taken from it are given below with their sheet!cell reference. Workbook values that the model does not use (yields of the ATT, CatATT and Ni-ATT cases, 3.6 g steam per run, workbook ash 17.2 wt % and moisture 85 wt %) are intentionally not copied. Presentation slides are NOT a source."
+      sheets: ["1. Gas Yield (Ni-ATT)", "2. REE and CaCO3 Composition", "Assumptions for energy analysis"]
+      note: "Values taken from the workbook carry their sheet!cell reference. Values that are not in 261023 but are kept from the earlier SaBRe model (workbook 261005, sha256 8798124098...9c9c) are marked 'kept from 261005': heat loss 5 % (B20) and the emission factors (B25-B30). REE/Nd2O3 data (sheet 2) are reference information only; no REE process is modeled. Presentation slides are NOT a source."
     sections:
-      reactor.cases.Ni-CatATT: "Workbook, sheet 'Experimental results', row 8 (gas yields H2/CH4/CO/CO2 and ignored Gas 4); loading 1 g NaOH per 0.5 g daf is advisor-confirmed."
+      reactor.cases.Ni-CatATT_1to1: "Workbook 261023, sheet '1. Gas Yield (Ni-ATT)', row 5 'Ni-CatATT (SW:NaOH = 1:1)': H2 D5 54.15, CH4 E5 0.60, CO F5 0, CO2 G5 0.77 mmol/g daf (0.25 g seaweed + 0.25 g NaOH; 500 C, 1 h hold, N2 25 mL/min, steam 0.03 mL/min, 10 wt % Ni/ZrO2 downstream, Ni-soaked Sargassum). The 1:2 case (row 6) is not used. NaOH loading 1 kg/kg DRY Sargassum: user decision 2026-10-31 (workbook B14 'NaOH : seaweed = 1 g/g' states no basis)."
       reactor.target_temperature_K: "Workbook 'Experimental results' footnote (500 C) and energy-analysis sheet B13."
       reactor.material_balance (naoh_to_na2co3_conversion): "Workbook, energy-analysis sheet B15 (100 %)."
-      reactor.material_balance (gas closure): "Model decisions by the user, 2026-10-09 to 2026-10-12 (explained in the comments there); the measured yields are never modified."
-      reactor.heat_loss_fraction, downstream.heat_loss_fraction: "Workbook, energy-analysis sheet B20 (5 %; cited there as Gracia-Monforte et al. 2026)."
+      reactor.material_balance (gas closure): "Measured yields fixed; residual organic carbon to char: provisional ATT modeling assumption (user decision 2026-10-31), not experimental data."
+      reactor.heat_loss_fraction, downstream.heat_loss_fraction: "Kept from 261005, energy-analysis sheet B20 (5 %; cited there as Gracia-Monforte et al. 2026); not in 261023."
       reactor.energy_basis.feed_HHV, feed_energy_reference: "Workbook, energy-analysis sheet B7 (16.9 MJ/kg daf; literature range 15.7-19.5, D7). Not a measured HHV of the SaBRe feed."
       reactor.energy_basis.sensitivity_feed_HHV_MJ_per_kg_daf.primary_composition_consistent: "Thornton / Channiwala-Parikh correlations on the model daf composition."
       feed_preparation: "Moisture target 50 wt % from workbook B12 (assumed); press to 75 wt % plus thermal dryer D0 is the user-confirmed process design of 2026-10-09. Feedstock composition, ash and moisture come from feedstock.yaml (SaBRe database), not from the workbook."
       feed_preparation.dryer.equipment_specific_energy_MJ_per_kg_water: "Danish Energy Agency (1998), tabulated by DryingMate A/S (Teknologisk Institut)."
       gas_treatment: "Provisional engineering assumptions (condenser, dryer, PSA, compressor); not collaborator-confirmed."
-      downstream.dissolution_water_kg_per_kg_Na2CO3, causticization_conversion, lime_equiv: "Workbook, energy-analysis sheet B18, B17, B16 ('commercial causticizing')."
+      downstream.dissolution_water_kg_per_kg_Na2CO3, causticization_conversion, lime_equiv: "Workbook 261023, energy-analysis sheet B18 (3), B17 (88 %), B16 (1.1) ('commercial causticizing'). Sheet 2 A25 reports an experimental conversion of 88.3 % (5 g Na2CO3 + 3.49 g Ca(OH)2, i.e. ~1.0 mol/mol, in 20 mL water); the model uses 88 %."
       downstream.recycle_naoh_wt_frac: "Workbook B19 ('water left in recovered NaOH', 50 wt %), applied as NaOH/(NaOH + H2O) by user decision 2026-10-09."
       downstream.whole_liquor_recycle_fraction: "Source reports '95 % NaOH recycling' without defining a separator; interpreted as 95 % whole-liquor recycle (provisional engineering baseline)."
       downstream.filter cake moistures: "F1 30 wt %: literature-supported engineering baseline. F2 25 wt %: CaCO3/lime-filtration literature review."
       downstream (EC1 and U2 NaOH data): "ec1_boiling_point_elevation_K from the Olsson et al. 1997 vapor pressure of NaOH(aq); ec1_na2co3_dissolved_fraction from Wu et al. 2020 Na2CO3 solubility near 50 wt% NaOH; naoh_heat_of_solution_kJ_per_kg from NBS (-44.5 kJ/mol), Olsson et al. 1997 and the OxyChem Caustic Soda Handbook Table 11."
-      energy_sources: "Workbook, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat)."
+      energy_sources: "Kept from 261005, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat); not in 261023."
       heat_recovery: "BioSTEAM defaults and engineering assumptions; cooler heat-transfer coefficients and the HXN approach temperature are unverified."
-      inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors from the collaborators' workbook (energy-analysis sheet B25-B28); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
+      inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors kept from the collaborators' workbook 261005 (energy-analysis sheet B25-B28; not in 261023); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
       inventory.cost_estimates: "Engineering estimates (TEA input only)."
       inventory.reference_scale: "SaBRe common plant scale (feedstock.yaml, tea.yaml)."
   # Definition differences between the source workbook
-  # (ATT Inputs and Assumptions_261005.xlsx) and this model, recorded so
+  # (ATT Inputs and Assumptions_261023.xlsx) and this model, recorded so
   # they are not silently re-interpreted. "model_value" is what is used.
   basis_discrepancies:
     ash_and_moisture:
-      workbook: "Ash 17.2 wt% dry; moisture as harvested 85 wt% (energy-analysis sheet)"
-      model_value: "feedstock.yaml pelagic: ash 34.53 wt% dry, moisture 86.73 wt%"
-      decision: "User decision 2026-10-09: use the SaBRe database values."
-      impact: "daf per kg dry is 0.655 (database) instead of 0.828 (workbook), so gas, NaOH and Na2CO3 flows per kg dry are ~21% lower than with the workbook ash."
+      workbook: "Ash 17.2 wt% dry (B6); moisture as harvested 85 wt% (B5); Sargassum moisture content 75 % (B12)"
+      model_value: "feedstock.yaml nlr_pressed (presscake of ATT Scenario 1): ash 32.07 wt% dry (daf/dry 0.6793), moisture 76.3 wt%; D0 dries it to 50 wt% before U2"
+      decision: "User decision 2026-10-31: keep the SaBRe Scenario 5 presscake composition and D0 for the first ATT baseline; ash 17.2 % and 75 % U2-inlet moisture are left for sensitivity analysis."
+      impact: "Gas yields are transferred per g daf (54.15 mmol H2/g daf x 0.6793 = 36.78 mmol/g dry); with the workbook ash it would be 44.84 mmol/g dry."
     feed_dewatering:
-      workbook: "Sargassum moisture content 50 % 'assumed (mechanical dewatering)'; collaborator flowsheet (2026-09-28) has no biomass dryer"
-      model_value: "P1 screw press to 75 wt% moisture, then D0 thermal drying to 50 wt% (wet basis)"
-      decision: "User-confirmed original process design 2026-10-09: D0 is required; mechanical dewatering alone is not assumed to reach 50 wt%."
+      workbook: "261023 B12: Sargassum moisture content 75 % (no source; 261005 had 50 % 'assumed (mechanical dewatering)'). It is not stated whether this is the presscake or the reactor inlet."
+      model_value: "Presscake (76.3 wt%) dried in D0 to 50 wt% (wet basis); no P1 in the presscake configuration"
+      decision: "Kept from SaBRe Scenario 5 (user decision 2026-10-31)."
     naoh_loading:
-      workbook: "Experimental sheet: 0.5 g seaweed + 1 g NaOH (seaweed mass basis not stated); energy-analysis sheet: NaOH:seaweed (daf) = 1 g/g"
-      model_value: "1 kg NaOH / kg daf (scenario 4: 2.995, full CO2 capture)"
-      decision: "Advisor-confirmed basis (1 g NaOH per 0.5 g daf) is the baseline (scenario 1); the full-capture dose is an alternative scenario (user decision 2026-10-17)."
+      workbook: "261023 B14 'NaOH : seaweed = 1 g/g' (basis not stated; 261005 said '(daf)'); gas-yield sheet: 0.25 g seaweed + 0.25 g NaOH (seaweed mass basis not stated)"
+      model_value: "Gross NaOH = 1.0 kg / kg DRY Sargassum (reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry), i.e. 1.4721 kg/kg daf at the model ash; SaBRe Scenario 5 used 1.0 kg/kg daf (0.6793 kg/kg dry)."
+      decision: "User decision 2026-10-31 (dry basis). Gross = recycled + fresh NaOH; fresh NaOH = gross - NaOH in the recycle liquor."
     ec1_concentration_target:
       workbook: "'Water left in recovered NaOH' = 50 wt% (a water fraction)"
       model_value: "NaOH = 50 wt% of the total recycle liquor (NaOH + Na2CO3 + water); water is then ~41 wt%"
@@ -135,45 +169,63 @@ att:
     target_temperature_K: 773.15
     heat_loss_fraction: 0.05
     legacy_heat_duty_kJ_per_kg_dry_sargassum: 10423.77
-    baseline_case: Ni-CatATT
+    baseline_case: Ni-CatATT_1to1
     cases:
-      Ni-CatATT:
-        # NaOH loading and gas yields of the experimental team's energy and
-        # exergy calculation (Gyudae Sim, UCLA, 2026-09-28; Excel read from the
-        # slides): 1 g NaOH per g daf and the gas slate below. The slate closes
-        # carbon, hydrogen, sodium and the electron balance of the feed (gas
-        # electrons 149.9 mmol/g daf against a feed capacity of 148-150), unlike
-        # the absolute yields measured in the laboratory run (204 mmol e-/g daf).
-        # BASELINE (scenario 1, 2026-10-17): the team's 1 g/g. Scenario 4 (analyses/att/scenarios.py) overrides it with the
-        # dose that captures all the CO2 generated: 2 NaOH per CO2, CO2 generated at 1 g/g = 22.68 (gas) + 2.26 (carbon
-        # closure) + 12.50 (carbonate) = 37.44 mmol/g daf, so 74.88 mmol NaOH/g daf = 2.995 g/g and the gas CO2 is 0.
-        naoh_kg_per_kg_daf: 1.0
-        naoh_loading_basis: 'Experimental team energy calculation: NaOH : biomass (daf) = 1 g/g (the lab run used 1 g NaOH per 0.5 g seaweed).'
+      Ni-CatATT_1to1:
+        # Measured gas yields of the Ni-CatATT run at SW:NaOH = 1:1 (workbook
+        # 261023, sheet '1. Gas Yield (Ni-ATT)', row 5; see data_sources). Units:
+        # mmol per g DRY ASH-FREE seaweed; U2 multiplies them by the daf flow of
+        # its own feed (model ash, feedstock.yaml), so they are NOT converted to
+        # a dry basis here. Dry, N2-free H2 fraction of the four gases: 54.15 /
+        # 55.52 = 97.53 mol%.
         gas_yield_mmol_per_g_daf:
-          H2: 70.52
-          CH4: 0.70
-          CO: 0.31
-          CO2: 22.68
-        gas_yield_basis: Experimental team energy and exergy calculation (Excel), U2 outlet gas per kg total solids converted to mmol per g daf with their 71.7 wt % volatile solids.
+          H2: 54.15
+          CH4: 0.60
+          CO: 0.00
+          CO2: 0.77
+        gas_yield_basis: "Measured (Ni-soaked Sargassum, 0.25 g seaweed + 0.25 g NaOH, 500 C, 1 h, ex-situ 10 wt % Ni/ZrO2); mmol per g daf of the experimental seaweed (workbook ash 17.2 wt % dry). Transferred per g daf to the model presscake (ash 32.07 wt % dry): a modeling assumption."
+        # Gross NaOH fed to U2 (recycled + fresh) per kg DRY Sargassum (all
+        # non-water feedstock solids leaving D0, ash included).
+        naoh_kg_per_kg_dry: 1.0
+        naoh_loading_basis: "User decision 2026-10-31: NaOH : Sargassum (dry weight) = 1 : 1 (gross NaOH incl. the recycled NaOH). SaBRe Scenario 5 used 1 kg/kg daf (= 0.6793 kg/kg dry)."
         ignored_reported_gas_yields_mmol_per_g_daf: {}
-        excluded_baseline_gas_species:
-        - C2H4          # 0.10 mmol/g daf each in the team slate; ~1 % of the carbon, not modeled
-        - C2H6
-        - N2
-        - H2S
     material_balance:
-      # Workbook assumption (energy-analysis sheet), retained: all NaOH is
-      # converted to Na2CO3 at the 1 g/g loading.
+      # Workbook 261023 B15, retained: all NaOH is converted to Na2CO3 in U2.
       naoh_to_na2co3_conversion: 1.0
-      # The gas yields above are specified. U2 closes the C and H balances with
-      # the gases, Na2CO3 and two sinks for what is not identified: product
-      # water (H) and a small unreacted residue 'Char' (C), which only gives the
-      # leftover carbon a place to go (0.012 kg/kg dry feed for the team's slate).
-      # N and S stay with the residue (CharN/CharS). The oxygen balance is a
-      # CHECK, not an unknown (the team's slate closes it within 0.1 %); the
-      # electron balance and the NaOH capacity for CO2 are reported by
-      # ATTReactor.balance_checks().
+      # The gas yields above are held fixed. U2 closes C with the gases, the
+      # Na2CO3 and the residual-carbon sink below; product water and the sink's
+      # composition close H and O (lumped) or water closes O only (char, co2).
+      # N and S stay with the residue (CharN/CharS). All residuals and the
+      # electron balance are reported by ATTReactor.balance_checks().
       gas_closure_method: specified_yields
+      # Fate of the organic carbon that is not in the specified gases or the
+      # carbonate (the residual carbon); never extra gas CO2 in ATT Scenario 1.
+      #  - lumped (BASELINE, user decision 2026-10-31): the LUMPED RESIDUAL
+      #    PRODUCT CH_aO_b, a stoichiometric surrogate for the uncharacterized
+      #    carbon-containing residue (NOT measured char): a = lumped_residue.H_per_C
+      #    (assumed), b solved by U2 from its own C/H/O balance (product water
+      #    closes H, b closes O), so C, H, O, mass and electrons all close. ATT S1:
+      #    b ~ 1.195 (CH0.5O1.195, 2.11 available e-/C). Routed with the solids
+      #    (U2 residue -> RC1 -> D1 -> F1 -> ash_residue_cake): an assumption,
+      #    since part of such oxidized carbon could be soluble. No revenue, no
+      #    heating-value credit, no carbon-storage credit (att_lca.yaml).
+      #  - char: all residual carbon as 'Char' (CH0.5O0.1); leaves an unresolved
+      #    H excess (+40.9 mmol H/g daf in ATT S1).
+      #  - co2: the SaBRe closure (extra CO2 in the gas).
+      residual_carbon_fate: lumped
+      lumped_residue:
+        H_per_C: 0.5       # ASSUMED (user decision 2026-10-31); must equal the H/C of both basis species
+        # Basis pseudo-components (_chemicals.py) with the same H/C, end members
+        # b = 0 (CH0.5) and b = 2 (CH0.5O2); their sum is ONE lumped product.
+        # Hf: Channiwala-Parikh HHV route (linear in element mass fractions, so
+        # the sum equals the correlation at CH0.5O_b; O-rich compositions are
+        # outside its validation range); Cp 1 J/g/K; solid.
+        species: [ResidueCH, ResidueCHO]
+      # When the identified products hold more hydrogen than the feed (possible
+      # with residual_carbon_fate = char): 'raise' stops the run (SaBRe
+      # behavior); 'report' keeps the measured gases, warns, and reports the
+      # excess in balance_checks() as FAIL. It does NOT add or remove products.
+      hydrogen_excess_action: report
       char_species: Char
       heteroatom_species:
         N: CharN
@@ -200,8 +252,9 @@ att:
       # treats it as subcooled molten NaOH).
       not_included: "Dissolution enthalpy of the small amount of dissolved Na2CO3 in the recycle liquor."
     sensitivity_plan:
-      naoh_loading: Planned sensitivity parameter; baseline is 2 kg NaOH/kg daf.
-      individual_gas_yields: Planned sensitivity parameters around the reported Ni-CatATT yields.
+      naoh_loading: Planned sensitivity parameter; baseline is 1 kg NaOH/kg dry Sargassum.
+      individual_gas_yields: Planned sensitivity parameters around the measured Ni-CatATT 1:1 yields.
+      feed_ash_and_moisture: Planned (workbook ash 17.2 wt% dry; 75 % moisture at the U2 inlet without D0).
   gas_treatment:
     # STEP 7.5 U3 baseline.
     #
@@ -227,9 +280,9 @@ att:
     # H2 recovery is provisional; all non-H2 gases are sent to tail gas.
     # This gives an ideal-purity H2 product and intentionally does not yet
     # represent PSA adsorbent/cycle/power/capital correlations.
-    # BASELINE (scenario 1): PSA on, as before. Scenario 4 (full CO2 capture, about 98.6 mol % H2 in the dried gas) runs
-    # without it (analyses/att/scenarios.py); psa_enabled false compresses the gas straight to h2_product.
-    psa_enabled: true
+    # ATT Scenario 1 (as SaBRe Scenario 5): no PSA; psa_enabled false compresses the scrubbed, dried gas straight
+    # to h2_product. The PSA settings below are kept for sensitivity runs (psa=True).
+    psa_enabled: false
     psa_h2_recovery: 0.90
     psa_non_h2_to_product_fraction: 0.0
     psa_status: "Provisional ideal-selectivity PSA surrogate; H2 recovery/purity require collaborator confirmation."
@@ -281,8 +334,10 @@ att:
     # Dissolution before F1.
     dissolution_water_kg_per_kg_Na2CO3: 3.0
 
-    # C1 causticization.
-    causticization_conversion: 0.85
+    # C1 causticization: single-pass conversion of the Na2CO3 entering C1
+    # (Na2CO3 + Ca(OH)2 -> 2 NaOH + CaCO3). Workbook 261023 B17: 88 %
+    # (SaBRe Scenario 5: 0.85). Must not exceed lime_equiv.
+    causticization_conversion: 0.88
     lime_equiv: 1.1
     causticization_temperature_K: 363.15
     # C1 energy basis (2026-10-09): Hnet with 298.15 K infinite-dilution
@@ -327,18 +382,19 @@ att:
     # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
     # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
     # up the lime purge and the shortfall. Sodium in the cake rides with the lime and returns to C1.
-    # CO2 scrubber (optional, scenario 5): the cooled gas bubbles through a Ca(OH)2 slurry (waste lime), Ca(OH)2 + CO2
-    # -> CaCO3 + H2O, before the gas dryer and compressor; the CaCO3 slurry is dewatered in the filter F3 (cake at the
-    # F2 moisture) and the filtrate is recycled. PRELIMINARY (no vendor data): capture, excess and slurry loading
-    # are engineering assumptions; the cost is a stirred slurry tank (0.5 h) plus the reaction-heat cooler.
+    # CO2 scrubber (on in ATT Scenario 1, as in SaBRe Scenario 5): the cooled gas bubbles through a Ca(OH)2 slurry
+    # (waste lime), Ca(OH)2 + CO2 -> CaCO3 + H2O, before the gas dryer and compressor; the CaCO3 slurry is dewatered in
+    # the filter F3 (cake at the F2 moisture) and the filtrate is recycled. PRELIMINARY (no vendor data): capture,
+    # excess and slurry loading are engineering assumptions; the cost is a stirred slurry tank (0.5 h) plus the
+    # reaction-heat cooler.
     co2_scrubber:
-      enabled: false
+      enabled: true
       temperature_K: 313.15
       co2_capture: 0.99                 # share of the gas CO2 fixed as CaCO3
       lime_excess: 1.1                  # Ca(OH)2 fed per CO2 captured (the excess leaves with the cake)
       slurry_solids_wt_frac: 0.25       # solids of the slurry leaving the scrubber
       tank_tau_h: 0.5                   # slurry residence time (costing)
-    lime_recycle:      # BASELINE (scenario 1): fresh Ca(OH)2, cake disposed; scenario 2 recycles it (analyses/att/scenarios.py)
+    lime_recycle:      # off in ATT Scenario 1 (waste Ca(OH)2, cake disposed); kept for sensitivity runs
       enabled: false
       calcination_conversion: 0.98      # CaCO3 -> CaO; the rest recycles as inert dead load
       purge_fraction: 0.05              # share of the burnt lime sent to disposal (impurities; kraft makeup is 5-10 %)
@@ -350,10 +406,12 @@ att:
       refractory_factor: 2.0            # kiln shell cost = BioSTEAM drum-dryer correlation x this (refractory lining; assumed)
       status: "PRELIMINARY: no sourced modern kiln cost; the rotating shell is costed with BioSTEAM's drum-dryer correlation (area-based) times an assumed refractory factor, the firing with the BioSTEAM furnace correlation. +/-50 % or worse."
     f2_washing:
-      enabled: false
-      wash_ratio_kg_per_kg_dry_cake: 1.0
-      displacement_factor: 1.0
-      temperature_K: 363.15
+      enabled: true       # washing_on default; f2_wash_enabled=False preserves washing_off
+      wash_ratio_kg_per_kg_dry_cake: 1.0  # ENG: all non-water mass of the original F2 cake
+      contact_time_h: 0.25               # ENG: agitated single-stage contact, not measured kinetics
+      temperature_K: 298.15             # fresh ambient water; adiabatic MixTank, no preheating
+      model: single_ideal_mixed_stage
+      note: "Native MixTank + RotaryVacuumFilter. Dilution/refiltration at F2 cake moisture; all existing CaCO3/Ca(OH)2 solids retained, NaOH/Na2CO3 dissolved. No solubility or reaction model; no EC1 recycle. 100 USD/t CaCO3 is optimistic and unverified; purity is calculated, never forced to 97%."
 
     # Whole-liquor purge/recycle.
     #
@@ -505,6 +563,8 @@ att:
       u3_tail_gas: [output, coproduct_offgas, "PSA off-gas (mainly CH4 and unrecovered H2), assumed collected (100 %) and burned in the U2 burner (natural gas offset, no burner modeled). Earlier note: final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
+      f2_wash_water: [input, process_water, "Fresh F2 cake wash water; engineering ratio on original dry cake."]
+      f2_wash_liquor: [output, liquid_waste, "F2 wash filtrate: water and dissolved sodium; neutralization and wastewater treatment, no recycle."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
       lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
       kiln_exhaust: [output, air_emission, "Lime kiln exhaust: CO2 from CaCO3 (biogenic, from the seaweed carbon) and water vapor."]

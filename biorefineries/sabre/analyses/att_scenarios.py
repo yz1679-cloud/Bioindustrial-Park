@@ -9,9 +9,8 @@
 """
 att_scenarios.py
 ----------------
-Summary table of the four ATT scenarios of ``analyses/att/scenarios.py`` (fresh-Sargassum configuration; s1 is the
-baseline, s2-s4 are alternatives): scale, H2, NaOH and lime use, MSP, FCI and GWP100 (net, with the stored-carbon
-credit, and the avoided-emission note for the beach-rot counterfactual).
+Summary table of the baseline ATT scenario of ``analyses/att/scenarios.py``: scale, H2, NaOH and lime use, MSP,
+FCI and GWP100 (net, with the stored-carbon credit, and the avoided-emission note for the beach-rot counterfactual).
 
 Output: ../results/tables/att_scenarios.csv
 
@@ -42,7 +41,7 @@ if __name__ == "__main__":
         stored = float(g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum())
         rows.append(dict(
             scenario=s["scenario"], dry_feed_t_per_day=s["dry_feed_t_per_day"], H2_t_per_yr=s["H2_t_per_yr"],
-            NaOH_dose_kg_per_kg_daf=s["NaOH_kg_per_kg_daf"], PSA=s["PSA"], lime=s["lime"],
+            NaOH_kg_per_kg_dry=s["NaOH_kg_per_kg_dry"], PSA=s["PSA"], lime=s["lime"],
             fresh_NaOH_t_per_yr=s["fresh_NaOH_t_per_yr"], Ca_OH_2_used_t_per_yr=s["Ca_OH_2_used_t_per_yr"],
             MSP_USD_per_kg_H2=s["MSP_USD_per_kg_H2"], FCI_MUSD=s["FCI_MUSD"],
             GWP_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"], stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored,

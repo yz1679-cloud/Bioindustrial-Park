@@ -10,10 +10,9 @@
 att_balance_1kg.py
 ------------------
 Mass, electron and energy balance of the ATT route per 1 kg of dry feed (dry presscake) for the scenarios of
-``analyses/att/scenarios.py``: s1 baseline (NaOH 1 g/g, PSA, fresh lime), s2 recycled lime, s3 waste lime, s4 waste
-lime with the NaOH dose that captures all the CO2 and no PSA. Per kg of feed the balance does not depend on the plant
-scale, so s3 and s4 use the same 1 kg basis. The raw-Sargassum and press rows are filled for the optional
-fresh-Sargassum scenario s5 only.
+``analyses/att/scenarios.py`` (baseline: NaOH 1 kg/kg dry, ATT-S1 gas yields, lumped residue, F2 washing, waste-lime
+CO2 scrubber, no PSA). Per kg of feed the balance does not depend on the plant scale. The raw-Sargassum and press
+rows are filled for the optional fresh-Sargassum scenario only.
 
 Output: ../results/tables/att_balance_1kg_raw.csv
 
@@ -126,7 +125,7 @@ def balance(sys):
     fresh = float(s["lime"].imass["CaOH2"])
     add("4 Ca(OH)2", "Stoichiometric Ca(OH)2 to regenerate the NaOH (1 per Na2CO3)", stoich, "kg per kg dry feed")
     add("4 Ca(OH)2", "Ca(OH)2 fed to C1 (1.1 x stoichiometric)", fed, "kg per kg dry feed")
-    add("4 Ca(OH)2", "  fresh (bought)", fresh, "kg per kg dry feed")
+    add("4 Ca(OH)2", "  fresh (bought, or free waste lime)", fresh, "kg per kg dry feed")
     add("4 Ca(OH)2", "  recycled (kiln + slaker)", fed - fresh, "kg per kg dry feed")
     add("4 Ca(OH)2", "Ca(OH)2 recycle rate", 1 - fresh / fed, "-")
     add("4 Ca(OH)2", "CaCO3 formed", float(C1.outs[0].imass["CaCO3"]), "kg per kg dry feed")
@@ -164,9 +163,8 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     results = {}
     for case, spec in scen.SCENARIOS.items():
-        with scen.dose(spec):
-            results[case] = balance(scen.create(spec, dry_kgph=1.0))
-    base = results["s1"]
+        results[case] = balance(scen.create(spec, dry_kgph=1.0))
+    base = results["baseline"]
     table = pd.DataFrame([dict(section=r["section"], item=r["item"],
                                **{f"value_{c}": results[c][k]["value"] for c in results}, unit=r["unit"], note=r["note"])
                           for k, r in enumerate(base)])

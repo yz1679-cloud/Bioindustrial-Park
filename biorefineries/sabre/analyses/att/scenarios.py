@@ -7,110 +7,91 @@
 # for license details.
 
 """
-The ATT scenarios. s1-s5 (``SCENARIOS``, used by every analysis and figure) start from the presscake of a
-biostimulant plant (configuration ``presscake``: no press P1, dry presscake fed to the dryer D0). s6 starts from fresh
-Sargassum (configuration ``fresh_sargassum``: press P1, its liquid is a biostimulant coproduct); it is kept in
-``OPTIONAL_SCENARIOS`` so that it can be analyzed on request (``build_att_breakdown("s6")``, ``create(ALL_SCENARIOS["s6"])``)
-but is not part of the standard analyses and figures.
+The ATT scenario used by every analysis: the BASELINE (key ``"baseline"``, formerly SaBRe Scenario 5), defined in
+data/att.yaml (``att.scenarios.baseline``) and reconciled with ATT Scenario 1 of the ATT branch:
 
-    s1  BASELINE   presscake feed, NaOH 1 g/g daf (the team's lab dose), PSA, fresh Ca(OH)2 (cake disposed), NLR scale
-    s2  ALTERNATIVE  as s1 with recycled lime (kiln + slaker)
-    s3  ALTERNATIVE  as s1 with waste lime, at the scale of the waste supply
-    s4  ALTERNATIVE  NaOH for full CO2 capture (2.995 g/g, gas CO2 = 0), no PSA, waste lime, same scale as s3
-    s5  ALTERNATIVE  NaOH 1 g/g, no PSA, CO2 scrubbed from the cooled gas (after U3C) with a waste Ca(OH)2 slurry
-                     (carbonation to CaCO3, cake dewatered in the filter F3), waste lime, same scale as s3 and s4
-    s6  OPTIONAL     as s1 but starting from fresh Sargassum (press P1, juice coproduct), NLR scale (not analyzed by default)
+    presscake feed (no press P1, dryer D0 to 50 wt % moisture), gross NaOH 1 kg/kg DRY Sargassum, measured
+    Ni-CatATT 1:1 gas yields (H2 54.15, CH4 0.60, CO 0, CO2 0.77 mmol/g daf), the remaining carbon in the lumped
+    residue (ATT char), C1 conversion 0.88, F2 cake washing, waste-lime CO2 scrubber, no PSA, waste Ca(OH)2 (free,
+    burden-free; CaCO3 cake disposed at the solid-waste price, no CaCO3 revenue), capacity fixed at 5029.17 kg dry/h
+    (the SaBRe waste-lime scale: one 80 kt/yr carbide plant).
 
-Waste lime: a Ca(OH)2 source that needs no recalcination (carbide lime from acetylene generation), assumed pure, free
-of cost and of emissions, delivered at no charge. It replaces all the lime (no kiln; the CaCO3 cake is disposed as in
-the fresh-lime case, TEA Case A). Its supply is one reference-size carbide plant: 80 kt/yr CaC2 (Intratec reference
-electrothermic plant) x 74.09/64.10 = 92.5 kt/yr Ca(OH)2, taken as fully captured. The scale of s3 and s4 is the one
-at which s4 (the larger lime user) uses that whole supply.
+``OPTIONAL_SCENARIOS`` keeps the fresh-Sargassum feed (press P1, juice coproduct; same chemistry and lime as the
+baseline, NLR scale) for analysis on request (``build_att_breakdown("fresh_sargassum")``); it is not part of the
+standard analyses and figures. The earlier SaBRe scenarios 1-4 (fresh/recycled lime, PSA, full CO2 capture) are not
+kept; the flowsheet options (``lime_recycle``, ``psa``) remain in ``create_att_system``.
 
-The NaOH dose and the gas CO2 yield of a scenario are applied with ``dose(spec)`` (a context manager, att.yaml is not
-changed); build and analyze the system inside it.
+The NaOH dose and the gas yields come from the reactor case of att.yaml only (nothing is patched at run time).
 """
-from contextlib import contextmanager
-
 from biorefineries.sabre.analyses.att import inventory as inv
 from biorefineries.sabre.systems import _att_system
-from biorefineries.sabre.units import _att
-from biorefineries.sabre.utils import OPERATING_DAYS_PER_YEAR
+from biorefineries.sabre.utils import load_assumptions
 
-__all__ = ("SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS", "WASTE_LIME_KG_PER_YR", "dose", "dry_feed_kgph",
-           "create", "waste_scale_dry_kgph")
+__all__ = ("SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS",
+           "WASTE_LIME_KG_PER_YR", "dry_feed_kgph", "create", "scale", "tea_config", "lca_overrides")
 
-LAB_DOSE, LAB_GAS_CO2 = 1.0, 22.68                 # the team's lab dose and gas CO2 (mmol/g daf)
-FULL_DOSE, FULL_GAS_CO2 = 2.995, 0.0               # 2 NaOH per CO2 generated
-CARBIDE_KT_PER_YR = 80.0                           # Intratec reference carbide plant
-WASTE_LIME_KG_PER_YR = CARBIDE_KT_PER_YR * 1e6 * 74.09268 / 64.0993
+_ATT = load_assumptions("att.yaml")["att"]
+_CASE = _ATT["reactor"]["cases"][_ATT["reactor"]["baseline_case"]]
+_BASE = _ATT["scenarios"]["baseline"]
 
-SCENARIOS = {
-    "s1": dict(label="1 Baseline (presscake feed): fresh lime, PSA, NaOH 1 g/g, NLR scale", short="1 baseline",
-               configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="fresh", scale="NLR"),
-    "s2": dict(label="2 Presscake, recycled lime, PSA, NaOH 1 g/g, NLR scale", short="2 recycled lime",
-               configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="recycled", scale="NLR"),
-    "s3": dict(label="3 Presscake, waste lime, PSA, NaOH 1 g/g, waste scale", short="3 waste lime",
-               configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="waste", scale="waste"),
-    "s4": dict(label="4 Presscake, waste lime, no PSA, full CO2 capture, waste scale", short="4 waste lime, full capture",
-               configuration="presscake", dose=FULL_DOSE, co2=FULL_GAS_CO2, psa=False, lime="waste", scale="waste"),
-    "s5": dict(label="5 Presscake, waste-lime CO2 scrubber, no PSA, NaOH 1 g/g, waste scale", short="5 CO2 scrubber",
-               configuration="presscake", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=False, lime="waste", scale="waste",
-               scrubber=True),
-}
-OPTIONAL_SCENARIOS = {
-    "s6": dict(label="6 Fresh Sargassum feed (press P1): fresh lime, PSA, NaOH 1 g/g, NLR scale", short="6 fresh Sargassum",
-               configuration="fresh_sargassum", dose=LAB_DOSE, co2=LAB_GAS_CO2, psa=True, lime="fresh", scale="NLR"),
-}
+WASTE_LIME_KG_PER_YR = float(_BASE["waste_lime_supply_kg_per_yr"])
+
+BASELINE = dict(
+    key="baseline", label=_BASE["label"], short=_BASE["short"], configuration=_BASE["configuration"],
+    psa=bool(_BASE["psa"]), scrubber=bool(_BASE["co2_scrubber"]), lime=_BASE["lime"],
+    dry_feed_kgph=float(_BASE["dry_feed_kgph"]), naoh_kg_per_kg_dry=float(_CASE["naoh_kg_per_kg_dry"]),
+    gas_yield_mmol_per_g_daf=dict(_CASE["gas_yield_mmol_per_g_daf"]))
+
+FRESH_SARGASSUM = dict(BASELINE, key="fresh_sargassum", configuration="fresh_sargassum", dry_feed_kgph=None,
+                       label="Fresh Sargassum feed (press P1), otherwise the baseline", short="fresh Sargassum")
+
+SCENARIOS = {"baseline": BASELINE}
+OPTIONAL_SCENARIOS = {"fresh_sargassum": FRESH_SARGASSUM}
 ALL_SCENARIOS = {**SCENARIOS, **OPTIONAL_SCENARIOS}
 CASES = SCENARIOS                      # the scenarios of the standard analyses
 CASE_LABELS = {k: v["label"] for k, v in ALL_SCENARIOS.items()}
 SHORT_LABELS = {k: v["short"] for k, v in ALL_SCENARIOS.items()}
 
 
-@contextmanager
-def dose(spec):
-    """Apply the scenario's NaOH dose and gas CO2 yield to the reactor data (this process only)."""
-    cases = [m._ATT["cases"]["Ni-CatATT"] for m in (_att_system, _att)]
-    old = [(c["naoh_kg_per_kg_daf"], c["gas_yield_mmol_per_g_daf"]["CO2"]) for c in cases]
-    for c in cases:
-        c["naoh_kg_per_kg_daf"], c["gas_yield_mmol_per_g_daf"]["CO2"] = spec["dose"], spec["co2"]
-    try:
-        yield
-    finally:
-        for c, (d, g) in zip(cases, old):
-            c["naoh_kg_per_kg_daf"], c["gas_yield_mmol_per_g_daf"]["CO2"] = d, g
+def dry_feed_kgph(spec=BASELINE):
+    """Plant capacity of a scenario [kg dry feed/h]: fixed (att.yaml) or the NLR reference scale."""
+    if spec["dry_feed_kgph"] is not None:
+        return spec["dry_feed_kgph"]
+    return inv.get_att_reference_scale(spec["configuration"])["dry_feed_kgph"]
 
 
-def create(spec, dry_kgph=None, hxn=True):
-    """Simulated system of a scenario (call inside ``dose(spec)``); operating hours are set."""
+def create(spec=BASELINE, dry_kgph=None, hxn=True, washing=None, wash_ratio=None):
+    """Simulated system of a scenario; operating hours are set. ``dry_kgph`` defaults to the scenario capacity."""
+    if washing not in (None, "washing_on", "washing_off"):
+        raise ValueError("washing must be washing_on, washing_off or None (configured default)")
     configuration = spec["configuration"]
     ref = inv.get_att_reference_scale(configuration)
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(_att_system.create_att_system(
         dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
-        lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec.get("scrubber", False)), dry_kgph)
+        lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec["scrubber"],
+        f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio), dry_kgph)
     system.operating_hours = ref["operating_hours_per_year"]
     return system
 
 
-def waste_scale_dry_kgph(configuration="presscake"):
-    """Dry feed (kg/h) at which s4 consumes the whole waste-lime supply."""
-    spec = dict(SCENARIOS["s4"], configuration=configuration)
-    with dose(spec):
-        small = create(spec, dry_kgph=1000.0)
-    lime_per_dry = float(inv._streams(small)["lime"].imass["CaOH2"]) / 1000.0
-    return WASTE_LIME_KG_PER_YR / (OPERATING_DAYS_PER_YEAR * 24.0) / lime_per_dry
+def scale(spec=BASELINE):
+    """Annual basis of a scenario: the keys of inventory.get_att_reference_scale at the scenario capacity."""
+    ref = inv.get_att_reference_scale(spec["configuration"])
+    dry = dry_feed_kgph(spec)
+    wet = dry / (1.0 - ref["moisture_frac"])
+    return dict(ref, scenario=spec["key"], wet_feed_kgph=wet, wet_feed_t_per_day=wet * 24.0 / 1e3, dry_feed_kgph=dry,
+                dry_feed_t_per_day=dry * 24.0 / 1e3, dry_feed_t_per_year=dry * ref["operating_hours_per_year"] / 1e3,
+                basis=f"{spec['short']} capacity (att.yaml att.scenarios.baseline.dry_feed_kgph)")
 
 
-_WASTE_SCALE = {}
+def tea_config(spec=BASELINE):
+    """evaluate_att_tea keywords for the lime and CaCO3 assumptions: waste lime at 0 USD/kg; the cakes are disposed."""
+    recycled = spec["lime"] == "recycled"
+    return dict(price_overrides={"CaOH2": 0.0} if spec["lime"] == "waste" else None,
+                caco3=None if recycled else dict(fraction=0.0))
 
 
-def dry_feed_kgph(spec):
-    """Dry feed of a scenario (kg/h): the NLR reference scale, or the scale of the waste-lime supply."""
-    configuration = spec["configuration"]
-    if spec["scale"] == "NLR":
-        return inv.get_att_reference_scale(configuration)["dry_feed_kgph"]
-    if configuration not in _WASTE_SCALE:
-        _WASTE_SCALE[configuration] = waste_scale_dry_kgph(configuration)
-    return _WASTE_SCALE[configuration]
+def lca_overrides(spec=BASELINE):
+    """apply_att_gwp factor overrides of a scenario: waste lime is burden-free."""
+    return {"CaOH2_limestone": 0.0} if spec["lime"] == "waste" else None

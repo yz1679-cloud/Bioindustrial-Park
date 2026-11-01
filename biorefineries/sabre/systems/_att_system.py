@@ -6,6 +6,8 @@
 # github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
 # for license details.
 
+from math import isfinite
+
 import biosteam as bst
 
 from biorefineries.sabre._chemicals import create_chemicals
@@ -14,7 +16,6 @@ from biorefineries.sabre.utils import (
     load_assumptions,
     get_feedstock_type_params,
 )
-from biorefineries.sabre.analyses.att.mass_energy import wash_balance
 from biorefineries.sabre.units._att import (
     ATTPress,
     ATTReactor,
@@ -28,6 +29,7 @@ from biorefineries.sabre.units._att import (
     ATTLimeKiln,
     ATTLimeSlaker,
     aqueous_naoh_enthalpy_correction_kJph,
+    _SARGASSUM_DRY_IDS,
 )
 
 __all__ = ("create_att_system", "get_att_press_retention", "get_att_reference_dry_feed_kgph")
@@ -99,11 +101,12 @@ def create_att_system(
     ----------
     dry_sargassum_kgph : float
         Dry-Sargassum scaling basis [kg dry solids/h]. The actual inlet
-        stream is constructed from the default SaBRe wet-feed composition
-        and therefore has a larger wet mass flow.
+        stream is constructed from the feedstock.yaml wet-feed composition
+        and therefore has a larger wet mass flow. The gross NaOH is
+        naoh_kg_per_kg_dry x the dry Sargassum reaching M1.
     att_case : str or None
         ATT process case. None selects the baseline case defined in
-        data/att.yaml (currently Ni-CatATT).
+        data/att.yaml (currently Ni-CatATT_1to1, ATT Scenario 1).
     configuration : str
         'presscake' (default): ATT plant that receives the presscake of a
         biostimulant plant (normally a waste), without P1; ``dry_sargassum_kgph``
@@ -133,11 +136,11 @@ def create_att_system(
         Scrub the CO2 out of the cooled gas (after U3C, before U3D) with a Ca(OH)2 slurry (SCRUB) and dewater the
         CaCO3 slurry in the filter F3 (cake at the F2 moisture, filtrate recycled to the scrubber). The scrubber lime
         is the feed stream ``scrubber_lime`` (priced like ``lime``). None uses att.yaml
-        downstream.co2_scrubber.enabled (baseline: False).
+        downstream.co2_scrubber.enabled (ATT Scenario 1: True).
     psa : bool or None
         Purify the compressed gas in a PSA (U3P, 90 % H2 recovery, tail gas burned) or not. None uses
-        att.yaml gas_treatment.psa_enabled (baseline: False; with all CO2 captured as carbonate the gas
-        is mostly H2 and the compressed gas leaves as h2_product).
+        att.yaml gas_treatment.psa_enabled (ATT Scenario 1: False; the scrubbed, dried and
+        compressed gas leaves as h2_product).
     lime_recycle : bool or None
         Calcine the F2 cake in a lime kiln (K1), slake it (S1) and recycle the Ca(OH)2
         to C1 (a purge of the burnt lime and fresh makeup close the loop). False sends the
@@ -158,7 +161,7 @@ def create_att_system(
         chemicals = bst.settings.get_chemicals()
     except Exception:
         chemicals = None
-    if chemicals is None or "Char" not in chemicals:
+    if chemicals is None or "ResidueCH" not in chemicals:
         create_chemicals(include_att=True)
     if configuration not in ("fresh_sargassum", "presscake"):
         raise ValueError("configuration must be 'fresh_sargassum' or 'presscake'.")
@@ -265,14 +268,11 @@ def create_att_system(
     dryer_backup_fuel = bst.Stream("dryer_backup_fuel")
 
     # Drying-air flow: sized so the exhaust leaves at the target relative
-    # humidity at the dryer temperature (R = kg gas per kg water evaporated).
+    # humidity at the dryer temperature. The installed BioSTEAM (2.53) takes
+    # the exhaust RH directly (DrumDryer RH: y_water = RH * Psat(T) / P,
+    # air = water * (1 - y) / y); the SaBRe copy passed the equivalent
+    # kg-air/kg-water ratio R, which this DrumDryer does not accept.
     _dryer_cfg = _ATT_FEED_PREP["dryer"]
-    _x_water = (
-        float(_dryer_cfg["exhaust_relative_humidity"])
-        * float(bst.settings.chemicals["Water"].Psat(float(_ATT_FEED_PREP["dryer_temperature_K"])))
-        / 101325.0
-    )
-    dryer_gas_ratio = (1.0 - _x_water) / _x_water * 28.96 / 18.015
 
     D0 = ATTDrumDryer(
         "D0",
@@ -295,27 +295,24 @@ def create_att_system(
         ],
         P=101325.0,
         utility_agent="Steam",
-        R=dryer_gas_ratio,
+        RH=float(_dryer_cfg["exhaust_relative_humidity"]),
         length_to_diameter=float(_dryer_cfg["drum_length_to_diameter"]),
         max_drum_diameter_m=float(_dryer_cfg["max_drum_diameter_m"]),
     )
 
     # --------------------------------------------------------------
-    # ATT NaOH requirement
+    # ATT NaOH requirement (ATT Scenario 1)
     #
-    # Advisor-confirmed Ni-CatATT baseline:
+    #     gross NaOH = naoh_kg_per_kg_dry (1.0) x dry Sargassum reaching M1
     #
-    #     1 g NaOH / 0.5 g daf seaweed
-    #   = 2 kg NaOH / kg daf seaweed
-    #
-    # The daf flow is calculated from the actual SaBRe feed reaching
-    # M1, so the model continues to use the SaBRe default ash fraction.
-    # Reported gas yields are handled separately in U2 and are not
-    # rescaled when this NaOH loading is applied.
+    # "Dry Sargassum" is every feedstock solid leaving D0 (ash included,
+    # water excluded); the recycle liquor and the fresh NaOH join later in
+    # M1 and are not part of it. Gross NaOH is recycled + fresh NaOH. The
+    # gas yields stay on the daf basis in U2 and are not rescaled by it.
     # --------------------------------------------------------------
-    naoh_kg_per_kg_daf = float(
+    naoh_kg_per_kg_dry = float(
         att_case_data[
-            "naoh_kg_per_kg_daf"
+            "naoh_kg_per_kg_dry"
         ]
     )
 
@@ -343,19 +340,16 @@ def create_att_system(
     # convergence.
     # --------------------------------------------------------------
     if configuration == "fresh_sargassum":
-        # daf of the presscake (the press leaves part of the solids in the juice)
+        # dry presscake (the press leaves part of the solids in the juice)
         _retention = get_att_press_retention()
-        initial_daf_kgph = dry_sargassum_kgph * sum(
-            _retention[ID] * x for ID, x in feed_params["dry_composition"].items() if ID != "Ash"
+        initial_dry_kgph = dry_sargassum_kgph * sum(
+            _retention[ID] * x for ID, x in feed_params["dry_composition"].items()
         )
     else:
-        initial_daf_kgph = (
-            dry_sargassum_kgph
-            * (1.0 - raw_ash_wt_frac_dry)
-        )
+        initial_dry_kgph = dry_sargassum_kgph
     initial_naoh_kgph = (
-        naoh_kg_per_kg_daf
-        * initial_daf_kgph
+        naoh_kg_per_kg_dry
+        * initial_dry_kgph
     )
     initial_target_naoh_wt_frac = float(
         _ATT_DOWNSTREAM["recycle_naoh_wt_frac"]
@@ -765,6 +759,7 @@ def create_att_system(
     def add_mother_liquor_entrainment_spec(
         unit,
         target_cake_water_wt_frac,
+        solids_recovery=filtration_solids_recovery,
     ):
         target = float(target_cake_water_wt_frac)
 
@@ -787,7 +782,7 @@ def create_att_system(
                 0.0,
             )
             insoluble_solids_kgph = (
-                filtration_solids_recovery
+                solids_recovery
                 * insoluble_feed_kgph
             )
 
@@ -824,11 +819,10 @@ def create_att_system(
                     / denominator
                 )
 
-            if not (
-                0.0
-                <= retained_liquor_fraction
-                <= 1.0
-            ):
+            # Zero-wash refiltration can give 1 + roundoff at identical moisture.
+            if -1e-12 <= retained_liquor_fraction <= 1.0 + 1e-12:
+                retained_liquor_fraction = min(1.0, max(0.0, retained_liquor_fraction))
+            if not 0.0 <= retained_liquor_fraction <= 1.0:
                 raise ValueError(
                     f"{unit.ID}: calculated mother-liquor retention "
                     f"fraction {retained_liquor_fraction:.6g} is "
@@ -849,7 +843,7 @@ def create_att_system(
                     )
                 else:
                     unit.isplit[ID] = (
-                        filtration_solids_recovery
+                        solids_recovery
                     )
 
             unit._mother_liquor_retention_fraction = (
@@ -968,73 +962,39 @@ def create_att_system(
         )
         add_mother_liquor_entrainment_spec(F3, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"])
 
-    # --------------------------------------------------------------
-    # W2 - Optional F2 cake washer. Material-only engineering scenario.
-    # BOTH cake and filtrate enter W2, so recovered solutes flow to SP1.
-    # In the wash-enabled case, the unwashed F2 cake is not the final cake.
-    # --------------------------------------------------------------
-    wash_settings = _ATT_DOWNSTREAM.get("f2_washing", {})
-    wash_enabled = (
-        bool(wash_settings.get("enabled", False))
-        if f2_wash_enabled is None
-        else bool(f2_wash_enabled)
-    )
-    if f2_wash_ratio is None:
-        f2_wash_ratio = wash_settings.get("wash_ratio_kg_per_kg_dry_cake", 1.0)
-    f2_wash_ratio = float(f2_wash_ratio)
-    if f2_wash_ratio < 0:
-        raise ValueError("F2 washing ratio must be nonnegative")
+    # Single mixed washing stage, followed by native refiltration.
+    # Fresh water dilutes the original cake mother liquor. The refilter
+    # retains representative diluted liquor at the configured cake moisture.
+    # No Ca(OH)2 dissolution or arbitrary sodium-removal efficiency is imposed.
+    wash_settings = _ATT_DOWNSTREAM["f2_washing"]
+    wash_enabled = bool(wash_settings["enabled"] if f2_wash_enabled is None else f2_wash_enabled)
+    ratio = float(wash_settings["wash_ratio_kg_per_kg_dry_cake"] if f2_wash_ratio is None else f2_wash_ratio)
+    if not isfinite(ratio) or ratio < 0:
+        raise ValueError("F2 washing ratio must be finite and nonnegative")
+    W2 = F2R = None
     if wash_enabled:
-        f2_dry_ids = tuple(ID for ID in C1.outs[0].chemicals.IDs
-                           if ID not in ("Water", "NaOH", "Na2CO3"))
+        F2.outs[0].ID = "f2_unwashed_cake"
         wash_water = bst.Stream("f2_wash_water", Water=0.0, phase="l",
-                                T=float(wash_settings.get("temperature_K", 363.15)))
-
-        class F2CakeWasher(bst.Unit):
-            _N_ins = 3
-            _N_outs = 2
-            def _run(self):
-                original_cake, original_filtrate, wash = self.ins
-                cake, liquor = self.outs
-                cake.copy_like(original_cake)
-                liquor.copy_like(original_filtrate)
-                dry_mass=sum(float(original_cake.imass[ID]) for ID in f2_dry_ids)
-                wash_mass=float(wash.imass["Water"])
-                result=wash_balance(
-                    dry_insolubles=dry_mass,
-                    retained_water=float(original_cake.imass["Water"]),
-                    retained_naoh=float(original_cake.imass["NaOH"]),
-                    retained_na2co3=float(original_cake.imass["Na2CO3"]),
-                    filtrate_water=float(original_filtrate.imass["Water"]),
-                    filtrate_naoh=float(original_filtrate.imass["NaOH"]),
-                    filtrate_na2co3=float(original_filtrate.imass["Na2CO3"]),
-                    wash_water=wash_mass,
-                    target_moisture=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]),
-                    displacement_factor=float(wash_settings.get("displacement_factor", 1.0)),
-                )
-                for ID in ("Water", "NaOH", "Na2CO3"):
-                    cake.imass[ID]=result["cake"][ID]
-                    liquor.imass[ID]=result["filtrate"][ID]
-                self._wash_audit=result
-                # Thermal enthalpy of washing and temperature mixing NOT modeled.
-                # No fabricated heating or cooling credits are assigned.
-
-        W2=F2CakeWasher("W2", ins=(F2-0, F2-1, wash_water),
-                        outs=("caco3_cake_washed", "naoh_carbonate_liquor_washed"))
+                                T=float(wash_settings["temperature_K"]))
+        W2 = bst.MixTank("W2", ins=(F2 - 0, wash_water), outs=("f2_wash_slurry",),
+                         tau=float(wash_settings["contact_time_h"]))
         @W2.add_specification(run=True)
         def adjust_wash_feed():
-            unwashed_cake=W2.ins[0]
-            dry_kgph=max(0.0, float(unwashed_cake.F_mass)
-                       -sum(float(unwashed_cake.imass[ID])
-                            for ID in ("Water", "NaOH", "Na2CO3")))
+            original = F2.outs[0]
+            dry_cake = float(original.F_mass - original.imass["Water"])
             wash_water.empty()
-            wash_water.imass["Water"]=f2_wash_ratio*dry_kgph
-            wash_water.phase="l"
-            wash_water.T=float(wash_settings.get("temperature_K", 363.15))
-        sp1_feed=W2-1
-    else:
-        W2=None
-        sp1_feed=F2-1
+            wash_water.imass["Water"] = ratio * dry_cake
+            wash_water.phase = "l"
+            wash_water.T = float(wash_settings["temperature_K"])
+        F2R = bst.RotaryVacuumFilter(
+            "F2R", ins=W2 - 0, outs=("caco3_cake", "f2_wash_liquor"),
+            split={ID: 0.0 if ID in mother_liquor_IDs else 1.0 for ID in F2.outs[0].chemicals.IDs},
+            moisture_content=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]))
+        add_mother_liquor_entrainment_spec(
+            F2R, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"], solids_recovery=1.0)
+    # The original F2 filtrate and NaOH loop are unchanged. Wash liquid is
+    # a separate wastewater/purge product, never routed to EC1.
+    sp1_feed = F2 - 1
 
     # --------------------------------------------------------------
     # Lime recycle: K1 kiln -> LP purge -> S1 slaker -> back to C1 (via LM)
@@ -1042,7 +1002,7 @@ def create_att_system(
     if use_lime_recycle:
         K1 = ATTLimeKiln(
             "K1",
-            ins=(W2 - 0 if W2 is not None else F2 - 0),
+            ins=(F2R - 0 if F2R is not None else F2 - 0),
             outs=("kiln_solids", "kiln_exhaust"),
             calcination_conversion=lime_cfg["calcination_conversion"],
             solids_outlet_temperature_K=lime_cfg["solids_outlet_temperature_K"],
@@ -1100,19 +1060,20 @@ def create_att_system(
     )
 
     # --------------------------------------------------------------
-    # Gross NaOH requirement (advisor-confirmed 2 kg NaOH/kg daf)
+    # Gross NaOH requirement (1 kg NaOH / kg DRY Sargassum)
+    #
+    # Dry Sargassum = the feedstock solids of the D0 outlet (the same
+    # species U2 counts as dry feed, ash included). D0 is upstream of M1,
+    # so no recycle liquor, fresh NaOH or other process chemical is in it.
     # --------------------------------------------------------------
     def required_gross_naoh_kgph():
         conditioned_sargassum = D0.outs[0]
-        dry_feed_kgph = (
-            float(conditioned_sargassum.F_mass)
-            - float(conditioned_sargassum.imass["Water"])
+        dry_feed_kgph = sum(
+            float(conditioned_sargassum.imass[ID])
+            for ID in _SARGASSUM_DRY_IDS
+            if ID in conditioned_sargassum.chemicals
         )
-        daf_feed_kgph = max(
-            dry_feed_kgph - float(conditioned_sargassum.imass["Ash"]),
-            0.0,
-        )
-        return naoh_kg_per_kg_daf * daf_feed_kgph
+        return naoh_kg_per_kg_dry * dry_feed_kgph
 
     # --------------------------------------------------------------
     # EC1 - Recycle-liquor evaporator (single effect, vacuum, 90 C)
@@ -1173,7 +1134,7 @@ def create_att_system(
         *([LM] if LM is not None else []),
         C1,
         F2,
-        *([W2] if W2 is not None else []),
+        *([W2, F2R] if W2 is not None else []),
         *lime_loop_units,
         SP1,
         EC1,
