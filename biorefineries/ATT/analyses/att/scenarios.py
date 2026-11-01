@@ -47,7 +47,7 @@ def _spec(key):
 
 ATT_S1 = _spec("att_s1")
 # ATT S2: same process as S1 on a ship; its WHR and floating TEA are in marine_whr.py / marine_tea.py. Kept out of
-# SCENARIOS (the land-based standard analyses); build_att_breakdown refuses it without the marine TEA hooks.
+# SCENARIOS (baseline analyses); build_att_breakdown refuses it without the marine TEA hooks.
 ATT_S2 = _spec("att_s2")
 WASTE_LIME_KG_PER_YR = float(_ATT["scenarios"]["att_s1"]["waste_lime_supply_kg_per_yr"])
 

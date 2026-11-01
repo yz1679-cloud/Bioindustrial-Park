@@ -1,7 +1,7 @@
 # ATT S1/S2: design basis, evidence classification and limitations
 
 **Scope.** Engineering-screening study of two process scenarios:
-- **ATT S1:** land-based plant.
+- **ATT S1:** baseline.
 - **ATT S2:** the same process on an existing, retrofitted vessel with marine waste-heat recovery.
 
 Washing on/off, CaCO3 sales and carbon-credit treatments are sensitivity or accounting cases within these two

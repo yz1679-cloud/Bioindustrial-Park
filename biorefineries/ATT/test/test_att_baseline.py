@@ -20,7 +20,7 @@ from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
 RTOL = 1e-5
 ALL_WHR = ("jacket", "scavenge", "exhaust")
 
-# ---- S1: land-based plant (analyses/att/breakdown.build_att_breakdown("att_s1")) ----------------------------------
+# ---- S1 (analyses/att/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
     "MSP_USD_per_kg_H2": 5.40656916,
     "GWP_kgCO2e_per_kg_H2": 6.49866239,
@@ -35,7 +35,7 @@ S1_METRICS = {
 S1_STORED_CARBON_CREDIT = -15.1280751        # kg CO2e per kg H2, in the net GWP
 S1_GWP_WITHOUT_CREDIT = 21.6267375
 
-# ---- S2: the S1 process on a ship (analyses/att/marine_tea.evaluate_case) -----------------------------------------
+# ---- S2 (analyses/att/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1857.84623353
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {
@@ -85,7 +85,7 @@ class TestATTS2(unittest.TestCase):
         cls.system = scen.create(scen.ATT_S2)
         cls.ref = mt.land_reference(cls.system)
 
-    def test_land_reference_is_s1(self):
+    def test_reference_is_s1(self):
         close(self, self.ref["row"]["MSP_USD_per_kg_H2"], S1_METRICS["MSP_USD_per_kg_H2"], "MSP")
         close(self, self.ref["row"]["GWP_kgCO2e_per_kg_H2"], S1_METRICS["GWP_kgCO2e_per_kg_H2"], "GWP")
         close(self, self.ref["row"]["H2_t_per_yr"], S1_METRICS["H2_t_per_yr"], "H2")
@@ -93,7 +93,7 @@ class TestATTS2(unittest.TestCase):
     def test_waste_heat_recovery(self):
         close(self, mw.evaluate_whr(self.system)["utilized_kW"], S2_WHR_UTILIZED_KW, "utilized WHR")
 
-    def test_floating_cases(self):
+    def test_s2_cases(self):
         modes = {m[0][:1]: m for m in mt.operating_modes()}
         for (mode, name), (msp, gwp, fci) in S2_CASES.items():
             _, hours, load = modes[mode]

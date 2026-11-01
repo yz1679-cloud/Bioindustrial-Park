@@ -43,7 +43,7 @@ att:
     # underway; marine waste heat recovery and the floating TEA are accounting layers on top of it
     # (analyses/att/marine_whr.py, marine_tea.py, marine_lca.py; data/marine_whr.yaml, marine_tea.yaml).
     att_s2:
-      label: "ATT Scenario 2: shipboard ATT with marine waste heat recovery (S1 process, floating TEA)"
+      label: "ATT Scenario 2: shipboard ATT with marine waste heat recovery (S1 process, floating biorefinery)"
       short: "ATT S2"
       derived_from: "ATT Scenario 1 (att_s1)"
       configuration: presscake
