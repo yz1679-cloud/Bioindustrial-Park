@@ -65,6 +65,7 @@ COST_TYPES = {
     "Ash/char cake disposal": "Waste treatment and disposal",
     "CaCO3 cake disposal": "Waste treatment and disposal",
     "CaCO3 byproduct sales": "Coproduct revenue",
+    "Marine WHR: purchased heat displaced": "Utilities",
     "PSA off-gas handling (0; fate unresolved)": "Waste treatment and disposal",
     "Biostimulant juice transfer (coproduct)": "Waste treatment and disposal",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost",
@@ -80,6 +81,7 @@ _AREAS = {
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
+    "FCI": "Floating process CAPEX adjustment (FCI factor)", "WHR": "Marine waste heat recovery (WHR)",
 }
 
 
@@ -98,6 +100,8 @@ def _cost_group(item, category):
                           ("Electricity", "Electricity"), ("Purge neutralization", "Neutralization (H2SO4)"),
                           ("P1 power", "Electricity"),
                           ("CaCO3 sales", "CaCO3 byproduct sales"),
+                          ("Marine WHR: pump", "Electricity"),
+                          ("Marine WHR: ", "Marine WHR: purchased heat displaced"),
                           ("CaCO3 cake", "CaCO3 cake disposal"),
                           ("PSA off-gas", "PSA off-gas handling (0; fate unresolved)")):
         if item.startswith(prefix):
@@ -224,19 +228,22 @@ def _gwp_tables(contributions):
     return by_item, by_stage, total
 
 
-def build_att_breakdown(case="att_s1", caco3_price=None, sys=None):
+def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None):
     """
     One simulation of a scenario of analyses/att/scenarios.py; returns a dict of DataFrames and a summary dict.
 
     ATT Scenario 1 takes free, burden-free waste lime and sells the CaCO3 of its cakes (att_tea.yaml caco3_sales;
     the rest of each cake is disposed). ``caco3_price`` [USD/t] overrides the configured price for this call only;
-    ``sys`` reuses an already simulated system of the scenario.
+    ``sys`` reuses an already simulated system of the scenario. ``tea_kwargs``: extra evaluate_att_tea keywords
+    (the ATT S2 floating/WHR hooks, analyses/att/marine_tea.py); None = the land-based TEA.
     """
     spec = scen.ALL_SCENARIOS[case]
-    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price)
+    if spec.get("marine") and tea_kwargs is None:
+        raise ValueError(f"{case} is a marine scenario: use analyses/att/marine_tea.py (floating TEA and WHR).")
+    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs)
 
 
-def _build(case, spec, sys, caco3_price=None):
+def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
     waste, lime_recycle = spec["lime"] == "waste", spec["lime"] == "recycled"
     estimates = inv.get_att_cost_estimates(sys)
     # CaCO3: without the lime recycle the cakes are products; with att_tea.yaml caco3_sales enabled their CaCO3 is
@@ -247,7 +254,7 @@ def _build(case, spec, sys, caco3_price=None):
     sell = bool(sales_cfg.pop("enabled")) and not lime_recycle
     result = tea_mod.evaluate_att_tea(sys, estimates, price_overrides={"CaOH2": 0.0} if waste else None,
                                       caco3=None if lime_recycle else dict(fraction=0.0),
-                                      caco3_sales=sales_cfg if sell else None)
+                                      caco3_sales=sales_cfg if sell else None, **(tea_kwargs or {}))
     sales = result["caco3_sales"]
     hours_yr = sys.operating_hours
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)

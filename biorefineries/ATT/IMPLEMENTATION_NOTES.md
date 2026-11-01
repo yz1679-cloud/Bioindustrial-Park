@@ -302,3 +302,51 @@ At 315 USD/t the CaCO3 revenue exceeds all costs, so the H2 MSP is negative.
 permanently stored in a landfill (`att_lca.yaml landfill_streams`). If the CaCO3 is sold, that storage claim
 depends on the product's end use: a sale does not prove permanent storage. The net GWP (14.04 kg CO2e/kg H2) is
 unchanged and remains PROVISIONAL.
+
+## ATT Scenario 2: shipboard ATT with marine waste heat recovery (uncommitted, on top of fc690650)
+
+S2 (`att_s2`) is the unchanged S1 process with two accounting layers on top: marine waste heat recovery (WHR)
+and the floating TEA.
+
+**Design basis and sources:** `docs/ATT_S2_DESIGN_BASIS.md` and `docs/ATT_S2_REFERENCES.md`.
+
+**New files.**
+- `data/marine_whr.yaml`, `data/marine_tea.yaml`.
+- `analyses/att/marine_whr.py`:
+  - engine sources at a load, temperature-limited;
+  - S1 heat sinks after the HXN;
+  - temperature-feasible allocation;
+  - itemized equipment;
+  - `check_whr`.
+- `analyses/att/marine_tea.py`: floating CAPEX and labor; WHR utility savings and pumps.
+- `analyses/att/marine_lca.py`: incremental GWP.
+- `analyses/att_s2_marine.py`: driver; writes `outputs/tables/att_s2_*.csv`.
+- `test/test_att_s2.py`.
+
+**Changed files** (hooks are neutral by default; S1 results unchanged).
+- `analyses/att/tea.py`:
+  - `ATTTEA(foc_fixed)` with `_FOC`;
+  - `evaluate_att_tea(operating_hours, extra_capital, extra_voc, foc_frac_of_fci, foc_fixed)`;
+  - the FCI-factor adjustment is now an itemized capital line.
+- `analyses/att/breakdown.py`: `tea_kwargs` pass-through; WHR and FCI-factor groups; refuses `att_s2` without the
+  marine hooks.
+- `analyses/att/scenarios.py`: `ATT_S2` in `OPTIONAL_SCENARIOS`.
+- `data/att.yaml`: `scenarios.att_s2`.
+
+**Key results** (all PROVISIONAL):
+- WHR delivers 1.99 MW and 1.86 MW is used: 8.2 % of external heating, 20 % of purchased LP steam. The U2 fired
+  duty is not eligible.
+- WHR equipment: 1.01 MUSD; pumps 10.8 kW.
+- MSP in USD/kg H2:
+
+  | Case | MSP |
+  |---|---|
+  | S1 land | 3.03 |
+  | S2 floating, no WHR, 7920 h | 3.26 |
+  | S2 floating with WHR, 7920 h | 3.20 |
+  | S2 floating with WHR, 2640 h (Mode B) | 5.14 |
+  | S2 floating, no WHR, 2640 h | 5.09 |
+
+- Incremental process GWP: 14.04 → 12.7 kg CO2e/kg H2.
+
+Tests: 84 run, all pass.

@@ -57,10 +57,14 @@ _BURNER_EFFICIENCY = float(load_assumptions("att.yaml")["att"]["energy_sources"]
 class ATTTEA(SaBReTEA):
     """SaBReTEA plus installed capital and annual costs outside the unit models."""
 
-    def __init__(self, *args, extra_installed_cost=0.0, extra_VOC=0.0, **kwargs):
+    def __init__(self, *args, extra_installed_cost=0.0, extra_VOC=0.0, foc_fixed=0.0, **kwargs):
         self.extra_installed_cost = float(extra_installed_cost)
         self.extra_VOC = float(extra_VOC)
+        self.foc_fixed = float(foc_fixed)     # fixed annual FOC added to foc_frac_of_fci x FCI (S2 labor); 0 in S1
         super().__init__(*args, **kwargs)
+
+    def _FOC(self, FCI):
+        return super()._FOC(FCI) + self.foc_fixed
 
     def _DPI(self, installed_equipment_cost):
         return installed_equipment_cost + self.extra_installed_cost
@@ -220,7 +224,8 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_biosteam_sc
 
 def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
                      fci_factor=1.0, p1_biosteam_screwpress=False, caco3=None,
-                     offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=None):
+                     offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=None,
+                     operating_hours=None, extra_capital=(), extra_voc=(), foc_frac_of_fci=None, foc_fixed=0.0):
     """
     Build the TEA for one case and solve the H2 MSP with SaBReTEA's DCF.
 
@@ -231,10 +236,15 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     cake disposed; it sets the price of those streams (after ``caco3``).
     feedstock_usd_per_wet_t: delivered Sargassum cost (collection and
     transport); None uses tea.yaml price.sargassum.baseline (0).
+    ATT S2 (marine) hooks, all neutral by default: operating_hours (None:
+    tea.yaml operating days x 24); extra_capital [(name, USD, basis)] added
+    AFTER fci_factor (not multiplied); extra_voc [(name, USD/yr)];
+    foc_frac_of_fci (None: tea.yaml) and foc_fixed [USD/yr] for FOC.
     """
     if estimates is None:
         estimates = inv.get_att_cost_estimates(sys)
-    sys.operating_hours = OPERATING_DAYS_PER_YEAR * 24.0
+    hours = OPERATING_DAYS_PER_YEAR * 24.0 if operating_hours is None else float(operating_hours)
+    sys.operating_hours = hours
     p = _prices(price_overrides)
     cake_price = None if caco3 is None else caco3_cake_price(sys, **caco3)
     _apply_prices(sys, p, cake_price, offgas_usd_per_t, feedstock_usd_per_wet_t)
@@ -242,19 +252,23 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     for ID, r in sales.items():
         inv._streams(sys)[ID].price = r["price_usd_per_kg"]
     capital = _capital_items(sys, estimates, psa_factor, p1_biosteam_screwpress)
-    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_biosteam_screwpress)
+    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_biosteam_screwpress) + list(extra_voc)
     installed_units = sum(u.installed_cost for u in sys.units)
-    extra_capital = sum(v for _, v, _ in capital)
-    extra_capital += (fci_factor - 1.0) * (installed_units + extra_capital)
+    if fci_factor != 1.0:      # itemized so that the capital tables sum to the FCI
+        capital.append((f"FCI factor x{fci_factor:g}: adjustment of the process installed capital",
+                        (fci_factor - 1.0) * (installed_units + sum(v for _, v, _ in capital)), "fci_factor"))
+    capital += list(extra_capital)
+    extra_capital_usd = sum(v for _, v, _ in capital)
     tea = ATTTEA(
         system=sys, IRR=_FIN["IRR"], duration=tuple(_FIN["duration"]), depreciation=_FIN["depreciation"],
-        income_tax=_FIN["income_tax"], operating_days=OPERATING_DAYS_PER_YEAR,
+        income_tax=_FIN["income_tax"], operating_days=hours / 24.0,
         construction_schedule=tuple(_FIN["construction_schedule"]), WC_over_FCI=_FIN["WC_over_FCI"],
         finance_interest=_FIN["finance_interest"], finance_years=_FIN["finance_years"],
         finance_fraction=_FIN["finance_fraction"], lang_factor=None, startup_months=_FIN["startup_months"],
         startup_FOCfrac=_FIN["startup_FOCfrac"], startup_VOCfrac=_FIN["startup_VOCfrac"],
-        startup_salesfrac=_FIN["startup_salesfrac"], foc_frac_of_fci=_FIN["foc_frac_of_fci"],
-        extra_installed_cost=extra_capital, extra_VOC=sum(v for _, v in voc),
+        startup_salesfrac=_FIN["startup_salesfrac"],
+        foc_frac_of_fci=_FIN["foc_frac_of_fci"] if foc_frac_of_fci is None else float(foc_frac_of_fci),
+        extra_installed_cost=extra_capital_usd, extra_VOC=sum(v for _, v in voc), foc_fixed=foc_fixed,
     )
     product = inv._streams(sys)[_T["product"]]
     # The functional unit is 1 kg H2. Without a PSA the product gas also holds CH4 and CO (no credit), so the

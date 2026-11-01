@@ -1,0 +1,95 @@
+# ATT Scenario 2 (att_s2): shipboard ATT with marine engine waste heat recovery (WHR).
+# Read by analyses/att/marine_whr.py. Design basis: docs/ATT_S2_DESIGN_BASIS.md; sources: docs/ATT_S2_REFERENCES.md.
+#
+# Every non-trivial number has a source id [R-..] and a class:
+#   PUB-MFR  published manufacturer specification      PUB-RES  published research result
+#   MODEL    project model data (ATT S1)              DERIVED  calculated here
+#   USER     user-supplied assumption                 ENG      preliminary engineering estimate (unverified)
+#   MISSING  not available (placeholder, sensitivity)
+# PRELIMINARY screening basis, not a marine installation design: no OEM (MAN Energy Solutions) data for the engine
+# at part load were available, so the engine heat sources are ENG estimates with sensitivities.
+marine_whr:
+  vessel:                        # conceptual reference platform only (not a ship selected for conversion)
+    name: SPAR PYXIS             # [R-V1, R-V2] PUB
+    imo: 9701932                 # [R-V2]
+    type: Ultramax bulk carrier  # [R-V1]
+    length_m: 199.9              # [R-V1, R-V2]
+    beam_m: 32.26                # [R-V1, R-V2]
+    dwt_t: 63266                 # [R-V1]; R-V2 lists summer DWT 63,800 t
+    main_engine: MAN B&W 5S60ME-C8.2   # [R-V1]; R-V2: HHM-MAN B&W 5S60ME-C8
+    rated_power_kW: 8050         # [R-V2] 8,050 kW / 12,880 bhp at 89 rpm
+    existing_onboard_heat_users: "Composite auxiliary boiler (Kangrim) listed [R-V2]: the ship already uses exhaust heat for its own steam needs. NOT deducted here (USER: ignore other onboard consumers) -> optimistic availability boundary."
+
+  engine:
+    load_fraction: 0.75          # USER: steady underway reference (Mode A)
+    shaft_efficiency: 0.493      # USER / previous pre-FEED; generic proxy attributed there to [R-Z2020]; not re-verified (local PDF not readable in this environment)
+    fuel_LHV_kJ_per_kg: 42700.0  # ENG: typical marine distillate / VLSFO
+    # Engine state per load [ENG unless noted]. 15 % and 0 % load: no qualifying heat (USER, conservative).
+    load_points:
+      1.00: {T_exhaust_C: 255.0, T_charge_air_C: 200.0}   # T_charge_air ~200 C at full load: USER note; exhaust: ENG
+      0.75: {T_exhaust_C: 240.0, T_charge_air_C: 160.0}   # ENG (no OEM CEAS data); sensitivity below
+      0.50: {T_exhaust_C: 230.0, T_charge_air_C: 120.0}   # ENG
+    min_load_for_recovery: 0.50  # ENG/USER: below this (15 % collection, 0 % anchored) no qualifying heat
+    exhaust:
+      specific_flow_kg_per_kWh: 8.0     # ENG: typical low-speed two-stroke after turbocharger (no OEM data); sensitivity [7.0, 9.0]
+      cp_kJ_per_kgK: 1.08               # ENG: flue gas ~200 C
+      gross_reference_C: 25.0           # reference for the "gross" exhaust heat
+      min_outlet_C: 160.0               # ENG: acid-dew-point / fouling margin for low-sulfur fuel [R-Z2020, R-Z2020E qualitative]; fuel- and OEM-dependent
+      gas_side_dP_Pa: 1500.0            # ENG: economizer gas-side pressure drop
+      max_added_backpressure_Pa: 2500.0 # ENG placeholder; the real limit requires OEM approval
+      gross_fraction_of_fuel_reference: 0.255   # previous pre-FEED, attributed to [R-Z2020]; cross-check only
+    scavenge_air:
+      enabled: true                     # USER: may be disabled if no OEM-approved interface exists
+      cp_kJ_per_kgK: 1.01               # ENG: air
+      gross_cooled_to_C: 40.0           # ENG: normal charge-air cooler outlet, for the "gross" value
+      gross_fraction_of_fuel_reference: 0.165   # previous pre-FEED, attributed to [R-Z2020]; cross-check only
+    jacket_water:
+      enabled: true
+      gross_fraction_of_fuel: 0.052     # previous pre-FEED, attributed to [R-Z2020]
+      recoverable_fraction: 0.30        # previous pre-FEED assumption (USER/ENG): protects engine temperature control
+      T_engine_outlet_C: 85.0           # ENG: typical 70-90 C [R-AL2]
+
+  # Heat transport to ATT. Delivery efficiency: distribution, trap and loop losses (ENG; previous pre-FEED used 0.85).
+  steam_system:                  # exhaust economizer -> steam drum -> LP process steam -> condensate return
+    pressure_bar_abs: 4.0        # ENG: chosen for the ATT steam users (<= 127 C process temperature); T_sat derived
+    pinch_K: 15.0                # ENG [R-Z2020E: pinch point governs economizer design]
+    delivery_efficiency: 0.90    # ENG; sensitivity [0.85, 0.95]
+    feedwater_dP_bar: 6.0        # ENG: feedwater / circulation pump head
+  hot_water_loops:
+    scavenge: {supply_C: 95.0, return_C: 85.0, source_approach_K: 10.0, delivery_efficiency: 0.90, loop_dP_bar: 2.5}  # ENG
+    jacket:   {supply_C: 80.0, return_C: 70.0, source_approach_K: 5.0,  delivery_efficiency: 0.90, loop_dP_bar: 2.5}  # ENG
+  pump_efficiency: 0.70          # ENG
+
+  sinks:
+    min_approach_K: 10.0         # ENG: heating medium to process (hot and cold end)
+    # S1 purchased LP steam consumers (residual duty AFTER the S1 heat exchanger network; MODEL).
+    steam_units: [D0, C1, EC1, U3D]
+    # U2 feed preheating (S2 accounting boundary): sensible heating of the U2 feed from its M1 temperature to
+    # target_C, a new conceptual preheater; it reduces the U2 fired duty by the same process heat. The 500 C
+    # reaction heat stays on the U2 furnace. The feed is a wet solid/NaOH slurry: preheater feasibility unverified.
+    u2_feed_preheat: {enabled: true, target_C: 95.0}
+
+  # Incremental WHR equipment (installed cost; NOT multiplied by the floating CAPEX factor).
+  # Exchangers: BioSTEAM floating-head shell-and-tube purchase correlation (Seider et al.) on the area from
+  # Q / (U x LMTD), x bare-module factor: a PROXY for finned-tube economizers and plate exchangers (ENG).
+  equipment:
+    hx_bare_module_factor: 3.17          # BioSTEAM HXutility default F_BM (Seider et al.)
+    U_kW_per_m2K:                         # ENG overall coefficients
+      economizer: 0.05                    # finned gas-to-boiling-water (gas side controls)
+      scavenge_recovery_cooler: 0.08      # charge air to hot water (finned)
+      jacket_plate_hx: 3.0                # water to water, plate
+      u2_feed_preheater: 0.30             # hot medium to wet slurry
+      process_side_hot_water: 0.50        # hot water to existing process heat exchangers (only if a hot-water heater is added)
+    steam_drum_installed_usd: 150000.0    # ENG placeholder (MISSING vendor data)
+    piping_controls_allowance_fraction: 0.40   # ENG: piping, valves, bypass, sootblowing, instruments, controls, insulation, of exchangers + pumps + drum
+    buffer_tank:                          # optional (off): small transient buffer, NOT MW-hours of storage
+      enabled: false
+      volume_m3: 10.0
+      installed_usd: 100000.0             # ENG placeholder
+    capex_factor_sensitivity: [0.5, 1.0, 2.0]
+    imo_whr_installed_range_usd: [5200000.0, 11500000.0]   # [R-IMO] per ship, power-generating WHRS (turbines/ORC): upper-bound context only
+
+  operating_modes:
+    A_underway_reference: {hours_per_year: 7920.0, engine_load: 0.75, note: "Idealized: all 330 d x 24 h treated as underway at 75 % MCR (USER)."}
+    B_operational_profile: {hours_per_day_underway: 8.0, days_per_year: 330.0, engine_load: 0.75, note: "8 h/d transit at 75 % (ATT runs), 8 h/d collection at 15 % and 8 h/d anchored at 0 % (no qualifying heat; ATT not run) (USER)."}
+    hours_sensitivity: [7920.0, 5280.0, 2640.0]

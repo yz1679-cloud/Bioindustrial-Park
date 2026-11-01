@@ -23,7 +23,7 @@ from biorefineries.ATT.analyses.att import inventory as inv
 from biorefineries.ATT.systems import _att_system
 from biorefineries.ATT.utils import load_assumptions
 
-__all__ = ("ATT_S1", "SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS",
+__all__ = ("ATT_S1", "ATT_S2", "SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS",
            "WASTE_LIME_KG_PER_YR", "dry_feed_kgph", "create")
 
 _ATT = load_assumptions("att.yaml")["att"]
@@ -34,16 +34,19 @@ def _spec(key):
     s = _ATT["scenarios"][key]
     return dict(key=key, label=s["label"], short=s["short"], configuration=s["configuration"],
                 psa=bool(s["psa"]), scrubber=bool(s["co2_scrubber"]), lime=s["lime"],
-                dry_feed_kgph=float(s["dry_feed_kgph"]),
+                dry_feed_kgph=float(s["dry_feed_kgph"]), marine=bool(s.get("marine", False)),
                 naoh_kg_per_kg_dry=float(_CASE["naoh_kg_per_kg_dry"]),
                 gas_yield_mmol_per_g_daf=dict(_CASE["gas_yield_mmol_per_g_daf"]))
 
 
 ATT_S1 = _spec("att_s1")
+# ATT S2: same process as S1 on a ship; its WHR and floating TEA are in marine_whr.py / marine_tea.py. Kept out of
+# SCENARIOS (the land-based standard analyses); build_att_breakdown refuses it without the marine TEA hooks.
+ATT_S2 = _spec("att_s2")
 WASTE_LIME_KG_PER_YR = float(_ATT["scenarios"]["att_s1"]["waste_lime_supply_kg_per_yr"])
 
 SCENARIOS = {"att_s1": ATT_S1}
-OPTIONAL_SCENARIOS = {}
+OPTIONAL_SCENARIOS = {"att_s2": ATT_S2}
 ALL_SCENARIOS = {**SCENARIOS, **OPTIONAL_SCENARIOS}
 CASES = SCENARIOS                      # the scenarios of the standard analyses
 CASE_LABELS = {k: v["label"] for k, v in ALL_SCENARIOS.items()}

@@ -39,6 +39,19 @@ att:
       dry_feed_kgph: 5029.17
       dry_feed_basis: "SaBRe Scenario 5 waste-lime scale (kept, not re-derived); waste-lime supply 92.47 kt/yr Ca(OH)2 not re-checked against ATT Scenario 1 lime use (reported)."
       waste_lime_supply_kg_per_yr: 92472373.33   # 80 kt/yr CaC2 x 74.09268/64.0993 (Intratec reference carbide plant); supply check only
+    # ATT Scenario 2: the SAME process model, chemistry, capacity and settings as att_s1, operated on a ship while
+    # underway; marine waste heat recovery and the floating TEA are accounting layers on top of it
+    # (analyses/att/marine_whr.py, marine_tea.py, marine_lca.py; data/marine_whr.yaml, marine_tea.yaml).
+    att_s2:
+      label: "ATT Scenario 2: shipboard ATT with marine waste heat recovery (S1 process, floating TEA)"
+      short: "ATT S2"
+      derived_from: "ATT Scenario 1 (att_s1)"
+      configuration: presscake
+      psa: false
+      co2_scrubber: true
+      lime: waste
+      dry_feed_kgph: 5029.17
+      marine: true
 
   # ---------------------------------------------------------------------
   # DATA SOURCES (where the numbers in this file come from)
