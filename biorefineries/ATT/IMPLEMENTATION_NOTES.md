@@ -11,7 +11,7 @@ and after the work, and the two hash lists match.
 | `data/att.yaml` | **Authoritative ATT configuration**: `att.scenarios.att_s1` (flowsheet switches, capacity), `reactor.cases.Ni-CatATT_1to1` (gas yields, NaOH dose), `reactor.material_balance` (carbon closure), `downstream` (C1 0.88) |
 | `data/feedstock.yaml`, `tea.yaml`, `att_tea.yaml`, `att_lca.yaml` | Copies of the SaBRe files (unchanged) |
 | `units/_att.py`, `systems/_att_system.py` | Process units and flowsheet |
-| `analyses/att/scenarios.py` | `ATT_S1`, `create()`; no run-time parameter patching |
+| `analyses/att/scenarios.py` | `ATT_S1`, `ATT_S2`, `create()`, `scale()`, `tea_config()`, `lca_overrides()` (single source of the scenario assumptions); no run-time parameter patching |
 | `analyses/att/{breakdown,tea,lca,inventory,...}.py` | TEA/LCA/inventory (SaBRe method) |
 | `test/` | `test_att_s1_parameters.py` (new) and the adapted SaBRe tests |
 | `reference_data/ATT Inputs and Assumptions_261023.xlsx` | Read-only copy (sha256 `db8ff0f4...f949`, identical to the original) |
@@ -350,3 +350,140 @@ and the floating TEA.
 - Incremental process GWP: 14.04 → 12.7 kg CO2e/kg H2.
 
 Tests: 84 run, all pass.
+
+## Post-review entry-point corrections (after commit 92cc3f0b)
+
+Reproducibility fixes only. The process model, chemistry, inputs, WHR, TEA and LCA assumptions are unchanged, and
+so are the S1/S2 results.
+
+**Single source of the scenario assumptions.** `analyses/att/scenarios.py` now holds all of them:
+- `create` / `scale`: flowsheet, capacity and annual basis;
+- `tea_config`: waste lime at 0 USD/kg and CaCO3 sales (moved here from `breakdown._build`);
+- `lca_overrides`: waste lime is burden-free.
+
+**Entry points corrected.** The following no longer build the reference-scale model (about 49.6 t dry/h, with
+purchased lime and no CaCO3 sales). They now use `att_s1` (5029.17 kg dry/h):
+- `tea.create_att_tea_system`;
+- `tea.export_att_tea`;
+- `lca.create_att_lca_system`;
+- `lca.export_att_lca`;
+- `inventory.build_att_inventory_tables`;
+- the 1 kg/h audit comparison;
+- `reporting.build_att_documentation`;
+- `reporting.build_att_consolidated_results`.
+
+The headline TEA and LCA results apply `tea_config` / `lca_overrides`.
+
+The SaBRe reference-treatment tables are kept and labeled **LEGACY**:
+- Case A/B;
+- the lime-price cases;
+- the "Case-A-consistent" LCA row;
+- the old key findings.
+
+The reference-scale model itself is `scenarios.create_legacy_reference()`. A `configuration` argument, or a
+`lime_recycle` value that contradicts the scenario, raises an error instead of silently changing S1.
+
+**Output directory.** `analyses/att/paths.py` reads the `ATT_PROJECT_OUTPUTS_DIR` environment variable
+(`paths.OUTPUTS_ENV`). `run_att_all --out` now sets the same variable; it previously set `ATT_OUTPUTS_DIR`, which
+nothing read. The S1/S2 table scripts (`analyses/att_*.py`) write to `output_dir("tables")`. The default location
+is unchanged: `biorefineries/ATT/outputs/tables`.
+
+**S2 engine load.** `marine_tea.operating_modes()` returns the hours and the `engine_load` of Modes A and B
+(`marine_whr.yaml`), and `att_s2_marine.mode_tea_cases()` passes that load to `evaluate_case`. Both modes are at
+0.75 MCR, so the published results are unchanged.
+
+**DCF: inherited BioSTEAM behaviour, kept on purpose.** BioSTEAM 2.53.11 deducts the whole loan payment,
+principal included, from taxable cash flow. The original SaBRe `_tea.py` (17c75376) inherits this method and does
+not override it. ATT keeps it so that the results stay consistent with SaBRe. This is a methodology-consistency
+decision, not a claim that loan principal is tax deductible. Loans, financing, tax, NPV and the MSP solver are
+unchanged.
+
+An independent DCF recalculation estimated these MSP values under the alternative tax treatment (USD/kg H2).
+They are independently estimated alternative DCF values, not outputs of the runtime model:
+
+| Case | Current model | Alternative tax treatment |
+|---|---:|---:|
+| S1 | 3.029244 | 3.050088 |
+| S2 WHR, 7920 h | 3.204215 | 3.232048 |
+| S2 WHR, 2640 h | 5.136015 | 5.219512 |
+
+**Deferred: U2 feed-preheat accounting.** The conceptual U2 feed preheater is credited as a reduction in U2
+furnace duty equal to its sensible heat × (1 + heat loss). This mixes physical duty with furnace-equivalent
+displacement. The issue is not resolved here because the current allocation gives the preheater 0 kW, so S2 results
+are unaffected. Revisit it if a future version assigns recovered heat to U2 preheating.
+
+Tests: `test/test_att_entry_points.py` (new; S1 entry points vs `build_att_breakdown`, output root, S2 engine load).
+
+## Targeted F2 washing and boundary/check fixes
+
+Scope: only ATT source/config/tests. Existing entry-point corrections, frozen
+reaction chemistry, S1/S2 capacity, marine sources/multipliers/hours, DCF and carbon
+credit methods are retained.
+
+- Replaced the old optional material-only W2 (which recycled wash liquor to SP1)
+  with native W2 MixTank plus F2R RotaryVacuumFilter. washing_on is now default;
+  scenarios.create(washing="washing_off") selects the original flowsheet.
+- Wash water = 1 kg/kg original F2 dry cake (all non-water components). Fresh water
+  is 298.15 K; native adiabatic mixing. Contact time 0.25 h is a configurable ENG
+  sizing assumption, not measured kinetics. NaOH and Na2CO3 are dissolved; CaCO3
+  and Ca(OH)2 are retained as solids with no additional reaction/dissolution.
+- Refiltration retains representative diluted mother liquor at the original F2
+  moisture. If S is retained insoluble mass, W water, D dissolved non-water mass
+  and x target water fraction, retained liquor fraction r = x*S/((1-x)*W-x*D).
+  Thus sodium removal follows dilution/refiltration, never an arbitrary 100% split.
+- Final product ID remains caco3_cake. F2 wash filtrate has its own wastewater
+  outlet; the original F2 filtrate/SP1/EC1 loop and F3 remain unchanged.
+- Native tank/filter costs and power roll into the process FCI/utilities. Wash
+  water uses the existing process-water price/CF; wash liquid uses the existing
+  wastewater price/CF and H2SO4 neutralization endpoint (OH -> water,
+  CO3 -> HCO3, one H+ each). No new wastewater factor or treatment plant.
+- f2_sales=False means zero F2 saleable fraction and whole wet F2 cake disposal;
+  F3 sales are retained. Default 100 USD/t CaCO3 is explicitly optimistic and
+  unverified. Both operating configurations and both commercial boundaries are
+  exported by analyses/att_washing.py.
+- inventory.get_att_external_flows excludes only the component-empty u3_tail_gas
+  placeholder when it appears as a no-PSA feed. Any nonzero flow still undergoes
+  normal documented-boundary checks.
+- reporting._consistency now includes both lime and scrubber_lime. Actual TEA
+  pricing and LCA activities already included both; dosing/factors were not changed.
+- Added native washing/component conservation, independent reference-value,
+  conservative-sales, placeholder and lime-check regressions. The old exact
+  topology test explicitly selects washing_off; neutralization tests include
+  the separate washing purge.
+- Inherited sold-CaCO3 landfill storage credits remain unchanged and conditional.
+  Soluble carbonate moved from cake to wastewater changes its modeled routing;
+  no new storage credit is assigned to the wash liquid.
+
+### Validated targeted-change results
+
+At 5029.17 kg dry/h and 7920 h/yr:
+- F2 dry CaCO3 purity: 77.0308% washing_off -> 82.5451% washing_on; insoluble-only
+  upper bound 84.3831%. CaCO3 5586.568 kg/h and Ca(OH)2 1033.911 kg/h retained.
+- Fresh wash water 7252.384 kg/h; washed cake 9023.869 wet / 6767.902 dry kg/h.
+  Remaining NaOH 124.863 and Na2CO3 22.560 kg/h. Wash filtrate 7898.359 kg/h:
+  water 7413.878, NaOH 410.343, Na2CO3 74.139 kg/h. Sodium removal 76.6701%.
+- W2 tank volume 3.849986 m3, purchase 27818.57 USD, installed 45900.65 USD,
+  power 0.379224 kW. F2R area 149.225853 ft2 (13.863535 m2), purchase
+  251644.11 USD, installed 536100.53 USD, power 28.781298 kW.
+- Combined installed capital +582001.17 USD; S2 process increment +727501.47 USD
+  after the existing floating multiplier. No engine/WHR change.
+- Optimistic MSP: S1 3.229398, S2 WHR 7920 h 3.415723, S2 WHR 2640 h 5.437067 USD/kg H2.
+  No-F2-sales MSP (F3 sales retained): 5.326657 / 5.512982 / 7.534326 USD/kg H2.
+- S1 GWP 14.243019; S2 WHR 12.852612 kg CO2e/kg H2. Increment +0.198737:
+  electricity +0.035109, H2SO4 +0.064085, water +0.008946, wastewater +0.008048,
+  reduced inherited carbonate-storage credit +0.082549. Credit METHOD unchanged.
+- washing_off reproduces the six requested S1/S2 numerical references.
+- Final complete test discovery: 111 tests, zero failures/errors/skips (existing 96
+  plus 15 native washing/regression tests). Additional exported component checks: 88 PASS.
+  Logs: outputs/validation/logs/washing_final_validation.log.
+- run_att_all was executed: Steps 1-5 passed; Step 6 documentation stopped on the
+  pre-existing missing preprocessing.yaml registry reference. The Step-1 water QC
+  separately exposes a pre-existing omission of SCRUB reaction-water generation
+  (-0.009328859 kg/h on the 1 kg dry/h basis). Neither is suppressed. Permission
+  for those two additional report-only corrections was requested because the user
+  explicitly restricted implementation to three tasks; they remain unmodified.
+  The SVG and PNG diagram steps were independently executed successfully.
+- The two requested bugs are fixed: empty no-PSA placeholder exclusion and the
+  lime + scrubber_lime consistency check (PASS, 1.0701183803 kg/kg dry).
+- SABRE's 106 tracked source files have the same aggregate SHA256 before/after;
+  HEAD remains 92cc3f0b. No installed BioSTEAM source, DCF, commit or push changed.

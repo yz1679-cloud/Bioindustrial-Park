@@ -12,7 +12,9 @@ Default output locations of the ATT runners.
 All generated results go to ``biorefineries/ATT/outputs/`` (inside the ATT
 project, located from this file, not from the current working directory), so
 ATT never writes into SaBRe's ``att_outputs/``. Set the ``ATT_PROJECT_OUTPUTS_DIR``
-environment variable to use another root; every runner also accepts ``--out``.
+environment variable (``OUTPUTS_ENV``; SaBRe's ``ATT_OUTPUTS_DIR`` is not read) to use
+another root; ``run_att_all --out`` sets it for every step, and each runner also
+accepts ``--out``.
 Nothing is ever written to ``data/``.
 
 Layout (keys of ``output_dir``)::
@@ -25,16 +27,19 @@ Layout (keys of ``output_dir``)::
     documentation/             documentation  master model documentation
     documentation/diagrams/    diagrams       process flow diagrams
     validation/                validation     run summary, tests and QC tally
+    tables/                    tables         ATT S1/S2 scenario tables (analyses/att_*.py)
 """
 import os
 from pathlib import Path
 
-__all__ = ("PROJECT_ROOT", "ATT_ROOT", "SUBDIRS", "outputs_root", "output_dir")
+__all__ = ("PROJECT_ROOT", "ATT_ROOT", "OUTPUTS_ENV", "SUBDIRS", "outputs_root", "output_dir")
 
 # biorefineries/ATT/analyses/att/paths.py -> repository root
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 # biorefineries/ATT/
 ATT_ROOT = Path(__file__).resolve().parents[2]
+# The one environment variable that overrides the output root (read here, set by test/run_att_all.py).
+OUTPUTS_ENV = "ATT_PROJECT_OUTPUTS_DIR"
 
 SUBDIRS = {
     "baseline_1kg": "baseline_1kg",
@@ -45,12 +50,13 @@ SUBDIRS = {
     "documentation": "documentation",
     "diagrams": "documentation/diagrams",
     "validation": "validation",
+    "tables": "tables",
 }
 
 
 def outputs_root():
-    """biorefineries/ATT/outputs/ (or ATT_PROJECT_OUTPUTS_DIR)."""
-    env = os.environ.get("ATT_PROJECT_OUTPUTS_DIR")
+    """biorefineries/ATT/outputs/ (or the OUTPUTS_ENV environment variable)."""
+    env = os.environ.get(OUTPUTS_ENV)
     if env:
         return Path(env).resolve()
     return ATT_ROOT / "outputs"

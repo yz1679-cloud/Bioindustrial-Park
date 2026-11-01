@@ -14,7 +14,7 @@ mass, dry and wet cake, dry-basis purity), the previous treatment (whole cakes d
 the sensitivity prices (0, 100, 315 USD/t). One process simulation; only the CaCO3 price changes between the
 sensitivity cases (overridden per call, the configuration file is not changed).
 
-Output: biorefineries/ATT/outputs/tables/att_s1_caco3_sales.csv (and _recovery.csv)
+Output: biorefineries/ATT/outputs/tables/att_s1_caco3_sales.csv (and _recovery.csv; root: paths.outputs_root)
 
 Run from the repo root:
     python biorefineries/ATT/analyses/att_caco3_sales.py
@@ -34,8 +34,9 @@ from biorefineries.ATT.analyses.att import inventory as inv
 from biorefineries.ATT.analyses.att import scenarios as scen
 from biorefineries.ATT.analyses.att import tea as tea_mod
 from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses.att.paths import output_dir
 
-OUT = SCRIPT_DIR.parent / "outputs" / "tables"
+OUT = output_dir("tables")
 SUMMARY_KEYS = ("H2_t_per_yr", "CaCO3_price_USD_per_t", "CaCO3_sold_t_per_yr", "CaCO3_sales_revenue_USD_per_yr",
                 "CaCO3_cake_disposal_USD_per_yr", "AOC_MUSD_per_yr", "MSP_USD_per_kg_H2", "FCI_MUSD", "results_status")
 

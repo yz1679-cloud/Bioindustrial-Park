@@ -425,10 +425,12 @@ att:
       refractory_factor: 2.0            # kiln shell cost = BioSTEAM drum-dryer correlation x this (refractory lining; assumed)
       status: "PRELIMINARY: no sourced modern kiln cost; the rotating shell is costed with BioSTEAM's drum-dryer correlation (area-based) times an assumed refractory factor, the firing with the BioSTEAM furnace correlation. +/-50 % or worse."
     f2_washing:
-      enabled: false
-      wash_ratio_kg_per_kg_dry_cake: 1.0
-      displacement_factor: 1.0
-      temperature_K: 363.15
+      enabled: true       # washing_on default; f2_wash_enabled=False preserves washing_off
+      wash_ratio_kg_per_kg_dry_cake: 1.0  # ENG: all non-water mass of the original F2 cake
+      contact_time_h: 0.25               # ENG: agitated single-stage contact, not measured kinetics
+      temperature_K: 298.15             # fresh ambient water; adiabatic MixTank, no preheating
+      model: single_ideal_mixed_stage
+      note: "Native MixTank + RotaryVacuumFilter. Dilution/refiltration at F2 cake moisture; all existing CaCO3/Ca(OH)2 solids retained, NaOH/Na2CO3 dissolved. No solubility or reaction model; no EC1 recycle. 100 USD/t CaCO3 is optimistic and unverified; purity is calculated, never forced to 97%."
 
     # Whole-liquor purge/recycle.
     #
@@ -580,6 +582,8 @@ att:
       u3_tail_gas: [output, coproduct_offgas, "PSA off-gas (mainly CH4 and unrecovered H2), assumed collected (100 %) and burned in the U2 burner (natural gas offset, no burner modeled). Earlier note: final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
+      f2_wash_water: [input, process_water, "Fresh F2 cake wash water; engineering ratio on original dry cake."]
+      f2_wash_liquor: [output, liquid_waste, "F2 wash filtrate: water and dissolved sodium; neutralization and wastewater treatment, no recycle."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
       lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
       kiln_exhaust: [output, air_emission, "Lime kiln exhaust: CO2 from CaCO3 (biogenic, from the seaweed carbon) and water vapor."]

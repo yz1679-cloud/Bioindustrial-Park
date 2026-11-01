@@ -13,11 +13,14 @@ for the ATT baseline (user decisions 2026-10-09; att.yaml ``inventory``).
 Bases
 -----
 - Simulation basis: ``create_att_system(dry_sargassum_kgph=1.0)``.
-- Reference scale: the SaBRe common plant scale (feedstock.yaml ``scale``,
-  tea.yaml ``operating_days``). Material and heat flows per kg dry feed do
-  not depend on scale (checked by ``compare_scale_invariance``); electricity
-  and equipment do (minimum equipment sizes), so per-kg electricity and all
-  costs are taken at the reference scale.
+- Full scale ("reference scale" in table and column names): the ATT S1
+  capacity (scenarios.create / scenarios.scale, att.yaml
+  ``scenarios.att_s1.dry_feed_kgph``; tea.yaml ``operating_days``). Material
+  and heat flows per kg dry feed do not depend on scale (checked by
+  ``compare_scale_invariance``); electricity and equipment do (minimum
+  equipment sizes), so per-kg electricity and all costs are taken at full
+  scale. ``get_att_reference_scale`` (the NLR preprint scale) remains for the
+  LEGACY SaBRe comparison only (scenarios.create_legacy_reference).
 
 Energy accounting (no double counting)
 --------------------------------------
@@ -120,6 +123,10 @@ def get_att_reference_scale(configuration="presscake"):
     NLR preprint plant scale: 3 million wet t/yr (att.yaml feed_preparation.scale) of
     fresh Sargassum. For the presscake configuration the ATT plant receives the
     presscake of that Sargassum from a biostimulant plant.
+
+    LEGACY capacity (SaBRe comparison, scenarios.create_legacy_reference): the ATT
+    scenarios use their own capacity (scenarios.scale). Only the operating-hour keys
+    are shared with them.
     """
     from biorefineries.ATT.systems._att_system import get_att_reference_dry_feed_kgph
 
@@ -153,6 +160,10 @@ def get_att_external_flows(sys):
     fates = _INV["stream_fates"]
     rows = []
     for s in (*sys.feeds, *_boundary_products(sys)):
+        # No-PSA furnace inlet is an empty placeholder, not an external feed.
+        # Leave every nonzero stream subject to the normal boundary checks.
+        if s.ID == "u3_tail_gas" and s in sys.feeds and not any(s.mol):
+            continue
         direction, category, note = fates[s.ID]  # KeyError: undocumented stream
         expected = "input" if s in sys.feeds else "output"
         if direction != expected:
@@ -233,6 +244,11 @@ def get_att_chemical_ledger(sys):
         ("Na out: liquor purge", na(purge), "Na balance"),
         ("Na out: ash residue cake", na(ash), "Na balance"),
     ]
+    if "f2_wash_liquor" in s:
+        wash = s["f2_wash_liquor"]
+        items += [("NaOH in F2 wash liquid", float(wash.imass["NaOH"]), "loss"),
+                  ("Na2CO3 in F2 wash liquid", float(wash.imass["Na2CO3"]), "loss"),
+                  ("Na out: F2 wash liquid", na(wash), "Na balance")]
     return [dict(item=i, kg_per_h_at_sim_basis=v, kg_per_kg_dry=v / dry, role=r) for i, v, r in items]
 
 
@@ -357,6 +373,9 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
         ("Electricity: total", modeled_power + cw_power + estimated_power, "kWh", ""),
         ("Process water (D1)", float(_streams(sys)["dissolution_water"].F_mass), "kg", "simulated"),
     ]
+    if "f2_wash_water" in _streams(sys):
+        rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
+                     "kg", "fresh water to the independent washing stage"))
     return [dict(item=i, per_kg_dry=v / dry, unit=f"{un}/kg dry", note=n) for i, v, un, n in rows]
 
 
@@ -407,6 +426,20 @@ def get_att_lci(flows, utilities, products, ca_source=None):
                           ("u3_dryer_removed_water", "Wastewater: U3D removed water"),
                           ("excess_condensate", "Wastewater: condensate in excess of D1 demand")):
         add(label, total[(stream, "TOTAL")], "kg", None, None, "", "MISSING")
+    if ("f2_wash_water", "TOTAL") in total:
+        # Use the existing authoritative ATT factors, not a zero-impact outlet.
+        wash_lca = load_assumptions("att_lca.yaml")["lca"]
+        factors = wash_lca["emission_factors"]
+        water = total[("f2_wash_water", "TOTAL")] / wash_lca["water_density_kg_per_m3"]
+        liquid = total[("f2_wash_liquor", "TOTAL")] / wash_lca["water_density_kg_per_m3"]
+        acid = (total.get(("f2_wash_liquor", "NaOH"), 0.0) / 39.99711
+                + total.get(("f2_wash_liquor", "Na2CO3"), 0.0) / 105.9888) / 2 * 98.07848
+        for label, amount, unit, key in (
+                ("F2 wash-water supply", water, "m3", "water_supply"),
+                ("F2 wash-liquid treatment", liquid, "m3", "wastewater_treatment"),
+                ("F2 wash-liquid neutralization H2SO4", acid, "kg", "H2SO4")):
+            f = factors[key]
+            add(label, amount, unit, f["value"], None, f["source"], "existing ATT LCA factor")
     if ("caco3_cake", "TOTAL") in total:
         add("CaCO3 cake (coproduct)", total[("caco3_cake", "TOTAL")], "kg", 0.0, None,
             "No credit or burden by decision", "excluded by decision")
@@ -475,9 +508,11 @@ def get_att_equipment_inventory(sys, cost_estimates):
     return rows
 
 
-def get_att_tea_inputs():
-    """TEA inputs: what is set, where from, and what is still missing."""
-    scale = get_att_reference_scale()
+def get_att_tea_inputs(scale=None):
+    """TEA inputs: what is set, where from, and what is still missing (``scale``: annual basis; None = ATT S1)."""
+    if scale is None:
+        from biorefineries.ATT.analyses.att import scenarios as scen     # scenarios imports this module
+        scale = scen.scale(scen.ATT_S1)
     price = _TEA["price"]
     tea = _TEA["tea"]
     lps = bst.HeatUtility.get_agent("low_pressure_steam")
@@ -485,7 +520,7 @@ def get_att_tea_inputs():
     ng = bst.HeatUtility.get_agent("natural_gas")
     rows = [
         ("Plant capacity", f"{scale['wet_feed_t_per_day']:.0f} wet t/d = {scale['dry_feed_t_per_day']:.0f} dry t/d",
-         "feedstock.yaml scale (SaBRe common)", "set"),
+         scale["basis"], "set"),
         ("Operating time", f"{scale['operating_days_per_year']:.0f} d/yr = {scale['operating_hours_per_year']:.0f} h/yr",
          "tea.yaml operating_days", "set"),
         ("Financial parameters", ", ".join(f"{k}={tea[k]}" for k in ("IRR", "duration", "depreciation", "income_tax")),
@@ -614,6 +649,15 @@ def get_att_water_balance(sys):
     formation = u["U2"]._net_water_formation_kmolph * 18.01528
     rows.append(dict(group="reaction", item="U2 net water formation (negative = consumed)",
                      kg_per_kg_dry=formation / dry))
+    if "SCRUB" in u:
+        # Report the existing Ca(OH)2 + CO2 -> CaCO3 + H2O reaction.
+        # Read the simulated streams; do not alter the scrubber or its recycle.
+        scrubber = u["SCRUB"]
+        scrubber_water = (sum(float(st.imass["Water"]) for st in scrubber.outs)
+                          - sum(float(st.imass["Water"]) for st in scrubber.ins))
+        rows.append(dict(group="reaction", item="SCRUB water formation (carbonation)",
+                         kg_per_kg_dry=scrubber_water / dry))
+        formation += scrubber_water
     if "K1" in u:   # lime recycle: Ca(OH)2 -> CaO + H2O in the kiln, CaO + H2O -> Ca(OH)2 in the slaker
         kiln = float(u["K1"].outs[1].imass["Water"] - u["K1"].ins[0].imass["Water"])
         slaker = float(u["S1"].outs[0].imass["Water"] - sum(x.imass["Water"] for x in u["S1"].ins))
@@ -681,6 +725,9 @@ def get_att_sodium_calcium_ledger(sys):
         ("C1: CaCO3 formed (coproduct)", float(C1_out.imass["CaCO3"])),
         ("Unreacted Ca(OH)2 in CaCO3 cake", float(s["caco3_cake"].imass["CaOH2"])),
     ]
+    if "f2_wash_liquor" in s:
+        items += [(f"Loss: {ID} in F2 wash liquid", float(s["f2_wash_liquor"].imass[ID]))
+                  for ID in ("NaOH", "Na2CO3")]
     rows = [dict(item=i, value=v if i.startswith("Effective") else v / dry,
                  unit="-" if i.startswith("Effective") else "kg/kg dry") for i, v in items]
     na_in = sum(float(f.get_atomic_flow("Na")) for f in sys.feeds)
@@ -1049,7 +1096,11 @@ def _simulate(sys, dry_feed_kgph):
 
 
 def build_att_inventory_tables():
-    """Simulate the 1 kg/h basis and the reference scale; return all tables."""
+    """
+    Simulate the 1 kg/h basis and the full scale (the ATT S1 capacity, scenarios.create); return all tables. The
+    "reference_scale" column and basis names are kept for compatibility and mean the ATT S1 capacity.
+    """
+    from biorefineries.ATT.analyses.att import scenarios as scen     # scenarios imports this module
     from biorefineries.ATT.systems._att_system import create_att_system
 
     small = _simulate(create_att_system(dry_sargassum_kgph=1.0), 1.0)
@@ -1062,8 +1113,8 @@ def build_att_inventory_tables():
     check_s = check_att_inventory(small, flows_s, utilities_s)
     h2_check = get_att_u2_balance_checks(small)
 
-    scale = get_att_reference_scale()
-    ref = _simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]), scale["dry_feed_kgph"])
+    scale = scen.scale(scen.ATT_S1)
+    ref = scen.create(scen.ATT_S1)
     estimates = get_att_cost_estimates(ref)
     flows = get_att_external_flows(ref)
     products = get_att_product_scenarios(ref)
@@ -1117,7 +1168,7 @@ def build_att_inventory_tables():
         "08_lci_gwp_limestone_lime": lci,
         "09_lci_gwp_steel_slag_lime": lci_slag,
         "10_equipment_inventory": get_att_equipment_inventory(ref, estimates),
-        "11_tea_inputs": get_att_tea_inputs(),
+        "11_tea_inputs": get_att_tea_inputs(scale),
         "12_checks": checks,
         "13_scale_invariance": compare_scale_invariance(small, ref),
         "14_assumption_register": get_att_assumption_register(),

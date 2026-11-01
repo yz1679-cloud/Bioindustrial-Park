@@ -27,7 +27,7 @@ from biorefineries.ATT.utils import load_assumptions
 
 import biosteam as bst
 
-__all__ = ("load_tea_config", "land_reference", "evaluate_case")
+__all__ = ("load_tea_config", "land_reference", "evaluate_case", "operating_modes")
 
 
 def load_tea_config():
@@ -52,10 +52,21 @@ def _summary_row(case, t, labor, whr_capex, hours, extra=None):
     return row
 
 
-def land_reference(sys):
+def operating_modes(cfg=None):
+    """(label, hours/yr, engine load) of the marine_whr.yaml operating modes (A underway reference, B profile)."""
+    modes = (marine_whr.load_whr_config() if cfg is None else cfg)["operating_modes"]
+    a, b = modes["A_underway_reference"], modes["B_operational_profile"]
+    hours_b = float(b["hours_per_day_underway"]) * float(b["days_per_year"])
+    return ((f"A: {float(a['hours_per_year']):.0f} h underway (idealized)", float(a["hours_per_year"]),
+             float(a["engine_load"])),
+            (f"B: {hours_b:.0f} h ({float(b['hours_per_day_underway']):g} h/d underway)", hours_b,
+             float(b["engine_load"])))
+
+
+def land_reference(sys, f2_sales=True):
     """ATT S1 land-based TEA (the reference); returns its summary row and the S1 labor estimate."""
     cfg = load_tea_config()
-    t = build_att_breakdown("att_s1", sys=sys)
+    t = build_att_breakdown("att_s1", sys=sys, f2_sales=f2_sales)
     foc_s1 = float(tea_mod._FIN["foc_frac_of_fci"]) * t["summary"]["FCI_MUSD"] * 1e6
     labor = float(cfg["s1_labor_share_of_foc"]) * foc_s1
     return dict(row=_summary_row("S1 land", t, labor, 0.0, sys.operating_hours),
@@ -63,7 +74,8 @@ def land_reference(sys):
 
 
 def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, capex_multiplier=None,
-                  labor_multiplier=None, labor_share=None, whr_capex_factor=1.0, whr_overrides=None, load=None):
+                  labor_multiplier=None, labor_share=None, whr_capex_factor=1.0, whr_overrides=None, load=None,
+                  f2_sales=True):
     """
     One ATT S2 case on the simulated S1 process ``sys`` (``ref`` = land_reference(sys)). ``sources``: WHR sources
     used (() = floating without WHR). Returns (summary row, whr result or None).
@@ -87,7 +99,7 @@ def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, c
                      ("Marine WHR: pump electricity", whr["pump_kW"] * bst.PowerUtility.price * hours)]
     kwargs = dict(fci_factor=mult, operating_hours=hours, extra_capital=extra_capital, extra_voc=extra_voc,
                   foc_frac_of_fci=foc_rate * (1.0 - share), foc_fixed=lab_mult * labor_s1)
-    t = build_att_breakdown("att_s2", sys=sys, tea_kwargs=kwargs)
+    t = build_att_breakdown("att_s2", sys=sys, tea_kwargs=kwargs, f2_sales=f2_sales)
     whr_capex = sum(v for _, v, _ in extra_capital)
     d_gwp = marine_lca.whr_gwp_change(sys, whr)["delta_kgCO2e_per_kg_H2"] if whr else 0.0
     extra = dict(capex_multiplier=mult, labor_multiplier=lab_mult, labor_share_of_S1_FOC=share,

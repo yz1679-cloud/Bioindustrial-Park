@@ -7,8 +7,8 @@
 # for license details.
 
 """
-Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 at the SaBRe
-reference scale for the scenarios of ``analyses/att/scenarios.py``, all with the ``fresh_sargassum`` feed:
+Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 of the scenarios of ``analyses/att/scenarios.py``
+at their capacity, with their lime and CaCO3 assumptions (scenarios.tea_config / lca_overrides). Configurations:
 
 * ``fresh_sargassum`` ATT plant fed with wet fresh Sargassum (NLR scale: 3 million wet t/yr): P1 press
                       (municipal biosolids screw press), D0 dryer and the ATT process; the press liquid is the raw
@@ -78,6 +78,7 @@ _AREAS = {
     "U3HX": "Gas cooling and drying (U3HX, U3C, U3D)", "U3C": "Gas cooling and drying (U3HX, U3C, U3D)",
     "U3D": "Gas cooling and drying (U3HX, U3C, U3D)", "U3P": "PSA (U3P)", "U3K": "H2 compression (U3K)",
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
+    "W2": "F2 washing and refiltration", "F2R": "F2 washing and refiltration",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
@@ -228,7 +229,7 @@ def _gwp_tables(contributions):
     return by_item, by_stage, total
 
 
-def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None):
+def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None, f2_sales=True):
     """
     One simulation of a scenario of analyses/att/scenarios.py; returns a dict of DataFrames and a summary dict.
 
@@ -240,21 +241,15 @@ def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=No
     spec = scen.ALL_SCENARIOS[case]
     if spec.get("marine") and tea_kwargs is None:
         raise ValueError(f"{case} is a marine scenario: use analyses/att/marine_tea.py (floating TEA and WHR).")
-    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs)
+    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs, f2_sales)
 
 
-def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
-    waste, lime_recycle = spec["lime"] == "waste", spec["lime"] == "recycled"
+def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
     estimates = inv.get_att_cost_estimates(sys)
-    # CaCO3: without the lime recycle the cakes are products; with att_tea.yaml caco3_sales enabled their CaCO3 is
-    # sold and the rest disposed, otherwise the whole cake is disposed (Case A). Price override: caco3_price.
-    sales_cfg = dict(tea_mod._T["caco3_sales"])
-    if caco3_price is not None:
-        sales_cfg["price_usd_per_metric_ton"] = float(caco3_price)
-    sell = bool(sales_cfg.pop("enabled")) and not lime_recycle
-    result = tea_mod.evaluate_att_tea(sys, estimates, price_overrides={"CaOH2": 0.0} if waste else None,
-                                      caco3=None if lime_recycle else dict(fraction=0.0),
-                                      caco3_sales=sales_cfg if sell else None, **(tea_kwargs or {}))
+    # Lime price and CaCO3 treatment of the scenario (scenarios.tea_config, the single source).
+    config = scen.tea_config(spec, caco3_price, f2_sales=f2_sales)
+    sales_cfg, sell = config["caco3_sales"], config["caco3_sales"] is not None
+    result = tea_mod.evaluate_att_tea(sys, estimates, **config, **(tea_kwargs or {}))
     sales = result["caco3_sales"]
     hours_yr = sys.operating_hours
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)
@@ -262,7 +257,7 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
     capex_equipment, capex_area = _capex_tables(sys, result, capital_msp)
     opex = _opex_table(sys, result, h2_kg_yr)
-    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides={"CaOH2_limestone": 0.0} if waste else None)
+    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec))
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
     credit = lca.get_att_avoided_emission(sys)

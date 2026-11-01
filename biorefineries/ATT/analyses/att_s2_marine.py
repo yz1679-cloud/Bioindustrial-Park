@@ -14,7 +14,7 @@ equipment, energy performance and load sensitivity, the S1/S2 TEA comparison for
 idealized) and Mode B (8 h/d underway = 2640 h), floating-cost / heat / hours sensitivities, incremental GWP and
 the accounting checks. One simulation of the (unchanged) ATT S1 process at its capacity.
 
-Outputs: biorefineries/ATT/outputs/tables/att_s2_*.csv
+Outputs: biorefineries/ATT/outputs/tables/att_s2_*.csv (root: paths.outputs_root)
 
 Run from the repo root:
     python biorefineries/ATT/analyses/att_s2_marine.py
@@ -33,9 +33,22 @@ if str(REPO_ROOT) not in sys.path:
 from biorefineries.ATT.analyses.att import marine_tea as mt
 from biorefineries.ATT.analyses.att import marine_whr as mw
 from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses.att.paths import output_dir
 
-OUT = SCRIPT_DIR.parent / "outputs" / "tables"
+OUT = output_dir("tables")
 ALL = ("jacket", "scavenge", "exhaust")
+CASES = (("S2 floating, no WHR", ()), ("S2 floating, exhaust WHR", ("exhaust",)),
+         ("S2 floating, exhaust + scavenge + jacket WHR", ALL))
+
+
+def mode_tea_cases(system, ref, cfg=None):
+    """S2 TEA cases of each operating mode (marine_whr.yaml), each at its own hours AND engine load."""
+    rows = []
+    for mode, hours, load in mt.operating_modes(cfg):
+        for name, src in CASES:
+            row, _ = mt.evaluate_case(system, ref, name, sources=src, hours=hours, load=load)
+            rows.append(dict(row, mode=mode, engine_load=load))
+    return rows
 
 
 def run():
@@ -70,15 +83,7 @@ def run():
 
     # TEA: S1 land and S2 cases, Mode A and Mode B
     ref = mt.land_reference(system)
-    modes = cfg["operating_modes"]
-    hours_B = float(modes["B_operational_profile"]["hours_per_day_underway"]) * float(modes["B_operational_profile"]["days_per_year"])
-    rows = [dict(ref["row"], mode="land reference")]
-    for mode, hours in (("A: 7920 h underway (idealized)", float(modes["A_underway_reference"]["hours_per_year"])),
-                        (f"B: {hours_B:.0f} h (8 h/d underway)", hours_B)):
-        for name, src in (("S2 floating, no WHR", ()), ("S2 floating, exhaust WHR", ("exhaust",)),
-                          ("S2 floating, exhaust + scavenge + jacket WHR", ALL)):
-            row, _ = mt.evaluate_case(system, ref, name, sources=src, hours=hours)
-            rows.append(dict(row, mode=mode))
+    rows = [dict(ref["row"], mode="land reference")] + mode_tea_cases(system, ref, cfg)
     tables["tea_cases"] = pd.DataFrame(rows)
 
     # Sensitivities (S2 with all sources unless stated; Mode A hours unless stated)

@@ -49,8 +49,9 @@ class TestATTGWP(unittest.TestCase):
         self.assertAlmostEqual(base - slag, lime * 0.91, places=9)
 
     def test_neutralization_stoichiometry(self):
-        purge = inv._streams(self.sys)["liquor_purge"]
-        expected = (purge.imol["NaOH"] + purge.imol["Na2CO3"]) / 2 * 98.07848
+        streams = inv._streams(self.sys)
+        expected = sum(float(streams[ID].imol["NaOH"] + streams[ID].imol["Na2CO3"])
+                       for ID in ("liquor_purge", "f2_wash_liquor") if ID in streams) / 2 * 98.07848
         self.assertAlmostEqual(lca._h2so4_kgph(self.sys), float(expected), places=6)
 
     def test_optional_collection_transport(self):

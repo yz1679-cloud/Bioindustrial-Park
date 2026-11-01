@@ -6,6 +6,8 @@
 # github.com/BioSTEAMDevelopmentGroup/biosteam/blob/master/LICENSE.txt
 # for license details.
 
+from math import isfinite
+
 import biosteam as bst
 
 from biorefineries.ATT._chemicals import create_chemicals
@@ -14,7 +16,6 @@ from biorefineries.ATT.utils import (
     load_assumptions,
     get_feedstock_type_params,
 )
-from biorefineries.ATT.analyses.att.mass_energy import wash_balance
 from biorefineries.ATT.units._att import (
     ATTPress,
     ATTReactor,
@@ -758,6 +759,7 @@ def create_att_system(
     def add_mother_liquor_entrainment_spec(
         unit,
         target_cake_water_wt_frac,
+        solids_recovery=filtration_solids_recovery,
     ):
         target = float(target_cake_water_wt_frac)
 
@@ -780,7 +782,7 @@ def create_att_system(
                 0.0,
             )
             insoluble_solids_kgph = (
-                filtration_solids_recovery
+                solids_recovery
                 * insoluble_feed_kgph
             )
 
@@ -817,11 +819,10 @@ def create_att_system(
                     / denominator
                 )
 
-            if not (
-                0.0
-                <= retained_liquor_fraction
-                <= 1.0
-            ):
+            # Zero-wash refiltration can give 1 + roundoff at identical moisture.
+            if -1e-12 <= retained_liquor_fraction <= 1.0 + 1e-12:
+                retained_liquor_fraction = min(1.0, max(0.0, retained_liquor_fraction))
+            if not 0.0 <= retained_liquor_fraction <= 1.0:
                 raise ValueError(
                     f"{unit.ID}: calculated mother-liquor retention "
                     f"fraction {retained_liquor_fraction:.6g} is "
@@ -842,7 +843,7 @@ def create_att_system(
                     )
                 else:
                     unit.isplit[ID] = (
-                        filtration_solids_recovery
+                        solids_recovery
                     )
 
             unit._mother_liquor_retention_fraction = (
@@ -961,73 +962,39 @@ def create_att_system(
         )
         add_mother_liquor_entrainment_spec(F3, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"])
 
-    # --------------------------------------------------------------
-    # W2 - Optional F2 cake washer. Material-only engineering scenario.
-    # BOTH cake and filtrate enter W2, so recovered solutes flow to SP1.
-    # In the wash-enabled case, the unwashed F2 cake is not the final cake.
-    # --------------------------------------------------------------
-    wash_settings = _ATT_DOWNSTREAM.get("f2_washing", {})
-    wash_enabled = (
-        bool(wash_settings.get("enabled", False))
-        if f2_wash_enabled is None
-        else bool(f2_wash_enabled)
-    )
-    if f2_wash_ratio is None:
-        f2_wash_ratio = wash_settings.get("wash_ratio_kg_per_kg_dry_cake", 1.0)
-    f2_wash_ratio = float(f2_wash_ratio)
-    if f2_wash_ratio < 0:
-        raise ValueError("F2 washing ratio must be nonnegative")
+    # Single mixed washing stage, followed by native refiltration.
+    # Fresh water dilutes the original cake mother liquor. The refilter
+    # retains representative diluted liquor at the configured cake moisture.
+    # No Ca(OH)2 dissolution or arbitrary sodium-removal efficiency is imposed.
+    wash_settings = _ATT_DOWNSTREAM["f2_washing"]
+    wash_enabled = bool(wash_settings["enabled"] if f2_wash_enabled is None else f2_wash_enabled)
+    ratio = float(wash_settings["wash_ratio_kg_per_kg_dry_cake"] if f2_wash_ratio is None else f2_wash_ratio)
+    if not isfinite(ratio) or ratio < 0:
+        raise ValueError("F2 washing ratio must be finite and nonnegative")
+    W2 = F2R = None
     if wash_enabled:
-        f2_dry_ids = tuple(ID for ID in C1.outs[0].chemicals.IDs
-                           if ID not in ("Water", "NaOH", "Na2CO3"))
+        F2.outs[0].ID = "f2_unwashed_cake"
         wash_water = bst.Stream("f2_wash_water", Water=0.0, phase="l",
-                                T=float(wash_settings.get("temperature_K", 363.15)))
-
-        class F2CakeWasher(bst.Unit):
-            _N_ins = 3
-            _N_outs = 2
-            def _run(self):
-                original_cake, original_filtrate, wash = self.ins
-                cake, liquor = self.outs
-                cake.copy_like(original_cake)
-                liquor.copy_like(original_filtrate)
-                dry_mass=sum(float(original_cake.imass[ID]) for ID in f2_dry_ids)
-                wash_mass=float(wash.imass["Water"])
-                result=wash_balance(
-                    dry_insolubles=dry_mass,
-                    retained_water=float(original_cake.imass["Water"]),
-                    retained_naoh=float(original_cake.imass["NaOH"]),
-                    retained_na2co3=float(original_cake.imass["Na2CO3"]),
-                    filtrate_water=float(original_filtrate.imass["Water"]),
-                    filtrate_naoh=float(original_filtrate.imass["NaOH"]),
-                    filtrate_na2co3=float(original_filtrate.imass["Na2CO3"]),
-                    wash_water=wash_mass,
-                    target_moisture=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]),
-                    displacement_factor=float(wash_settings.get("displacement_factor", 1.0)),
-                )
-                for ID in ("Water", "NaOH", "Na2CO3"):
-                    cake.imass[ID]=result["cake"][ID]
-                    liquor.imass[ID]=result["filtrate"][ID]
-                self._wash_audit=result
-                # Thermal enthalpy of washing and temperature mixing NOT modeled.
-                # No fabricated heating or cooling credits are assigned.
-
-        W2=F2CakeWasher("W2", ins=(F2-0, F2-1, wash_water),
-                        outs=("caco3_cake_washed", "naoh_carbonate_liquor_washed"))
+                                T=float(wash_settings["temperature_K"]))
+        W2 = bst.MixTank("W2", ins=(F2 - 0, wash_water), outs=("f2_wash_slurry",),
+                         tau=float(wash_settings["contact_time_h"]))
         @W2.add_specification(run=True)
         def adjust_wash_feed():
-            unwashed_cake=W2.ins[0]
-            dry_kgph=max(0.0, float(unwashed_cake.F_mass)
-                       -sum(float(unwashed_cake.imass[ID])
-                            for ID in ("Water", "NaOH", "Na2CO3")))
+            original = F2.outs[0]
+            dry_cake = float(original.F_mass - original.imass["Water"])
             wash_water.empty()
-            wash_water.imass["Water"]=f2_wash_ratio*dry_kgph
-            wash_water.phase="l"
-            wash_water.T=float(wash_settings.get("temperature_K", 363.15))
-        sp1_feed=W2-1
-    else:
-        W2=None
-        sp1_feed=F2-1
+            wash_water.imass["Water"] = ratio * dry_cake
+            wash_water.phase = "l"
+            wash_water.T = float(wash_settings["temperature_K"])
+        F2R = bst.RotaryVacuumFilter(
+            "F2R", ins=W2 - 0, outs=("caco3_cake", "f2_wash_liquor"),
+            split={ID: 0.0 if ID in mother_liquor_IDs else 1.0 for ID in F2.outs[0].chemicals.IDs},
+            moisture_content=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]))
+        add_mother_liquor_entrainment_spec(
+            F2R, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"], solids_recovery=1.0)
+    # The original F2 filtrate and NaOH loop are unchanged. Wash liquid is
+    # a separate wastewater/purge product, never routed to EC1.
+    sp1_feed = F2 - 1
 
     # --------------------------------------------------------------
     # Lime recycle: K1 kiln -> LP purge -> S1 slaker -> back to C1 (via LM)
@@ -1035,7 +1002,7 @@ def create_att_system(
     if use_lime_recycle:
         K1 = ATTLimeKiln(
             "K1",
-            ins=(W2 - 0 if W2 is not None else F2 - 0),
+            ins=(F2R - 0 if F2R is not None else F2 - 0),
             outs=("kiln_solids", "kiln_exhaust"),
             calcination_conversion=lime_cfg["calcination_conversion"],
             solids_outlet_temperature_K=lime_cfg["solids_outlet_temperature_K"],
@@ -1167,7 +1134,7 @@ def create_att_system(
         *([LM] if LM is not None else []),
         C1,
         F2,
-        *([W2] if W2 is not None else []),
+        *([W2, F2R] if W2 is not None else []),
         *lime_loop_units,
         SP1,
         EC1,

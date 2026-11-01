@@ -13,7 +13,7 @@ Summary table of the ATT scenarios of ``analyses/att/scenarios.py`` (ATT Scenari
 use, MSP, FCI and GWP100 (net, with the stored-carbon credit, and the avoided-emission note for the beach-rot
 counterfactual).
 
-Output: biorefineries/ATT/outputs/tables/att_scenarios.csv
+Output: biorefineries/ATT/outputs/tables/att_scenarios.csv (root: paths.outputs_root)
 
 Run from the repo root:
     python biorefineries/ATT/analyses/att_scenarios.py
@@ -30,8 +30,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
 from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses.att.paths import output_dir
 
-OUT = SCRIPT_DIR.parent / "outputs" / "tables" / "att_scenarios.csv"
+OUT = output_dir("tables") / "att_scenarios.csv"
 
 
 if __name__ == "__main__":

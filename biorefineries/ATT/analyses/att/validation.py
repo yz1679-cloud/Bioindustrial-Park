@@ -11,9 +11,9 @@
 - 1 kg/h process mass and energy audit: runs the frozen ATT model
   (create_att_system, active U2 closure) at exactly 1 kg/h dry feed in its
   own flowsheet registry and extracts streams, balances and energy flows with
-  the existing inventory and reporting helpers. A full-scale (SaBRe
-  reference) run is used only for the comparison sheet. Writes
-  att_outputs/baseline_1kg/. Nothing is written elsewhere and no model,
+  the existing inventory and reporting helpers. A full-scale (ATT S1
+  capacity) run is used only for the comparison sheet. Writes
+  outputs/baseline_1kg/. Nothing is written elsewhere and no model,
   LCA or TEA setting is changed.
 - Sodium (Na) ledger: per-unit Na balances and the external Na balance
   across the actual graph of ``sys.units``. Run only after convergence.
@@ -184,7 +184,8 @@ def _mass_summary(sys):
     add("Ash/char filter cake (F1)", float(s["ash_residue_cake"].F_mass))
     add("CaCO3 filter cake (F2)", float(s["caco3_cake"].F_mass))
     for ID in _LCA["waste_management"]["wastewater_streams"]:
-        add(f"Wastewater/purge: {ID}", float(s[ID].F_mass))
+        if ID in s:
+            add(f"Wastewater/purge: {ID}", float(s[ID].F_mass))
     add("PSA off-gas", float(inv._tail_gas(sys).F_mass))
     return rows
 
@@ -263,7 +264,7 @@ def _comparison(small, ref):
         u = inv._units(sys)
         dry = inv._dry_feed_kgph(sys)
         hu = lambda unit, sign: sum(h.duty for h in u[unit].heat_utilities if h.duty * sign > 0) / dry
-        ww = sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"]) / dry
+        ww = sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["wastewater_streams"] if ID in s) / dry
         steam = sum(h.flow * h.agent.MW for h in sys.heat_utilities if h.agent.ID.endswith("steam")) / dry
         gas = sum(h.duty for h in sys.heat_utilities if h.agent.ID == "natural_gas") / dry / 0.9
         cooling = -sum(h.duty for h in sys.heat_utilities if h.duty < 0) / dry
@@ -305,8 +306,8 @@ def _comparison(small, ref):
                          relative_difference=diff, explanation=expl))
     rows.append(dict(parameter="Equipment sizes and purchase costs", actual_1kgph_simulation=float("nan"),
                      full_scale_normalized_per_kg_dry=float("nan"), relative_difference=float("nan"),
-                     explanation="Not comparable: minimum sizes, parallel units (U3K 3 compressors, "
-                                 "F2 9 filters at full scale); costs are not linear in capacity"))
+                     explanation="Not comparable: minimum sizes, parallel units at full scale "
+                                 "(e.g. U3K compressors, F2 filters); costs are not linear in capacity"))
     return rows
 
 
@@ -443,11 +444,9 @@ def build_att_1kgph_audit():
         "11_Products_Residues": [dict(r, kg_per_h=r.pop("kg_per_kg_dry")) for r in rep._products(small)],
         "13_Sources": _sources(),
     }
-    # Full-scale reference run for the comparison only (separate system object).
-    from biorefineries.ATT.systems._att_system import create_att_system
-    scale = inv.get_att_reference_scale()
-    ref = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"]),
-                        scale["dry_feed_kgph"])
+    # Full-scale run (ATT S1 capacity) for the comparison only (separate system object).
+    from biorefineries.ATT.analyses.att import scenarios as scen
+    ref = scen.create(scen.ATT_S1)
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
     aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
     a, b = aux(estimates, small), aux(inv.get_att_cost_estimates(ref), ref)

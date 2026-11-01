@@ -12,7 +12,7 @@ class TestATTScenario1Parameters(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.sys = scen.create(scen.ATT_S1, dry_kgph=1.0, hxn=False)
+        cls.sys = scen.create(scen.ATT_S1, dry_kgph=1.0, hxn=False, washing="washing_off")
         cls.u = {unit.ID: unit for unit in cls.sys.units}
 
     def test_spec(self):

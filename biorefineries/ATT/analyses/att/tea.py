@@ -25,11 +25,17 @@ Material and disposal prices are set on the frozen streams; utilities use
 BioSTEAM agent prices (steam and cooling-water prices cover their
 generation, so boiler gas and tower electricity are not priced again).
 Prices and capital assumptions: data/att_tea.yaml.
+
+Scenario basis: ``create_att_tea_system()`` is the ATT S1 system (scenarios.create, 5029.17 kg dry/h) and the
+standard TEA is ``evaluate_att_tea(sys, **scenarios.tea_config(spec))`` (waste lime at 0 USD/kg, CaCO3 sales).
+``evaluate_att_tea`` without those keywords is the reference treatment (lime purchased, CaCO3 cake neither sold
+nor costed) on which the LEGACY SaBRe tables (get_att_caco3_cases, get_att_lime_price_cases) are built.
 """
 import biosteam as bst
 
 from biorefineries.ATT._tea import SaBReTEA
 from biorefineries.ATT.analyses.att import inventory as inv
+from biorefineries.ATT.analyses.att import scenarios as scen
 from biorefineries.ATT.analyses.att.lca import _h2so4_kgph
 from biorefineries.ATT.utils import OPERATING_DAYS_PER_YEAR, load_assumptions
 
@@ -74,15 +80,19 @@ class ATTTEA(SaBReTEA):
         return super().VOC + self.extra_VOC
 
 
-def create_att_tea_system(configuration="presscake", lime_recycle=None):
-    """ATT model at the SaBRe reference scale ("presscake" or "fresh_sargassum"); lime_recycle None = att.yaml."""
-    from biorefineries.ATT.systems._att_system import create_att_system
-
-    scale = inv.get_att_reference_scale(configuration)
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration,
-                                          lime_recycle=lime_recycle), scale["dry_feed_kgph"])
-    sys.operating_hours = scale["operating_hours_per_year"]
-    return sys
+def create_att_tea_system(scenario="att_s1", lime_recycle=None):
+    """
+    Simulated system of an ATT scenario (scenarios.create; default ATT S1 at its capacity). ``lime_recycle`` is
+    kept for backward compatibility and must agree with the scenario. The former SaBRe reference-scale model
+    (``configuration`` argument) is scenarios.create_legacy_reference, which is never an ATT scenario.
+    """
+    if scenario not in scen.ALL_SCENARIOS:
+        raise ValueError(f"unknown ATT scenario {scenario!r} (expected one of {tuple(scen.ALL_SCENARIOS)}); for the "
+                         "LEGACY SaBRe reference-scale model use scenarios.create_legacy_reference(configuration)")
+    spec = scen.ALL_SCENARIOS[scenario]
+    if lime_recycle is not None and bool(lime_recycle) != (spec["lime"] == "recycled"):
+        raise ValueError(f"lime_recycle={lime_recycle} contradicts {scenario} (lime: {spec['lime']})")
+    return scen.create(spec)
 
 
 def _prices(overrides=None):
@@ -104,7 +114,8 @@ def caco3_cake_price(sys, fraction=0.0, price_usd_per_t=0.0, handling_usd_per_t=
 
 
 def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0, streams=("caco3_cake",),
-                           disposal_of_sold_caco3=False, dispose_non_caco3_mass=True, **_):
+                           disposal_of_sold_caco3=False, dispose_non_caco3_mass=True,
+                           saleable_fraction_by_stream=None, **_):
     """
     CaCO3 byproduct sales per cake stream (att_tea.yaml caco3_sales) [per hour]: the saleable fraction of the
     CaCO3 COMPONENT is sold at the price; the cake mass that is not sold CaCO3 (moisture, excess Ca(OH)2,
@@ -120,7 +131,10 @@ def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0,
             continue
         cake = s[ID]
         caco3 = float(cake.imass["CaCO3"])
-        sold = saleable_fraction * caco3
+        fraction = float((saleable_fraction_by_stream or {}).get(ID, saleable_fraction))
+        if not 0.0 <= fraction <= 1.0:
+            raise ValueError("CaCO3 saleable fraction must be between zero and one")
+        sold = fraction * caco3
         disposed = ((float(cake.F_mass) - caco3 if dispose_non_caco3_mass else 0.0)   # moisture and impurities
                     + (caco3 - sold)                                                   # unsold CaCO3
                     + (sold if disposal_of_sold_caco3 else 0.0))
@@ -147,8 +161,11 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         s["scrubber_makeup_water"].price = p["process_water"]
     if "scrubber_lime" in s:
         s["scrubber_lime"].price = p["CaOH2"]
+    if "f2_wash_water" in s:
+        s["f2_wash_water"].price = p["process_water"]
     for ID in _T["prices"]["wastewater_streams"]:
-        s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
+        if ID in s:
+            s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
     for ID in _T["prices"]["solid_waste_streams"]:
         if ID in s:
             s[ID].price = float(_PRICE["disposal_solid"]["baseline"])
@@ -277,7 +294,7 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     msp = gas_msp * float(product.F_mass) / float(product.imass["H2"])
     product.price = gas_msp
     return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates,
-                caco3_sales=sales)
+                caco3=caco3, caco3_sales=sales)
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +341,9 @@ def _opex_table(sys, result):
     for ID, label in (("fresh_naoh_solid", "NaOH makeup"), ("lime", "Ca(OH)2"),
                       ("dissolution_water", "Process water"), ("att_sargassum_feed", "Sargassum feedstock")):
         add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
+    if "f2_wash_water" in s:
+        add("Process water (F2 washing)", "materials", s["f2_wash_water"].cost * hours,
+            f"{s['f2_wash_water'].price:.6g} USD/kg fresh wash water")
     if "slaking_water" in s:
         add("Process water", "materials", s["slaking_water"].cost * hours, f"{s['slaking_water'].price:.6g} USD/kg (slaking)")
     if "scrubber_lime" in s:
@@ -365,10 +385,19 @@ def _opex_table(sys, result):
     return rows
 
 
-def get_att_tea_sensitivity(sys, estimates):
-    """One-at-a-time MSP sensitivity (att_tea.yaml)."""
+def _with(base, **kw):
+    """evaluate_att_tea keywords: the scenario ``base`` (scenarios.tea_config) updated by a case (prices merged)."""
+    out = dict(base or {})
+    prices = {**(out.get("price_overrides") or {}), **(kw.pop("price_overrides", None) or {})}
+    out.update(kw, price_overrides=prices or None)
+    return out
+
+
+def get_att_tea_sensitivity(sys, estimates, base=None):
+    """One-at-a-time MSP sensitivity (att_tea.yaml) around ``base`` (scenarios.tea_config; None = reference)."""
     sens = _T["sensitivities"]
-    base = evaluate_att_tea(sys, estimates)["msp"]
+    base_kw = base
+    base = evaluate_att_tea(sys, estimates, **_with(base_kw))["msp"]
     cases = [("Baseline", {})]
     for f in (sens["PSA_capex_factor"] if "U3P" in inv._units(sys) else ()):      # only with a PSA
         cases.append((f"PSA CAPEX x{f}", dict(psa_factor=f)))
@@ -386,18 +415,25 @@ def get_att_tea_sensitivity(sys, estimates):
         cases.append(("P1: BioSTEAM ScrewPress (power and CAPEX)", dict(p1_biosteam_screwpress=True)))
     rows = []
     for name, kw in cases:
-        msp = evaluate_att_tea(sys, estimates, **kw)["msp"]
+        msp = evaluate_att_tea(sys, estimates, **_with(base_kw, **kw))["msp"]
         rows.append(dict(case=name, MSP_USD_per_kg_H2=msp, delta=msp - base))
-    evaluate_att_tea(sys, estimates)  # restore baseline prices
+    evaluate_att_tea(sys, estimates, **_with(base_kw))  # restore baseline prices
     return rows
 
 
-def _msp(sys, estimates, **kw):
-    return evaluate_att_tea(sys, estimates, **kw)["msp"]
+def _msp(sys, estimates, base=None, **kw):
+    return evaluate_att_tea(sys, estimates, **_with(base, **kw))["msp"]
+
+
+LEGACY_BASIS = ("LEGACY SaBRe sensitivity: purchased lime, F2 cake only, no ATT S1 CaCO3 sales "
+                "(reference treatment at the ATT S1 capacity); not the ATT S1 baseline")
 
 
 def get_att_caco3_cases(sys, estimates):
-    """Case A (no CaCO3 sales) and Case B (marketable fraction x price x handling) for both lime prices."""
+    """
+    LEGACY SaBRe table: Case A (no CaCO3 sales) and Case B (marketable fraction x price x handling) for both
+    purchased-lime prices. Leaves the reference treatment applied (re-apply the scenario TEA afterwards).
+    """
     c = _T["caco3_coproduct"]
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
@@ -434,10 +470,12 @@ def get_att_caco3_cases(sys, estimates):
     for r in rows:
         r["CaCO3_equivalent_kg_per_kg_dry"] = caco3_kgph / dry
         r["wet_cake_kg_per_kg_dry"] = float(s["caco3_cake"].F_mass) / dry
+        r["basis"] = LEGACY_BASIS
     return rows
 
 
 def get_att_lime_price_cases(sys, estimates):
+    """LEGACY SaBRe table (purchased lime); leaves the reference treatment applied."""
     rows = []
     for label, value in (("USGS MCS 2026, 2023 value (234.6 USD/t)", 0.2346),
                          ("Original reference 0.24 (MCS 2025, 2024e)", _T["prices"]["CaOH2"]["value"]),
@@ -447,8 +485,8 @@ def get_att_lime_price_cases(sys, estimates):
         for case, kw in (("Reference (no cake cost)", {}), ("Case A (cake disposed)", dict(caco3=dict(fraction=0.0)))):
             msp = _msp(sys, estimates, price_overrides={"CaOH2": float(value)}, **kw)
             rows.append(dict(lime_price=label, USD_per_kg=float(value), case=case, MSP_USD_per_kg_H2=msp,
-                             basis="average value at plant (f.o.b.); transport not included"
-                             if "delivery" not in label else "assumed delivered"))
+                             basis=("average value at plant (f.o.b.); transport not included"
+                                    if "delivery" not in label else "assumed delivered") + "; " + LEGACY_BASIS))
     ref = {r["case"]: r["MSP_USD_per_kg_H2"] for r in rows if r["USD_per_kg"] == _T["prices"]["CaOH2"]["value"]}
     for r in rows:
         r["delta_vs_0.24"] = r["MSP_USD_per_kg_H2"] - ref[r["case"]]
@@ -456,7 +494,7 @@ def get_att_lime_price_cases(sys, estimates):
     return rows
 
 
-def get_att_p1_power_cases(sys, estimates):
+def get_att_p1_power_cases(sys, estimates, base=None):
     """
     P1 (fresh-Sargassum case): municipal biosolids press (adopted) vs BioSTEAM
     ScrewPress, power, installed cost, MSP and GWP deltas. Empty without P1.
@@ -472,29 +510,30 @@ def get_att_p1_power_cases(sys, estimates):
     alt = _biosteam_screwpress(sys)
     ef = float(lca._EF["electricity"]["value"])
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / dry
-    base_msp = _msp(sys, estimates)
+    base_msp = _msp(sys, estimates, base)
     wet_t = float(P1.ins[0].F_mass) / 1e3
     rows = []
     for name, unit, adopted in (("Municipal biosolids press (HUBER-type; 5 kWh/t dry; 3.1 MUSD per 0.953 dry t/h)", P1, True),
                                 ("BioSTEAM ScrewPress (Perry; 37.2 kWh/t total wet feed)", alt, False)):
         kW = unit.power_utility.rate
-        msp = base_msp if adopted else _msp(sys, estimates, p1_biosteam_screwpress=True)
+        msp = base_msp if adopted else _msp(sys, estimates, base, p1_biosteam_screwpress=True)
         d_kWh_per_kg_dry = (kW - P1.power_utility.rate) / dry
         rows.append(dict(case=name, P1_kW=kW, P1_kWh_per_t_dry=kW / dry * 1e3, P1_kWh_per_t_wet=kW / wet_t,
                          P1_GWh_per_yr=kW * hours / 1e6, P1_installed_MUSD=unit.installed_cost / 1e6,
                          MSP_USD_per_kg_H2=msp, delta_MSP=msp - base_msp,
                          delta_GWP_kgCO2e_per_kg_H2=d_kWh_per_kg_dry * ef / h2,
                          status="adopted" if adopted else "alternative, not adopted"))
-    _msp(sys, estimates)
+    _msp(sys, estimates, base)
     return rows
 
 
-def get_att_offgas_cases(sys, estimates):
+def get_att_offgas_cases(sys, estimates, base=None):
     tail = inv._tail_gas(sys)
     dry = inv._dry_feed_kgph(sys)
     hours = sys.operating_hours
     if not tail.F_mass:      # no PSA, no off-gas
-        return [dict(item="Off-gas flow", value=0.0, unit="kg/kg dry (no PSA)", MSP_USD_per_kg_H2=_msp(sys, estimates))]
+        return [dict(item="Off-gas flow", value=0.0, unit="kg/kg dry (no PSA)",
+                     MSP_USD_per_kg_H2=_msp(sys, estimates, base))]
     mol = {ID: float(tail.imol[ID]) for ID in ("H2", "CO2", "CH4", "CO") if tail.imol[ID] > 0}
     total_mol = sum(mol.values())
     rows = [dict(item="Off-gas flow", value=float(tail.F_mass) / dry, unit="kg/kg dry", MSP_USD_per_kg_H2=float("nan")),
@@ -504,9 +543,9 @@ def get_att_offgas_cases(sys, estimates):
                          MSP_USD_per_kg_H2=float("nan")))
         rows.append(dict(item=f"{ID} in off-gas", value=float(tail.imass[ID]) / float(tail.F_mass),
                          unit="mass fraction", MSP_USD_per_kg_H2=float("nan")))
-    base = _msp(sys, estimates)
+    base_msp = _msp(sys, estimates, base)
     for cost in _T["offgas_handling_usd_per_t"]:
-        msp = _msp(sys, estimates, offgas_usd_per_t=cost)
+        msp = _msp(sys, estimates, base, offgas_usd_per_t=cost)
         rows.append(dict(item=f"Handling cost {cost} USD/t off-gas" + (" (reference)" if cost == 0 else " (placeholder)"),
                          value=cost * float(tail.F_mass) / 1e3 * hours / 1e6, unit="MUSD/yr",
                          MSP_USD_per_kg_H2=msp))
@@ -515,17 +554,17 @@ def get_att_offgas_cases(sys, estimates):
     ch4_frac = float(tail.imass["CH4"]) / float(tail.F_mass) if tail.F_mass else 0.0
     if ch4_frac > 0.0:
         credit = -ch4_frac * ch4_price * 1e3
-        msp = _msp(sys, estimates, offgas_usd_per_t=credit)
+        msp = _msp(sys, estimates, base, offgas_usd_per_t=credit)
         rows.append(dict(item=f"CH4 credit at tea.yaml biomethane {_PRICE['biomethane_mmbtu']['baseline']} USD/MMBtu "
                               "(upper bound; purification not costed)", value=-credit * float(tail.F_mass) / 1e3 * hours / 1e6,
                          unit="MUSD/yr revenue", MSP_USD_per_kg_H2=msp))
-    rows.append(dict(item="Note", value=float("nan"), unit=_T["offgas_note"], MSP_USD_per_kg_H2=base))
-    _msp(sys, estimates)
+    rows.append(dict(item="Note", value=float("nan"), unit=_T["offgas_note"], MSP_USD_per_kg_H2=base_msp))
+    _msp(sys, estimates, base)
     return rows
 
 
-def get_att_cost_year_comparison(sys):
-    """Reference CEPCI vs approximate 2024 CEPCI (equipment only); original results untouched."""
+def get_att_cost_year_comparison(sys, base=None):
+    """Reference CEPCI vs approximate 2024 CEPCI (equipment only), around ``base``; original results untouched."""
     cy = _T["cost_year"]
     original = bst.CE
     rows = []
@@ -535,7 +574,7 @@ def get_att_cost_year_comparison(sys):
             bst.CE = CE
             sys.simulate()  # re-costs at this CEPCI (flows reconverge to the same state)
             est = inv.get_att_cost_estimates(sys)
-            r = evaluate_att_tea(sys, est)
+            r = evaluate_att_tea(sys, est, **_with(base))
             rows.append(dict(case=label, CE=CE, FCI_MUSD=r["tea"].FCI / 1e6, TCI_MUSD=r["tea"].TCI / 1e6,
                              FOC_MUSD_per_yr=r["tea"].FOC / 1e6, MSP_USD_per_kg_H2=r["msp"],
                              note=cy["reference_note"] if CE == cy["reference_CE"] else cy["comparison_note"]))
@@ -555,9 +594,20 @@ def _configuration(sys):
     return "fresh_sargassum" if "P1" in inv._units(sys) else "presscake"
 
 
-def _checks(sys, result, fingerprint):
+def _checks(sys, result, fingerprint, scenario="att_s1"):
+    """Accounting checks; ``scenario``: the ATT scenario whose capacity is expected (None = LEGACY reference scale)."""
     tea = result["tea"]
-    scale = inv.get_att_reference_scale(_configuration(sys))
+    scale = (inv.get_att_reference_scale(_configuration(sys)) if scenario is None
+             else scen.scale(scen.ALL_SCENARIOS[scenario]))
+    s = inv._streams(sys)
+    sales = result.get("caco3_sales") or {}
+    if sales:      # the net cake value is booked once, on the stream prices set by caco3_sales_accounting
+        cake_value = sum(s[ID].price * float(s[ID].F_mass) for ID in sales)
+        cake_expected = sum(r["revenue_usd_ph"] - r["disposal_usd_ph"] for r in sales.values())
+    else:
+        cake_value = s["caco3_cake"].price
+        cake_expected = (float(_T["prices"]["CaCO3_cake"]) if result.get("caco3") is None
+                         else caco3_cake_price(sys, **result["caco3"]))
     hours = sys.operating_hours
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     fuel = sum(hu.duty for hu in gas) / 1e3 / _BURNER_EFFICIENCY * hours
@@ -565,7 +615,8 @@ def _checks(sys, result, fingerprint):
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / inv._dry_feed_kgph(sys)
     unchanged = _same_flows(sys, fingerprint)
     rows = [
-        ("Dry feed [t/d] = reference scale", inv._dry_feed_kgph(sys) * 24.0 / 1e3, scale["dry_feed_t_per_day"]),
+        (f"Dry feed [t/d] = {scale.get('scenario', 'LEGACY reference scale')} capacity",
+         inv._dry_feed_kgph(sys) * 24.0 / 1e3, scale["dry_feed_t_per_day"]),
         ("Operating hours = 330 d x 24 h", hours, 7920.0),
         ("TEA operating days x 24 = system hours", tea.operating_days * 24, hours),
         ("FCI = unit installed + extra capital", tea.FCI,
@@ -575,8 +626,8 @@ def _checks(sys, result, fingerprint):
          inv._units(sys)["U2"]._model_gas_yield_mmol_per_g_daf["H2"]
          * float(inv._units(sys)["U2"]._daf_sargassum_kgph) / inv._dry_feed_kgph(sys) * 2.01588 / 1e3 * (float(inv._ATT["gas_treatment"]["psa_h2_recovery"]) if "U3P" in inv._units(sys) else 1.0)),
         ("NPV at MSP", tea.NPV, 0.0),
-        ("Off-gas and CaCO3 revenue (baseline)", inv._tail_gas(sys).price
-         + inv._streams(sys)["caco3_cake"].price, 0.0),
+        ("Off-gas revenue (none)", inv._tail_gas(sys).price, 0.0),
+        ("CaCO3 cake value = configured treatment, counted once [USD/h or USD/kg]", cake_value, cake_expected),
         ("Frozen model flows unchanged", float(unchanged), 1.0),
     ]
     out = []
@@ -590,31 +641,43 @@ def _checks(sys, result, fingerprint):
     return out
 
 
-def export_att_tea(out_dir=None):
-    """Baseline MSP, CAPEX/OPEX tables, sensitivity and checks to CSV/Excel (default att_outputs/full_scale/tea)."""
+def export_att_tea(out_dir=None, scenario="att_s1"):
+    """
+    MSP, CAPEX/OPEX tables, sensitivity and checks of an ATT scenario (default ATT S1, with its waste-lime and
+    CaCO3-sales assumptions from scenarios.tea_config) to CSV/Excel (default outputs/full_scale/tea). The SaBRe
+    Case A/B and lime-price tables (06, 07) are LEGACY sensitivities on the reference treatment.
+    """
     import os
     import pandas as pd
     from biorefineries.ATT.analyses.att.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("tea"))
 
-    sys = create_att_tea_system()
+    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/att_s2_marine.py)
+    base = scen.tea_config(spec)
+    sys = create_att_tea_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     estimates = inv.get_att_cost_estimates(sys)
-    result = evaluate_att_tea(sys, estimates)
-    scale = inv.get_att_reference_scale()
+    result = evaluate_att_tea(sys, estimates, **base)
+    scale = scen.scale(spec)
     hours = sys.operating_hours
     h2_yr = float(inv._streams(sys)["h2_product"].imass["H2"]) * hours
     tea = result["tea"]
+    sales = result["caco3_sales"]
     summary = [
-        ("H2 MSP", result["msp"], "USD/kg H2"),
+        ("H2 MSP", result["msp"], f"USD/kg H2 ({spec['short']})"),
         ("H2 production", h2_yr / 1e3, "t/yr"),
-        ("Plant capacity", scale["dry_feed_t_per_day"], "dry t/d (3 million wet t/yr, 330 d/yr)"),
+        ("Plant capacity", scale["dry_feed_t_per_day"], f"dry t/d ({scale['basis']}; 330 d/yr)"),
         ("Fixed capital investment (FCI)", tea.FCI / 1e6, "MUSD"),
         ("Total capital investment (TCI)", tea.TCI / 1e6, "MUSD"),
         ("Variable operating cost (VOC)", tea.VOC / 1e6, "MUSD/yr"),
         ("Fixed operating cost (FOC)", tea.FOC / 1e6, "MUSD/yr"),
-        ("Coproduct revenue (CaCO3, CH4, off-gas)", 0.0, "MUSD/yr (baseline: none)"),
+        ("CaCO3 sales revenue", sum(r["revenue_usd_ph"] for r in sales.values()) * hours / 1e6,
+         f"MUSD/yr ({base['caco3_sales']['price_usd_per_metric_ton']:g} USD/t CaCO3; booked once on the cake prices)"
+         if sales else "MUSD/yr (no CaCO3 sales)"),
+        ("Coproduct revenue (CH4, off-gas)", 0.0, "MUSD/yr (none)"),
+        ("Scenario", float("nan"), spec["label"]),
+        ("Lime", float("nan"), f"{spec['lime']} Ca(OH)2 at {inv._streams(sys)['lime'].price:g} USD/kg"),
         ("Equipment cost basis", float("nan"), _T["cost_year_note"]),
         ("Financial basis", float("nan"),
          ", ".join(f"{k}={_FIN[k]}" for k in ("IRR", "duration", "depreciation", "income_tax", "WC_over_FCI",
@@ -641,29 +704,38 @@ def export_att_tea(out_dir=None):
         "02_capex": _capex_table(sys, result),
         "03_opex_and_msp_breakdown": _opex_table(sys, result),
     }
-    checks = _checks(sys, result, fingerprint)
-    tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, estimates)
-    caco3 = get_att_caco3_cases(sys, estimates)
+    checks = _checks(sys, result, fingerprint, scenario)
+    s = inv._streams(sys)
+    checks += [dict(check=a, value=b, expected=d, status="PASS" if abs(b - d) <= 1e-9 * max(1.0, abs(d)) else "FAIL")
+               for a, b, d in (
+                   ("Lime price = scenario assumption [USD/kg]", s["lime"].price,
+                    0.0 if spec["lime"] == "waste" else _prices()["CaOH2"]),
+                   ("CaCO3 sales streams = att_tea.yaml caco3_sales (system products)", float(len(sales)),
+                    float(sum(ID in s and s[ID] in sys.products for ID in (base["caco3_sales"] or {}).get("streams", ())))),
+               )]
+    tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, estimates, base)
+    caco3 = get_att_caco3_cases(sys, estimates)                     # LEGACY
     tables["06_caco3_cases"] = caco3
-    tables["07_lime_price_cases"] = get_att_lime_price_cases(sys, estimates)
-    tables["08_P1_electricity_cases"] = get_att_p1_power_cases(sys, estimates)
-    tables["09_offgas_handling"] = get_att_offgas_cases(sys, estimates)
-    tables["10_cost_year_comparison"] = get_att_cost_year_comparison(sys)
+    tables["07_lime_price_cases"] = get_att_lime_price_cases(sys, estimates)   # LEGACY
+    tables["08_P1_electricity_cases"] = get_att_p1_power_cases(sys, estimates, base)
+    tables["09_offgas_handling"] = get_att_offgas_cases(sys, estimates, base)
+    tables["10_cost_year_comparison"] = get_att_cost_year_comparison(sys, base)
     tables["11_limitations"] = [dict(limitation=x) for x in _T["limitations"]]
-    # Headline cases (original lime price 0.24 USD/kg).
+    # LEGACY SaBRe headline cases (reference treatment, original lime price 0.24 USD/kg), after the scenario rows.
     pick = {(r["lime_price"], r["case"], r["CaCO3_price_usd_per_t"], r["handling_usd_per_t"],
              r["marketable_fraction"]): r["MSP_USD_per_kg_H2"] for r in caco3}
     lime0 = "0.24 (original)"
-    headline = [
-        ("MSP Reference (no CaCO3 revenue, cake not costed; commit 1473af06)", result["msp"]),
-        ("MSP Case A (no CaCO3 sales, cake disposed at tea.yaml price)",
+    legacy = [
+        ("LEGACY MSP Reference (purchased lime, no CaCO3 revenue, cake not costed; commit 1473af06)",
+         next(r["MSP_USD_per_kg_H2"] for r in caco3 if r["lime_price"] == lime0 and r["case"].startswith("Reference"))),
+        ("LEGACY MSP Case A (purchased lime, no CaCO3 sales, cake disposed at tea.yaml price)",
          next(r["MSP_USD_per_kg_H2"] for r in caco3 if r["lime_price"] == lime0 and r["case"].startswith("Case A"))),
     ]
     for f in _T["caco3_coproduct"]["marketable_fractions"][1:]:
-        headline.append((f"MSP Case B: {f:.0%} marketable, 250 USD/t, no handling cost",
-                         pick[(lime0, "Case B optimistic potential" if f == 1.0 else "Case B", 250.0, 0.0, f)]))
-    tables["00_summary"] = [dict(item=a, value=b, unit="USD/kg H2") for a, b in headline] + tables["00_summary"]
-    _msp(sys, estimates)  # leave the reference case applied
+        legacy.append((f"LEGACY MSP Case B: {f:.0%} marketable, 250 USD/t, no handling cost",
+                       pick[(lime0, "Case B optimistic potential" if f == 1.0 else "Case B", 250.0, 0.0, f)]))
+    tables["00_summary"] += [dict(item=a, value=b, unit=f"USD/kg H2 ({LEGACY_BASIS})") for a, b in legacy]
+    _msp(sys, estimates, base)  # leave the scenario TEA applied
     same = _same_flows(sys, fingerprint)
     checks.append(dict(check="Frozen model flows unchanged after all cases (rel. 1e-8)", value=float(same),
                        expected=1.0, status="PASS" if same else "FAIL"))

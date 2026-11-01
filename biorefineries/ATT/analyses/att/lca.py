@@ -10,7 +10,9 @@
 GWP100 of the frozen ATT process model using BioSTEAM's impact framework.
 
 Activity data come only from the frozen ATT model (active U2 closure, att.yaml)
-simulated at the SaBRe reference scale (electricity is scale dependent):
+simulated at the ATT scenario capacity (scenarios.create; electricity is scale
+dependent). The standard ATT S1 LCA applies scenarios.lca_overrides (waste lime
+is burden-free); apply_att_gwp without overrides is the reference treatment:
 
 - purchased materials: stream characterization factors (Stream.set_CF);
 - natural gas (U2) and LP steam: utility-agent factors equivalent to
@@ -30,6 +32,7 @@ are checked to sum to it. Factors and assumptions: data/att_lca.yaml.
 import biosteam as bst
 
 from biorefineries.ATT.analyses.att import inventory as inv
+from biorefineries.ATT.analyses.att import scenarios as scen
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = (
@@ -52,7 +55,8 @@ KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
 _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
-                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply")}
+                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply"),
+                 "f2_wash_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
@@ -78,15 +82,15 @@ def _factors(overrides=None):
     return f
 
 
-def create_att_lca_system(configuration="presscake"):
-    """ATT model at the SaBRe reference scale ("presscake" or "fresh_sargassum") with operating hours."""
-    from biorefineries.ATT.systems._att_system import create_att_system
-
-    scale = inv.get_att_reference_scale(configuration)
-    sys = inv._simulate(create_att_system(dry_sargassum_kgph=scale["dry_feed_kgph"], configuration=configuration),
-                        scale["dry_feed_kgph"])
-    sys.operating_hours = scale["operating_hours_per_year"]
-    return sys
+def create_att_lca_system(scenario="att_s1"):
+    """
+    Simulated system of an ATT scenario (scenarios.create; default ATT S1 at its capacity) with operating hours.
+    The former SaBRe reference-scale model (``configuration`` argument) is scenarios.create_legacy_reference.
+    """
+    if scenario not in scen.ALL_SCENARIOS:
+        raise ValueError(f"unknown ATT scenario {scenario!r} (expected one of {tuple(scen.ALL_SCENARIOS)}); for the "
+                         "LEGACY SaBRe reference-scale model use scenarios.create_legacy_reference(configuration)")
+    return scen.create(scen.ALL_SCENARIOS[scenario])
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +108,7 @@ def _h2so4_kgph(sys):
     s = inv._streams(sys)
     n = _LCA["neutralization"]
     H = sum(n["H_plus_per_mol"][k] * float(s[ID].imol[k])
-            for ID in n["streams"] for k in n["H_plus_per_mol"])  # kmol H+/h
+            for ID in n["streams"] if ID in s for k in n["H_plus_per_mol"])  # kmol H+/h
     return H / 2.0 * _MW["H2SO4"]
 
 
@@ -263,7 +267,7 @@ def get_att_gwp_contributions(sys, applied):
     naoh = s["fresh_naoh_solid"]
     # C1 lime and the CO2-scrubber lime carry the same factor (apply_att_gwp); both are in this line.
     limes = [s[ID] for ID in ("lime", "scrubber_lime") if ID in s]
-    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water") if ID in s]
+    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
     add("Ca(OH)2", sum(l.F_mass for l in limes) * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
@@ -403,7 +407,7 @@ def get_att_gwp_summary(sys, applied):
     rows = [
         ("GWP100 per kg H2", total_yr / h2_yr, "kg CO2e/kg H2", "functional unit; experimental H2 basis"),
         ("GWP100 per kg dry Sargassum", total_yr / dry_yr, "kg CO2e/kg dry", ""),
-        ("Annual GWP100 at reference scale", total_yr / 1e3, "t CO2e/yr",
+        ("Annual GWP100 at the simulated capacity", total_yr / 1e3, "t CO2e/yr",
          f"{dry * 24 / 1e3:.0f} dry t/d, {hours:.0f} h/yr"),
         ("H2 product", float(s["h2_product"].imass["H2"]) / dry, "kg/kg dry",
          f"model H2 {U2._model_gas_yield_mmol_per_g_daf['H2']:.3f} mmol/g daf x PSA recovery if any ({U2.gas_closure_method})"),
@@ -450,22 +454,22 @@ def _total_per_kg(sys, **kw):
     return total / dry_yr, total / h2_yr, applied
 
 
-def get_att_gwp_sensitivity(sys, estimates):
-    """Baseline, steel-slag lime, one-at-a-time factor ranges."""
+def get_att_gwp_sensitivity(sys, estimates, overrides=None):
+    """Baseline, steel-slag lime, one-at-a-time factor ranges around ``overrides`` (scenarios.lca_overrides)."""
     rows = []
-    base_dry, base_h2, _ = _total_per_kg(sys, estimates=estimates)
+    base_dry, base_h2, _ = _total_per_kg(sys, overrides=overrides, estimates=estimates)
     rows.append(dict(scenario="Baseline", parameter="", value=float("nan"),
                      GWP_kgCO2e_per_kg_dry=base_dry, GWP_kgCO2e_per_kg_H2=base_h2, delta_per_kg_H2=0.0))
-    d, h, _ = _total_per_kg(sys, lime_source="CaOH2_steel_slag", estimates=estimates)
+    d, h, _ = _total_per_kg(sys, lime_source="CaOH2_steel_slag", overrides=overrides, estimates=estimates)
     rows.append(dict(scenario="S1 steel-slag Ca(OH)2", parameter="CaOH2_steel_slag",
                      value=_EF["CaOH2_steel_slag"]["value"], GWP_kgCO2e_per_kg_dry=d,
                      GWP_kgCO2e_per_kg_H2=h, delta_per_kg_H2=h - base_h2))
     for name in _LCA["sensitivity_factors"]:
         for bound, value in zip(("low", "high"), _EF[name]["range"]):
-            d, h, _ = _total_per_kg(sys, overrides={name: float(value)}, estimates=estimates)
+            d, h, _ = _total_per_kg(sys, overrides={**(overrides or {}), name: float(value)}, estimates=estimates)
             rows.append(dict(scenario=f"S2 {name} {bound}", parameter=name, value=float(value),
                              GWP_kgCO2e_per_kg_dry=d, GWP_kgCO2e_per_kg_H2=h, delta_per_kg_H2=h - base_h2))
-    apply_att_gwp(sys, estimates=estimates)  # restore baseline factors
+    apply_att_gwp(sys, overrides=overrides, estimates=estimates)  # restore baseline factors
     return rows
 
 
@@ -575,30 +579,41 @@ def check_att_lca(sys, applied, contributions, utilities):
                  status="PASS" if abs(b - d) <= 1e-9 * max(1.0, abs(d)) else "FAIL") for a, b, d in checks]
 
 
-def export_att_lca(out_dir=None):
-    """Run the baseline, scenarios and checks; write CSV files and one workbook (default att_outputs/full_scale/lca)."""
+def export_att_lca(out_dir=None, scenario="att_s1"):
+    """
+    Baseline, sensitivities and checks of an ATT scenario (default ATT S1, waste lime burden-free per
+    scenarios.lca_overrides); write CSV files and one workbook (default outputs/full_scale/lca).
+    """
     import os
     import pandas as pd
     from biorefineries.ATT.analyses.att.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("lca"))
 
-    sys = create_att_lca_system()
+    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/att/marine_lca.py)
+    overrides = scen.lca_overrides(spec)
+    sys = create_att_lca_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     estimates = inv.get_att_cost_estimates(sys)
-    applied = apply_att_gwp(sys, estimates=estimates)
+    applied = apply_att_gwp(sys, overrides=overrides, estimates=estimates)
     contributions = get_att_gwp_contributions(sys, applied)
     utilities = inv.get_att_purchased_utilities(sys, estimates)
+    summary = get_att_gwp_summary(sys, applied)
+    summary += [dict(item="Scenario", value=float("nan"), unit="", note=spec["label"]),
+                dict(item="Lime burden", value=applied["factors"][applied["lime_source"]], unit="kg CO2e/kg Ca(OH)2",
+                     note=f"{spec['lime']} lime; factor overrides: {overrides or 'none'}"),
+                dict(item="Annual basis", value=inv._dry_feed_kgph(sys) * 24.0 / 1e3, unit="dry t/d",
+                     note=scen.scale(spec)["basis"])]
     tables = {
         "00_factor_register": get_att_lca_factor_register(),
-        "01_summary": get_att_gwp_summary(sys, applied),
+        "01_summary": summary,
         "02_contributions_by_input": contributions,
         "03_contributions_by_stage": get_att_gwp_by_stage(contributions),
         "04_contributions_by_unit": get_att_gwp_by_unit(sys, applied),
         "05_activity_inventory_per_kg_dry": utilities,
     }
     checks = check_att_lca(sys, applied, contributions, utilities)
-    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, estimates)
+    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, estimates, overrides)
     tables["07_data_gaps"] = get_att_lca_data_gaps(sys, applied)
     unchanged = fingerprint == [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     checks.append(dict(check="Frozen model flows unchanged by LCA", value=float(unchanged), expected=1.0,
