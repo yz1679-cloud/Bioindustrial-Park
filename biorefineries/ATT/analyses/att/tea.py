@@ -99,6 +99,35 @@ def caco3_cake_price(sys, fraction=0.0, price_usd_per_t=0.0, handling_usd_per_t=
     return fraction * w * (price_usd_per_t - handling_usd_per_t) / 1e3 + (1.0 - fraction) * disposal
 
 
+def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0, streams=("caco3_cake",),
+                           disposal_of_sold_caco3=False, dispose_non_caco3_mass=True, **_):
+    """
+    CaCO3 byproduct sales per cake stream (att_tea.yaml caco3_sales) [per hour]: the saleable fraction of the
+    CaCO3 COMPONENT is sold at the price; the cake mass that is not sold CaCO3 (moisture, excess Ca(OH)2,
+    entrained NaOH/Na2CO3, unsold CaCO3) is disposed at tea.yaml disposal_solid (dispose_non_caco3_mass). Returns
+    {ID: dict(...)} for the streams that are system products, with the net stream price [USD/kg wet cake].
+    """
+    s = inv._streams(sys)
+    products = {p.ID for p in sys.products}
+    disposal = float(_PRICE["disposal_solid"]["baseline"])        # negative = cost
+    out = {}
+    for ID in streams:
+        if ID not in s or ID not in products or not float(s[ID].F_mass):
+            continue
+        cake = s[ID]
+        caco3 = float(cake.imass["CaCO3"])
+        sold = saleable_fraction * caco3
+        disposed = ((float(cake.F_mass) - caco3 if dispose_non_caco3_mass else 0.0)   # moisture and impurities
+                    + (caco3 - sold)                                                   # unsold CaCO3
+                    + (sold if disposal_of_sold_caco3 else 0.0))
+        revenue = sold * price_usd_per_metric_ton / 1e3                    # USD/h
+        disposal_usd = -disposal * disposed                                # USD/h, cost
+        out[ID] = dict(wet_kgph=float(cake.F_mass), dry_kgph=float(cake.F_mass) - float(cake.imass["Water"]),
+                       caco3_kgph=caco3, sold_caco3_kgph=sold, disposed_kgph=disposed, revenue_usd_ph=revenue,
+                       disposal_usd_ph=disposal_usd, price_usd_per_kg=(revenue - disposal_usd) / float(cake.F_mass))
+    return out
+
+
 def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
     s = inv._streams(sys)
     s["att_sargassum_feed"].price = (float(_PRICE["sargassum"]["baseline"]) if feedstock_usd_per_wet_t is None
@@ -191,12 +220,15 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_biosteam_sc
 
 def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
                      fci_factor=1.0, p1_biosteam_screwpress=False, caco3=None,
-                     offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
+                     offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=None):
     """
     Build the TEA for one case and solve the H2 MSP with SaBReTEA's DCF.
 
     caco3: None keeps the reference treatment (cake neither sold nor costed);
     otherwise keyword arguments of caco3_cake_price (Case A: fraction 0).
+    caco3_sales: None, or the keyword arguments of caco3_sales_accounting
+    (att_tea.yaml caco3_sales): CaCO3 component sold, the rest of each listed
+    cake disposed; it sets the price of those streams (after ``caco3``).
     feedstock_usd_per_wet_t: delivered Sargassum cost (collection and
     transport); None uses tea.yaml price.sargassum.baseline (0).
     """
@@ -206,6 +238,9 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     p = _prices(price_overrides)
     cake_price = None if caco3 is None else caco3_cake_price(sys, **caco3)
     _apply_prices(sys, p, cake_price, offgas_usd_per_t, feedstock_usd_per_wet_t)
+    sales = {} if caco3_sales is None else caco3_sales_accounting(sys, **caco3_sales)
+    for ID, r in sales.items():
+        inv._streams(sys)[ID].price = r["price_usd_per_kg"]
     capital = _capital_items(sys, estimates, psa_factor, p1_biosteam_screwpress)
     voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_biosteam_screwpress)
     installed_units = sum(u.installed_cost for u in sys.units)
@@ -227,7 +262,8 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=None, psa_factor=1.0, 
     gas_msp = tea.solve_price(product)
     msp = gas_msp * float(product.F_mass) / float(product.imass["H2"])
     product.price = gas_msp
-    return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates)
+    return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates,
+                caco3_sales=sales)
 
 
 # ---------------------------------------------------------------------------
@@ -290,11 +326,17 @@ def _opex_table(sys, result):
         f"{bst.PowerUtility.price} USD/kWh")
     for name, value in result["voc_items"]:
         add(name, "extra VOC", value, "att_tea.yaml")
+    sales = result.get("caco3_sales", {})
+    for ID, r in sales.items():            # net stream price split into its two parts (sum = -price x mass)
+        add(f"CaCO3 sales: {ID}", "CaCO3 sales", -r["revenue_usd_ph"] * hours,
+            f"{r['sold_caco3_kgph']:.6g} kg/h CaCO3 sold")
+        add(f"CaCO3 cake disposal (non-sold mass): {ID}", "CaCO3 cake", r["disposal_usd_ph"] * hours,
+            f"{r['disposed_kgph']:.6g} kg/h disposed")
     for ID in (*_T["prices"]["wastewater_streams"], *_T["prices"]["solid_waste_streams"]):
-        if ID not in {p.ID for p in sys.products}:
+        if ID not in {p.ID for p in sys.products} or ID in sales:
             continue
         add(f"Disposal: {ID}", "waste disposal", -s[ID].price * s[ID].F_mass * hours, f"{s[ID].price} USD/kg")
-    if s["caco3_cake"] in sys.products:      # with the lime recycle the cake is an internal stream
+    if s["caco3_cake"] in sys.products and "caco3_cake" not in sales:   # with the lime recycle it is internal
         add("CaCO3 cake: disposal (+) or net sales (-)", "CaCO3 cake", -s["caco3_cake"].price * s["caco3_cake"].F_mass * hours,
             f"{s['caco3_cake'].price:.6g} USD/kg wet cake")
     tail = inv._tail_gas(sys)

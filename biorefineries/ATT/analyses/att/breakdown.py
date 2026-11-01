@@ -64,6 +64,7 @@ COST_TYPES = {
     "Wastewater treatment": "Waste treatment and disposal",
     "Ash/char cake disposal": "Waste treatment and disposal",
     "CaCO3 cake disposal": "Waste treatment and disposal",
+    "CaCO3 byproduct sales": "Coproduct revenue",
     "PSA off-gas handling (0; fate unresolved)": "Waste treatment and disposal",
     "Biostimulant juice transfer (coproduct)": "Waste treatment and disposal",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost",
@@ -96,6 +97,7 @@ def _cost_group(item, category):
                           ("Utility: cooling_water", "Cooling water (agent price)"),
                           ("Electricity", "Electricity"), ("Purge neutralization", "Neutralization (H2SO4)"),
                           ("P1 power", "Electricity"),
+                          ("CaCO3 sales", "CaCO3 byproduct sales"),
                           ("CaCO3 cake", "CaCO3 cake disposal"),
                           ("PSA off-gas", "PSA off-gas handling (0; fate unresolved)")):
         if item.startswith(prefix):
@@ -144,7 +146,7 @@ def _dcf_breakdown(sys, result):
     for r in tea_mod._opex_table(sys, result):
         if r["category"] in ("materials", "utilities", "extra VOC"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_v, "VOC item x PV(VOC profile)")
-        elif r["category"] in ("waste disposal", "CaCO3 cake", "off-gas", "juice"):
+        elif r["category"] in ("waste disposal", "CaCO3 cake", "CaCO3 sales", "off-gas", "juice"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_f,
                 "negative sales x PV(sales profile)")
         elif r["category"] == "FOC":
@@ -222,21 +224,32 @@ def _gwp_tables(contributions):
     return by_item, by_stage, total
 
 
-def build_att_breakdown(case="att_s1"):
+def build_att_breakdown(case="att_s1", caco3_price=None, sys=None):
     """
     One simulation of a scenario of analyses/att/scenarios.py; returns a dict of DataFrames and a summary dict.
 
-    ATT Scenario 1 takes free, burden-free waste lime and disposes of the CaCO3 cakes (no CaCO3 revenue).
+    ATT Scenario 1 takes free, burden-free waste lime and sells the CaCO3 of its cakes (att_tea.yaml caco3_sales;
+    the rest of each cake is disposed). ``caco3_price`` [USD/t] overrides the configured price for this call only;
+    ``sys`` reuses an already simulated system of the scenario.
     """
     spec = scen.ALL_SCENARIOS[case]
-    return _build(case, spec, scen.create(spec))
+    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price)
 
 
-def _build(case, spec, sys):
+def _build(case, spec, sys, caco3_price=None):
     waste, lime_recycle = spec["lime"] == "waste", spec["lime"] == "recycled"
     estimates = inv.get_att_cost_estimates(sys)
+    # CaCO3: without the lime recycle the cakes are products; with att_tea.yaml caco3_sales enabled their CaCO3 is
+    # sold and the rest disposed, otherwise the whole cake is disposed (Case A). Price override: caco3_price.
+    sales_cfg = dict(tea_mod._T["caco3_sales"])
+    if caco3_price is not None:
+        sales_cfg["price_usd_per_metric_ton"] = float(caco3_price)
+    sell = bool(sales_cfg.pop("enabled")) and not lime_recycle
     result = tea_mod.evaluate_att_tea(sys, estimates, price_overrides={"CaOH2": 0.0} if waste else None,
-                                      caco3=None if lime_recycle else dict(fraction=0.0))
+                                      caco3=None if lime_recycle else dict(fraction=0.0),
+                                      caco3_sales=sales_cfg if sell else None)
+    sales = result["caco3_sales"]
+    hours_yr = sys.operating_hours
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)
     msp_group, msp_type = _msp_tables(dcf, result["msp"])
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
@@ -266,6 +279,13 @@ def _build(case, spec, sys):
                                         f"O{U2._residual_product_formula['O']:.4g}"
                                         if U2._residual_product_formula else U2.residual_carbon_fate),
                    U2_heat_duty_MJ_per_kg_dry=float(U2._heat_duty_kJph) / 1e3 / dry,
+                   CaCO3_sales=("enabled" if sell else "off"),
+                   CaCO3_price_USD_per_t=sales_cfg["price_usd_per_metric_ton"] if sell else float("nan"),
+                   CaCO3_recovered_t_per_yr=sum(r["caco3_kgph"] for r in sales.values()) * hours_yr / 1e3,
+                   CaCO3_sold_t_per_yr=sum(r["sold_caco3_kgph"] for r in sales.values()) * hours_yr / 1e3,
+                   CaCO3_sales_revenue_USD_per_yr=sum(r["revenue_usd_ph"] for r in sales.values()) * hours_yr,
+                   CaCO3_cake_disposal_USD_per_yr=(sum(r["disposal_usd_ph"] for r in sales.values()) * hours_yr if sell else
+                                                   float(opex.loc[opex["group"] == "CaCO3 cake disposal", "MUSD_per_yr"].sum()) * 1e6),
                    NaOH_recycled_t_per_yr=float(inv._streams(sys)["naoh_recycle"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored_net,
                    GWP_without_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net,

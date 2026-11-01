@@ -40,9 +40,36 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertAlmostEqual(opex["MUSD_per_yr"].sum(), self.s["AOC_MUSD_per_yr"], delta=1e-6)
         waste = opex.loc[(opex["cost_type"] == "Waste treatment and disposal")
                          & (opex["group"] != "Neutralization (H2SO4)"), "MUSD_per_yr"].sum()
-        # SaBReTEA books the disposal streams as negative sales, outside its VOC + FOC
+        revenue = opex.loc[opex["cost_type"] == "Coproduct revenue", "MUSD_per_yr"].sum()
+        # SaBReTEA books the disposal streams as negative sales and the CaCO3 sales as sales, outside its VOC + FOC
         # (the H2SO4 for purge neutralization is a VOC item)
-        self.assertAlmostEqual(self.s["TEA_VOC_plus_FOC_MUSD_per_yr"] + waste, self.s["AOC_MUSD_per_yr"], delta=1e-6)
+        self.assertAlmostEqual(self.s["TEA_VOC_plus_FOC_MUSD_per_yr"] + waste + revenue, self.s["AOC_MUSD_per_yr"],
+                               delta=1e-6)
+
+    def test_caco3_sales_counted_once(self):
+        # Revenue on the CaCO3 COMPONENT of each listed cake (not the wet cake); disposal only on the cake mass that
+        # is not sold CaCO3; no separate whole-cake disposal line for a sold cake.
+        from biorefineries.ATT.analyses.att import inventory as inv, tea as tea_mod
+        system = scen.create(scen.ATT_S1)
+        t = build_att_breakdown(self.case, sys=system)
+        s, cfg, hours = inv._streams(system), tea_mod._T["caco3_sales"], system.operating_hours
+        self.assertTrue(cfg["enabled"])
+        caco3 = sum(float(s[ID].imass["CaCO3"]) for ID in cfg["streams"])
+        rest = sum(float(s[ID].F_mass - s[ID].imass["CaCO3"]) for ID in cfg["streams"])
+        price, disposal = cfg["price_usd_per_metric_ton"], -float(tea_mod._PRICE["disposal_solid"]["baseline"])
+        self.assertAlmostEqual(t["summary"]["CaCO3_sales_revenue_USD_per_yr"], caco3 * hours / 1e3 * price, places=3)
+        self.assertAlmostEqual(t["summary"]["CaCO3_cake_disposal_USD_per_yr"], rest * disposal * hours, places=3)
+        groups = t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
+        self.assertAlmostEqual(groups["CaCO3 byproduct sales"] * 1e6, -caco3 * hours / 1e3 * price, places=3)
+        self.assertAlmostEqual(groups["CaCO3 cake disposal"] * 1e6, rest * disposal * hours, places=3)
+        items = [r["item"] for r in tea_mod._opex_table(system, dict(tea_mod.evaluate_att_tea(
+            system, caco3=dict(fraction=0.0), caco3_sales={k: v for k, v in cfg.items() if k != "enabled"})))]
+        self.assertNotIn("Disposal: scrubber_cake", items)
+        self.assertNotIn("CaCO3 cake: disposal (+) or net sales (-)", items)
+        # a price override changes the MSP without touching the configuration
+        low = build_att_breakdown(self.case, caco3_price=0.0, sys=system)["summary"]
+        self.assertEqual(cfg["price_usd_per_metric_ton"], price)
+        self.assertGreater(low["MSP_USD_per_kg_H2"], t["summary"]["MSP_USD_per_kg_H2"])
 
     def test_gwp_sums_to_total(self):
         g = self.t["GWP_by_contributor"]

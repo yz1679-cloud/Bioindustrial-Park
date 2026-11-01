@@ -248,3 +248,57 @@ Tests: 75/75 pass, with the standards unchanged.
 Status: elementally and materially balanced under the assumed lumped-residue composition. Mass flows follow
 from the measured gases plus that assumption. U2 duty, MSP and GWP are PROVISIONAL: they depend on the
 surrogate's composition, Hf, phase and routing. Nothing is experimentally validated.
+
+## CaCO3 byproduct sales in the TEA (after commit 72fdffac)
+
+**Scope.** TEA only. The process model, U2 (lumped residue), the balances, the gas yields and the LCA are
+unchanged.
+
+**Configuration.** `att_tea.yaml tea.caco3_sales`: `enabled: true`, `streams: [caco3_cake, scrubber_cake]`,
+`saleable_fraction: 1.0`, `price_usd_per_metric_ton: 100`, `disposal_of_sold_caco3: false`,
+`dispose_non_caco3_mass: true`, sensitivity prices 0 / 100 / 315.
+- The legacy SaBRe Case B table (`caco3_coproduct`, 250/50 USD/t) is labeled as a sensitivity only.
+
+**Code.**
+- `analyses/att/tea.py`:
+  - `caco3_sales_accounting()` (new): per cake, revenue = fraction × CaCO3 component × price; disposal = the
+    tea.yaml solid disposal price × (cake mass − sold CaCO3).
+  - `evaluate_att_tea(..., caco3_sales=)` sets each cake's net price, so the revenue enters the DCF once.
+  - `_opex_table` splits that net price into "CaCO3 sales: ID" and "CaCO3 cake disposal (non-sold mass): ID"
+    and drops the generic whole-cake lines for a sold cake.
+- `analyses/att/breakdown.py`: applies the configuration to ATT S1, adds `caco3_price` and `sys` arguments,
+  maps the group "CaCO3 byproduct sales" (cost type "Coproduct revenue"), and adds summary fields.
+- `analyses/att_caco3_sales.py` (new): recovery table and price sensitivity. Outputs in `outputs/tables/`.
+- Tests: `test/test_att_breakdown.py` (reconciliation including the revenue; `test_caco3_sales_counted_once`).
+
+**Recovered CaCO3 at capacity** (component mass; the upstream slurries are internal and not counted):
+
+| Cake | CaCO3 [kg/h] | Wet [kg/h] | Dry [kg/h] | Dry-basis purity | Other content [kg/h] |
+|---|---|---|---|---|---|
+| F2 | 5,586.6 | 9,669.8 | 7,252.4 | 77.0 % (84.4 % of CaCO3 + Ca(OH)2) | water 2,417.5, Ca(OH)2 1,033.9, NaOH 535.2, Na2CO3 96.7 |
+| F3 | 260.7 | 373.3 | 279.9 | 93.1 % | water 93.3, Ca(OH)2 19.3 |
+| Total | 5,847.2 | 10,043.1 | 7,532.3 | 77.6 % | — |
+
+The total is 46,310 t/yr. The experimental ~97 % (by Ca content, stoichiometric lime) is a different quantity.
+
+**TEA results** (H2 2,954 t/yr, FCI 11.89 MUSD, all PROVISIONAL):
+
+| Case | CaCO3 revenue | CaCO3-cake disposal | AOC | MSP |
+|---|---|---|---|---|
+| Previous (whole cakes disposed) | 0 | 3.18 MUSD/yr | 13.89 MUSD/yr | 5.22 USD/kg |
+| 0 USD/t | 0 | 1.33 | 12.04 | 4.60 |
+| **100 USD/t (baseline)** | 4.63 | 1.33 | 7.41 | **3.03** |
+| 315 USD/t | 14.59 | 1.33 | −2.55 | −0.34 |
+
+At 315 USD/t the CaCO3 revenue exceeds all costs, so the H2 MSP is negative.
+
+**Limitations.**
+- The cake is assumed sold as recovered: wet, 77 % CaCO3 on a dry basis, with Ca(OH)2 and NaOH/Na2CO3. No
+  washing, drying, classification, packaging, transport, market-size or offtake constraint is modeled.
+- 100 % saleable fraction; industrial grade only.
+- Prices are assumptions.
+
+**Future LCA issue (not changed).** The LCA still credits the carbon of `caco3_cake` and `scrubber_cake` as
+permanently stored in a landfill (`att_lca.yaml landfill_streams`). If the CaCO3 is sold, that storage claim
+depends on the product's end use: a sale does not prove permanent storage. The net GWP (14.04 kg CO2e/kg H2) is
+unchanged and remains PROVISIONAL.
