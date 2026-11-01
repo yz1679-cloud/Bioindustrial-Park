@@ -315,6 +315,16 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
                                  Cp=1.0, rho=1500)
         CharN = _structural_solid("CharN", "N", 0.0, Cp=1.0, rho=1500)
         CharS = _structural_solid("CharS", "S", 0.0, Cp=1.0, rho=1500)
+        # ATT Scenario 1 lumped residual product of U2: a stoichiometric surrogate CH0.5O_b for the
+        # uncharacterized carbon-containing residue (NOT measured char). U2 solves b from its C/H/O balance at
+        # run time, so the product is carried as two basis pseudo-components with the same H/C (end members
+        # b = 0 and b = 2); their sum is ONE lumped product. Hf by the same Channiwala-Parikh HHV route as the
+        # char; the correlation is linear in the element mass fractions, so the sum equals the correlation at
+        # the lumped composition (O-rich compositions lie outside its validation range). Cp 1 J/g/K, solid.
+        ResidueCH = _structural_solid("ResidueCH", "CH0.5",
+                                      char_Hf_from_HHV({"C": 1, "H": 0.5}) / _cal2joule, Cp=1.0, rho=1500)
+        ResidueCHO = _structural_solid("ResidueCHO", "CH0.5O2",
+                                       char_Hf_from_HHV({"C": 1, "H": 0.5, "O": 2}) / _cal2joule, Cp=1.0, rho=1500)
         CO = bst.Chemical("CO", search_ID="CarbonMonoxide", phase="g")
         C2H4 = bst.Chemical("C2H4", search_ID="Ethylene", phase="g")
         C2H6 = bst.Chemical("C2H6", search_ID="Ethane", phase="g")
@@ -326,7 +336,7 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         BurntLime = bst.Chemical("BurntLime", search_ID="CalciumOxide", phase="s")
         # Dissolved salt in the recycle liquor: same volume treatment as NaOH above.
         Na2CO3.V.l.add_model(tmo.functional.rho_to_V(1e5, Na2CO3.MW), top_priority=True)
-        att_char, att_gases, att_hydrogen = (Char, CharN, CharS), (CO, C2H4, C2H6), (H2,)
+        att_char, att_gases, att_hydrogen = (Char, CharN, CharS, ResidueCH, ResidueCHO), (CO, C2H4, C2H6), (H2,)
         att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime)
 
     chems = bst.Chemicals([

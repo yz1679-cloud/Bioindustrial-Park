@@ -160,7 +160,7 @@ def create_att_system(
         chemicals = bst.settings.get_chemicals()
     except Exception:
         chemicals = None
-    if chemicals is None or "Char" not in chemicals:
+    if chemicals is None or "ResidueCH" not in chemicals:
         create_chemicals(include_att=True)
     if configuration not in ("fresh_sargassum", "presscake"):
         raise ValueError("configuration must be 'fresh_sargassum' or 'presscake'.")

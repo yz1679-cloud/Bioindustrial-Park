@@ -71,13 +71,76 @@ ATT S1 at full capacity (5029.17 kg dry/h = 120.7 t/d, with HXN):
 - FCI: 11.35 MUSD
 - Fresh NaOH: 9,353 t/yr
 - Ca(OH)2: 43.9 kt/yr (supply 92.5 kt/yr)
-- GWP: **4.59 kg CO2e/kg H2 net**. This includes **−15.2** for carbon stored in the landfilled solids (char and carbonates); without that credit it is about 19.8.
+- GWP (superseded by the targeted repair below): 4.59 kg CO2e/kg H2 net, including −15.2 for carbon stored in
+  landfilled char and carbonates; about 19.8 without any storage credit.
 
 SaBRe S5 was not run at full scale for comparison.
 
 Tests (`python -m unittest discover -s biorefineries/ATT/test -p "test_att_*.py" -t .` from the repo root):
 72 run, 71 pass. The one failure, `test_u2_checks_pass`, is the unresolved U2 hydrogen balance below; it is
 intentionally kept failing. Not run: the `test/run_att_*.py` export scripts and `analyses/att_scenarios.py`.
+
+## Targeted repair (after commit 76fc5527)
+
+Scope: the measured gas yields, NaOH 1 kg/kg dry, C1 0.88, feed, capacity and flowsheet are all unchanged.
+Diagnostics: `outputs/validation/u2_ec1_lca_diagnostics_att_s1_1kgph.txt`.
+
+**U2 (no code error found).**
+- Per g daf: C, O, N, S and Na close exactly. Feed organics reproduce the presscake CHN (C 46.16, H 5.71, N 1.72 % of daf).
+- The carbonate is 18.40 mmol formed in U2 plus 1.92 mmol recycled.
+- The char has MW 14.115, HHV 32.7 MJ/kg and Cp 1.0 J/g/K, as specified.
+- The whole residual is hydrogen: +40.88 mmol H/g daf. That is 0.0280 kg/h at the 1 kg/h basis, i.e. the full
+  +0.676 % mass error.
+- It equals the electron excess: gases 113.10 + char 80.24 against feed organics 152.47. Closure would need the
+  18.66 mmol/g daf of residual carbon to carry 2.11 available e⁻ per C; CH0.5O0.1 carries 4.30. So the residual
+  carbon must be about half as oxidized as CO2/carbonate, e.g. organic acids or carbonate of the ash cations, and
+  none of these was measured.
+- Because the measured gases have a fixed CO2, the closure cannot be chosen uniquely from the available data.
+  Nothing was changed to force it.
+- Only diagnostics were added to `balance_checks()`: C/O/electron residuals under the existing standards, the
+  e⁻/C needed for closure, gases + char HHV ratio (0.85, PASS), and the U2 duty labeled PROVISIONAL.
+
+**U2 energy.**
+- The routine is consistent: Hess re-referencing of the feed to HHV, and char Hf from its HHV.
+- The excess H effectively burns hydrogen the feed does not supply into product water. The duty is therefore
+  probably too low, by an amount on the order of 4.9-5.8 kJ/g daf (H2 LHV-HHV), i.e. 3.4-4.0 MJ/kg dry, against
+  8.16 MJ/kg dry. It is kept as computed and labeled PROVISIONAL; no correction is applied.
+
+**EC1.** Within the stated ranges, so nothing was changed:
+- feed NaOH/(NaOH+H2O) 0.181 (heat of solution valid ≤ ~0.20);
+- outlet 0.434 (BPE valid 0.40-0.46);
+- carbonate load 0.138 kg Na2CO3/kg outlet water vs 0.18 baseline. By the yaml's scaling note the dissolved
+  fraction would be ≈ 0.065 instead of 0.05. That is inside its 0.05-0.11 range and has a negligible mass and
+  energy effect, so it was left unchanged.
+
+**LCA storage credit.**
+- Conversion 44.0095/12.011 is correct; no double counting. Biogenic emissions are 0, there is no uptake credit,
+  and feed C = stored + H2-product C + purge C.
+- Char carbon was 0.152 of the 0.308 kg C/kg dry credited.
+- The char's quantity is not supported (the U2 electron balance) and its landfill permanence is not supported, so
+  it is now excluded from the net credit: `att_lca.yaml carbon_storage.credit_char_carbon: false`,
+  `lca._stored_carbon_kgph(sys, include_char)`.
+- Carbonates (CaCO3, entrained Na2CO3) stay credited. The char-inclusive value is reported for comparison only.
+
+Full scale, before → after:
+
+| Item | Before | After |
+|---|---|---|
+| H2 | 2,954 t/yr | 2,954 t/yr |
+| MSP | 4.80 USD/kg | 4.80 USD/kg (PROVISIONAL) |
+| U2 duty | 8.16 MJ/kg dry | 8.16 MJ/kg dry (PROVISIONAL) |
+| Ca(OH)2 | 43.9 kt/yr | 43.9 kt/yr |
+| NaOH recycled / fresh | 30,478 / 9,353 t/yr | 30,478 / 9,353 t/yr |
+| Net GWP | 4.59 | **12.12** kg CO2e/kg H2 |
+| Storage credit in net | −15.21 (char + carbonates) | **−7.69** (carbonates) |
+| GWP, no storage credit | 19.80 | 19.80 |
+| GWP with provisional char credit | — | 4.59 (comparison only) |
+
+Tests: 75 run, 74 pass. The new tests cover flowsheet invariance, the C/O diagnostics and char exclusion; the one
+failure is `test_u2_checks_pass` (U2 H/electron balance), unchanged standard.
+
+Status: **operational, with an unresolved U2 elemental/energy balance**. U2 duty, MSP and GWP are provisional;
+nothing is experimentally validated.
 
 ## Open issues that affect ATT S1
 
@@ -90,14 +153,98 @@ intentionally kept failing. Not run: the `test/run_att_*.py` export scripts and 
    **The U2 heat duty, and the MSP/GWP that depend on it, are therefore not reliable.** Resolving this needs
    data the workbook does not give: char yield and composition, tars, liquid organics, or the carbonate held by
    the ash cations (K, Ca, Mg).
-2. **Char is provisional.** CH0.5O0.1 with Hf from the Channiwala-Parikh correlation and Cp 1 J/g/K. It also
-   drives most of the LCA stored-carbon credit (−15.2 kg CO2e/kg H2) and the ash/char cake disposal cost
-   (0.46 USD/kg H2).
+2. **Char is provisional.** CH0.5O0.1 with Hf from the Channiwala-Parikh correlation and Cp 1 J/g/K. It sets the
+   ash/char cake disposal cost (0.46 USD/kg H2). Its carbon is no longer credited as stored in the net GWP (see
+   "Targeted repair"); with that credit the GWP would be 4.59 instead of 12.12 kg CO2e/kg H2.
 3. **Gas yields are transferred per g daf** from the experimental seaweed (ash 17.2 %) to the presscake
    (ash 32.07 %). The mass basis of the 0.25 g seaweed in the experiment is not stated.
 4. **Capacity is the SaBRe S5 waste-lime scale.** It is not re-derived for ATT S1, whose lime use is
    43.9 kt/yr, well inside the 92.5 kt/yr supply.
 5. **EC1 constants were not re-derived.** `ec1_boiling_point_elevation_K`, `ec1_na2co3_dissolved_fraction` and
-   `naoh_heat_of_solution_kJ_per_kg` were tuned for the S5 liquor; the higher NaOH dose changes the EC1 feed.
+   `naoh_heat_of_solution_kJ_per_kg` were tuned for the S5 liquor. The ATT S1 EC1 state is inside their stated
+   ranges (see "Targeted repair"); the dissolved fraction would scale to about 0.065 (negligible effect).
 6. **Environment.** BioSTEAM 2.53.11 (`.venv`) is used through the `RH` argument of the D0 dryer. SaBRe
    itself does not run in this environment (`DrumDryer(R=...)`).
+
+## U2 elemental-balance investigation (second pass, no model change)
+
+Full table: `outputs/validation/u2_element_balance_att_s1_1kgph.txt` (1 kg/h dry basis).
+- U2 reacts only `ins[0]`. The tail-gas inlet is furnace fuel and is empty without a PSA.
+- C, O, N, S and Na close exactly. H is +40.877 mmol/g daf (+9.7 % of the H fed); that mass, 0.02799 kg/h, is
+  the whole +0.676 % mass error.
+- The electron residual is +40.877 with either convention (C/H/O, or with N as NH3).
+- Water/steam (0 e⁻) and 2 NaOH → Na2CO3 (−2 → −2) are electron-neutral, so neither moisture, steam nor the
+  sodium cycle can explain it.
+- The measured gases use 74.2 % of the feed's reducing power (113.10 of 152.47). The excess comes only from
+  assigning all residual carbon (18.66 mmol/g daf) to char-like CH0.5O0.1 (4.30 e⁻/C, against 2.11 available).
+
+No coding error was found. Closure would need about 51 % of that carbon (9.5 mmol/g daf) in a fully oxidized form
+that is not in the measured gas CO2. Candidates: carbonate of the ash cations, dissolved organic acids (formate
+2 e⁻/C), or an O-rich residue. None is supported by data, so none was implemented.
+
+Measurements needed to close it:
+- solid residue yield with CHNO and total inorganic carbon;
+- dissolved organic/inorganic carbon and its speciation in the residue leachate (D1/F1 liquor);
+- condensable liquids/tar;
+- the run's water balance;
+- CHNO and ash of the experimental seaweed.
+
+Status unchanged: operational; U2 elemental balance unresolved; U2 duty, MSP and GWP PROVISIONAL.
+
+## Lumped residual product: stoichiometrically closed baseline (supersedes the char closure)
+
+**What changed.** The organic carbon not in the measured gases or the carbonate now leaves U2 as a
+**lumped residual product CH0.5O_b**: an ASSUMED stoichiometric surrogate, not measured char.
+- a = 0.5 is assumed (`att.yaml reactor.material_balance.lumped_residue.H_per_C`).
+- b is solved by U2 from its own C/H/O balance: product water closes H, b closes O.
+- It is carried as two basis pseudo-components with the same H/C, `ResidueCH` (CH0.5) and `ResidueCHO`
+  (CH0.5O2). Their sum is the one product.
+- Hf uses the existing Channiwala-Parikh route. It is linear in element mass fractions, so the sum equals the
+  correlation at CH0.5O_b, but O-rich compositions are outside its validation range.
+- Cp 1 J/g/K; solid.
+- Routed with the solids: U2 residue → RC1 → D1 → F1 → ash_residue_cake. This is an assumption; part of such
+  oxidized carbon may be soluble in reality.
+- No revenue, no heating-value credit, and no storage credit
+  (`att_lca.yaml provisional_residue_species`, `credit_char_carbon: false`).
+- `residual_carbon_fate: char | co2` remain selectable.
+
+**Files.**
+- `_chemicals.py`: the two basis species.
+- `units/_att.py`: `close_att_u2_balance` ('lumped' branch, raises if water < 0 or b outside 0-2);
+  `ATTReactor._init`/`_run` (residue bookkeeping and solved formula); `_att_u2_balance_checks`.
+- `data/att.yaml`, `data/att_lca.yaml`.
+- `analyses/att/lca.py` (excluded species), `analyses/att/breakdown.py` (status fields).
+- `systems/_att_system.py`: the chemical-set check only.
+- `test/test_att_s1_parameters.py`.
+
+**ATT S1, U2, per g daf** (`outputs/validation/u2_element_balance_att_s1_1kgph_lumped.txt`):
+- All residuals are 0: C 40.297, H 420.305, O 234.778, N 1.227, S 0.026, Na 40.531. Mass error 3e-9;
+  electron residual ~1e-13. All PASS under the unchanged standards.
+- Solved formula **CH0.5O1.1953** (2.109 available e⁻/C); residual C 18.661 mmol.
+- Lumped residue 0.590 g/g daf (0.401 kg/kg dry).
+- Water 163.43 in → 150.14 out (13.29 mmol consumed).
+- No negative flows anywhere.
+- Gas yields exactly 54.15 / 0.60 / 0.00 / 0.77.
+
+**Full scale.**
+
+| Item | Char closure (H unresolved) | Lumped closure |
+|---|---|---|
+| H2 | 2,954 t/yr | 2,954 t/yr |
+| Fresh NaOH | 9,353 t/yr | 10,263 t/yr |
+| Recycled NaOH | 30,478 t/yr | 29,568 t/yr |
+| Ca(OH)2 | 43.9 kt/yr | 42.6 kt/yr |
+| U2 duty | 8.16 MJ/kg dry | 9.07 MJ/kg dry |
+| MSP | 4.80 USD/kg | 5.22 USD/kg |
+| FCI | 11.35 MUSD | 11.89 MUSD |
+| Net GWP | 12.12 | 14.04 kg CO2e/kg H2 |
+| GWP, no storage credit | 19.80 | 21.73 |
+| GWP with residue credit (comparison only) | 4.59 | 6.52 |
+
+Fresh NaOH rises because the larger ash/residue cake (1.22 kg/kg dry) carries more liquor.
+
+Tests: 75/75 pass, with the standards unchanged.
+
+Status: elementally and materially balanced under the assumed lumped-residue composition. Mass flows follow
+from the measured gases plus that assumption. U2 duty, MSP and GWP are PROVISIONAL: they depend on the
+surrogate's composition, Hf, phase and routing. Nothing is experimentally validated.

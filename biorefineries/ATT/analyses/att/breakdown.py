@@ -252,7 +252,24 @@ def _build(case, spec, sys):
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
+    stored_net = lca.get_att_stored_carbon_credit(sys)                     # credit in the net GWP
+    stored_with_char = lca.get_att_stored_carbon_credit(sys, include_char=True)
+    u2_checks = pd.DataFrame(inv.get_att_u2_balance_checks(sys))
+    u2_fail = bool(u2_checks["status"].dropna().astype(str).str.startswith("FAIL").any())
+    U2 = inv._units(sys)["U2"]
     summary = dict(scenario=spec["label"], lime=spec["lime"], PSA=spec["psa"], NaOH_kg_per_kg_dry=spec["naoh_kg_per_kg_dry"],
+                   U2_balance_status="FAIL (unresolved; see U2_balance_checks)" if u2_fail else "PASS",
+                   results_status=("PROVISIONAL (U2 elemental/energy balance unresolved)" if u2_fail else
+                                   "PROVISIONAL (assumed U2 residual-product composition and thermo)"
+                                   if U2.residual_carbon_fate in ("lumped", "char") else "model result"),
+                   U2_residual_product=(f"{U2.residual_carbon_fate}: CH{U2._residual_product_formula['H']:.4g}"
+                                        f"O{U2._residual_product_formula['O']:.4g}"
+                                        if U2._residual_product_formula else U2.residual_carbon_fate),
+                   U2_heat_duty_MJ_per_kg_dry=float(U2._heat_duty_kJph) / 1e3 / dry,
+                   NaOH_recycled_t_per_yr=float(inv._streams(sys)["naoh_recycle"].imass["NaOH"]) * sys.operating_hours / 1e3,
+                   GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored_net,
+                   GWP_without_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net,
+                   GWP_with_provisional_residue_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net + stored_with_char,
                    description=spec["label"],
                    fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    Ca_OH_2_used_t_per_yr=sum(float(inv._streams(sys)[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime")
@@ -268,4 +285,4 @@ def _build(case, spec, sys):
                    TEA_VOC_plus_FOC_MUSD_per_yr=(t.VOC + t.FOC) / 1e6)
     return dict(summary=summary, MSP_by_group=msp_group, MSP_by_type=msp_type, CAPEX_by_equipment=capex_equipment,
                 CAPEX_by_area=capex_area, OPEX_by_group=opex, GWP_by_contributor=gwp_item, GWP_by_stage=gwp_stage,
-                U2_balance_checks=pd.DataFrame(inv.get_att_u2_balance_checks(sys)))
+                U2_balance_checks=u2_checks)

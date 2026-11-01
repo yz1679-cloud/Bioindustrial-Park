@@ -114,12 +114,27 @@ def _landfill_kgph(sys):
     return sum(float(s[ID].F_mass) for ID in _LCA["waste_management"]["landfill_streams"] if ID in products)
 
 
-def _stored_carbon_kgph(sys):
-    """Carbon (kg C/h) leaving in landfilled solids; carbonate and char are taken as permanently stored."""
+def _stored_carbon_kgph(sys, include_char=None):
+    """
+    Carbon (kg C/h) leaving in landfilled solids, taken as permanently stored. The carbon of the provisional U2
+    residual product (Char or the lumped-residue species, att_lca.yaml provisional_residue_species) counts only with
+    ``include_char`` (default: att_lca.yaml carbon_storage.credit_char_carbon).
+    """
+    if include_char is None:
+        include_char = bool(_LCA["carbon_storage"].get("credit_char_carbon", True))
     s = inv._streams(sys)
     products = {p.ID for p in sys.products}
-    return sum(float(s[ID].get_atomic_flow("C")) * 12.011
-               for ID in _LCA["waste_management"]["landfill_streams"] if ID in products)
+    stored = 0.0
+    for ID in _LCA["waste_management"]["landfill_streams"]:
+        if ID not in products:
+            continue
+        C = float(s[ID].get_atomic_flow("C"))
+        if not include_char:
+            for res in _LCA["carbon_storage"].get("provisional_residue_species", ("Char",)):
+                if res in s[ID].chemicals:
+                    C -= float(s[ID].imol[res]) * s[ID].chemicals[res].atoms.get("C", 0.0)
+        stored += C * 12.011
+    return stored
 
 
 def _cooling_water_kWh_per_kg():
@@ -293,11 +308,14 @@ def get_att_gwp_contributions(sys, applied):
 AVOIDED_CH4_ITEM = "Avoided CH4 if rotted on the beach (extra credit, not in net)"
 
 
-def get_att_stored_carbon_credit(sys):
-    """Stored-carbon credit in the net GWP [kg CO2e per kg H2; negative], 0 if switched off."""
+def get_att_stored_carbon_credit(sys, include_char=None):
+    """
+    Stored-carbon credit [kg CO2e per kg H2; negative], 0 if switched off. ``include_char=None`` gives the credit in
+    the net GWP (att_lca.yaml credit_char_carbon); True adds the provisional U2 residual product (char or lumped residue).
+    """
     on = _LCA["carbon_storage"]["credit_stored_carbon"]
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
-    return -(_stored_carbon_kgph(sys) * 44.0095 / 12.011 / h2) if on else 0.0
+    return -(_stored_carbon_kgph(sys, include_char) * 44.0095 / 12.011 / h2) if on else 0.0
 
 
 def get_att_avoided_emission(sys):
@@ -412,9 +430,11 @@ def get_att_gwp_summary(sys, applied):
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
          "credited as stored carbon when the cake is landfilled (a product); not when it is recycled to the kiln"),
         ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
-         "credited as stored carbon; degradation of the char not quantified"),
+         "char carbon credited only if credit_char_carbon (provisional U2 residual product: char or lumped residue; not measured)"),
         ("Stored-carbon credit in the net GWP", get_att_stored_carbon_credit(sys), "kg CO2e/kg H2",
-         "landfilled carbonate and char, permanence assumed"),
+         "landfilled carbonates (and the U2 residual product if credit_char_carbon), permanence assumed"),
+        ("Stored-carbon credit incl. provisional U2 residual product (comparison only)", get_att_stored_carbon_credit(sys, True),
+         "kg CO2e/kg H2", "assumption-based; not in the net GWP unless credit_char_carbon"),
         ("CH4 in U2 gas (specified)", ch4_reported, "kg/kg dry", "experimental team yield, burned in the U2 burner"),
         ("CO in U2 gas (specified)",
          float(U2.reported_gas_yield_mmol_per_g_daf["CO"]) * daf * 28.0101 / 1e3 / dry, "kg/kg dry",

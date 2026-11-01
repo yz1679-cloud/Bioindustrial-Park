@@ -113,7 +113,15 @@ lca:
   # in the note, never in the net.
   carbon_storage:
     credit_stored_carbon: true
-    note: "Net GWP counts the biogenic carbon stored in landfilled solids as a negative emission."
+    # ATT Scenario 1 (2026-10-31): the U2 char is the PROVISIONAL bookkeeping sink of the organic carbon that is not
+    # in the measured gases or the carbonate; neither its amount (the U2 H/electron balance fails with it) nor its
+    # permanence in a landfill is supported by data. Its carbon is therefore NOT credited in the baseline net GWP;
+    # the char-inclusive credit is reported separately (lca.get_att_stored_carbon_credit(sys, include_char=True)).
+    credit_char_carbon: false
+    # U2 residual-product species covered by credit_char_carbon: the char and the basis species of the lumped
+    # residual product (att.yaml reactor.material_balance; a stoichiometric surrogate, never credited by default).
+    provisional_residue_species: [Char, ResidueCH, ResidueCHO]
+    note: "Net GWP counts the biogenic carbon stored in landfilled solids (carbonates; char only if credit_char_carbon) as a negative emission."
 
   # AVOIDED EMISSION IF THE SARGASSUM WOULD ROT ON THE BEACH (user request 2026-10-17). Reported as a note, not in the
   # net. Total avoided = (a) the carbon the plant stores, already credited in the net as CO2 (carbon_storage above),

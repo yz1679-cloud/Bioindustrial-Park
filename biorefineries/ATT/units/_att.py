@@ -512,41 +512,64 @@ class ATTPress(bst.Unit):
 
 
 def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, char_atoms=None,
-                         residual_carbon_fate="co2"):
+                         residual_carbon_fate="co2", lumped_atoms=None, char_ID="Char"):
     """
     Specified-yield U2 closure: the gas yields are inputs and are never
     changed. Carbon that is not in the specified gases or the carbonate (the
     residual carbon) leaves as
 
-    * ``residual_carbon_fate='char'`` (ATT Scenario 1, PROVISIONAL): the solid
-      char (``char_atoms``, CH0.5O0.1), so the gas keeps the measured CO2;
-    * ``residual_carbon_fate='co2'`` (SaBRe closure): extra gas CO2.
+    * ``residual_carbon_fate='lumped'`` (ATT Scenario 1): the lumped residual
+      product CH_aO_b, a stoichiometric surrogate (not measured char). a is the
+      H/C of the two basis species in ``lumped_atoms`` ({ID: atoms}, end members
+      b = 0 and b = 2); the product water closes H and b closes O, so C, H and O
+      (and with them mass and electrons) all balance. Requires water >= 0 and
+      0 <= b <= 2, otherwise it raises (nothing is forced);
+    * ``residual_carbon_fate='char'`` (PROVISIONAL): the solid char
+      (``char_atoms``, CH0.5O0.1); water closes O and H is left unresolved;
+    * ``residual_carbon_fate='co2'`` (SaBRe closure): extra gas CO2; water
+      closes O and H is left unresolved.
 
-    The product water closes the oxygen balance (including the O of the
-    char or of the extra CO2). Hydrogen is NOT solved: the difference
-    between the hydrogen of the identified products and of the feed is left
-    as a residual and reported by the reactor (negative: H in unidentified
-    products such as NH3, H2S, tars; positive: the identified products hold
-    more H than the feed, an unresolved balance). A carbon deficit is
-    likewise left as an unresolved C residual instead of inventing carbon.
+    For 'char' and 'co2' the hydrogen difference between the identified
+    products and the feed is reported by the reactor (negative: H in
+    unidentified products such as NH3, H2S, tars; positive: the identified
+    products hold more H than the feed, an unresolved balance). A carbon
+    deficit is left as an unresolved C residual instead of inventing carbon.
 
-    Returns (gas kmol/h by species, char kmol/h, product water kmol/h,
-    scale factor 1.0).
+    Returns (gas kmol/h by species, residual product kmol/h by species, product
+    water kmol/h, scale factor 1.0).
     """
     if method != "specified_yields":
         raise ValueError(f"Unsupported gas_closure_method '{method}'.")
-    if residual_carbon_fate not in ("char", "co2"):
-        raise ValueError(f"residual_carbon_fate must be 'char' or 'co2', not {residual_carbon_fate!r}.")
+    if residual_carbon_fate not in ("lumped", "char", "co2"):
+        raise ValueError(f"residual_carbon_fate must be 'lumped', 'char' or 'co2', not {residual_carbon_fate!r}.")
     gas = dict(specified_gas_kmolph)
     fixed = dict(fixed_atoms)
     for ID, kmolph in gas.items():
         for element, n in species_atoms[ID].items():
             fixed[element] = fixed.get(element, 0.0) + n * kmolph
     remaining_C = feed_atoms.get("C", 0.0) - fixed.get("C", 0.0)
-    char_kmolph = 0.0
+    residue_kmolph = {}
+    if remaining_C > 0.0 and residual_carbon_fate == "lumped":
+        (ID0, atoms0), (ID2, atoms2) = sorted(lumped_atoms.items(), key=lambda kv: kv[1].get("O", 0.0))
+        a = atoms0.get("H", 0.0) / atoms0["C"]
+        if abs(atoms2.get("H", 0.0) / atoms2["C"] - a) > 1e-12 or atoms0.get("O", 0.0) != 0.0:
+            raise ValueError("lumped_atoms must be two CH_a end members with b = 0 and b > 0 at the same H/C.")
+        b_max = atoms2["O"] / atoms2["C"]
+        water_kmolph = (feed_atoms.get("H", 0.0) - fixed.get("H", 0.0) - a * remaining_C) / 2.0
+        b = (feed_atoms.get("O", 0.0) - fixed.get("O", 0.0) - water_kmolph) / remaining_C
+        if water_kmolph < 0.0 or not 0.0 <= b <= b_max:
+            raise RuntimeError(
+                f"Lumped residual closure infeasible: product water {water_kmolph:.6g} kmol/h, "
+                f"O/C of the residue {b:.6g} (allowed 0-{b_max:g}); nothing is forced."
+            )
+        x2 = b / b_max * remaining_C / atoms2["C"]
+        x0 = (remaining_C - x2 * atoms2["C"]) / atoms0["C"]
+        residue_kmolph = {ID0: x0, ID2: x2}
+        return gas, residue_kmolph, water_kmolph, 1.0
     if remaining_C > 0.0:
         if residual_carbon_fate == "char":
             char_kmolph = remaining_C / char_atoms["C"]
+            residue_kmolph = {char_ID: char_kmolph}
             for element, n in char_atoms.items():
                 fixed[element] = fixed.get(element, 0.0) + n * char_kmolph
         else:
@@ -559,7 +582,7 @@ def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, 
             f"The specified gas slate cannot be produced from this feed: the oxygen balance "
             f"gives product water {water_kmolph:.6g} kmol/h."
         )
-    return gas, char_kmolph, water_kmolph, 1.0
+    return gas, residue_kmolph, water_kmolph, 1.0
 
 
 class ATTReactor(bst.Unit):
@@ -680,6 +703,9 @@ class ATTReactor(bst.Unit):
             )
         self.char_ID = str(balance["char_species"])
         self.residual_carbon_fate = str(balance.get("residual_carbon_fate", "co2"))
+        # Basis species of the lumped residual product (residual_carbon_fate = 'lumped').
+        self.lumped_residue_IDs = tuple(balance.get("lumped_residue", {}).get("species", ()))
+        self.lumped_residue_H_per_C = float(balance.get("lumped_residue", {}).get("H_per_C", float("nan")))
         self.hydrogen_excess_action = str(balance.get("hydrogen_excess_action", "raise"))
         if self.hydrogen_excess_action not in ("raise", "report"):
             raise ValueError("hydrogen_excess_action must be 'raise' or 'report'.")
@@ -828,23 +854,41 @@ class ATTReactor(bst.Unit):
         }
 
         # ----------------------------------------------------------
-        # 3. Close C and H with the specified gases, char (C) and water (H);
-        #    O is checked below, not solved.
+        # 3. Close C with the specified gases, the carbonate and the
+        #    residual product (lumped CH_aO_b, char or extra CO2); water
+        #    closes O (and, for the lumped product, b closes O while water
+        #    closes H). The specified gases are never changed.
         # ----------------------------------------------------------
         fixed_atoms = atoms_of(flows_of(residue))
         char_atoms = chemicals[self.char_ID].atoms
         species_atoms = {ID: chemicals[ID].atoms for ID in measured_gas_kmolph}
-        model_gas_kmolph, char_kmolph, water_kmolph, scale = close_att_u2_balance(
+        lumped_atoms = {ID: chemicals[ID].atoms for ID in self.lumped_residue_IDs}
+        if self.residual_carbon_fate == "lumped":
+            for ID, a in lumped_atoms.items():
+                if abs(a.get("H", 0.0) / a["C"] - self.lumped_residue_H_per_C) > 1e-12:
+                    raise ValueError(f"{ID} has H/C {a.get('H', 0.0) / a['C']}, not lumped_residue.H_per_C "
+                                     f"{self.lumped_residue_H_per_C} (att.yaml).")
+        model_gas_kmolph, residue_kmolph, water_kmolph, scale = close_att_u2_balance(
             self.gas_closure_method, feed_atoms, fixed_atoms,
             measured_gas_kmolph, species_atoms, char_atoms,
-            residual_carbon_fate=self.residual_carbon_fate,
+            residual_carbon_fate=self.residual_carbon_fate, lumped_atoms=lumped_atoms, char_ID=self.char_ID,
         )
         gas_atoms = atoms_of(model_gas_kmolph)
 
         for ID, kmolph in model_gas_kmolph.items():
             gas.imol[ID] = kmolph
         gas.imol["Water"] = water_kmolph
-        residue.imol[self.char_ID] = char_kmolph
+        for ID, kmolph in residue_kmolph.items():
+            residue.imol[ID] = kmolph
+        self._residual_product_IDs = tuple(residue_kmolph)
+        residual_C = sum(kmolph * chemicals[ID].atoms["C"] for ID, kmolph in residue_kmolph.items())
+        residual_O = sum(kmolph * chemicals[ID].atoms.get("O", 0.0) for ID, kmolph in residue_kmolph.items())
+        residual_H = sum(kmolph * chemicals[ID].atoms.get("H", 0.0) for ID, kmolph in residue_kmolph.items())
+        self._residual_carbon_kmolph = residual_C
+        # Lumped formula CH_aO_b of the residual product (per C), as solved.
+        self._residual_product_formula = ({"C": 1.0, "H": residual_H / residual_C, "O": residual_O / residual_C}
+                                          if residual_C > 0.0 else {})
+        char_kmolph = residual_C   # residual carbon [kmol C/h], for the reports below
 
         # ----------------------------------------------------------
         # 4. Verification and reporting.
@@ -892,7 +936,7 @@ class ATTReactor(bst.Unit):
                 bad[e] = v
         if self._hydrogen_excess_kmolph:
             from warnings import warn
-            warn(f"U2: UNRESOLVED balance: the identified products (measured gases, char, water) hold "
+            warn(f"U2: UNRESOLVED balance: the identified products (measured gases, residual product, water) hold "
                  f"{self._hydrogen_excess_kmolph * 1e3 / daf_sargassum_kgph:.2f} mmol H/g daf more hydrogen "
                  f"than the feed (residual_carbon_fate={self.residual_carbon_fate!r}); reported in "
                  f"balance_checks(), not corrected.", RuntimeWarning, stacklevel=2)
@@ -914,7 +958,7 @@ class ATTReactor(bst.Unit):
         measured_gas_electrons = available_electrons(atoms_of(measured_gas_kmolph))
         char_solid_atoms = atoms_of(
             {ID: float(residue.imol[ID])
-             for ID in (self.char_ID, *self.heteroatom_IDs.values())}
+             for ID in (*self._residual_product_IDs, *self.heteroatom_IDs.values())}
         )
 
         self._organic_atoms_kmolph = organic_atoms
@@ -932,12 +976,13 @@ class ATTReactor(bst.Unit):
             "model_gases": available_electrons(gas_atoms),
             "char": available_electrons(char_solid_atoms),
         }
+        # Residual product (lumped residue or char) plus the N/S residue.
         self._char_kgph = sum(
             float(residue.imass[ID])
-            for ID in (self.char_ID, *self.heteroatom_IDs.values())
+            for ID in (*self._residual_product_IDs, *self.heteroatom_IDs.values())
         )
         self._char_carbon_fraction_of_feed_organic_C = (
-            char_kmolph * char_atoms.get("C", 0.0) / organic_atoms["C"]
+            residual_C / organic_atoms["C"]
         )
         self._product_water_kgph = float(gas.imass["Water"])
         self._net_water_formation_kmolph = (
@@ -1350,6 +1395,9 @@ def _att_u2_balance_checks(self):
         gases and residue; overall mass; and energy: the chemical energy of
         the product gases (HHV) must not exceed the feed HHV plus the
         process heat.
+    (iii) diagnostics: C/H/O residuals, the electrons per residual-carbon
+        atom that would close the balance, and the U2 duty, labeled
+        PROVISIONAL while the elemental balance is unresolved.
     """
     daf = self._daf_sargassum_kgph
     gas, residue = self.outs
@@ -1363,15 +1411,37 @@ def _att_u2_balance_checks(self):
     atoms = self._organic_atoms_kmolph
     e_feed = 4.0 * atoms.get("C", 0.0) + atoms.get("H", 0.0) - 2.0 * atoms.get("O", 0.0)   # C/H/O only
     e_out = sum(float(gas.imol[ID]) * v for ID, v in (("H2", 2.0), ("CH4", 8.0), ("CO", 2.0)))
-    char_atoms = chemicals[self.char_ID].atoms
-    e_char = float(residue.imol[self.char_ID]) * (4.0 * char_atoms.get("C", 0.0) + char_atoms.get("H", 0.0)
-                                                  - 2.0 * char_atoms.get("O", 0.0))
+    # Residual product: the lumped CH_aO_b surrogate (its basis species) or the char.
+    res_IDs = getattr(self, "_residual_product_IDs", ())
+
+    def e_of(a):
+        return 4.0 * a.get("C", 0.0) + a.get("H", 0.0) - 2.0 * a.get("O", 0.0)
+
+    e_char = sum(float(residue.imol[ID]) * e_of(chemicals[ID].atoms) for ID in res_IDs)
+    res_kg = sum(float(residue.imass[ID]) for ID in res_IDs)
+    formula = getattr(self, "_residual_product_formula", {})
+    formula_txt = (f"CH{formula['H']:.4g}O{formula['O']:.4g}" if formula else "none")
     h_residual = self._unresolved_element_kmolph.get("H", 0.0)   # outlet - inlet [kmol H/h]
     h2 = chemicals["H2"]
     gas_HHV_kJph = sum(float(gas.imol[ID]) * chemicals[ID].HHV for ID in ("H2", "CH4", "CO"))
     feed_HHV_kJph = self.feed_HHV_MJ_per_kg_daf * 1e3 * daf
     heat_kJph = getattr(self, "_heat_duty_kJph", float("nan"))
     ratio = gas_HHV_kJph / (feed_HHV_kJph + max(heat_kJph, 0.0)) if feed_HHV_kJph > 0 else float("nan")
+    # Diagnostics (ATT Scenario 1): elemental residuals with the standards _run applies (C within 2 % of the
+    # organic C; O closed by the product water to round-off; H: no excess beyond 0.5 % of the organic H), the
+    # available electrons per residual-carbon atom that would close the balance against those the residual
+    # product carries, and the chemical energy of all fuel-like products (gases + residual product).
+    errors = self._atomic_balance_errors_kmolph
+    tolerance = 1e-9 * max(1.0, max(map(abs, self._organic_atoms_kmolph.values())))
+    c_res, o_res = errors.get("C", 0.0), errors.get("O", 0.0)
+    n_char_C = sum(float(residue.imol[ID]) * chemicals[ID].atoms["C"] for ID in res_IDs)
+    e_per_C_needed = (e_feed - e_out) / n_char_C if n_char_C > 0.0 else float("nan")
+    e_per_C_char = e_char / n_char_C if n_char_C > 0.0 else float("nan")
+    char_HHV_kJph = sum(float(residue.imol[ID]) * chemicals[ID].HHV for ID in res_IDs)
+    surrogate = self.residual_carbon_fate in ("lumped", "char")
+    ratio_all = ((gas_HHV_kJph + char_HHV_kJph) / (feed_HHV_kJph + max(heat_kJph, 0.0))
+                 if feed_HHV_kJph > 0 else float("nan"))
+    unresolved = bool(getattr(self, "_hydrogen_excess_kmolph", 0.0))
     rows = [
         dict(check="NaOH available for CO2 capture [mmol/g daf]", value=naoh_available * 1e3 / daf, unit="mmol/g daf"),
         dict(check="NaOH needed to capture all CO2 generated [mmol/g daf]", value=naoh_required * 1e3 / daf, unit="mmol/g daf"),
@@ -1382,21 +1452,40 @@ def _att_u2_balance_checks(self):
              status="PASS" if e_out <= 1.01 * e_feed else "FAIL"),
         dict(check="Reducing power left to unidentified products / feed", value=(e_feed - e_out) / e_feed, unit="-"),
         dict(check="Residual carbon fate (closure)", value=float("nan"), unit=self.residual_carbon_fate,
-             status="PROVISIONAL" if self.residual_carbon_fate == "char" else None),
-        dict(check="Char (residual carbon) [g/g daf]", value=float(residue.imass[self.char_ID]) / daf, unit="g/g daf"),
-        dict(check="Char carbon / feed organic carbon", value=float(residue.imol[self.char_ID]) * char_atoms.get("C", 0.0)
-             / atoms["C"] if atoms.get("C") else float("nan"), unit="-"),
-        dict(check="Electrons: identified gases + char [mmol/g daf]", value=(e_out + e_char) * 1e3 / daf,
+             status="PROVISIONAL" if surrogate else None),
+        dict(check="Residual product formula per C (assumed surrogate, not measured)", value=formula.get("O", float("nan")),
+             unit=formula_txt, status="ASSUMED" if surrogate else None),
+        dict(check="Residual product [g/g daf]", value=res_kg / daf, unit="g/g daf"),
+        dict(check="Residual product carbon / feed organic carbon", value=n_char_C / atoms["C"] if atoms.get("C") else float("nan"),
+             unit="-"),
+        dict(check="Electrons: identified gases + residual product [mmol/g daf]", value=(e_out + e_char) * 1e3 / daf,
              unit="mmol e-/g daf", status="PASS" if e_out + e_char <= 1.01 * e_feed else "FAIL"),
         dict(check="H residual, identified products - feed (+ = excess, unresolved) [mmol H/g daf]",
              value=h_residual * 1e3 / daf, unit="mmol H/g daf",
              status="FAIL (unresolved H excess)" if getattr(self, "_hydrogen_excess_kmolph", 0.0) else "PASS"),
         dict(check="H residual as H2 HHV (energy not backed by the feed) [kJ/g daf]",
              value=0.5 * h_residual * h2.HHV / daf / 1e3, unit="kJ/g daf"),
+        dict(check="H residual as H2 LHV (energy not backed by the feed) [kJ/g daf]",
+             value=0.5 * h_residual * h2.LHV / daf / 1e3, unit="kJ/g daf"),
+        dict(check="Elemental residual C, products - feed [mmol C/g daf]", value=c_res * 1e3 / daf, unit="mmol C/g daf",
+             status="PASS" if abs(c_res) <= 0.02 * atoms.get("C", 0.0) else "FAIL"),
+        dict(check="Elemental residual O, products - feed [mmol O/g daf]", value=o_res * 1e3 / daf, unit="mmol O/g daf",
+             status="PASS" if abs(o_res) <= tolerance else "FAIL"),
+        dict(check="Electron residual, gases + residual product - feed organics [mmol e-/g daf]",
+             value=(e_out + e_char - e_feed) * 1e3 / daf, unit="mmol e-/g daf",
+             status="PASS" if e_out + e_char <= 1.01 * e_feed else "FAIL"),
+        dict(check="Available electrons per residual-C atom needed for closure (residual product value in unit)",
+             value=e_per_C_needed, unit=f"e-/C (residual product {e_per_C_char:.4g})",
+             status="PASS" if n_char_C == 0.0 or e_per_C_needed >= e_per_C_char - 1e-9 else "FAIL (residual C must be more oxidized than the residual product)"),
         dict(check="Mass balance error / inlet", value=self._mass_balance_error_fraction, unit="-",
              status="PASS" if abs(self._mass_balance_error_fraction) <= 5e-3 else "FAIL"),
         dict(check="Product gas HHV / (feed HHV + process heat)", value=ratio, unit="-",
              status="PASS" if ratio == ratio and ratio <= 1.0 else "FAIL"),
+        dict(check="Product gas + residual product HHV / (feed HHV + process heat)", value=ratio_all, unit="-",
+             status="PASS" if ratio_all == ratio_all and ratio_all <= 1.0 else "FAIL"),
+        dict(check="U2 process heat duty [MJ/kg dry]", value=heat_kJph / 1e3 / self._dry_sargassum_kgph, unit="MJ/kg dry",
+             status=("PROVISIONAL (elemental balance unresolved)" if unresolved else
+                     "PROVISIONAL (assumed residual-product composition and thermo)" if surrogate else "PASS")),
     ]
     return rows
 
