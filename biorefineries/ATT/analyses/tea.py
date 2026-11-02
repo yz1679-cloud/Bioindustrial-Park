@@ -184,7 +184,7 @@ def _biosteam_screwpress(sys):
     units = inv._units(sys)
     if "P1" not in units:
         return None
-    from biorefineries.ATT.systems._att_system import get_att_press_retention
+    from biorefineries.ATT.system import get_att_press_retention
 
     P1 = units["P1"]
     with inv._scratch_flowsheet():

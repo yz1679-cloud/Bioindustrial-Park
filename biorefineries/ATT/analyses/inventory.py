@@ -128,7 +128,7 @@ def get_att_reference_scale(configuration="presscake"):
     scenarios use their own capacity (scenarios.scale). Only the operating-hour keys
     are shared with them.
     """
-    from biorefineries.ATT.systems._att_system import get_att_reference_dry_feed_kgph
+    from biorefineries.ATT.system import get_att_reference_dry_feed_kgph
 
     feed_type = _ATT["feed_preparation"]["feedstock_type" if configuration == "fresh_sargassum"
                                          else "presscake_feedstock_type"]
@@ -1101,7 +1101,7 @@ def build_att_inventory_tables():
     "reference_scale" column and basis names are kept for compatibility and mean the ATT S1 capacity.
     """
     from biorefineries.ATT.analyses import scenarios as scen     # scenarios imports this module
-    from biorefineries.ATT.systems._att_system import create_att_system
+    from biorefineries.ATT.system import create_att_system
 
     small = _simulate(create_att_system(dry_sargassum_kgph=1.0), 1.0)
     flows_s = get_att_external_flows(small)

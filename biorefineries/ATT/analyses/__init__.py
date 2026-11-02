@@ -10,7 +10,7 @@
 ATT (alkaline thermal treatment) analyses: library modules and the run scripts (att_*.py).
 
 Submodules are imported explicitly (nothing is imported here, so that
-systems/_att_system.py and units/_att.py can use the process-level helpers
+system.py and units/_att.py can use the process-level helpers
 without loading the reporting stack):
 
 Process-level helpers (called by the model itself)

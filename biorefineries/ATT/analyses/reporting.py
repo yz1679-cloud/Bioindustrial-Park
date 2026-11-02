@@ -144,7 +144,7 @@ def _register_rows():
         "ATT reactor temperature", EXP, "Workbook 'Experimental results' footnote (500 C)",
         "att.yaml:att.reactor.target_temperature_K", "Experimental condition")
     add("ATT reaction", "U2 pressure", 101325.0, "Pa", "U2", "Atmospheric", ENG, NV,
-        "biorefineries/ATT/systems/_att_system.py (P=101325)", "Specified in code")
+        "biorefineries/ATT/system.py (P=101325)", "Specified in code")
     add("ATT reaction", "Residence time (cost estimate only)", Y("att.yaml", "att.inventory.cost_estimates.U2_vessel.tau_h"),
         "h", "U2", "Vessel sizing for TEA", EXP, "Workbook footnote '1 h hold'",
         "att.yaml:att.inventory.cost_estimates.U2_vessel.tau_h", "Experimental hold time used for sizing",
@@ -523,7 +523,7 @@ def _crystallization_audit(sys):
 
     # Verification of the per-1-kg/h-dry values and the method.
     S = "5 Verification"
-    from biorefineries.ATT.systems._att_system import create_att_system
+    from biorefineries.ATT.system import create_att_system
     small = inv._simulate(create_att_system(dry_sargassum_kgph=1.0), 1.0)
     v = (eo_sol - e_sol) / dry
     v_small = inv._units(small)["EC1"]._na2co3_crystals_kgph
@@ -889,7 +889,7 @@ def _overview(sys, result, gwp_total, spec=scen.ATT_S1):
              note="Documentation package; no model changes"),
         dict(item="Model", value=f"{tea_mod._configuration(sys)} case, U2 with specified gas yields "
                                  "(experimental team Excel); checks on NaOH capacity, electrons, mass, energy",
-             note="biorefineries/ATT/systems/_att_system.py, units/_att.py"),
+             note="biorefineries/ATT/system.py, units/_att.py"),
         dict(item="Scenario", value=spec["label"], note="analyses/scenarios.py (att.yaml att.scenarios)"),
         dict(item="Simulation scale", value=scale["dry_feed_kgph"], note=f"kg/h dry ({scale['basis']})"),
         dict(item="Operating hours", value=sys.operating_hours, note="330 d x 24 h (tea.yaml)"),
@@ -1135,7 +1135,7 @@ traceability only: no model, LCA or TEA parameter is changed.
 
 ## Modeling framework
 
-- **Process model (frozen):** `biorefineries/ATT/systems/_att_system.py` builds the
+- **Process model (frozen):** `biorefineries/ATT/system.py` builds the
   BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3K (no PSA in the baseline; att.yaml gas_treatment.psa_enabled) / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
   with custom units in `biorefineries/ATT/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/ATT/data/att.yaml`.

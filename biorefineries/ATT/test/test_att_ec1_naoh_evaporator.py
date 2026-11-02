@@ -4,7 +4,7 @@ import warnings
 
 import biosteam as bst
 
-from biorefineries.ATT.systems._att_system import create_att_system
+from biorefineries.ATT.system import create_att_system
 from biorefineries.ATT.utils import load_assumptions
 from biorefineries.ATT.units._att import NaOHEvaporator, aqueous_naoh_enthalpy_correction_kJph
 

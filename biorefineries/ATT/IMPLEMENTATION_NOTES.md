@@ -10,7 +10,7 @@ and after the work, and the two hash lists match.
 |---|---|
 | `data/att.yaml` | **Authoritative ATT configuration**: `att.scenarios.att_s1` (flowsheet switches, capacity), `reactor.cases.Ni-CatATT_1to1` (gas yields, NaOH dose), `reactor.material_balance` (carbon closure), `downstream` (C1 0.88) |
 | `data/feedstock.yaml`, `tea.yaml`, `att_tea.yaml`, `att_lca.yaml` | Copies of the SaBRe files (unchanged) |
-| `units/_att.py`, `systems/_att_system.py` | Process units and flowsheet |
+| `units/_att.py`, `system.py` | Process units and flowsheet |
 | `analyses/scenarios.py` | `ATT_S1`, `ATT_S2`, `create()`, `scale()`, `tea_config()`, `lca_overrides()` (single source of the scenario assumptions); no run-time parameter patching |
 | `analyses/{breakdown,tea,lca,inventory,...}.py` | TEA/LCA/inventory (SaBRe method) |
 | `test/` | `test_att_s1_parameters.py` (new) and the adapted SaBRe tests |
@@ -24,14 +24,14 @@ test `test_no_sabre_import` checks this.
 
 | Item | SaBRe S5 | ATT S1 | Where |
 |---|---|---|---|
-| Gross NaOH | 1.0 kg/kg **daf** (0.6793 kg/kg dry) | **1.0 kg/kg dry**: the sum of the feedstock solids leaving D0 (`_SARGASSUM_DRY_IDS`); fresh NaOH = gross − recycled | `att.yaml` `naoh_kg_per_kg_dry`; `_att_system.py` `required_gross_naoh_kgph`, recycle seed |
+| Gross NaOH | 1.0 kg/kg **daf** (0.6793 kg/kg dry) | **1.0 kg/kg dry**: the sum of the feedstock solids leaving D0 (`_SARGASSUM_DRY_IDS`); fresh NaOH = gross − recycled | `att.yaml` `naoh_kg_per_kg_dry`; `system.py` `required_gross_naoh_kgph`, recycle seed |
 | Gas yields (mmol/g daf) | H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 (team slides) | **54.15 / 0.60 / 0.00 / 0.77** (workbook 261023, Ni-CatATT 1:1); still multiplied by the U2 daf flow | `att.yaml` `gas_yield_mmol_per_g_daf` |
 | CO2 override | `scenarios.dose()` rewrote CO2 to 22.68 | removed; `att.yaml` is the only source | `analyses/scenarios.py` |
 | Residual organic carbon | extra gas CO2 (+2.24 mmol/g daf) | **solid `Char`** (CH0.5O0.1), PROVISIONAL; switch `residual_carbon_fate: char\|co2` | `units/_att.py` `close_att_u2_balance` |
 | H excess of the products | `RuntimeError` | `hydrogen_excess_action: report`: the run is kept, a warning is raised, and `balance_checks()` reports FAIL. No product is added or removed | `units/_att.py` |
 | C1 conversion | 0.85 | **0.88**; guard `conversion <= lime_equiv` | `att.yaml`; `CausticizationReactor` |
 | Capacity | run time: the dry feed at which SaBRe S4 uses the 92.47 kt/yr waste lime | **fixed at 5029.17 kg dry/h** (the same value, computed once on the unmodified S5 copy); SaBRe S4 is not built | `att.yaml` `scenarios.att_s1.dry_feed_kgph` |
-| D0 dryer | `DrumDryer(R=...)` (fails on BioSTEAM 2.53) | `DrumDryer(RH=0.8)`, the same air sizing in the installed API | `_att_system.py` |
+| D0 dryer | `DrumDryer(R=...)` (fails on BioSTEAM 2.53) | `DrumDryer(RH=0.8)`, the same air sizing in the installed API | `system.py` |
 | Defaults | PSA on, scrubber off | `psa_enabled: false`, `co2_scrubber.enabled: true` (= ATT S1) | `att.yaml` |
 | LCA contributions | the Ca(OH)2 line omitted `scrubber_lime` (latent SaBRe bug; zero effect with waste lime) | both lime streams counted | `analyses/lca.py` |
 | Outputs | `<repo>/results/` | `biorefineries/ATT/results/` | `analyses/paths.py` |
@@ -213,7 +213,7 @@ Status unchanged: operational; U2 elemental balance unresolved; U2 duty, MSP and
   `ATTReactor._init`/`_run` (residue bookkeeping and solved formula); `_att_u2_balance_checks`.
 - `data/att.yaml`, `data/att_lca.yaml`.
 - `analyses/lca.py` (excluded species), `analyses/breakdown.py` (status fields).
-- `systems/_att_system.py`: the chemical-set check only.
+- `system.py`: the chemical-set check only.
 - `test/test_att_s1_parameters.py`.
 
 **ATT S1, U2, per g daf** (`results/validation/u2_element_balance_att_s1_1kgph_lumped.txt`):

@@ -12,7 +12,7 @@ import unittest
 class TestC1HeatUtility(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from biorefineries.ATT.systems._att_system import create_att_system
+        from biorefineries.ATT.system import create_att_system
 
         cls.sys = create_att_system(dry_sargassum_kgph=1.0)
         cls.sys.set_tolerance(

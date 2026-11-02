@@ -25,7 +25,7 @@ capacity (``create``, ``scale``), the TEA lime and CaCO3-sales keywords (``tea_c
 only; it is never an ATT scenario.
 """
 from biorefineries.ATT.analyses import inventory as inv
-from biorefineries.ATT.systems import _att_system
+from biorefineries.ATT import system as att_system
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = ("ATT_S1", "ATT_S2", "SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS",
@@ -66,7 +66,7 @@ def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None):
     configuration = spec["configuration"]
     ref = inv.get_att_reference_scale(configuration)
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
-    system = inv._simulate(_att_system.create_att_system(
+    system = inv._simulate(att_system.create_att_system(
         dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
         lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec["scrubber"],
         f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio), dry_kgph)
@@ -122,7 +122,7 @@ def create_legacy_reference(configuration="presscake", lime_recycle=None):
     carries no scenario lime or CaCO3-sales assumption; do not report its results as ATT S1.
     """
     ref = inv.get_att_reference_scale(configuration)
-    system = inv._simulate(_att_system.create_att_system(
+    system = inv._simulate(att_system.create_att_system(
         dry_sargassum_kgph=ref["dry_feed_kgph"], configuration=configuration, lime_recycle=lime_recycle),
         ref["dry_feed_kgph"])
     system.operating_hours = ref["operating_hours_per_year"]

@@ -57,7 +57,7 @@ _MW = {"H2": 2.01588, "CH4": 16.04246, "CO": 28.0101, "CO2": 44.0095, "NaOH": 39
 
 def simulate_att_1kgph(dry_kgph=1.0):
     """Frozen model at the given dry feed; returns (system, captured warnings)."""
-    from biorefineries.ATT.systems._att_system import create_att_system
+    from biorefineries.ATT.system import create_att_system
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -373,7 +373,7 @@ def _checks(sys, warnings_list):
 def _sources():
     rows = [dict(item=k, reference=v, role="configuration") for k, v in rep.FILES.items()]
     rows += [
-        dict(item="Flowsheet", reference="biorefineries/ATT/systems/_att_system.py (create_att_system)", role="model"),
+        dict(item="Flowsheet", reference="biorefineries/ATT/system.py (create_att_system)", role="model"),
         dict(item="ATT units (U2, C1, EC1)", reference="biorefineries/ATT/units/_att.py", role="model"),
         dict(item="Chemicals (Char, CharN, CharS, feed pseudo-components)", reference="biorefineries/ATT/_chemicals.py",
              role="model"),

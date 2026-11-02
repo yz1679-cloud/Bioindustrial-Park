@@ -9,7 +9,7 @@
 """ATT mass and energy accounting.
 
 Energy accounting helpers for the SaBRe ATT flowsheet are analysis/reporting
-logic only; process construction remains in systems/_att_system.py.
+logic only; process construction remains in system.py.
 ATT physical-heat and gas-product chemical-energy diagnostics are reported
 explicitly. Step 6.4 provides a non-invasive energy-consistency audit.
 Step 6.5 adds a non-invasive standard-state reaction-enthalpy consistency
@@ -17,7 +17,7 @@ audit based on the current balanced Ni-CatATT flowsheet and ThermoSteam
 Chemical.Hf values. No flowsheet changes are made by these helpers.
 
 ``wash_balance`` is the conservative mass-only filter-cake washing balance
-called by the W2 washer in systems/_att_system.py (no equilibrium/heat
+called by the W2 washer in system.py (no equilibrium/heat
 claims).
 """
 import math
@@ -1522,7 +1522,7 @@ def get_att_energy_source_summary(
 
 
 # ==========================================================================
-# F2 filter-cake washing balance (used by systems/_att_system.py, W2)
+# F2 filter-cake washing balance (used by system.py, W2)
 # ==========================================================================
 
 def wash_balance(*, dry_insolubles, retained_water, retained_naoh, retained_na2co3, filtrate_water, filtrate_naoh, filtrate_na2co3, wash_water, target_moisture=0.25, displacement_factor=1.0):
