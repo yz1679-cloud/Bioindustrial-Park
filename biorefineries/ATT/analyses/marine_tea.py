@@ -27,7 +27,7 @@ from biorefineries.ATT.utils import load_assumptions
 
 import biosteam as bst
 
-__all__ = ("load_tea_config", "land_reference", "evaluate_case", "operating_modes")
+__all__ = ("load_tea_config", "s1_reference", "evaluate_case", "operating_modes")
 
 
 def load_tea_config():
@@ -65,13 +65,13 @@ def operating_modes(cfg=None):
              float(b["engine_load"])))
 
 
-def land_reference(sys, f2_sales=True):
-    """ATT S1 land-based TEA (the reference); returns its summary row and the S1 labor estimate."""
+def s1_reference(sys, f2_sales=True):
+    """ATT S1 TEA (the reference); returns its summary row and the S1 labor estimate."""
     cfg = load_tea_config()
     t = build_att_breakdown("att_s1", sys=sys, f2_sales=f2_sales)
     foc_s1 = float(tea_mod._FIN["foc_frac_of_fci"]) * t["summary"]["FCI_MUSD"] * 1e6
     labor = float(cfg["s1_labor_share_of_foc"]) * foc_s1
-    return dict(row=_summary_row("S1 land", t, labor, 0.0, sys.operating_hours),
+    return dict(row=_summary_row("S1", t, labor, 0.0, sys.operating_hours),
                 FOC_USD_per_yr=foc_s1, FCI_USD=t["summary"]["FCI_MUSD"] * 1e6)
 
 
@@ -79,7 +79,7 @@ def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, c
                   labor_multiplier=None, labor_share=None, whr_capex_factor=1.0, whr_overrides=None, load=None,
                   f2_sales=True):
     """
-    One ATT S2 case on the simulated S1 process ``sys`` (``ref`` = land_reference(sys)). ``sources``: WHR sources
+    One ATT S2 case on the simulated S1 process ``sys`` (``ref`` = s1_reference(sys)). ``sources``: WHR sources
     used (() = floating without WHR). Returns (summary row, whr result or None).
     """
     cfg = load_tea_config()

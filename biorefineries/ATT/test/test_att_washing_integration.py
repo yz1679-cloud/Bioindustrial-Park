@@ -101,7 +101,7 @@ class TestNativeF2Washing(unittest.TestCase):
             self.assertGreater(result["msp"], optimistic["msp"])
 
     def test_washing_off_reference_values(self):
-        ref = mt.land_reference(self.off)
+        ref = mt.s1_reference(self.off)
         self.assertAlmostEqual(ref["row"]["H2_t_per_yr"], 2953.563, delta=.001)
         self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 3.126355, delta=1e-6)   # CaCO3 sold, no washing
         self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1857.8462335, delta=1e-5)
@@ -159,7 +159,7 @@ class TestNativeF2Washing(unittest.TestCase):
                 self.assertAlmostEqual(float(lime.imass["Water"] / lime.F_mass), 0.40, places=9)
 
     def test_floating_capex_includes_washing_once(self):
-        ref = mt.land_reference(self.on)
+        ref = mt.s1_reference(self.on)
         row, _ = mt.evaluate_case(self.on, ref, "washing_on")
         self.assertAlmostEqual(row["FCI_USD"], 1.25 * ref["FCI_USD"] + row["WHR_CAPEX_USD"], places=6)
 

@@ -154,7 +154,7 @@ class TestS2EngineLoad(unittest.TestCase):
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
         cls.sys = scen.create(scen.ATT_S2)
-        cls.ref = mt.land_reference(cls.sys)
+        cls.ref = mt.s1_reference(cls.sys)
 
     def test_default_modes(self):
         self.assertEqual(mt.operating_modes(), (("A: 7920 h underway (idealized)", 7920.0, 0.75),

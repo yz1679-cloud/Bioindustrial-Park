@@ -624,7 +624,7 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
 
     out_dir = os.fspath(out_dir or output_dir("tea"))
 
-    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/att_s2_marine.py)
+    spec = scen.SCENARIOS[scenario]          # S1 only (ATT S2: analyses/att_s2_marine.py)
     base = scen.tea_config(spec)
     sys = create_att_tea_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]

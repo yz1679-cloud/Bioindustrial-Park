@@ -81,9 +81,9 @@ def run():
                          WHR_pump_kW=w["pump_kW"], U2_fired_duty_kW=U2["purchased_before_hxn_kW"]))
     tables["energy_performance"] = pd.DataFrame(perf)
 
-    # TEA: S1 land and S2 cases, Mode A and Mode B
-    ref = mt.land_reference(system)
-    rows = [dict(ref["row"], mode="land reference")] + mode_tea_cases(system, ref, cfg)
+    # TEA: S1 and S2 cases, Mode A and Mode B
+    ref = mt.s1_reference(system)
+    rows = [dict(ref["row"], mode="S1 reference")] + mode_tea_cases(system, ref, cfg)
     tables["tea_cases"] = pd.DataFrame(rows)
 
     # Sensitivities (S2 with all sources unless stated; Mode A hours unless stated)

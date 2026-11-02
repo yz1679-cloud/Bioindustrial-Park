@@ -88,7 +88,7 @@ class TestATTS2(unittest.TestCase):
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
         cls.system = scen.create(scen.ATT_S2)
-        cls.ref = mt.land_reference(cls.system)
+        cls.ref = mt.s1_reference(cls.system)
 
     def test_reference_is_s1(self):
         close(self, self.ref["row"]["MSP_USD_per_kg_H2"], S1_METRICS["MSP_USD_per_kg_H2"], "MSP")

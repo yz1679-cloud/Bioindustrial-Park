@@ -236,7 +236,7 @@ def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=No
     ATT Scenario 1 takes free, burden-free waste lime and sells the CaCO3 of its cakes (att_tea.yaml caco3_sales;
     the rest of each cake is disposed). ``caco3_price`` [USD/t] overrides the configured price for this call only;
     ``sys`` reuses an already simulated system of the scenario. ``tea_kwargs``: extra evaluate_att_tea keywords
-    (the ATT S2 floating/WHR hooks, analyses/marine_tea.py); None = the land-based TEA.
+    (the ATT S2 floating/WHR hooks, analyses/marine_tea.py); None = the S1 TEA.
     """
     spec = scen.ALL_SCENARIOS[case]
     if spec.get("marine") and tea_kwargs is None:

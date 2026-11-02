@@ -54,7 +54,7 @@ def run():
                     electricity_kW=unit.power_utility.rate, design=json.dumps(unit.design_results)))
         checks.extend(dict(washing=mode, **r) for r in washing_checks(system))
         for f2_sales in (True, False):
-            ref = mt.land_reference(system, f2_sales=f2_sales)
+            ref = mt.s1_reference(system, f2_sales=f2_sales)
             label = "optimistic F2+F3 component sales" if f2_sales else "no F2 sales; whole F2 cake disposed; F3 sales retained"
             base = build_att_breakdown(sys=system, f2_sales=f2_sales)
             result = tea.evaluate_att_tea(system, **scen.tea_config(f2_sales=f2_sales))
@@ -62,7 +62,7 @@ def run():
                 if r["category"] not in ("capital", "total"):
                     costs.append(dict(washing=mode, F2_sales=f2_sales, **r))
             baseline = ref["row"]
-            rows = [dict(baseline, case="S1 land", engine_load=float("nan"))]
+            rows = [dict(baseline, case="S1", engine_load=float("nan"))]
             for hours in (7920.0, 2640.0):
                 for sources, name in (((), "S2 no WHR"), (("jacket", "scavenge", "exhaust"), "S2 WHR")):
                     row, _ = mt.evaluate_case(system, ref, name, sources=sources, hours=hours, load=0.75,

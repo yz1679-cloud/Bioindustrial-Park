@@ -18,7 +18,7 @@ class TestATTS2(unittest.TestCase):
         warnings.filterwarnings("ignore")
         cls.sys = scen.create(scen.ATT_S2)
         cls.whr = mw.evaluate_whr(cls.sys)
-        cls.ref = mt.land_reference(cls.sys)
+        cls.ref = mt.s1_reference(cls.sys)
 
     def test_same_process_as_s1(self):
         s1, s2 = scen.ATT_S1, scen.ATT_S2

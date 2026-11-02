@@ -646,7 +646,7 @@ def export_att_lca(out_dir=None, scenario="att_s1"):
 
     out_dir = os.fspath(out_dir or output_dir("lca"))
 
-    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/marine_lca.py)
+    spec = scen.SCENARIOS[scenario]          # S1 only (ATT S2: analyses/marine_lca.py)
     overrides = scen.lca_overrides(spec)
     sys = create_att_lca_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
