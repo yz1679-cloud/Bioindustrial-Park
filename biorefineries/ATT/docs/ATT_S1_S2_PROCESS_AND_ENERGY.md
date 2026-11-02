@@ -1,7 +1,7 @@
 # ATT S1/S2: process basis, material balance and energy balance
 
-**Model state.** Branch `ATT`, commit `468d957e`, BioSTEAM 2.53.11. The baseline is F2 washing on, with
-conservative carbonate accounting. All values are simulation outputs of the committed model unless marked:
+**Model state.** BioSTEAM 2.54.0. The baseline is F2 washing on, with the CaCO3 cakes disposed and all landfilled
+carbon credited in the LCA. All values are simulation outputs of the committed model unless marked:
 - **[ASSUMPTION]**: an engineering or user-defined input;
 - **[EXP]**: an experimental input;
 - **[DERIVED]**: a hand calculation from model outputs.

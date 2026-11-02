@@ -8,8 +8,8 @@ ENG (preliminary engineering estimate) and MISSING.
 ## 1. Scope and boundary
 
 - **Process.** The process is ATT Scenario 1, **unchanged**: the same 18 units, chemistry, lumped residue,
-  balances, NaOH 1 kg/kg dry, C1 0.88, presscake feed with D0, 5029.17 kg dry/h, HXN, and CaCO3 sales at
-  100 USD/t. S2 is `scenarios.ATT_S2` (key `att_s2`, `marine: true`).
+  balances, NaOH 1 kg/kg dry, C1 0.88, presscake feed with D0, 5029.17 kg dry/h, HXN, and CaCO3 cakes
+  disposed. S2 is `scenarios.ATT_S2` (key `att_s2`, `marine: true`).
 - **WHR** is an **accounting layer** (`analyses/att/marine_whr.py`). Ship-side equipment is sized and costed, but
   it is not a BioSTEAM unit in the flowsheet, because the engine streams lie outside the ATT plant boundary. The
   ATT material balances are untouched.
@@ -137,7 +137,7 @@ actually purchases.
 - **Utility savings** use the S1 marginal prices: LP steam 0.0221 USD/kWh of delivered heat (BioSTEAM agent),
   and U2 gas at the natural-gas price ÷ 0.90 burner efficiency. Pump electricity is added at the BioSTEAM power
   price.
-- **Unchanged from S1:** materials, disposal, CaCO3 sales (100 USD/t, revenue counted once), financing and
+- **Unchanged from S1:** materials, disposal (including the CaCO3 cakes), financing and
   depreciation.
 - **Excluded:** ship acquisition, charter or retrofit; hull and stability works; onboard storage; mooring and
   offloading; ship crew; port, insurance and class costs.
@@ -149,18 +149,19 @@ actually purchases.
 - **Ship side.** The waste heat is burden-free because propulsion happens anyway. ATT does not claim zero
   propulsion emissions; propulsion fuel is not allocated (no data).
 - **Not estimated:** a ship-system GWP with fuel allocation.
-- The provisional items of S1 (lumped residue, CaCO3 end use, no residue storage credit) are kept as they are.
+- The provisional items of S1 (lumped residue, which is credited as landfilled carbon, and CaCO3 disposal) are kept
+  as they are.
 
 ## 9. Results (`results/tables/att_s2_*.csv`, all PROVISIONAL)
 
 | Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
 |---|---|---|---|---|---|---|---|
-| S1 land | 7 920 | 2 954 | 11.89 | 0.24 | 4.45 | 3.03 | 14.04 |
-| S2, no WHR (A) | 7 920 | 2 954 | 14.87 | 0.48 | 4.45 | 3.26 | 14.04 |
-| S2, exhaust (A) | 7 920 | 2 954 | 15.45 | 0.48 | 4.27 | 3.23 | 13.3 |
-| S2, all three (A) | 7 920 | 2 954 | 15.87 | 0.48 | 4.13 | 3.20 | 12.7 |
-| S2, no WHR (B) | 2 640 | 985 | 14.87 | 0.48 | 1.48 | 5.09 | 14.04 |
-| S2, all three (B) | 2 640 | 985 | 15.87 | 0.48 | 1.38 | 5.14 | 12.7 |
+| S1 | 7 920 | 2 954 | 12.48 | 0.25 | 4.41 | 5.41 | 6.50 |
+| S2, no WHR (A) | 7 920 | 2 954 | 15.59 | 0.50 | 4.41 | 5.65 | 6.50 |
+| S2, exhaust (A) | 7 920 | 2 954 | 16.18 | 0.50 | 4.23 | 5.62 | 5.71 |
+| S2, all three (A) | 7 920 | 2 954 | 16.60 | 0.50 | 4.10 | 5.59 | 5.11 |
+| S2, no WHR (B) | 2 640 | 985 | 15.59 | 0.50 | 1.47 | 7.57 | 6.50 |
+| S2, all three (B) | 2 640 | 985 | 16.60 | 0.50 | 1.37 | 7.61 | 5.11 |
 
 **Energy:**
 - External heating falls from 22.6 to 20.7 MW (−8.2 %).
@@ -173,8 +174,8 @@ actually purchases.
 - At 15 % load and at anchor, it utilizes nothing.
 
 **Cost:**
-- In Mode A, the WHR saves 0.33 MUSD/yr of utilities, which recovers about a quarter of the floating cost
-  penalty (+0.23 USD/kg H2).
+- In Mode A, the WHR saves 0.32 MUSD/yr of utilities, which recovers about a quarter of the floating cost
+  penalty (+0.24 USD/kg H2).
 - In Mode B, the WHR CAPEX is not paid back.
 
 ## 10. Main limitations
@@ -187,5 +188,5 @@ actually purchases.
 5. The floating multipliers are USER assumptions. Vessel and platform costs are excluded.
 6. Feed logistics (about 4 collectors for Mode A) and onboard storage are unresolved.
 7. The U2 feed preheater is conceptual (wet slurry). Hot-water use in D0 assumes compatible heating surfaces.
-8. The S1 provisional items (lumped residue, residue enthalpy, CaCO3 purity, market and storage) carry over
+8. The S1 provisional items (lumped residue, residue enthalpy, CaCO3 purity, disposal and storage) carry over
    unchanged.
