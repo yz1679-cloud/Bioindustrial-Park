@@ -88,11 +88,9 @@ def _factors(overrides=None):
 def create_att_lca_system(scenario="att_s1"):
     """
     Simulated system of an ATT scenario (scenarios.create; default ATT S1 at its capacity) with operating hours.
-    The former SaBRe reference-scale model (``configuration`` argument) is scenarios.create_legacy_reference.
     """
     if scenario not in scen.ALL_SCENARIOS:
-        raise ValueError(f"unknown ATT scenario {scenario!r} (expected one of {tuple(scen.ALL_SCENARIOS)}); for the "
-                         "LEGACY SaBRe reference-scale model use scenarios.create_legacy_reference(configuration)")
+        raise ValueError(f"unknown ATT scenario {scenario!r} (expected one of {tuple(scen.ALL_SCENARIOS)})")
     return scen.create(scen.ALL_SCENARIOS[scenario])
 
 
@@ -506,15 +504,11 @@ def _total_per_kg(sys, **kw):
 
 
 def get_att_gwp_sensitivity(sys, estimates, overrides=None):
-    """Baseline, steel-slag lime, one-at-a-time factor ranges around ``overrides`` (scenarios.lca_overrides)."""
+    """Baseline and one-at-a-time factor ranges around ``overrides`` (scenarios.lca_overrides)."""
     rows = []
     base_dry, base_h2, _ = _total_per_kg(sys, overrides=overrides, estimates=estimates)
     rows.append(dict(scenario="Baseline", parameter="", value=float("nan"),
                      GWP_kgCO2e_per_kg_dry=base_dry, GWP_kgCO2e_per_kg_H2=base_h2, delta_per_kg_H2=0.0))
-    d, h, _ = _total_per_kg(sys, lime_source="CaOH2_steel_slag", overrides=overrides, estimates=estimates)
-    rows.append(dict(scenario="S1 steel-slag Ca(OH)2", parameter="CaOH2_steel_slag",
-                     value=_EF["CaOH2_steel_slag"]["value"], GWP_kgCO2e_per_kg_dry=d,
-                     GWP_kgCO2e_per_kg_H2=h, delta_per_kg_H2=h - base_h2))
     for name in _LCA["sensitivity_factors"]:
         for bound, value in zip(("low", "high"), _EF[name]["range"]):
             d, h, _ = _total_per_kg(sys, overrides={**(overrides or {}), name: float(value)}, estimates=estimates)

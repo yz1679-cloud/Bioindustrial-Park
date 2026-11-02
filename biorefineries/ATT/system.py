@@ -44,7 +44,7 @@ _ATT_DOWNSTREAM = _ATT_DATA["downstream"]
 if "heat_recovery" not in _ATT_DATA:
     raise KeyError(
         "Missing 'att.heat_recovery' in biorefineries/ATT/data/att.yaml. "
-        "Install the Step 6 data file as data/att.yaml (not under a versioned filename)."
+        "Install the data file as data/att.yaml (not under a versioned filename)."
     )
 _ATT_HEAT_RECOVERY = _ATT_DATA["heat_recovery"]
 _COST_YEAR = load_assumptions("att_tea.yaml")["tea"]["cost_year"]
@@ -431,7 +431,7 @@ def create_att_system(
     # --------------------------------------------------------------
     # U3 - ATT gas treatment train
     #
-    # Current Step 7.5 sequence:
+    # Current sequence:
     #
     #   U2 hot gas/steam
     #       -> U3HX cooling / partial condensation
@@ -496,7 +496,7 @@ def create_att_system(
 
     # U3D - Native BioSTEAM molecular-sieve gas dryer.
     #
-    # We keep the same reduced-order material specification used in Step 7.5:
+    # We keep the same reduced-order material specification used in the U3 train:
     # all non-water gases pass to the dry-gas outlet and Water is removed
     # according to the YAML split. The improvement here is that U3D is now
     # represented by BioSTEAM's native MolecularSieve equipment rather than a
@@ -1152,7 +1152,7 @@ def create_att_system(
         "att_sys",
         path=path,
         recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else [])),
-        # Step 7.4 adds a nonlinear makeup/concentration specification.
+        # The makeup/concentration specification is nonlinear.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the
         # unaccelerated fixed-point method for robust positive-flow

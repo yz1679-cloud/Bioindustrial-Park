@@ -32,7 +32,8 @@ class TestATTTEA(unittest.TestCase):
         lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber lime
         high = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.35})["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
-        self.assertAlmostEqual(high - self.result["msp"], (0.35 - 0.24) * lime / self.h2_yr, places=4)
+        self.assertAlmostEqual(high - self.result["msp"], (0.35 - tea_mod._T["prices"]["CaOH2"]["value"]) * lime / self.h2_yr,
+                               places=4)
 
     def test_no_coproduct_revenue_and_capital_items(self):
         s = inv._streams(self.sys)
@@ -62,13 +63,6 @@ class TestATTTEA(unittest.TestCase):
         avoided = 0.5 * float(s["caco3_cake"].F_mass) * 0.04 * hours                  # disposal no longer paid
         self.assertAlmostEqual(case_a - case_b, (sold + avoided) / self.h2_yr, places=4)
         self.assertGreater(case_a, self.result["msp"])                                # disposal added in Case A
-
-    def test_updated_lime_price(self):
-        s = inv._streams(self.sys)
-        lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber lime
-        msp = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.28})["msp"]
-        tea_mod.evaluate_att_tea(self.sys, self.estimates)
-        self.assertAlmostEqual(msp - self.result["msp"], 0.04 * lime / self.h2_yr, places=4)
 
 
 if __name__ == "__main__":

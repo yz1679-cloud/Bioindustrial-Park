@@ -37,12 +37,12 @@ class TestATTGWP(unittest.TestCase):
         self.assertEqual(self.sys.get_total_products_impact(lca.KEY), 0.0)
         self.assertFalse(any("CH4" in item or "CaCO3" in item for item in self.c))
 
-    def test_steel_slag_scenario(self):
+    def test_waste_lime_override(self):
         base = self.c["TOTAL (System.get_net_impact)"]["GWP_kgCO2e_per_kg_dry"]
         s = inv._streams(self.sys)
         lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) / self.dry       # C1 lime + CO2-scrubber lime
         try:
-            lca.apply_att_gwp(self.sys, lime_source="CaOH2_steel_slag", estimates=self.estimates)
+            lca.apply_att_gwp(self.sys, overrides={"CaOH2_limestone": 0.0}, estimates=self.estimates)
             slag = self.sys.get_net_impact(lca.KEY) / (self.dry * self.sys.operating_hours)
         finally:
             lca.apply_att_gwp(self.sys, estimates=self.estimates)

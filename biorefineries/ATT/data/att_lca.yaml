@@ -28,12 +28,6 @@ lca:
       unit: kg CO2e/kg Ca(OH)2
       source: "ATT collaborators' emission-factor table"
       boundary: cradle-to-gate (limestone calcination and hydration)
-    CaOH2_steel_slag:
-      value: 0.0
-      range: [0.0, 0.10]
-      unit: kg CO2e/kg Ca(OH)2
-      source: "ATT collaborators' emission-factor table (scenario assumption)"
-      boundary: "cut-off: slag burden assigned to steel; processing assumed negligible"
     natural_gas_combustion:
       value: 0.056
       unit: kg CO2/MJ fuel (LHV)
@@ -159,9 +153,8 @@ lca:
 
   scenarios:
     baseline: {lime_source: CaOH2_limestone}
-    steel_slag_lime: {lime_source: CaOH2_steel_slag}
 
-  sensitivity_factors: [NaOH, CaOH2_limestone, natural_gas_upstream, electricity]
+  sensitivity_factors: [NaOH, natural_gas_upstream, electricity]
 
   # Indicative magnitudes for the data-gap table only (not used in results).
   indicative_gwp100:

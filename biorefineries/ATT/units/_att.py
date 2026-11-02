@@ -1646,7 +1646,7 @@ class CausticizationReactor(bst.Unit):
         self.design_results['C1 native Hnet heat before aqueous correction'] = aqueous_reference.uncorrected_Hnet_delta_kJph
         self._formation_reaction_heat_kJph = formation_term_kJph
         self._sensible_phase_heat_kJph = sensible_term_kJph
-        # Step 7.16 scope superseded by aqueous reference scope above
+        # Superseded by the aqueous reference scope above
         self.design_results['C1 reaction formation enthalpy contribution'] = formation_term_kJph
         self.design_results['C1 sensible and phase enthalpy contribution'] = sensible_term_kJph
 

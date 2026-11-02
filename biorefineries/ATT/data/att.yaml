@@ -269,7 +269,7 @@ att:
       individual_gas_yields: Planned sensitivity parameters around the measured Ni-CatATT 1:1 yields.
       feed_ash_and_moisture: Planned (workbook ash 17.2 wt% dry; 75 % moisture at the U2 inlet without D0).
   gas_treatment:
-    # STEP 7.5 U3 baseline.
+    # U3 gas-treatment baseline.
     #
     # U3 is implemented primarily with native BioSTEAM units:
     #   U3C Flash -> U3D Splitter -> U3K IsothermalCompressor -> U3P Splitter -> U3V valve (tail gas)
@@ -340,7 +340,7 @@ att:
     # an alternative). U2's duty at the SaBRe scale (~750 MMBtu/hr, ~220 MW)
     # exceeds one heater, so use parallel units; the 1 kg/h baseline is far
     # below the correlation minimum. See README_ATT.md, "Planned work".
-    # heat-recovery modeling. No combustion credit is applied in Step 7.5.
+    # heat-recovery modeling. No combustion credit is applied.
     tail_gas_combustion_status: "Simple offset only: tail gas fed to the U2 furnace (U2 ins[1]) displaces natural gas (see tail_gas_combustion); no separate burner unit, flue gas or burner capital modeled."
 
   downstream:
@@ -369,7 +369,7 @@ att:
     # limitation; no concentrated-solution property model is used.
     c1_energy_basis_status: "Infinite-dilution aqueous reference; concentrated-solution enthalpy not modelled, bounded at -40 to +300 kJ/h (<1.2 % of plant heat)."
 
-    # Solid-liquid separation baseline. Active Step 7.3 units use native
+    # Solid-liquid separation baseline. Active units use native
     # BioSTEAM filters. Insoluble solids are retained ideally for now, while
     # the wet cake carries representative mother liquor (Water + Na2CO3 +
     # NaOH) rather than pure water. Solute loss is therefore calculated
@@ -390,7 +390,7 @@ att:
     # baseline from the CaCO3/lime-filtration literature review.
     f2_cake_moisture_wt_frac: 0.25
 
-    # Step 7.13: hypothetical wash-displacement model; disabled reproduces baseline.
+    # Hypothetical wash-displacement model; disabled reproduces baseline.
     # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
     # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
     # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
@@ -599,14 +599,6 @@ att:
       dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
     lca:
       impact: "GWP100, kg CO2e"
-      # Collaborators' emission-factor table (primary source; do not replace
-      # without a clear reason). Natural gas: att.energy_sources.natural_gas.
-      emission_factors:
-        NaOH: {value: 1.12, range: [0.63, 2.16], unit: kg CO2e/kg NaOH, source: "ATT collaborators' emission-factor table", boundary: cradle-to-gate}
-        CaOH2_limestone: {value: 0.91, range: [0.59, 1.00], unit: kg CO2e/kg Ca(OH)2, source: "ATT collaborators' emission-factor table", boundary: cradle-to-gate}
-        CaOH2_steel_slag: {value: 0.0, range: [0.0, 0.10], unit: kg CO2e/kg Ca(OH)2, source: "ATT collaborators' emission-factor table (assumed)", boundary: cradle-to-gate}
-        electricity: {value: 0.449, range: [0.3, 0.9], unit: kg CO2e/kWh, source: "GREET 2022 US mix, as used in biorefineries/HP/process_settings.py (BioSTEAM project)", boundary: "grid, production = consumption", status: "Location-dependent placeholder; replace with the plant's grid factor. Range indicative (gas- to oil-dominated grids)."}
-      ca_oh2_baseline_source: CaOH2_limestone
       # Steam is generated in a natural-gas boiler: fuel = steam heat / efficiency.
       steam_boiler_efficiency: 0.80
       steam_boiler_efficiency_range: [0.80, 0.90]

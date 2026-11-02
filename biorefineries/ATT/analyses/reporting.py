@@ -13,8 +13,7 @@ system, built only from the inventory (mass/energy), tea (SaBReTEA cases) and
 lca (BioSTEAM GWP100) modules. Adds only the collection/transport sensitivity
 and TEA-LCA consistency checks. Writes results/full_scale/summary/att_consolidated_results.xlsx.
 The system and the headline TEA/LCA are ATT S1 (scenarios.create, tea_config,
-lca_overrides); rows built on the SaBRe reference treatment (purchased lime, no
-CaCO3 sales) are labeled LEGACY.
+lca_overrides).
 
 The master documentation package (data extraction and traceability only)
 builds ATT_Master_Model_Documentation.xlsx, one CSV per sheet and README.md
@@ -264,7 +263,7 @@ def _register_rows():
     for k, v in Y("att_lca.yaml", "lca.emission_factors").items():
         add("LCA", f"EF {k}", v["value"], v["unit"], "LCA", v.get("boundary", ""),
             EXP if "collaborators" in v["source"] else LIT, v["source"], f"att_lca.yaml:lca.emission_factors.{k}",
-            "Baseline" if k not in ("CaOH2_steel_slag", "marine_fuel") else "Scenario",
+            "Baseline" if k != "marine_fuel" else "Scenario",
             v.get("note", ""), "LCA", f"range {v.get('range', '')}", v.get("status", ""),
             "Yes" if k in ("electricity",) else "No")
     for k, v in Y("att_tea.yaml", "tea.prices").items():
@@ -823,15 +822,14 @@ def _caco3_detail(sys, caco3):
     rows = []
     for r in caco3:
         f = r["marketable_fraction"] if r["marketable_fraction"] == r["marketable_fraction"] else 0.0
-        reference = r["case"].startswith("Reference")
         price = r["CaCO3_price_usd_per_t"] if r["CaCO3_price_usd_per_t"] == r["CaCO3_price_usd_per_t"] else 0.0
         handling = r["handling_usd_per_t"] if r["handling_usd_per_t"] == r["handling_usd_per_t"] else 0.0
-        rows.append(dict(lime_price=r["lime_price"], case=r["case"], CaCO3_equivalent_t_per_yr=caco3_t,
+        rows.append(dict(case=r["case"], CaCO3_equivalent_t_per_yr=caco3_t,
                          wet_cake_t_per_yr=cake_t, marketable_fraction=f, CaCO3_price_USD_per_t=price,
                          handling_USD_per_t=handling, CaCO3_sold_t_per_yr=f * caco3_t,
                          revenue_MUSD_per_yr=f * caco3_t * price / 1e6,
                          handling_cost_MUSD_per_yr=f * caco3_t * handling / 1e6,
-                         cake_disposal_cost_MUSD_per_yr=0.0 if reference else (1 - f) * cake_t * disposal / 1e6,
+                         cake_disposal_cost_MUSD_per_yr=(1 - f) * cake_t * disposal / 1e6,
                          MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta_vs_case_A=r["delta_vs_case_A"],
                          price_status="ILLUSTRATIVE (not a demonstrated selling price)" if price else "-"))
     return rows
@@ -854,10 +852,6 @@ def _gaps_and_inconsistencies(lca_gaps):
          "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),
         ("att.yaml heat_recovery future_tail_gas_fuel_species / gas_energy_diagnostic_species list CH4, CO",
          "legacy diagnostic keys used only by att.mass_energy diagnostics."),
-        ("att_inventory preliminary LCI (sheets 08/09)", "omits natural-gas upstream and waste treatment "
-         "(46.7 kg CO2e/kg H2); superseded by att_lca (55.0)."),
-        ("TEA Case A vs LCA baseline", "Case A disposes the CaCO3 cake; LCA baseline treats it as a burden-free "
-         "coproduct; Case-A-consistent LCA = baseline + 0.76 kg CO2e/kg H2."),
         ("P1 power basis", "Municipal press 5 kWh/t dry adopted; BioSTEAM ScrewPress (37.2 kWh/t total wet feed) reported as the alternative."),
         ("feedstock.yaml dry_composition", "no citation in the file."),
     ]
@@ -896,7 +890,7 @@ def _overview(sys, result, gwp_total, spec=scen.ATT_S1):
         dict(item="Normalization", value="per kg dry Sargassum; per kg H2 (PSA product)", note=""),
         dict(item="H2 product", value=float(s["h2_product"].imass["H2"]) / dry, note="kg/kg dry"),
         dict(item=f"MSP ({spec['short']})", value=f"{result['msp']:.3f}",
-             note="USD/kg H2; waste lime, CaCO3 sales (scenarios.tea_config); LEGACY SaBRe cases: see MSP sheet"),
+             note="USD/kg H2; waste lime, CaCO3 cakes disposed (scenarios.tea_config)"),
         dict(item="GWP100 (partial boundary)", value=gwp_total, note="kg CO2e/kg H2; collection/transport excluded"),
         dict(item="Modules", value="att.inventory -> att.lca, att.tea -> att.reporting (consolidated results, then documentation)",
              note="biorefineries/ATT/analyses"),
@@ -918,11 +912,8 @@ def build_att_documentation():
     spec = scen.ATT_S1
     base, lca_overrides = scen.tea_config(spec), scen.lca_overrides(spec)
 
-    # TEA: the LEGACY SaBRe tables (reference treatment) first, then the ATT S1 TEA (scenarios.tea_config).
+    # TEA: the CaCO3-treatment cases, then the ATT S1 TEA (scenarios.tea_config).
     caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
-    lime = tea_mod.get_att_lime_price_cases(sys, estimates)
-    case_a = tea_mod.evaluate_att_tea(sys, estimates, caco3=dict(fraction=0.0))
-    opex_a = _opex_detail(sys, case_a)
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
     p1 = tea_mod.get_att_p1_power_cases(sys, estimates, base)
     offgas = tea_mod.get_att_offgas_cases(sys, estimates, base)
@@ -943,8 +934,6 @@ def build_att_documentation():
     applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
     total = contributions[-1]
     dry = inv._dry_feed_kgph(sys)
-    h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / dry
-    cake_landfill = float(inv._streams(sys)["caco3_cake"].F_mass) / dry * float(lca._EF["inert_landfill"]["value"])
     ct = _collection_transport(sys, estimates, total["GWP_kgCO2e_per_kg_dry"], base)
     consistency = _existing_outputs_check(_consistency(sys, estimates, result, contributions, utilities),
                                               result["msp"], total["GWP_kgCO2e_per_kg_H2"])
@@ -952,11 +941,6 @@ def build_att_documentation():
     lca_scen = [dict(scenario=r["scenario"], parameter=r["parameter"], value=r["value"],
                      GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"], GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"],
                      delta_per_kg_H2=r["delta_per_kg_H2"], note="") for r in sens_lca]
-    lca_scen.append(dict(scenario=f"LEGACY Case-A-consistent (CaCO3 cake landfilled, WARM inert proxy; {LEGACY_CAKE_NOTE})",
-                         parameter="cake fate",
-                         value=float("nan"), GWP_kgCO2e_per_kg_dry=total["GWP_kgCO2e_per_kg_dry"] + cake_landfill,
-                         GWP_kgCO2e_per_kg_H2=(total["GWP_kgCO2e_per_kg_dry"] + cake_landfill) / h2,
-                         delta_per_kg_H2=cake_landfill / h2, note="consistent with TEA Case A"))
     lca_scen += [dict(scenario=f"Collection/transport: {r['parameter']}", parameter=r["unit"], value=r["value"],
                       GWP_kgCO2e_per_kg_dry=float("nan"), GWP_kgCO2e_per_kg_H2=r["result"], delta_per_kg_H2=float("nan"),
                       note=r["note"]) for r in ct if r["analysis"] == "LCA"]
@@ -966,8 +950,6 @@ def build_att_documentation():
 
     tea_sens = ([dict(group="One-at-a-time", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta"],
                       note="") for r in sens_tea]
-                + [dict(group="Lime price", case=f"{r['lime_price']} | {r['case']}", MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"],
-                        delta=r["delta_vs_0.24"], note=r["basis"]) for r in lime]
                 + [dict(group="P1 press", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta_MSP"],
                         note=f"P1 {r['P1_GWh_per_yr']:.1f} GWh/yr; {r['P1_installed_MUSD']:.1f} MUSD; "
                              f"dGWP {r['delta_GWP_kgCO2e_per_kg_H2']:.2f} kg CO2e/kg H2") for r in p1]
@@ -1027,13 +1009,9 @@ def build_att_documentation():
         "17_LCA_Scenarios": lca_scen,
         "18_TEA_CAPEX": capex,
         "19_TEA_OPEX_ATT_S1": opex,
-        "19b_TEA_OPEX_LEGACY_Case_A": opex_a,
         "20_Financial_Assumptions": _financial(result),
-        "21_MSP_and_CaCO3_Cases": ([dict(case=f"{spec['short']} (waste lime, CaCO3 sales)", MSP_USD_per_kg_H2=result["msp"]),
-                                    dict(case="LEGACY Reference (purchased lime, no CaCO3 revenue; commit 1473af06)",
-                                         MSP_USD_per_kg_H2=_legacy_msp(caco3, "Reference")),
-                                    dict(case="LEGACY Case A (purchased lime, no CaCO3 sales; cake disposed)",
-                                         MSP_USD_per_kg_H2=case_a["msp"])]),
+        "21_MSP_and_CaCO3_Cases": [dict(case=f"{spec['short']} (waste lime, CaCO3 cakes disposed)",
+                                        MSP_USD_per_kg_H2=result["msp"])],
         "21b_CaCO3_Case_Detail": _caco3_detail(sys, caco3),
         "21c_MSP_Breakdown": tea_mod._opex_table(sys, result),
         "22_TEA_Sensitivities": tea_sens,
@@ -1058,7 +1036,7 @@ def build_att_documentation():
              "08_Water_Balance", "09_Products_Residues",
              "10_Unit_Energy_Balance", "11_Energy_Accounts", "12_Utilities_Energy_Totals",
              "13_Heat_Exchanger_Network", "14_LCA_EF_Register", "15_LCA_Contributions", "16_LCA_by_Unit_and_Stage",
-             "17_LCA_Scenarios", "18_TEA_CAPEX", "19_TEA_OPEX_ATT_S1", "19b_TEA_OPEX_LEGACY_Case_A",
+             "17_LCA_Scenarios", "18_TEA_CAPEX", "19_TEA_OPEX_ATT_S1",
              "20_Financial_Assumptions", "21_MSP_and_CaCO3_Cases", "21b_CaCO3_Case_Detail", "21c_MSP_Breakdown",
              "22_TEA_Sensitivities", "22b_Cost_Year", "23_Master_Assumptions", "24_Limitations_Gaps",
              "25_YAML_Config_Register", "26_QC_Checks"]
@@ -1271,14 +1249,13 @@ def _process_and_materials(sys, utilities):
 
 
 def _collection_transport(sys, estimates, gwp_per_kg_dry, base=None):
-    """Collection/transport sensitivity around ``base`` (scenarios.tea_config) and the LEGACY SaBRe cases."""
+    """Collection/transport sensitivity around ``base`` (scenarios.tea_config)."""
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     h2 = float(s["h2_product"].imass["H2"]) / dry
     wet_t_per_kg_dry = float(s["att_sargassum_feed"].F_mass) / 1e3 / dry
     rows = []
-    for case, kw in (("ATT S1", base or {}), ("LEGACY Reference", {}),
-                     ("LEGACY Case A", dict(caco3=dict(fraction=0.0)))):
+    for case, kw in (("ATT S1", base or {}),):
         for cost in COLLECTION_COST_USD_PER_WET_T:
             msp = tea_mod.evaluate_att_tea(sys, estimates, feedstock_usd_per_wet_t=cost, **kw)["msp"]
             rows.append(dict(analysis="TEA", case=case, parameter="collection + transport cost",
@@ -1385,64 +1362,6 @@ def _existing_outputs_check(rows, msp_reference, gwp_per_kg_H2):
     return rows
 
 
-def _findings(msp, caco3, gwp, stage, slag, sens_tea, sens_lca, ct, case_a_lca, h2, lime_share=float("nan"),
-              s_factor=float("nan"), cap_share=float("nan")):
-    """Preliminary conclusions with a robustness label for presentation."""
-    def m(case, price=250.0, handling=0.0, f=None, lime="0.24 (original)"):
-        for r in caco3:
-            if (r["lime_price"] == lime and r["case"].startswith(case)
-                    and (f is None or (r["marketable_fraction"] == f and r["CaCO3_price_usd_per_t"] == price
-                                       and r["handling_usd_per_t"] == handling))):
-                return r["MSP_USD_per_kg_H2"]
-    st = {r["stage"]: r for r in stage}
-    ng = (st["Onsite fuel combustion"]["share"] + st["Natural gas supply chain"]["share"]
-          + st.get("Natural gas displaced by tail gas", {"share": 0.0})["share"])  # net of the tail-gas offset
-    ct10 = [r["result"] for r in ct if r["analysis"] == "TEA" and r["case"] == "LEGACY Case A"
-            and r["parameter"] == "collection + transport cost"]
-    rows = [
-        ("Cost drivers", f"Ca(OH)2 is the largest cost ({lime_share:.0%} of the reference MSP {msp:.2f} USD/kg); steam, NaOH "
-         f"and filter-cake disposal follow; capital recovery is {cap_share:.0%}. The process is operating-cost dominated.",
-         "ROBUST (ranking); main text"),
-        ("Conservative MSP", f"Case A (no CaCO3 sales, cake disposed at an assumed 0.04 USD/kg) "
-         f"{m('Case A'):.2f} USD/kg H2; reference without cake cost {msp:.2f}.", "ROBUST as a bound; main text"),
-        ("Lime price", f"0.28 instead of 0.24 USD/kg (USGS 2025e, f.o.b.) raises MSP by "
-         f"{m('Case A', lime='0.28 (USGS MCS 2026, 2025e)') - m('Case A'):.2f} USD/kg; delivery not included.",
-         "SENSITIVITY; main text"),
-        ("CaCO3 marketability", f"At 250 USD/t (optimistic commodity reference) Case A falls to "
-         f"{m('Case B', f=0.5):.2f} (50 % marketable) and {m('Case B', f=1.0):.2f} USD/kg (100 %); at 50 USD/t "
-         f"and 100 % only to {m('Case B', price=50.0, f=1.0):.2f}. Feasibility hinges on cake quality and market.",
-         "SENSITIVITY; main text figure, not a result"),
-        ("Collection/transport cost", f"Each 10 USD/wet t adds ~{(ct10[2] - ct10[0]):.2f} USD/kg H2 "
-         f"(~{1 / h2 * 7.536 / 1e3 * 1e3:.0f} t wet Sargassum per t H2); 50 USD/t -> "
-         f"{ct10[4]:.2f}.", "SENSITIVITY; main text (data pending)"),
-        ("GWP100", f"{gwp:.1f} kg CO2e/kg H2 (partial boundary, no collection/transport); natural gas "
-         f"(combustion + upstream) {ng:.0%}, chemical supply {st['Chemical supply']['share']:.0%}.",
-         "ROBUST (ranking); value partial-boundary"),
-        ("Lime sourcing (LCA)", f"Steel-slag Ca(OH)2 lowers GWP to {slag:.1f} kg CO2e/kg H2 "
-         f"({slag / gwp - 1:.0%}); limestone range 0.59-1.00 gives "
-         f"{min(r['GWP_kgCO2e_per_kg_H2'] for r in sens_lca if 'CaOH2_limestone' in r['scenario']):.1f}-"
-         f"{max(r['GWP_kgCO2e_per_kg_H2'] for r in sens_lca if 'CaOH2_limestone' in r['scenario']):.1f}.",
-         "SENSITIVITY; main text"),
-        ("Case-A-consistent GWP", f"Landfilling the CaCO3 cake (WARM proxy) adds {case_a_lca:.2f} kg CO2e/kg H2.",
-         "SENSITIVITY; SI"),
-        ("Gas-yield basis", "Measured Ni-CatATT 1:1 yields (H2 54.15, CH4 0.60, CO 0, CO2 0.77 mmol/g daf; NaOH 1 kg/kg "
-         "dry); residual carbon to char (provisional). UNRESOLVED: gases + char hold more H than the feed (U2 checks).",
-         "PROVISIONAL; value depends on feed composition"),
-        ("Open items before submission", "Collection/transport activity data; CaCO3 purity and outlet; delivered "
-         "lime price and source; P1 press basis; PSA capital; plant-location grid factor; "
-         "indirect capital; collaborator confirmation of gas analysis.", "TO RESOLVE"),
-    ]
-    return [dict(topic=a, finding=b, robustness_and_placement=c) for a, b, c in rows]
-
-
-LEGACY_CAKE_NOTE = "the CaCO3 cake is already a landfill stream of the baseline LCA (att_lca.yaml), so this adds it twice"
-
-
-def _legacy_msp(caco3, case, lime="0.24 (original)"):
-    """MSP of a LEGACY SaBRe case of tea.get_att_caco3_cases (reference treatment)."""
-    return next(r["MSP_USD_per_kg_H2"] for r in caco3 if r["lime_price"] == lime and r["case"].startswith(case))
-
-
 def _scenario_findings(spec, result, opex, gwp, sys):
     """Headline findings of the ATT scenario (scenarios.tea_config / lca_overrides)."""
     hours = sys.operating_hours
@@ -1450,14 +1369,14 @@ def _scenario_findings(spec, result, opex, gwp, sys):
     sales = result["caco3_sales"]
     revenue = sum(r["revenue_usd_ph"] for r in sales.values()) * hours
     price = scen.tea_config(spec)["caco3_sales"]["price_usd_per_metric_ton"] if sales else 0.0
+    cake_text = f"CaCO3 sold at {price:g} USD/t ({revenue / 1e6:.2f} MUSD/yr)" if sales else "CaCO3 cakes disposed"
     costs = sorted((r for r in opex if r["category"] not in ("capital", "total") and r["USD_per_kg_H2"] > 0),
                    key=lambda r: -r["USD_per_kg_H2"])[:4]
     capital = next(r["USD_per_kg_H2"] for r in opex if r["category"] == "capital")
     rows = [
         (f"{spec['short']} baseline", f"MSP {result['msp']:.3f} USD/kg H2; GWP100 {gwp:.2f} kg CO2e/kg H2; H2 "
          f"{h2_t:.1f} t/yr at {inv._dry_feed_kgph(sys) * 24 / 1e3:.1f} dry t/d; {spec['lime']} Ca(OH)2 "
-         f"({inv._streams(sys)['lime'].price:g} USD/kg, burden-free); CaCO3 sold at {price:g} USD/t "
-         f"({revenue / 1e6:.2f} MUSD/yr).", "PROVISIONAL (assumed U2 residual product); main result"),
+         f"({inv._streams(sys)['lime'].price:g} USD/kg, burden-free); {cake_text}.", "PROVISIONAL (assumed U2 residual product); main result"),
         (f"{spec['short']} cost drivers", "Largest annual costs [USD/kg H2]: "
          + "; ".join(f"{r['item']} {r['USD_per_kg_H2']:.2f}" for r in costs)
          + f"; capital recovery, taxes and financing {capital:.2f}.", "model result"),
@@ -1470,15 +1389,8 @@ def build_att_consolidated_results():
     base, lca_overrides = scen.tea_config(spec), scen.lca_overrides(spec)
     sys = tea_mod.create_att_tea_system()
     estimates = inv.get_att_cost_estimates(sys)
-    # LEGACY SaBRe tables and findings: reference treatment (purchased lime, no CaCO3 sales) at the S1 capacity.
+    # CaCO3-treatment cases (Case A/B) at the S1 capacity and basis.
     caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
-    lime = tea_mod.get_att_lime_price_cases(sys, estimates)
-    legacy = tea_mod.evaluate_att_tea(sys, estimates)
-    legacy_opex = tea_mod._opex_table(sys, legacy)
-    case_a = tea_mod.evaluate_att_tea(sys, estimates, caco3=dict(fraction=0.0))
-    opex_a = tea_mod._opex_table(sys, case_a)
-    legacy_contributions = lca.get_att_gwp_contributions(sys, lca.apply_att_gwp(sys, estimates=estimates))
-    legacy_sens_lca = lca.get_att_gwp_sensitivity(sys, estimates)
     # ATT S1 TEA (scenarios.tea_config) and LCA (scenarios.lca_overrides) on the same system.
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
     p1 = tea_mod.get_att_p1_power_cases(sys, estimates, base)
@@ -1491,67 +1403,38 @@ def build_att_consolidated_results():
     sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
     total = contributions[-1]
     gwp_dry, gwp_h2 = total["GWP_kgCO2e_per_kg_dry"], total["GWP_kgCO2e_per_kg_H2"]
-    slag = next(r["GWP_kgCO2e_per_kg_H2"] for r in sens_lca if r["scenario"].startswith("S1"))
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
-    h2 = float(s["h2_product"].imass["H2"]) / dry
-    cake_landfill = float(s["caco3_cake"].F_mass) / dry * float(lca._EF["inert_landfill"]["value"])
     utilities = inv.get_att_purchased_utilities(sys, estimates)
     ct = _collection_transport(sys, estimates, gwp_dry, base)
-    limestone = legacy_contributions[-1]
     gwp_rows = [dict(view="by stage", item=r["stage"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
                      GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"], share=r["share"]) for r in stage]
     gwp_rows += [dict(view="by input", item=r["item"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
                       GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"], share=r["share"]) for r in contributions]
-    gwp_rows += [
-        dict(view="lime sourcing", item=f"Waste Ca(OH)2, burden-free ({spec['short']} baseline)",
-             GWP_kgCO2e_per_kg_dry=gwp_dry, GWP_kgCO2e_per_kg_H2=gwp_h2, share=float("nan")),
-        dict(view="lime sourcing", item="Limestone Ca(OH)2 (sensitivity; LEGACY SaBRe baseline)",
-             GWP_kgCO2e_per_kg_dry=limestone["GWP_kgCO2e_per_kg_dry"],
-             GWP_kgCO2e_per_kg_H2=limestone["GWP_kgCO2e_per_kg_H2"], share=float("nan")),
-        dict(view="lime sourcing", item="Steel-slag Ca(OH)2 (sensitivity)", GWP_kgCO2e_per_kg_dry=slag * h2,
-             GWP_kgCO2e_per_kg_H2=slag, share=float("nan")),
-        dict(view="LEGACY Case-A-consistent", item=f"Baseline + CaCO3 cake landfill (WARM inert proxy; {LEGACY_CAKE_NOTE})",
-             GWP_kgCO2e_per_kg_dry=gwp_dry + cake_landfill, GWP_kgCO2e_per_kg_H2=(gwp_dry + cake_landfill) / h2,
-             share=float("nan")),
-    ]
     price = base["caco3_sales"]["price_usd_per_metric_ton"] if base["caco3_sales"] else 0.0
-    msp_rows = [dict(case=f"{spec['short']}: {spec['lime']} lime, CaCO3 sold at {price:g} USD/t",
-                     lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=result["msp"]),
-                dict(case="LEGACY Reference (purchased lime, no CaCO3 revenue, cake not costed)", lime_USD_per_kg=0.24,
-                     MSP_USD_per_kg_H2=legacy["msp"])]
-    msp_rows += [dict(case="LEGACY " + (r["case"] if r["case"].startswith("Case A") else
+    label = f"{spec['short']}: {spec['lime']} lime, " + (f"CaCO3 sold at {price:g} USD/t" if base["caco3_sales"]
+                                                          else "CaCO3 cakes disposed")
+    msp_rows = [dict(case=label, lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=result["msp"])]
+    msp_rows += [dict(case=r["case"] if r["case"].startswith("Case A") else
                       f"{r['case']} | {r['CaCO3_price_usd_per_t']} USD/t, handling "
-                      f"{r['handling_usd_per_t']} USD/t, marketable {r['marketable_fraction']}"),
-                      lime_USD_per_kg=r["lime_price"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"])
-                 for r in caco3 if not r["case"].startswith("Reference")]
+                      f"{r['handling_usd_per_t']} USD/t, marketable {r['marketable_fraction']}",
+                      lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"])
+                 for r in caco3]
     consistency = _consistency(sys, estimates, result, contributions, utilities)
     consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2) + _process_check_rows(sys)
     sens = ([dict(analysis="TEA (MSP USD/kg H2)", case=r["case"], value=r["MSP_USD_per_kg_H2"], delta=r["delta"])
              for r in sens_tea]
-            + [dict(analysis="LEGACY TEA lime price (Case A, purchased lime)", case=r["lime_price"],
-                    value=r["MSP_USD_per_kg_H2"], delta=r["delta_vs_0.24"]) for r in lime if r["case"].startswith("Case A")]
             + [dict(analysis="TEA/LCA P1 power (pending decision)", case=r["case"], value=r["MSP_USD_per_kg_H2"],
                     delta=r["delta_GWP_kgCO2e_per_kg_H2"]) for r in p1]
             + [dict(analysis="LCA (kg CO2e/kg H2)", case=r["scenario"], value=r["GWP_kgCO2e_per_kg_H2"],
                     delta=r["delta_per_kg_H2"]) for r in sens_lca])
     assumptions = _assumptions_table()
-    legacy_lime_share = next(r["USD_per_kg_H2"] for r in legacy_opex if r["item"] == "Ca(OH)2") / legacy["msp"]
-    legacy_slag = next(r["GWP_kgCO2e_per_kg_H2"] for r in legacy_sens_lca if r["scenario"].startswith("S1"))
-    legacy_findings = _findings(legacy["msp"], caco3, limestone["GWP_kgCO2e_per_kg_H2"],
-                                lca.get_att_gwp_by_stage(legacy_contributions), legacy_slag, sens_tea, legacy_sens_lca,
-                                ct, cake_landfill / h2, h2, legacy_lime_share, 1.0,
-                                next(r["USD_per_kg_H2"] for r in legacy_opex if r["category"] == "capital") / legacy["msp"])
-    findings = _scenario_findings(spec, result, opex, gwp_h2, sys) + [
-        dict(r, topic=f"LEGACY SaBRe framing: {r['topic']}",
-             robustness_and_placement=f"LEGACY (purchased lime, no ATT S1 CaCO3 sales); {r['robustness_and_placement']}")
-        for r in legacy_findings]
+    findings = _scenario_findings(spec, result, opex, gwp_h2, sys)
     return {
         "00_key_findings": findings,
         "01_process_materials": _process_and_materials(sys, utilities),
         "02_tea_capex": capex,
         "03_tea_opex_att_s1": opex,
-        "03b_tea_opex_legacy_case_A": opex_a,
         "04_msp_cases": msp_rows,
         "05_gwp100": gwp_rows,
         "06_sensitivities": sens,

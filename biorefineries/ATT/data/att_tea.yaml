@@ -14,12 +14,7 @@ tea:
       value: 0.35
       range: [0.35, 0.526]
       source: "tea.yaml price.naoh (SaBRe baseline; no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py."
-    CaOH2:
-      value: 0.240
-      range: [0.235, 0.350]
-      year: 2024
-      source: "Original reference (commit 1473af06): USGS MCS 2025 estimate for 2024 (240 USD/t), later revised. USGS MCS 2026 (https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf): hydrated lime 234.6 (2023), 274.2 (2024), 280 (2025e) USD/t. Average value at plant (f.o.b.), transport NOT included. The high bound adds an assumed delivery allowance."
-    CaOH2_updated:
+    CaOH2:                 # fresh (purchased) lime; ATT S1 uses free waste lime (price 0, scenarios.tea_config)
       value: 0.280
       year: 2025
       source: "USGS MCS 2026, hydrated lime 2025 estimate 280 USD/t, average value at plant (f.o.b.), transport NOT included."
@@ -71,8 +66,8 @@ tea:
     sensitivity_prices_usd_per_metric_ton: [0.0, 100.0, 315.0]   # 315: approximate public US industrial reference
     price_note: "100 USD/t baseline assumption; 315 USD/t approximate public US industrial-market reference (not verified for this product); 0 = no-revenue outlet with the same routing (sold CaCO3 taken away at no cost, non-CaCO3 mass still disposed)."
 
-  # LEGACY SaBRe sensitivity table (tea.get_att_caco3_cases; F2 cake only), NOT the ATT S1 baseline price, which is
-  # caco3_sales above. Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
+  # CaCO3-treatment sensitivity table (tea.get_att_caco3_cases; F2 cake only, single-stream mechanism), not the
+  # caco3_sales option above. Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
   # content of the cake (not the wet cake). The sold share of the cake is
   # not disposed; the unsold share is disposed at tea.yaml disposal_solid.
   caco3_coproduct:

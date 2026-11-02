@@ -20,7 +20,7 @@ Emission factors:
 | Factor | Value | Source |
 |---|---|---|
 | NaOH | 1.12 kg CO2e/kg | Collaborators' table |
-| Ca(OH)2, waste lime | 0 (burden-free) | User scenario; limestone 0.91 is a sensitivity only |
+| Ca(OH)2, waste lime | 0 (burden-free) | User scenario; fresh limestone lime would be 0.91 (not used) |
 | Natural gas, combustion | 0.056 kg CO2/MJ LHV | IPCC 2006 |
 | Natural gas, upstream | 0.0066 kg CO2e/MJ | GREET |
 | Burner / boiler efficiency | 0.90 / 0.80 | — |

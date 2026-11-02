@@ -21,16 +21,14 @@ SaBRe Scenario 4.
 
 This module is the single source of the scenario assumptions used by every standard export: the flowsheet and
 capacity (``create``, ``scale``), the TEA lime and CaCO3-sales keywords (``tea_config``) and the LCA lime burden
-(``lca_overrides``). ``create_legacy_reference`` keeps the historical SaBRe reference-scale model for comparison
-only; it is never an ATT scenario.
+(``lca_overrides``).
 """
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT import system as att_system
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = ("ATT_S1", "ATT_S2", "SCENARIOS", "OPTIONAL_SCENARIOS", "ALL_SCENARIOS", "CASES", "CASE_LABELS", "SHORT_LABELS",
-           "WASTE_LIME_KG_PER_YR", "dry_feed_kgph", "create", "scale", "tea_config", "lca_overrides",
-           "create_legacy_reference")
+           "WASTE_LIME_KG_PER_YR", "dry_feed_kgph", "create", "scale", "tea_config", "lca_overrides")
 
 _ATT = load_assumptions("att.yaml")["att"]
 _CASE = _ATT["reactor"]["cases"][_ATT["reactor"]["baseline_case"]]
@@ -113,17 +111,3 @@ def tea_config(spec=ATT_S1, caco3_price=None, f2_sales=True):
 def lca_overrides(spec=ATT_S1):
     """apply_att_gwp factor overrides of a scenario: waste lime is burden-free."""
     return {"CaOH2_limestone": 0.0} if spec["lime"] == "waste" else None
-
-
-def create_legacy_reference(configuration="presscake", lime_recycle=None):
-    """
-    LEGACY, for historical comparison with SaBRe only (NOT an ATT scenario): the flowsheet with the att.yaml defaults
-    at the NLR preprint reference scale (inventory.get_att_reference_scale, about 49.6 t dry/h of presscake). It
-    carries no scenario lime or CaCO3-sales assumption; do not report its results as ATT S1.
-    """
-    ref = inv.get_att_reference_scale(configuration)
-    system = inv._simulate(att_system.create_att_system(
-        dry_sargassum_kgph=ref["dry_feed_kgph"], configuration=configuration, lime_recycle=lime_recycle),
-        ref["dry_feed_kgph"])
-    system.operating_hours = ref["operating_hours_per_year"]
-    return system

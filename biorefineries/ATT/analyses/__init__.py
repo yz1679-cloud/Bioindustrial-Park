@@ -18,16 +18,21 @@ Process-level helpers (called by the model itself)
     thermodynamics   C1 aqueous enthalpy reference
 
 Full-scale analyses (frozen BioSTEAM model)
-    inventory        material/energy inventory, LCI, cost inputs
+    inventory        material/energy inventory, cost inputs
+    heat_duty        heating duties by unit and origin (UCLA slides reference)
     tea              minimum H2 selling price (SaBReTEA)
     lca              GWP100 (BioSTEAM impact framework)
 
 Reporting
     reporting        consolidated results; master documentation package
-    breakdown        MSP / CAPEX / OPEX / GWP breakdown of the four scenarios (fresh-Sargassum feed)
+    breakdown        MSP / CAPEX / OPEX / GWP breakdown of the ATT scenarios
 
 Diagnostics (read-only audits)
     validation       1 kg/h mass/energy audit; sodium ledger
+
+Runners
+    run              export steps and the full pipeline (python -m biorefineries.ATT.analyses.run)
+    att_*.py         scenario, S2 and washing tables (results/tables)
 
 Output locations
     paths            default result folders under biorefineries/ATT/results/

@@ -19,8 +19,8 @@ Bases
   and heat flows per kg dry feed do not depend on scale (checked by
   ``compare_scale_invariance``); electricity and equipment do (minimum
   equipment sizes), so per-kg electricity and all costs are taken at full
-  scale. ``get_att_reference_scale`` (the NLR preprint scale) remains for the
-  LEGACY SaBRe comparison only (scenarios.create_legacy_reference).
+  scale. ``get_att_reference_scale`` gives the NLR preprint plant scale and the operating-hour keys
+  shared with the scenarios.
 
 Energy accounting (no double counting)
 --------------------------------------
@@ -53,7 +53,6 @@ __all__ = (
     "get_att_unit_energy",
     "get_att_cost_estimates",
     "get_att_purchased_utilities",
-    "get_att_lci",
     "get_att_equipment_inventory",
     "get_att_tea_inputs",
     "get_att_unit_streams",
@@ -124,8 +123,7 @@ def get_att_reference_scale(configuration="presscake"):
     fresh Sargassum. For the presscake configuration the ATT plant receives the
     presscake of that Sargassum from a biostimulant plant.
 
-    LEGACY capacity (SaBRe comparison, scenarios.create_legacy_reference): the ATT
-    scenarios use their own capacity (scenarios.scale). Only the operating-hour keys
+    The ATT scenarios use their own capacity (scenarios.scale). Only the operating-hour keys
     are shared with them.
     """
     from biorefineries.ATT.system import get_att_reference_dry_feed_kgph
@@ -377,93 +375,6 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
         rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
                      "kg", "fresh water to the independent washing stage"))
     return [dict(item=i, per_kg_dry=v / dry, unit=f"{un}/kg dry", note=n) for i, v, un, n in rows]
-
-
-# ---------------------------------------------------------------------------
-# Preliminary LCI (GWP)
-# ---------------------------------------------------------------------------
-
-def get_att_lci(flows, utilities, products, ca_source=None):
-    """
-    Preliminary life-cycle inventory and GWP per kg dry feed.
-
-    ``flows``, ``utilities`` and ``products`` are the tables returned by
-    get_att_external_flows, get_att_purchased_utilities and
-    get_att_product_scenarios (normalized per kg dry feed).
-    """
-    ef = _LCA["emission_factors"]
-    ca_key = ca_source or _LCA["ca_oh2_baseline_source"]
-    total = {(r["stream"], r["component"]): r["kg_per_kg_dry"] for r in flows}
-    util = {r["item"]: r["per_kg_dry"] for r in utilities}
-    ng_ef = float(_NG["emission_factor_kgCO2e_per_MJ_fuel"])
-
-    def factor(name):
-        f = ef[name]
-        return f["value"], f["range"], f"{f['unit']}; {f['source']}"
-
-    rows = []
-
-    def add(flow, amount, unit, value, ef_range, source, status):
-        gwp = amount * value if value is not None else float("nan")
-        lo = amount * ef_range[0] if ef_range else gwp
-        hi = amount * ef_range[1] if ef_range else gwp
-        rows.append(dict(flow=flow, amount_per_kg_dry=amount, unit=unit, EF=value, EF_source=source,
-                         GWP_kgCO2e_per_kg_dry=gwp, GWP_low=lo, GWP_high=hi, status=status))
-
-    add("Sargassum (dry basis)", 1.0, "kg", 0.0, None, "Waste biomass; collection/transport excluded",
-        "DECISION NEEDED: zero upstream burden assumed")
-    add("NaOH makeup", total[("fresh_naoh_solid", "NaOH")], "kg", *factor("NaOH"), "collaborators")
-    add(f"Ca(OH)2 ({ca_key})", total[("lime", "CaOH2")], "kg", *factor(ca_key), "collaborators")
-    add("Natural gas, U2 fuel", util["U2 natural gas: fuel input (LHV)"], "MJ", ng_ef, None,
-        "kg CO2/MJ fuel; collaborators (combustion CO2 only)", "collaborators")
-    add("Natural gas, steam boiler", util["LP steam: boiler natural gas (LHV)"], "MJ", ng_ef, None,
-        f"kg CO2/MJ fuel; boiler efficiency {_LCA['steam_boiler_efficiency']}", "derived")
-    add("Electricity, total", util["Electricity: total"], "kWh", *factor("electricity"),
-        "BioSTEAM project; location-dependent")
-    add("Process water", util["Process water (D1)"], "kg", None, None, "", "MISSING (expected negligible)")
-    for stream, label in (("ash_residue_cake", "Ash/char residue to disposal"),
-                          ("liquor_purge", "Alkaline purge treatment"),
-                          ("u3_dryer_removed_water", "Wastewater: U3D removed water"),
-                          ("excess_condensate", "Wastewater: condensate in excess of D1 demand")):
-        add(label, total[(stream, "TOTAL")], "kg", None, None, "", "MISSING")
-    if ("f2_wash_water", "TOTAL") in total:
-        # Use the existing authoritative ATT factors, not a zero-impact outlet.
-        wash_lca = load_assumptions("att_lca.yaml")["lca"]
-        factors = wash_lca["emission_factors"]
-        water = total[("f2_wash_water", "TOTAL")] / wash_lca["water_density_kg_per_m3"]
-        liquid = total[("f2_wash_liquor", "TOTAL")] / wash_lca["water_density_kg_per_m3"]
-        acid = (total.get(("f2_wash_liquor", "NaOH"), 0.0) / 39.99711
-                + total.get(("f2_wash_liquor", "Na2CO3"), 0.0) / 105.9888) / 2 * 98.07848
-        for label, amount, unit, key in (
-                ("F2 wash-water supply", water, "m3", "water_supply"),
-                ("F2 wash-liquid treatment", liquid, "m3", "wastewater_treatment"),
-                ("F2 wash-liquid neutralization H2SO4", acid, "kg", "H2SO4")):
-            f = factors[key]
-            add(label, amount, unit, f["value"], None, f["source"], "existing ATT LCA factor")
-    if ("caco3_cake", "TOTAL") in total:
-        add("CaCO3 cake (coproduct)", total[("caco3_cake", "TOTAL")], "kg", 0.0, None,
-            "No credit or burden by decision", "excluded by decision")
-    if ("lime_purge", "TOTAL") in total:
-        add("Lime purge (burnt lime to disposal)", total[("lime_purge", "TOTAL")], "kg", None, None, "", "MISSING")
-        add("Lime kiln exhaust (CO2 from CaCO3 is biogenic)", total[("kiln_exhaust", "TOTAL")], "kg", 0.0, None,
-            "Biogenic CO2 (seaweed carbon captured as carbonate); kiln fuel is counted with the natural gas", "excluded by decision")
-    add("PSA off-gas (collected)", total.get(("u3_tail_gas", "TOTAL"), 0.0), "kg", 0.0, None,
-        "Collected; no combustion credit. Its CO2 is biogenic (0 GWP if released); CH4 fugitive losses "
-        "not modeled", "excluded by decision")
-
-    known = [r for r in rows if r["GWP_kgCO2e_per_kg_dry"] == r["GWP_kgCO2e_per_kg_dry"]]
-    gwp = sum(r["GWP_kgCO2e_per_kg_dry"] for r in known)
-    lo = sum(r["GWP_low"] for r in known)
-    hi = sum(r["GWP_high"] for r in known)
-    rows.append(dict(flow="TOTAL (excluding MISSING items)", amount_per_kg_dry=1.0, unit="kg dry feed",
-                     EF=None, EF_source="", GWP_kgCO2e_per_kg_dry=gwp, GWP_low=lo, GWP_high=hi, status=""))
-    for r in products:
-        if r["item"] == "H2 product":
-            kg = r["kg_per_kg_dry"]
-            rows.append(dict(flow=f"GWP per kg H2 ({r['closure']})", amount_per_kg_dry=kg, unit="kg H2/kg dry",
-                             EF=None, EF_source="", GWP_kgCO2e_per_kg_dry=gwp / kg, GWP_low=lo / kg,
-                             GWP_high=hi / kg, status="per kg H2 (no allocation to coproducts)"))
-    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -887,8 +798,8 @@ def get_att_process_checks(sys):
     sol = float(np.interp(float(d1.T) - 273.15, *zip(*_NA2CO3_SOLUBILITY_G_PER_100G_WATER)))
     add("D1: Na2CO3 below its solubility at the slurry temperature [g/100 g water]", conc, sol,
         "PASS" if conc <= sol else "FAIL")
-    from biorefineries.ATT.analyses import key_metrics as km
-    heat = km.get_heat(sys)
+    from biorefineries.ATT.analyses import heat_duty
+    heat = heat_duty.get_heat(sys)
     mj = heat["total"] / heat["dry"] / 1e3
     add("Heating duty before heat integration vs UCLA slides (16.4 MJ/kg dry seaweed)", mj, 16.4, "INFO (reference, not a test)")
     share = heat["water_handling"] / heat["total"]
@@ -1040,7 +951,7 @@ ASSUMPTION_REGISTER = (
      "Collaborators (burner); BioSTEAM default (boiler)", "HIGH for LCA"),
     ("2 engineering", "Electricity EF", "0.449 kg CO2e/kWh (GREET 2022 US mix)",
      "BioSTEAM project value; location-dependent", "MEDIUM"),
-    ("2 engineering", "Ca(OH)2 source", "Limestone baseline (0.91); steel slag scenario (0)", "Collaborators",
+    ("2 engineering", "Ca(OH)2 source", "Waste lime, burden-free (fresh limestone lime: 0.91)", "Collaborators",
      "HIGH for LCA"),
     ("2 engineering", "PSA", "90 % H2 recovery, ideal selectivity, no power; product 20 bar",
      "att.yaml gas_treatment (provisional)", "MEDIUM (H2 product; capital missing)"),
@@ -1122,8 +1033,6 @@ def build_att_inventory_tables():
     carbon = get_att_carbon_fate(ref)
     energy = get_att_unit_energy(ref)
     utilities = get_att_purchased_utilities(ref, estimates)
-    lci = get_att_lci(flows, utilities, products)
-    lci_slag = get_att_lci(flows, utilities, products, ca_source="CaOH2_steel_slag")
     check = check_att_inventory(ref, flows, utilities)
     dry_t = scale["dry_feed_t_per_year"]
 
@@ -1165,8 +1074,6 @@ def build_att_inventory_tables():
         "05_carbon_fate": carbon,
         "06_unit_energy": energy,
         "07_purchased_utilities": utilities,
-        "08_lci_gwp_limestone_lime": lci,
-        "09_lci_gwp_steel_slag_lime": lci_slag,
         "10_equipment_inventory": get_att_equipment_inventory(ref, estimates),
         "11_tea_inputs": get_att_tea_inputs(scale),
         "12_checks": checks,

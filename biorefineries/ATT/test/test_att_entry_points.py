@@ -83,11 +83,12 @@ class TestS1EntryPoints(unittest.TestCase):
         self.assertAlmostEqual(summary["Fixed capital investment (FCI)"], self.s1["FCI_MUSD"], places=9)
         for r in self.tea_tables["05_checks"]:
             self.assertEqual(r["status"], "PASS", r["check"])
-        # the headline row is the S1 TEA; the SaBRe reference-treatment rows are labeled LEGACY
-        legacy = [r for r in self.tea_tables["00_summary"] if "Reference" in r["item"] or "Case" in r["item"]]
-        self.assertTrue(legacy and all(r["item"].startswith("LEGACY") for r in legacy))
-        self.assertTrue(all("LEGACY" in r["basis"] for r in self.tea_tables["06_caco3_cases"]))
-        self.assertTrue(all("LEGACY" in r["basis"] for r in self.tea_tables["07_lime_price_cases"]))
+        # the Case A/B rows are CaCO3-treatment sensitivities on the S1 (waste lime) basis
+        cases = [r for r in self.tea_tables["00_summary"] if r["item"].startswith("MSP Case")]
+        self.assertTrue(cases)
+        self.assertTrue(all("waste lime" in r["unit"] for r in cases))
+        self.assertTrue(all("waste lime" in r["basis"] for r in self.tea_tables["06_caco3_cases"]))
+        self.assertNotIn("07_lime_price_cases", self.tea_tables)
 
     def test_caco3_revenue_counted_once(self):
         rows = self.tea_tables["03_opex_and_msp_breakdown"]
@@ -108,7 +109,7 @@ class TestS1EntryPoints(unittest.TestCase):
         base = next(r for r in self.lca_tables["06_scenarios_and_sensitivity"] if r["scenario"] == "Baseline")
         self.assertAlmostEqual(base["GWP_kgCO2e_per_kg_H2"], self.s1["GWP_kgCO2e_per_kg_H2"], places=9)
 
-    def test_legacy_reference_is_never_silent(self):
+    def test_removed_entry_arguments_are_never_silent(self):
         with self.assertRaises(ValueError):
             tea_mod.create_att_tea_system("presscake")               # the old positional configuration argument
         with self.assertRaises(ValueError):
