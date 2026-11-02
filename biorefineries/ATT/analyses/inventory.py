@@ -242,7 +242,7 @@ def get_att_chemical_ledger(sys):
         ("Na out: liquor purge", na(purge), "Na balance"),
         ("Na out: ash residue cake", na(ash), "Na balance"),
     ]
-    if "f2_wash_liquor" in s:
+    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:      # a recycled wash liquor is not a loss
         wash = s["f2_wash_liquor"]
         items += [("NaOH in F2 wash liquid", float(wash.imass["NaOH"]), "loss"),
                   ("Na2CO3 in F2 wash liquid", float(wash.imass["Na2CO3"]), "loss"),
@@ -636,7 +636,7 @@ def get_att_sodium_calcium_ledger(sys):
         ("C1: CaCO3 formed (coproduct)", float(C1_out.imass["CaCO3"])),
         ("Unreacted Ca(OH)2 in CaCO3 cake", float(s["caco3_cake"].imass["CaOH2"])),
     ]
-    if "f2_wash_liquor" in s:
+    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:
         items += [(f"Loss: {ID} in F2 wash liquid", float(s["f2_wash_liquor"].imass[ID]))
                   for ID in ("NaOH", "Na2CO3")]
     rows = [dict(item=i, value=v if i.startswith("Effective") else v / dry,

@@ -71,9 +71,10 @@ class TestATTScenario1Parameters(unittest.TestCase):
         self.assertEqual([m for m in sys.modules if m.startswith("biorefineries.sabre")], [])
 
     def test_flowsheet_unchanged(self):
-        # ATT Scenario 1 flowsheet of commit 76fc5527 (units in path order, boundary streams)
+        # ATT Scenario 1 flowsheet without F2 washing (units in path order, boundary streams); SF returns the scrubber
+        # filtrate that is not needed to the condensate pool
         self.assertEqual([u.ID for u in self.sys.units],
-                         ["D0", "M1", "U2", "U3HX", "U3C", "SCRUB", "F3", "U3D", "U3K", "RC1", "W3", "SW", "D1", "F1",
+                         ["D0", "M1", "U2", "U3HX", "U3C", "SCRUB", "F3", "SF", "U3D", "U3K", "RC1", "W3", "SW", "D1", "F1",
                           "C1", "F2", "SP1", "EC1"])
         self.assertEqual(sorted(s.ID for s in self.sys.feeds),
                          ["att_sargassum_feed", "dissolution_water", "dryer_air", "dryer_backup_fuel", "fresh_naoh_solid",

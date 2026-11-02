@@ -334,10 +334,13 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         CaCO3 = bst.Chemical("CaCO3", search_ID="CalciumCarbonate", phase="s")
         # Burnt lime (CaO) of the lime kiln. Kept apart from the "CaO" that stands for biomass ash above.
         BurntLime = bst.Chemical("BurntLime", search_ID="CalciumOxide", phase="s")
+        # Inert mineral impurities of the waste carbide lime (SiO2, Al2O3, Fe2O3, MgO, sulfate; lumped, with the
+        # properties of SiO2): they pass through the process as insoluble solids.
+        LimeInerts = bst.Chemical("LimeInerts", search_ID="SiO2", phase="s")
         # Dissolved salt in the recycle liquor: same volume treatment as NaOH above.
         Na2CO3.V.l.add_model(tmo.functional.rho_to_V(1e5, Na2CO3.MW), top_priority=True)
         att_char, att_gases, att_hydrogen = (Char, CharN, CharS, ResidueCH, ResidueCHO), (CO, C2H4, C2H6), (H2,)
-        att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime)
+        att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime, LimeInerts)
 
     chems = bst.Chemicals([
         Water,

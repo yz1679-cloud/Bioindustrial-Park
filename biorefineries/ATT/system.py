@@ -85,6 +85,7 @@ def create_att_system(
     att_case=None,
     f2_wash_enabled=None,
     f2_wash_ratio=None,
+    f2_wash_recycle=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -117,6 +118,9 @@ def create_att_system(
         Add the W2 F2-cake washer. None uses att.yaml downstream.f2_washing.
     f2_wash_ratio : float or None
         W2 wash water [kg/kg dry cake]. None uses att.yaml.
+    f2_wash_recycle : bool or None
+        Recycle the F2 wash liquor to the dissolver D1 (False: wastewater). None uses att.yaml
+        downstream.f2_washing.recycle_wash_liquor.
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None
@@ -673,9 +677,24 @@ def create_att_system(
         _ATT_DOWNSTREAM["dissolution_water_kg_per_kg_Na2CO3"]
     )
 
+    wash_settings = _ATT_DOWNSTREAM["f2_washing"]
+    wash_enabled = bool(wash_settings["enabled"] if f2_wash_enabled is None else f2_wash_enabled)
+    ratio = float(wash_settings["wash_ratio_kg_per_kg_dry_cake"] if f2_wash_ratio is None else f2_wash_ratio)
+    if not isfinite(ratio) or ratio < 0:
+        raise ValueError("F2 washing ratio must be finite and nonnegative")
+    if ratio == 0.0:
+        wash_enabled = False            # no wash water: the cake is the unwashed F2 cake
+    # The F2 wash liquor (dilute NaOH / Na2CO3) is recycled to the dissolver, where it replaces condensate / fresh
+    # dissolution water; otherwise it leaves as wastewater.
+    wash_liquor = None
+    if wash_enabled and bool(wash_settings["recycle_wash_liquor"] if f2_wash_recycle is None else f2_wash_recycle):
+        wash_liquor = bst.Stream("f2_wash_liquor", Water=0.0, units="kg/hr")
+
+    # Clear F3 filtrate that the scrubber does not need (the waste lime paste brings its own water) joins the condensates.
+    scrubber_excess = bst.Stream("scrubber_excess_water", Water=0.0, units="kg/hr")
     W3 = bst.Mixer(
         "W3",
-        ins=(U3C - 1, ec1_condensate),
+        ins=(U3C - 1, ec1_condensate, scrubber_excess),
         outs=("condensate_pool",),
     )
 
@@ -691,6 +710,8 @@ def create_att_system(
         demand_kgph = dissolution_water_kg_per_kg_Na2CO3 * max(
             float(RC1.outs[0].imass["Na2CO3"]), 0.0
         )
+        if wash_liquor is not None:
+            demand_kgph = max(demand_kgph - float(wash_liquor.imass["Water"]), 0.0)
         pool_kgph = float(SW.ins[0].F_mass)
         SW.split = min(1.0, demand_kgph / pool_kgph) if pool_kgph > 0.0 else 1.0
 
@@ -700,6 +721,7 @@ def create_att_system(
             RC1 - 0,
             SW - 0,
             dissolution_water,
+            *([wash_liquor] if wash_liquor is not None else []),
         ),
         outs=("dissolved_att_slurry",),
     )
@@ -713,10 +735,11 @@ def create_att_system(
             0.0,
         )
         demand_kgph = dissolution_water_kg_per_kg_Na2CO3 * na2co3_kgph
+        recycled_water_kgph = float(wash_liquor.imass["Water"]) if wash_liquor is not None else 0.0
 
         dissolution_water.empty()
         dissolution_water.imass["Water"] = max(
-            demand_kgph - float(D1.ins[1].F_mass), 0.0
+            demand_kgph - float(D1.ins[1].F_mass) - recycled_water_kgph, 0.0
         )
 
     # --------------------------------------------------------------
@@ -951,26 +974,27 @@ def create_att_system(
     # F3 - dewatering filter of the CO2-scrubber slurry (same filter type and cake moisture as F2): the cake is
     # the disposed CaCO3 (smaller than the slurry), the filtrate is recycled to the scrubber.
     # --------------------------------------------------------------
-    F3 = None
+    F3 = SF = None
     if SCRUB is not None:
         F3 = bst.RotaryVacuumFilter(
             "F3",
             ins=SCRUB - 1,
-            outs=("scrubber_cake", scrubber_filtrate),
+            outs=("scrubber_cake", "scrubber_filtrate_out"),
             split=make_initial_filter_split(SCRUB.outs[1].chemicals),
             moisture_content=_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"],
         )
         add_mother_liquor_entrainment_spec(F3, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"])
+        SF = bst.Splitter("SF", ins=F3 - 1, outs=(scrubber_filtrate, scrubber_excess), split=1.0)
+
+        @SF.add_specification(run=True)
+        def return_needed_filtrate():
+            total = float(SF.ins[0].F_mass)
+            SF.split = min(1.0, float(SCRUB.filtrate_demand_kgph) / total) if total > 0.0 else 1.0
 
     # Single mixed washing stage, followed by native refiltration.
     # Fresh water dilutes the original cake mother liquor. The refilter
     # retains representative diluted liquor at the configured cake moisture.
     # No Ca(OH)2 dissolution or arbitrary sodium-removal efficiency is imposed.
-    wash_settings = _ATT_DOWNSTREAM["f2_washing"]
-    wash_enabled = bool(wash_settings["enabled"] if f2_wash_enabled is None else f2_wash_enabled)
-    ratio = float(wash_settings["wash_ratio_kg_per_kg_dry_cake"] if f2_wash_ratio is None else f2_wash_ratio)
-    if not isfinite(ratio) or ratio < 0:
-        raise ValueError("F2 washing ratio must be finite and nonnegative")
     W2 = F2R = None
     if wash_enabled:
         F2.outs[0].ID = "f2_unwashed_cake"
@@ -987,13 +1011,13 @@ def create_att_system(
             wash_water.phase = "l"
             wash_water.T = float(wash_settings["temperature_K"])
         F2R = bst.RotaryVacuumFilter(
-            "F2R", ins=W2 - 0, outs=("caco3_cake", "f2_wash_liquor"),
+            "F2R", ins=W2 - 0, outs=("caco3_cake", wash_liquor if wash_liquor is not None else "f2_wash_liquor"),
             split={ID: 0.0 if ID in mother_liquor_IDs else 1.0 for ID in F2.outs[0].chemicals.IDs},
             moisture_content=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]))
         add_mother_liquor_entrainment_spec(
             F2R, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"], solids_recovery=1.0)
-    # The original F2 filtrate and NaOH loop are unchanged. Wash liquid is
-    # a separate wastewater/purge product, never routed to EC1.
+    # The original F2 filtrate and NaOH loop are unchanged. The wash liquor is recycled to the dissolver D1 (or,
+    # with recycle_wash_liquor false, is a separate wastewater product); it is never routed to EC1.
     sp1_feed = F2 - 1
 
     # --------------------------------------------------------------
@@ -1122,7 +1146,7 @@ def create_att_system(
         U2,
         U3HX,
         U3C,
-        *([SCRUB, F3] if SCRUB is not None else []),
+        *([SCRUB, F3, SF] if SCRUB is not None else []),
         U3D,
         U3K,
         *([U3P, U3V] if psa else []),
@@ -1151,7 +1175,7 @@ def create_att_system(
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else [])),
         # The makeup/concentration specification is nonlinear.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

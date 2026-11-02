@@ -514,10 +514,11 @@ def _crystallization_audit(sys):
          "purge is upstream of EC1: dissolved Na2CO3 only, no crystals"),
     ):
         add(S, item, v, "kg/h", basis)
-    if "f2_wash_liquor" in s:
+    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:
         add(S, "Loss: Na2CO3 in F2 wash liquid", float(s["f2_wash_liquor"].imass["Na2CO3"]), "kg/h", "separate wastewater")
     losses = sum(float(s[ID].imass["Na2CO3"]) for ID in
-                 ("ash_residue_cake", "caco3_cake", "liquor_purge", "f2_wash_liquor") if ID in s)
+                 ("ash_residue_cake", "caco3_cake", "liquor_purge", "f2_wash_liquor")
+                 if ID in s and (ID != "f2_wash_liquor" or s[ID] in sys.products))
     add(S, "Recycled / (recycled + lost)", eo_tot / (eo_tot + losses), "-", "Na2CO3 basis", per_kg_dry=False)
 
     # Verification of the per-1-kg/h-dry values and the method.
@@ -1237,7 +1238,8 @@ def _process_and_materials(sys, utilities):
     _row(rows, M, "CaCO3 wet filter cake (impure)", float(cake.F_mass) / dry, "kg/kg dry",
          "incl. Ca(OH)2, NaOH, Na2CO3, 25 % water")
     _row(rows, M, "Ash/char cake to disposal", float(s["ash_residue_cake"].F_mass) / dry, "kg/kg dry", "")
-    ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"] if ID in s) / dry
+    ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"]
+             if ID in s and s[ID] in sys.products) / dry
     _row(rows, M, "Wastewater incl. alkaline purge", ww, "kg/kg dry", "")
     tail = inv._tail_gas(sys)
     _row(rows, M, "PSA off-gas (total)", float(tail.F_mass) / dry, "kg/kg dry",
@@ -1310,7 +1312,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
          c["Electricity: process units"]["activity_per_kg_dry"]
          + c["Electricity: outside unit models (agitators, EC1 vacuum)"]["activity_per_kg_dry"]),
         ("Wastewater: TEA disposal volume = LCA treatment volume [m3/kg dry]",
-         sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"] if ID in s) / 1e3 / dry,
+         sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"]
+             if ID in s and s[ID] in sys.products) / 1e3 / dry,
          c["Wastewater treatment"]["activity_per_kg_dry"]),
         ("Ash/char cake: TEA disposal = LCA landfill [kg/kg dry]",
          sum(float(s[ID].F_mass) for ID in (*tea_mod._T["prices"]["solid_waste_streams"], "caco3_cake")

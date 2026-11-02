@@ -57,6 +57,29 @@ _SARGASSUM_DRY_IDS = (
 )
 
 
+def _set_lime_stream(stream, ca_oh2_kmolph):
+    """
+    Fill ``stream`` with the lime that carries ``ca_oh2_kmolph`` of Ca(OH)2: the waste carbide lime paste of
+    att.yaml downstream.waste_lime (Ca(OH)2 with CaCO3 and inert mineral impurities and water) or, if that is
+    disabled, pure Ca(OH)2.
+    """
+    stream.empty()
+    cfg = _ATT_DOWNSTREAM.get("waste_lime", {})
+    if not cfg.get("enabled", False):
+        stream.phase = "s"
+        stream.imol["CaOH2"] = ca_oh2_kmolph
+        return
+    frac = cfg["dry_basis_wt_frac"]
+    dry_kgph = ca_oh2_kmolph * 74.09268 / float(frac["CaOH2"])
+    stream.phase = "l"
+    stream.imass["CaOH2"] = dry_kgph * float(frac["CaOH2"])
+    stream.imass["CaCO3"] = dry_kgph * float(frac["CaCO3"])
+    stream.imass["LimeInerts"] = dry_kgph * float(frac["LimeInerts"])
+    moisture = float(cfg["moisture_wt_frac"])
+    stream.imass["Water"] = dry_kgph * moisture / (1.0 - moisture)
+    stream.T = 298.15
+
+
 def _att_add_proxy_exchanger(unit, name, efficiency=None):
     """Create the auxiliary HXutility used by ``_att_proxy_exchanger`` (call in the unit's init)."""
     aux = unit.auxiliary(f"hxn_{name}", bst.HXutility, ins=bst.Stream(None),
@@ -419,22 +442,26 @@ class ATTScrubber(bst.Unit):
         n_co2 = float(gas.imol["CO2"])
         captured = self.co2_capture * n_co2
         unreacted = (self.lime_excess - 1.0) * captured
-        lime.empty()
-        lime.phase, lime.T = "s", 298.15
-        lime.imol["CaOH2"] = self.lime_excess * captured
-        solids_kg = captured * 100.0869 + unreacted * 74.09268
+        _set_lime_stream(lime, self.lime_excess * captured)
+        lime_caco3, lime_inerts = float(lime.imol["CaCO3"]), float(lime.imol["LimeInerts"])
+        lime_water = float(lime.imol["Water"])
+        solids_kg = (captured + lime_caco3) * 100.0869 + unreacted * 74.09268 + float(lime.imass["LimeInerts"])
         water_target_kmol = solids_kg * (1.0 - self.slurry_solids_wt_frac) / self.slurry_solids_wt_frac / 18.01528
         makeup.empty()
         makeup.phase, makeup.T = "l", 298.15
-        makeup.imol["Water"] = max(water_target_kmol - captured - float(filtrate.imol["Water"]), 0.0)
+        # Filtrate water the slurry needs besides the lime water and the reaction water (the system returns only this much
+        # of the F3 filtrate to the scrubber; the rest of it is process water).
+        self.filtrate_demand_kgph = max(water_target_kmol - captured - lime_water, 0.0) * 18.01528
+        makeup.imol["Water"] = max(water_target_kmol - captured - lime_water - float(filtrate.imol["Water"]), 0.0)
         scrubbed.copy_like(gas)
         scrubbed.imol["CO2"] = n_co2 - captured
         scrubbed.T = self.T
         slurry.empty()
         slurry.phase = "l"
-        slurry.imol["CaCO3"] = captured
+        slurry.imol["CaCO3"] = captured + lime_caco3
         slurry.imol["CaOH2"] = unreacted
-        slurry.imol["Water"] = float(filtrate.imol["Water"]) + float(makeup.imol["Water"]) + captured
+        slurry.imol["LimeInerts"] = lime_inerts
+        slurry.imol["Water"] = float(filtrate.imol["Water"]) + float(makeup.imol["Water"]) + lime_water + captured
         slurry.T, slurry.P = self.T, gas.P
 
     def _design(self):
@@ -1562,9 +1589,7 @@ class CausticizationReactor(bst.Unit):
 
         # Automatically dose Ca(OH)2 (unless the system supplies the lime, as with lime recycle).
         if not self.lime_supplied:
-            lime.empty()
-            lime.imol["CaOH2"] = required_lime_kmolph
-            lime.phase = "s"
+            _set_lime_stream(lime, required_lime_kmolph)
         slurry.T = self.target_temperature_K
         slurry.P = carbonate_solution.P
 

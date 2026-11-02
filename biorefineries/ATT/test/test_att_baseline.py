@@ -2,12 +2,13 @@
 Key metrics of the ATT scenarios (S1, S2; add S3 and later ones as new entries below).
 
 Baseline assumptions (data/*.yaml): presscake feed, NaOH 1 kg/kg dry, Ni-CatATT 1:1 gas yields, lumped residue (ATT
-char), 88 % causticization, F2 washing, waste-lime CO2 scrubber, no PSA, free waste lime, CaCO3 cakes DISPOSED (no
-CaCO3 sales), and the storage credit for ALL carbon in landfilled solids (CaCO3, Na2CO3, the residue).
+char), 88 % causticization, F2 washing with the wash liquor recycled to the dissolver, free waste carbide lime of an
+acetylene plant (a paste with CaCO3 and inert mineral impurities), waste-lime CO2 scrubber, no PSA, CaCO3 cakes DISPOSED
+(no CaCO3 sales), and the storage credit for the Sargassum carbon in landfilled solids (CaCO3, Na2CO3, the residue).
 
-Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The S1 values were cross-checked to 9 digits against an independent
-model of the same process (SaBRe Scenario 5). If a deliberate model change moves a value, update it in the same commit
-and say why.
+Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was
+cross-checked to 9 digits against an independent model of the same process (SaBRe Scenario 5); the wash recycle and the
+lime paste are ATT-only changes. If a deliberate model change moves a value, update it in the same commit and say why.
 """
 import unittest
 import warnings
@@ -22,27 +23,27 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
-    "MSP_USD_per_kg_H2": 5.40656916,
-    "GWP_kgCO2e_per_kg_H2": 6.49866239,
-    "FCI_MUSD": 12.4754519,
-    "AOC_MUSD_per_yr": 14.35187,
+    "MSP_USD_per_kg_H2": 5.19851150,
+    "GWP_kgCO2e_per_kg_H2": 7.19824771,
+    "FCI_MUSD": 12.8759836,
+    "AOC_MUSD_per_yr": 13.68545,
     "H2_t_per_yr": 2953.56307,
-    "fresh_NaOH_t_per_yr": 10262.8704,
-    "Ca_OH_2_used_t_per_yr": 42623.9135,
-    "U2_heat_duty_MJ_per_kg_dry": 9.06587487,
+    "fresh_NaOH_t_per_yr": 7065.4161,
+    "Ca_OH_2_used_t_per_yr": 43059.0100,
+    "U2_heat_duty_MJ_per_kg_dry": 9.14913814,
     "dry_feed_t_per_day": 120.7001,
 }
-S1_STORED_CARBON_CREDIT = -15.1280751        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 21.6267375
+S1_STORED_CARBON_CREDIT = -15.2096585        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 22.4079062
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1857.84623353
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {
-    ("A", "no WHR"): (5.64992672, 6.49866239, 15594314.9),
-    ("A", "all WHR"): (5.59289358, 5.10825610, 16602431.2),
-    ("B", "no WHR"): (7.56934604, 6.49866239, 15594314.9),
-    ("B", "all WHR"): (7.61423754, 5.10825610, 16602431.2),
+    ("A", "no WHR"): (5.44968219, 7.19824771, 16094979.5),
+    ("A", "all WHR"): (5.39264905, 5.80784142, 17103095.8),
+    ("B", "no WHR"): (7.43072558, 7.19824771, 16094979.5),
+    ("B", "all WHR"): (7.47561709, 5.80784142, 17103095.8),
 }
 
 

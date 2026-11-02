@@ -1,4 +1,4 @@
-"""Carbon accounting of ATT S1 (washing on).
+"""Carbon accounting of ATT S1.
 
 Baseline (att_tea.yaml caco3_sales.enabled false; att_lca.yaml inherited accounting, char credited): the CaCO3 cakes are
 disposed and ALL carbon in landfilled solids (CaCO3, Na2CO3, the lumped residue = ATT char) earns the storage credit.
@@ -17,6 +17,13 @@ from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 from biorefineries.ATT.test._options import sales_option
 
 C_PER_CACO3 = 12.011 / 100.0869
+LIME_OF_CAKE = {"caco3_cake": "lime", "scrubber_cake": "scrubber_lime"}    # the lime whose CaCO3 a cake carries
+
+
+def lime_carbon(streams, ID):
+    """kg C/h of the waste-lime CaCO3 in cake ``ID`` (fossil / non-Sargassum carbon: never credited)."""
+    lime = LIME_OF_CAKE.get(ID)
+    return float(streams[lime].get_atomic_flow("C")) * 12.011 if lime in streams else 0.0
 
 
 class TestBaselineAccounting(unittest.TestCase):
@@ -38,9 +45,9 @@ class TestBaselineAccounting(unittest.TestCase):
         self.assertEqual(self.t["CaCO3_sold_t_per_yr"], 0.0)
 
     def test_credit_is_all_carbon_of_the_landfilled_solids(self):
-        landfilled = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011
+        landfilled = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011 - lime_carbon(self.s, ID)
                          for ID in lca._LCA["waste_management"]["landfill_streams"] if ID in self.s
-                         and self.s[ID] in self.sys.products)
+                         and self.s[ID] in self.sys.products)       # Sargassum carbon only: not the lime's CaCO3
         self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys), landfilled, places=9)
         self.assertAlmostEqual(self.t["GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2"],
                                -landfilled * 44.0095 / 12.011 / self.h2, places=9)
@@ -76,7 +83,8 @@ class TestCarbonateAccounting(unittest.TestCase):
         cls._option.__exit__(None, None, None)
 
     def caco3_C(self, ID):
-        return float(self.s[ID].imass["CaCO3"]) * C_PER_CACO3
+        """Sargassum-derived CaCO3 carbon of cake ``ID`` [kg C/h] (the waste lime's CaCO3 carbon excluded)."""
+        return float(self.s[ID].imass["CaCO3"]) * C_PER_CACO3 - lime_carbon(self.s, ID)
 
     def test_option_is_conservative(self):
         self.assertEqual(lca._LCA["carbon_storage"]["carbonate_storage_accounting"], "conservative")
@@ -104,30 +112,31 @@ class TestCarbonateAccounting(unittest.TestCase):
                 self.assertAlmostEqual(acc[ID]["sold_caco3_kgph"],
                                        lca.caco3_saleable_fraction(ID, sales) * float(self.s[ID].imass["CaCO3"]), places=12)
             # every CaCO3 carbon is either sold (revenue, no credit) or landfilled (credit), never both
-            sold_C = sum(r["sold_caco3_kgph"] for r in acc.values()) * C_PER_CACO3
+            sold_C = sum(acc[ID]["sold_caco3_kgph"] * C_PER_CACO3 * self.caco3_C(ID)
+                         / (float(self.s[ID].imass["CaCO3"]) * C_PER_CACO3) for ID in acc)
             self.assertAlmostEqual(sold_C + lca._stored_carbon_kgph(self.sys, caco3_sales=sales), total, places=9)
 
     def test_inherited_comparison_is_preserved(self):
         # the earlier treatment: all non-residue carbon of the landfilled cakes, sold or not
-        expected = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011
+        expected = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011 - lime_carbon(self.s, ID)
                        for ID in ("caco3_cake", "scrubber_cake", "ash_residue_cake")) - sum(
             float(self.s["ash_residue_cake"].imol[r]) * self.s["ash_residue_cake"].chemicals[r].atoms["C"] * 12.011
             for r in lca._LCA["carbon_storage"]["provisional_residue_species"] if r in self.s["ash_residue_cake"].chemicals)
         self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys, accounting="inherited", include_char=False), expected,
                                places=9)
         for s in (self.sold, self.kept):        # independent of the disposition, as before
-            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 14.022180, delta=1e-6)
+            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 14.721765, delta=1e-6)
             self.assertAlmostEqual(s["GWP_kgCO2e_per_kg_H2"] - s["GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2"],
                                    s["GWP_without_storage_credit_kgCO2e_per_kg_H2"], places=12)
         self.assertAlmostEqual(self.sold["GWP_kgCO2e_per_kg_H2"],
-                               14.022180 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
+                               14.721765 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
 
     def test_physical_flows_and_msp_unchanged_by_accounting(self):
         self.assertAlmostEqual(self.sold["H2_t_per_yr"], 2953.563, delta=1e-3)
-        self.assertAlmostEqual(self.sold["MSP_USD_per_kg_H2"], 3.211459, delta=1e-6)
-        self.assertAlmostEqual(self.kept["MSP_USD_per_kg_H2"], 5.308718, delta=1e-6)
+        self.assertAlmostEqual(self.sold["MSP_USD_per_kg_H2"], 2.892374, delta=1e-6)
+        self.assertAlmostEqual(self.kept["MSP_USD_per_kg_H2"], 5.097195, delta=1e-6)
         dry = float(self.s["caco3_cake"].F_mass - self.s["caco3_cake"].imass["Water"])
-        self.assertAlmostEqual(float(self.s["caco3_cake"].imass["CaCO3"]) / dry, 0.82545, delta=1e-5)
+        self.assertAlmostEqual(float(self.s["caco3_cake"].imass["CaCO3"]) / dry, 0.80570, delta=1e-5)   # washed cake, with the lime impurities
 
     def test_carbon_closes_and_wash_carbonate_is_not_credited(self):
         rows = inv.get_att_carbon_fate(self.sys)
@@ -137,7 +146,7 @@ class TestCarbonateAccounting(unittest.TestCase):
         feed = self.s["att_sargassum_feed"]
         self.assertEqual(float(feed.imol["CaCO3"]) if "CaCO3" in feed.chemicals else 0.0, 0.0)   # all carbonate is biogenic
         self.assertNotIn("f2_wash_liquor", lca._LCA["waste_management"]["landfill_streams"])
-        self.assertGreater(float(self.s["f2_wash_liquor"].imass["Na2CO3"]), 0.0)
+        self.assertGreater(float(self.s["f2_wash_liquor"].imass["Na2CO3"]), 0.0)     # dissolved carbonate, recycled
 
 
 if __name__ == "__main__":

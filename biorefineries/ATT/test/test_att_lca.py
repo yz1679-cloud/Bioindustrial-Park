@@ -40,7 +40,7 @@ class TestATTGWP(unittest.TestCase):
     def test_waste_lime_override(self):
         base = self.c["TOTAL (System.get_net_impact)"]["GWP_kgCO2e_per_kg_dry"]
         s = inv._streams(self.sys)
-        lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) / self.dry       # C1 lime + CO2-scrubber lime
+        lime = sum(float(s[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime") if ID in s) / self.dry   # C1 + scrubber Ca(OH)2
         try:
             lca.apply_att_gwp(self.sys, overrides={"CaOH2_limestone": 0.0}, estimates=self.estimates)
             slag = self.sys.get_net_impact(lca.KEY) / (self.dry * self.sys.operating_hours)
@@ -51,7 +51,8 @@ class TestATTGWP(unittest.TestCase):
     def test_neutralization_stoichiometry(self):
         streams = inv._streams(self.sys)
         expected = sum(float(streams[ID].imol["NaOH"] + streams[ID].imol["Na2CO3"])
-                       for ID in ("liquor_purge", "f2_wash_liquor") if ID in streams) / 2 * 98.07848
+                       for ID in ("liquor_purge", "f2_wash_liquor")
+                       if ID in streams and streams[ID] in self.sys.products) / 2 * 98.07848
         self.assertAlmostEqual(lca._h2so4_kgph(self.sys), float(expected), places=6)
 
     def test_optional_collection_transport(self):

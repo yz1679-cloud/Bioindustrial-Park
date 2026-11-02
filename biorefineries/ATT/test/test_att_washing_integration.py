@@ -14,7 +14,8 @@ class TestNativeF2Washing(unittest.TestCase):
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
         cls.off = scen.create(washing="washing_off")
-        cls.on = scen.create(washing="washing_on")
+        cls.on = scen.create(washing="washing_on", wash_recycle=False)      # wash liquor to wastewater
+        cls.rec = scen.create(washing="washing_on")                       # wash liquor recycled to the dissolver (S1)
         cls.u, cls.s = inv._units(cls.on), inv._streams(cls.on)
         cls.off_s = inv._streams(cls.off)
 
@@ -101,14 +102,45 @@ class TestNativeF2Washing(unittest.TestCase):
     def test_washing_off_reference_values(self):
         ref = mt.land_reference(self.off)
         self.assertAlmostEqual(ref["row"]["H2_t_per_yr"], 2953.563, delta=.001)
-        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 5.206415, delta=1e-6)   # baseline: CaCO3 disposed
+        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 5.413048, delta=1e-6)   # CaCO3 disposed, no washing
         self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1857.8462335, delta=1e-5)
-        for hours, expected in ((7920., 5.381386), (2640., 7.313186)):
+        for hours, expected in ((7920., 5.594851), (2640., 7.580537)):
             row, _ = mt.evaluate_case(self.off, ref, "reference", hours=hours)
             self.assertAlmostEqual(row["MSP_USD_per_kg_H2"], expected, delta=1e-6)
             # baseline: inherited accounting with the residue credited, so the net GWP equals the inherited-credit GWP
-            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 4.909519, delta=1e-6)
-            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 4.909519, delta=1e-6)
+            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 6.694371, delta=1e-6)
+            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 6.694371, delta=1e-6)
+
+    def test_wash_liquor_recycle_to_the_dissolver(self):
+        rs, ru = inv._streams(self.rec), inv._units(self.rec)
+        liquor = rs["f2_wash_liquor"]
+        self.assertNotIn(liquor, self.rec.products)                     # an internal recycle, not wastewater
+        self.assertIs(ru["F2R"].outs[1], liquor)
+        self.assertIn(liquor, ru["D1"].ins)
+        self.assertGreater(float(liquor.imass["NaOH"]), 0)
+        # the dissolver still holds 3 kg water per kg of the Na2CO3 made in U2: the wash liquor water replaces condensate
+        d1 = ru["D1"].outs[0]
+        self.assertAlmostEqual(float(d1.imass["Water"]), 3.0 * float(ru["D1"].ins[0].imass["Na2CO3"]), places=6)
+        # the recycled sodium cuts the fresh NaOH, and the neutralization sees only the purge
+        self.assertLess(float(rs["fresh_naoh_solid"].F_mass), 0.8 * float(self.s["fresh_naoh_solid"].F_mass))
+        self.assertAlmostEqual(lca._h2so4_kgph(self.rec),
+                               float(rs["liquor_purge"].imol["NaOH"] + rs["liquor_purge"].imol["Na2CO3"]) * 98.07848 / 2,
+                               places=8)
+        rows = inv.get_att_external_flows(self.rec)
+        self.assertNotIn("f2_wash_liquor", [r["stream"] for r in rows])
+        error = sum(r["kg_per_h"] * (1 if r["direction"] == "input" else -1) for r in rows if r["component"] == "TOTAL")
+        self.assertAlmostEqual(error, 0., delta=1e-5)
+
+    def test_waste_lime_is_a_carbide_lime_paste(self):
+        for system in (self.off, self.on, self.rec):
+            s = inv._streams(system)
+            for ID in ("lime", "scrubber_lime"):
+                lime = s[ID]
+                dry = float(lime.F_mass - lime.imass["Water"])
+                self.assertAlmostEqual(float(lime.imass["CaOH2"]) / dry, 0.92, places=9)
+                self.assertAlmostEqual(float(lime.imass["CaCO3"]) / dry, 0.04, places=9)
+                self.assertAlmostEqual(float(lime.imass["LimeInerts"]) / dry, 0.04, places=9)
+                self.assertAlmostEqual(float(lime.imass["Water"] / lime.F_mass), 0.40, places=9)
 
     def test_floating_capex_includes_washing_once(self):
         ref = mt.land_reference(self.on)
@@ -116,13 +148,13 @@ class TestNativeF2Washing(unittest.TestCase):
         self.assertAlmostEqual(row["FCI_USD"], 1.25 * ref["FCI_USD"] + row["WHR_CAPEX_USD"], places=6)
 
     def test_zero_wash_and_sensitivity(self):
-        zero = scen.create(washing="washing_on", wash_ratio=0.)
+        zero = scen.create(washing="washing_on", wash_ratio=0., wash_recycle=False)
         np.testing.assert_allclose(inv._streams(zero)["caco3_cake"].mass, inv._units(zero)["F2"].outs[0].mass,
                                    atol=1e-8, rtol=1e-10)
-        more = scen.create(washing="washing_on", wash_ratio=2.)
+        more = scen.create(washing="washing_on", wash_ratio=2., wash_recycle=False)
         self.assertLess(inv._streams(more)["caco3_cake"].imass["NaOH"], self.s["caco3_cake"].imass["NaOH"])
         with self.assertRaises(ValueError):
-            scen.create(washing="washing_on", wash_ratio=-1.)
+            scen.create(washing="washing_on", wash_ratio=-1., wash_recycle=False)
 
     def test_empty_tail_gas_excluded_and_boundary_closed(self):
         rows = inv.get_att_external_flows(self.on)

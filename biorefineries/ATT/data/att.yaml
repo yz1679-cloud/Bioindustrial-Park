@@ -418,8 +418,20 @@ att:
       kiln_area_m2_per_t_CaO_per_day: 3.14   # a kraft kiln of ~400 t CaO/d is about 4 m x 100 m (1,257 m2)
       refractory_factor: 2.0            # kiln shell cost = BioSTEAM drum-dryer correlation x this (refractory lining; assumed)
       status: "PRELIMINARY: no sourced modern kiln cost; the rotating shell is costed with BioSTEAM's drum-dryer correlation (area-based) times an assumed refractory factor, the firing with the BioSTEAM furnace correlation. +/-50 % or worse."
+    # Waste carbide lime of an acetylene plant (CaC2 + 2 H2O -> C2H2 + Ca(OH)2), used for the C1 causticization and the
+    # CO2 scrubber. Free and burden-free (scenario lime: waste). It is a filter-pressed paste: the flows below are set so
+    # that the Ca(OH)2 of the stream equals the requirement of C1 / the scrubber; the rest is carried along.
+    waste_lime:
+      enabled: true
+      dry_basis_wt_frac:            # of the dry lime
+        CaOH2: 0.92                 # Ca(OH)2
+        CaCO3: 0.04                 # from carbonation by air CO2 and the carbide's limestone
+        LimeInerts: 0.04            # SiO2, Al2O3, Fe2O3, MgO, sulfate, unreacted carbon (lumped as an inert mineral)
+      moisture_wt_frac: 0.40        # filter-pressed paste: 30-50 wt % water (EIGA Doc 143/25)
+      source: "Dry composition: dried acetylene-plant sludge 95 % Ca(OH)2, 2 % CaCO3, 1.3 % SiO2 (carbide sludge vacuum-filtration study); reviews 85-95 % Ca(OH)2, CaCO3 1-10 %, silicates and carbon 1-3 %; XRF SiO2 2-3 %, Al2O3 about 1.3 %; the EIGA slurry table reports 16-22 % CaCO3 on dry matter (an upper bound). Water: EIGA Doc 143/25 sect. 4.5-4.6.2 (settled slurry 25-30 % solids; press-filtered paste 30-50 % water). Trace metals (Cu, Mn, Ni, Ba, Cr), chloride, sulfate and ammonium are not modeled."
     f2_washing:
-      enabled: true       # washing_on default; f2_wash_enabled=False preserves washing_off
+      enabled: true       # the CaCO3 cake is washed and the wash liquor is recycled (recycle_wash_liquor)
+      recycle_wash_liquor: true   # wash liquor to the dissolver D1 (replaces condensate / fresh dissolution water); false: wastewater
       wash_ratio_kg_per_kg_dry_cake: 1.0  # ENG: all non-water mass of the original F2 cake
       contact_time_h: 0.25               # ENG: agitated single-stage contact, not measured kinetics
       temperature_K: 298.15             # fresh ambient water; adiabatic MixTank, no preheating

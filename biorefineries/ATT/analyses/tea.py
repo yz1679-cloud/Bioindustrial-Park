@@ -147,7 +147,11 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
     s["att_sargassum_feed"].price = (float(_PRICE["sargassum"]["baseline"]) if feedstock_usd_per_wet_t is None
                                      else float(feedstock_usd_per_wet_t) / 1e3)
     s["fresh_naoh_solid"].price = p["NaOH"]
-    s["lime"].price = p["CaOH2"]
+    # The price is per kg of Ca(OH)2; the waste carbide lime stream also carries water and impurities.
+    for ID in ("lime", "scrubber_lime"):
+        if ID in s:
+            fraction = float(s[ID].imass["CaOH2"]) / float(s[ID].F_mass) if float(s[ID].F_mass) > 0.0 else 1.0
+            s[ID].price = p["CaOH2"] * fraction
     s["dissolution_water"].price = p["process_water"]
     if "biostimulant_juice" in s:
         s["biostimulant_juice"].price = float(_T["prices"]["juice"])
@@ -155,8 +159,6 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         s["slaking_water"].price = p["process_water"]
     if "scrubber_makeup_water" in s:
         s["scrubber_makeup_water"].price = p["process_water"]
-    if "scrubber_lime" in s:
-        s["scrubber_lime"].price = p["CaOH2"]
     if "f2_wash_water" in s:
         s["f2_wash_water"].price = p["process_water"]
     for ID in _T["prices"]["wastewater_streams"]:

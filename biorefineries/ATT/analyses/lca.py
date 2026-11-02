@@ -108,8 +108,9 @@ def _wastewater_m3ph(sys):
 def _h2so4_kgph(sys):
     s = inv._streams(sys)
     n = _LCA["neutralization"]
+    products = {p.ID for p in sys.products}      # a recycled wash liquor is not neutralized
     H = sum(n["H_plus_per_mol"][k] * float(s[ID].imol[k])
-            for ID in n["streams"] if ID in s for k in n["H_plus_per_mol"])  # kmol H+/h
+            for ID in n["streams"] if ID in s and ID in products for k in n["H_plus_per_mol"])  # kmol H+/h
     return H / 2.0 * _MW["H2SO4"]
 
 
@@ -142,6 +143,9 @@ def _sales(caco3_sales):
     return baseline_caco3_sales() if isinstance(caco3_sales, str) and caco3_sales == BASELINE else caco3_sales
 
 
+_LIME_OF_CAKE = {"caco3_cake": "lime", "scrubber_cake": "scrubber_lime"}     # cake -> the lime stream whose CaCO3 it carries
+
+
 def _stored_carbon_kgph(sys, include_char=None, caco3_sales=BASELINE, accounting=None):
     """
     Carbon (kg C/h) credited as permanently stored in landfilled solids. ``accounting`` (default att_lca.yaml
@@ -167,11 +171,14 @@ def _stored_carbon_kgph(sys, include_char=None, caco3_sales=BASELINE, accounting
         stream = s[ID]
         residue = sum(float(stream.imol[res]) * stream.chemicals[res].atoms.get("C", 0.0)
                       for res in cfg.get("provisional_residue_species", ("Char",)) if res in stream.chemicals)
+        # Only the carbon of the Sargassum earns the credit: the CaCO3 of the waste lime leaves in the cakes unchanged.
+        lime_ID = _LIME_OF_CAKE.get(ID)
+        lime_C = float(s[lime_ID].get_atomic_flow("C")) if lime_ID in s else 0.0
         if accounting == "inherited":
-            C = float(stream.get_atomic_flow("C")) - residue
+            C = float(stream.get_atomic_flow("C")) - residue - lime_C
         else:
             caco3 = float(stream.imol["CaCO3"]) if "CaCO3" in stream.chemicals else 0.0
-            C = caco3 * (1.0 - caco3_saleable_fraction(ID, sales))
+            C = (caco3 - lime_C) * (1.0 - caco3_saleable_fraction(ID, sales))
         stored += (C + (residue if include_char else 0.0)) * 12.011
     return stored
 
@@ -212,11 +219,10 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None, caco3_s
             raise ValueError(f"{ID} is not pure {component}; per-kg stream factor invalid")
         value = f[name] / float(_LCA["water_density_kg_per_m3"]) if name == "water_supply" else f[name]
         stream.set_CF(KEY, value)
-    if abs(float(s["lime"].imass["CaOH2"]) - float(s["lime"].F_mass)) > 1e-9 * max(1.0, s["lime"].F_mass):
-        raise ValueError("lime is not pure Ca(OH)2")
-    s["lime"].set_CF(KEY, f[lime_key])
-    if "scrubber_lime" in s:
-        s["scrubber_lime"].set_CF(KEY, f[lime_key])
+    # The lime factor is per kg of Ca(OH)2; the lime streams carry water and impurities (waste carbide lime paste).
+    for ID in ("lime", "scrubber_lime"):
+        if ID in s and float(s[ID].F_mass) > 0.0:
+            s[ID].set_CF(KEY, f[lime_key] * float(s[ID].imass["CaOH2"]) / float(s[ID].F_mass))
 
     # Heat utilities: CF per kJ of delivered utility heat.
     ng = f["natural_gas_combustion"] + f["natural_gas_upstream"]
@@ -312,7 +318,7 @@ def get_att_gwp_contributions(sys, applied):
     waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
-    add("Ca(OH)2", sum(l.F_mass for l in limes) * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
+    add("Ca(OH)2", sum(l.imass["CaOH2"] for l in limes) * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
         sum(l.get_impact(KEY) for l in limes) * hours,
         f"{applied['lime_source']}: {_EF[applied['lime_source']]['source']}")
     rho = float(_LCA["water_density_kg_per_m3"])
@@ -376,7 +382,8 @@ def get_att_avoided_emission(sys, caco3_sales=BASELINE):
     c = _LCA["beach_rot_counterfactual"]
     dry = inv._dry_feed_kgph(sys)
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
-    carbon = sum(r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys) if r["direction"] == "input")
+    carbon = sum(r["kg_C_per_kg_dry"] for r in inv.get_att_carbon_fate(sys)
+                 if r["direction"] == "input" and r["category"] == "feedstock")
     ch4 = (carbon * c["dissimilated_fraction_DOCf"] * c["methane_correction_factor_MCF"] * c["methane_fraction_F"]
            * (1.0 - c["gas_capture_fraction_R"]) * (1.0 - c["oxidation_OX"]) * 16.04246 / 12.011)
     ch4_extra = -ch4 * (c["CH4_GWP100"] - 44.0095 / 16.04246) * dry / h2

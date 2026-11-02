@@ -29,7 +29,7 @@ class TestATTTEA(unittest.TestCase):
     def test_deductible_cost_passes_through(self):
         # A change in a deductible annual cost moves the MSP by cost / H2.
         s = inv._streams(self.sys)
-        lime = sum(float(s[ID].F_mass) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber lime
+        lime = sum(float(s[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber Ca(OH)2
         high = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.35})["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
         self.assertAlmostEqual(high - self.result["msp"], (0.35 - tea_mod._T["prices"]["CaOH2"]["value"]) * lime / self.h2_yr,
