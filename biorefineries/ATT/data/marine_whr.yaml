@@ -1,5 +1,5 @@
 # ATT Scenario 2 (att_s2): shipboard ATT with marine engine waste heat recovery (WHR).
-# Read by analyses/att/marine_whr.py. Design basis: docs/ATT_S2_DESIGN_BASIS.md; sources: docs/ATT_S2_REFERENCES.md.
+# Read by analyses/marine_whr.py. Design basis: docs/ATT_S2_DESIGN_BASIS.md; sources: docs/ATT_S2_REFERENCES.md.
 #
 # Every non-trivial number has a source id [R-..] and a class:
 #   PUB-MFR  published manufacturer specification      PUB-RES  published research result

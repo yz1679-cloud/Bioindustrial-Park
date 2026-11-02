@@ -30,11 +30,11 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att import tea as tea_mod
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
-from biorefineries.ATT.analyses.att.paths import output_dir
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses import tea as tea_mod
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses.paths import output_dir
 
 OUT = output_dir("tables")
 SUMMARY_KEYS = ("H2_t_per_yr", "CaCO3_price_USD_per_t", "CaCO3_sold_t_per_yr", "CaCO3_sales_revenue_USD_per_yr",

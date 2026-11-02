@@ -3,10 +3,10 @@ counted once; floating CAPEX and labor multipliers applied as specified; S1 unaf
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import marine_tea as mt
-from biorefineries.ATT.analyses.att import marine_whr as mw
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import marine_tea as mt
+from biorefineries.ATT.analyses import marine_whr as mw
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 
 ALL = ("jacket", "scavenge", "exhaust")
 

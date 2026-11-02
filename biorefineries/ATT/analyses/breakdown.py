@@ -7,7 +7,7 @@
 # for license details.
 
 """
-Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 of the scenarios of ``analyses/att/scenarios.py``
+Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 of the scenarios of ``analyses/scenarios.py``
 at their capacity, with their lime and CaCO3 assumptions (scenarios.tea_config / lca_overrides). Configurations:
 
 * ``fresh_sargassum`` ATT plant fed with wet fresh Sargassum (NLR scale: 3 million wet t/yr): P1 press
@@ -33,14 +33,14 @@ Written by ``analyses/cost_gwp_breakdown_att.py`` to ``results/tables`` and
 import numpy as np
 import pandas as pd
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att import lca
-from biorefineries.ATT.analyses.att import tea as tea_mod
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses import lca
+from biorefineries.ATT.analyses import tea as tea_mod
 
 __all__ = ("build_att_breakdown", "COST_TYPES", "CONFIGURATIONS", "CASES", "FIGURE_CASES", "CASE_LABELS", "LIME_LABELS")
 
-# The scenarios of analyses/att/scenarios.py (ATT Scenario 1, 'att_s1').
+# The scenarios of analyses/scenarios.py (ATT Scenario 1, 'att_s1').
 CASES = scen.SCENARIOS
 FIGURE_CASES = tuple(CASES)
 CASE_LABELS = scen.CASE_LABELS
@@ -231,16 +231,16 @@ def _gwp_tables(contributions):
 
 def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None, f2_sales=True):
     """
-    One simulation of a scenario of analyses/att/scenarios.py; returns a dict of DataFrames and a summary dict.
+    One simulation of a scenario of analyses/scenarios.py; returns a dict of DataFrames and a summary dict.
 
     ATT Scenario 1 takes free, burden-free waste lime and sells the CaCO3 of its cakes (att_tea.yaml caco3_sales;
     the rest of each cake is disposed). ``caco3_price`` [USD/t] overrides the configured price for this call only;
     ``sys`` reuses an already simulated system of the scenario. ``tea_kwargs``: extra evaluate_att_tea keywords
-    (the ATT S2 floating/WHR hooks, analyses/att/marine_tea.py); None = the land-based TEA.
+    (the ATT S2 floating/WHR hooks, analyses/marine_tea.py); None = the land-based TEA.
     """
     spec = scen.ALL_SCENARIOS[case]
     if spec.get("marine") and tea_kwargs is None:
-        raise ValueError(f"{case} is a marine scenario: use analyses/att/marine_tea.py (floating TEA and WHR).")
+        raise ValueError(f"{case} is a marine scenario: use analyses/marine_tea.py (floating TEA and WHR).")
     return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs, f2_sales)
 
 

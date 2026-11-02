@@ -2,8 +2,8 @@
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import tea as tea_mod
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import tea as tea_mod
 
 
 class TestATTTEA(unittest.TestCase):

@@ -7,8 +7,8 @@ inside ``sales_option()``.
 """
 import contextlib
 
-from biorefineries.ATT.analyses.att import lca
-from biorefineries.ATT.analyses.att import tea as tea_mod
+from biorefineries.ATT.analyses import lca
+from biorefineries.ATT.analyses import tea as tea_mod
 
 
 @contextlib.contextmanager

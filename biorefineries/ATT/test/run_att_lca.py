@@ -1,8 +1,8 @@
 """Run the ATT GWP100 LCA and export results (separate from the inventory)."""
 import argparse
 
-from biorefineries.ATT.analyses.att.paths import SUBDIRS, output_dir
-from biorefineries.ATT.analyses.att.lca import export_att_lca
+from biorefineries.ATT.analyses.paths import SUBDIRS, output_dir
+from biorefineries.ATT.analyses.lca import export_att_lca
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

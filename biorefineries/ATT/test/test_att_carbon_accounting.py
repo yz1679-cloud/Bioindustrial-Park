@@ -9,11 +9,11 @@ credit stays available as a comparison. In both, the carbon of the plant closes.
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import lca
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att import tea as tea_mod
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import lca
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses import tea as tea_mod
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 from biorefineries.ATT.test._options import sales_option
 
 C_PER_CACO3 = 12.011 / 100.0869

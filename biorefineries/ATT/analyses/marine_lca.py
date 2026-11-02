@@ -8,14 +8,14 @@
 
 """
 ATT Scenario 2: INCREMENTAL process GWP of marine waste heat recovery on top of the unchanged ATT S1 LCA
-(analyses/att/lca.py, same factors and boundary). The recovered heat replaces purchased LP steam (natural-gas
+(analyses/lca.py, same factors and boundary). The recovered heat replaces purchased LP steam (natural-gas
 boiler) and, for the U2 feed preheater, U2 furnace natural gas; the WHR pumps add electricity. The waste heat
 itself carries no burden in this INCREMENTAL view: it is available from propulsion that happens anyway. This is
 not a ship lifecycle footprint: propulsion fuel and its emissions are not allocated to ATT (no fuel-use data), and
 no credit is taken for them.
 """
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import lca
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import lca
 
 __all__ = ("whr_gwp_change",)
 

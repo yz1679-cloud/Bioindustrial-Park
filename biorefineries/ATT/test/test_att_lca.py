@@ -2,8 +2,8 @@
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import lca
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import lca
 
 
 class TestATTGWP(unittest.TestCase):

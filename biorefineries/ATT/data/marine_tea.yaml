@@ -1,4 +1,4 @@
-# ATT Scenario 2 floating-facility TEA assumptions (read by analyses/att/marine_tea.py).
+# ATT Scenario 2 floating-facility TEA assumptions (read by analyses/marine_tea.py).
 # Classes as in marine_whr.yaml; design basis: docs/ATT_S2_DESIGN_BASIS.md.
 marine_tea:
   # USER-supplied scenario assumptions (NOT literature-verified):

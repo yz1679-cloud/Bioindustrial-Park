@@ -1,6 +1,6 @@
 # Model Assumptions: ATT preliminary TEA (research stage)
 #
-# Read by biorefineries/ATT/analyses/att/tea.py. Financial assumptions are
+# Read by biorefineries/ATT/analyses/tea.py. Financial assumptions are
 # the SaBRe defaults in tea.yaml (SaBReTEA); this file only adds ATT-specific
 # prices and capital items. The frozen process model is not modified.
 
@@ -47,7 +47,7 @@ tea:
   # ATT Scenario 1 CaCO3 BYPRODUCT SALES: OFF in the baseline (user decision 2026-11-01: the CaCO3 cakes are disposed at
   # the tea.yaml solid-waste price, no CaCO3 revenue; TEA Case A). The sales accounting below is kept as an option
   # (enabled: true; user decision 2026-10-31, TEA marketing ASSUMPTION, no sales agreement).
-  # Applied by analyses/att/breakdown.py (the ATT S1 TEA) to each listed cake stream that is a system product:
+  # Applied by analyses/breakdown.py (the ATT S1 TEA) to each listed cake stream that is a system product:
   #   revenue  = saleable_fraction x CaCO3 component mass x price (the CaCO3 content only, not the wet cake);
   #   disposal = tea.yaml disposal_solid x (cake mass - sold CaCO3 mass): the moisture, excess Ca(OH)2 and entrained
   #              NaOH/Na2CO3 stay a disposed residue (dispose_non_caco3_mass); the sold CaCO3 is not disposed

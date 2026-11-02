@@ -11,12 +11,11 @@ and after the work, and the two hash lists match.
 | `data/att.yaml` | **Authoritative ATT configuration**: `att.scenarios.att_s1` (flowsheet switches, capacity), `reactor.cases.Ni-CatATT_1to1` (gas yields, NaOH dose), `reactor.material_balance` (carbon closure), `downstream` (C1 0.88) |
 | `data/feedstock.yaml`, `tea.yaml`, `att_tea.yaml`, `att_lca.yaml` | Copies of the SaBRe files (unchanged) |
 | `units/_att.py`, `systems/_att_system.py` | Process units and flowsheet |
-| `analyses/att/scenarios.py` | `ATT_S1`, `ATT_S2`, `create()`, `scale()`, `tea_config()`, `lca_overrides()` (single source of the scenario assumptions); no run-time parameter patching |
-| `analyses/att/{breakdown,tea,lca,inventory,...}.py` | TEA/LCA/inventory (SaBRe method) |
+| `analyses/scenarios.py` | `ATT_S1`, `ATT_S2`, `create()`, `scale()`, `tea_config()`, `lca_overrides()` (single source of the scenario assumptions); no run-time parameter patching |
+| `analyses/{breakdown,tea,lca,inventory,...}.py` | TEA/LCA/inventory (SaBRe method) |
 | `test/` | `test_att_s1_parameters.py` (new) and the adapted SaBRe tests |
 | `reference_data/ATT Inputs and Assumptions_261023.xlsx` | Read-only copy (sha256 `db8ff0f4...f949`, identical to the original) |
-| `README_SABRE_ATT_original.md` | SaBRe ATT README, for reference only (describes SaBRe, not ATT S1) |
-| `results/` | Default output folder of the runners (`analyses/att/paths.py`) |
+| `results/` | Default output folder of the runners (`analyses/paths.py`) |
 
 All imports are `biorefineries.ATT.*`. Importing or running ATT loads no `biorefineries.sabre` module; the
 test `test_no_sabre_import` checks this.
@@ -27,15 +26,15 @@ test `test_no_sabre_import` checks this.
 |---|---|---|---|
 | Gross NaOH | 1.0 kg/kg **daf** (0.6793 kg/kg dry) | **1.0 kg/kg dry**: the sum of the feedstock solids leaving D0 (`_SARGASSUM_DRY_IDS`); fresh NaOH = gross − recycled | `att.yaml` `naoh_kg_per_kg_dry`; `_att_system.py` `required_gross_naoh_kgph`, recycle seed |
 | Gas yields (mmol/g daf) | H2 70.52, CH4 0.70, CO 0.31, CO2 22.68 (team slides) | **54.15 / 0.60 / 0.00 / 0.77** (workbook 261023, Ni-CatATT 1:1); still multiplied by the U2 daf flow | `att.yaml` `gas_yield_mmol_per_g_daf` |
-| CO2 override | `scenarios.dose()` rewrote CO2 to 22.68 | removed; `att.yaml` is the only source | `analyses/att/scenarios.py` |
+| CO2 override | `scenarios.dose()` rewrote CO2 to 22.68 | removed; `att.yaml` is the only source | `analyses/scenarios.py` |
 | Residual organic carbon | extra gas CO2 (+2.24 mmol/g daf) | **solid `Char`** (CH0.5O0.1), PROVISIONAL; switch `residual_carbon_fate: char\|co2` | `units/_att.py` `close_att_u2_balance` |
 | H excess of the products | `RuntimeError` | `hydrogen_excess_action: report`: the run is kept, a warning is raised, and `balance_checks()` reports FAIL. No product is added or removed | `units/_att.py` |
 | C1 conversion | 0.85 | **0.88**; guard `conversion <= lime_equiv` | `att.yaml`; `CausticizationReactor` |
 | Capacity | run time: the dry feed at which SaBRe S4 uses the 92.47 kt/yr waste lime | **fixed at 5029.17 kg dry/h** (the same value, computed once on the unmodified S5 copy); SaBRe S4 is not built | `att.yaml` `scenarios.att_s1.dry_feed_kgph` |
 | D0 dryer | `DrumDryer(R=...)` (fails on BioSTEAM 2.53) | `DrumDryer(RH=0.8)`, the same air sizing in the installed API | `_att_system.py` |
 | Defaults | PSA on, scrubber off | `psa_enabled: false`, `co2_scrubber.enabled: true` (= ATT S1) | `att.yaml` |
-| LCA contributions | the Ca(OH)2 line omitted `scrubber_lime` (latent SaBRe bug; zero effect with waste lime) | both lime streams counted | `analyses/att/lca.py` |
-| Outputs | `<repo>/results/` | `biorefineries/ATT/results/` | `analyses/att/paths.py` |
+| LCA contributions | the Ca(OH)2 line omitted `scrubber_lime` (latent SaBRe bug; zero effect with waste lime) | both lime streams counted | `analyses/lca.py` |
+| Outputs | `<repo>/results/` | `biorefineries/ATT/results/` | `analyses/paths.py` |
 
 **Unchanged from SaBRe S5:**
 - Feed: presscake `nlr_pressed`, 76.3 % moisture, ash 32.07 wt % dry; no P1; D0 dries to 50 %; U2 at 500 C.
@@ -213,7 +212,7 @@ Status unchanged: operational; U2 elemental balance unresolved; U2 duty, MSP and
 - `units/_att.py`: `close_att_u2_balance` ('lumped' branch, raises if water < 0 or b outside 0-2);
   `ATTReactor._init`/`_run` (residue bookkeeping and solved formula); `_att_u2_balance_checks`.
 - `data/att.yaml`, `data/att_lca.yaml`.
-- `analyses/att/lca.py` (excluded species), `analyses/att/breakdown.py` (status fields).
+- `analyses/lca.py` (excluded species), `analyses/breakdown.py` (status fields).
 - `systems/_att_system.py`: the chemical-set check only.
 - `test/test_att_s1_parameters.py`.
 
@@ -260,13 +259,13 @@ unchanged.
 - The legacy SaBRe Case B table (`caco3_coproduct`, 250/50 USD/t) is labeled as a sensitivity only.
 
 **Code.**
-- `analyses/att/tea.py`:
+- `analyses/tea.py`:
   - `caco3_sales_accounting()` (new): per cake, revenue = fraction × CaCO3 component × price; disposal = the
     tea.yaml solid disposal price × (cake mass − sold CaCO3).
   - `evaluate_att_tea(..., caco3_sales=)` sets each cake's net price, so the revenue enters the DCF once.
   - `_opex_table` splits that net price into "CaCO3 sales: ID" and "CaCO3 cake disposal (non-sold mass): ID"
     and drops the generic whole-cake lines for a sold cake.
-- `analyses/att/breakdown.py`: applies the configuration to ATT S1, adds `caco3_price` and `sys` arguments,
+- `analyses/breakdown.py`: applies the configuration to ATT S1, adds `caco3_price` and `sys` arguments,
   maps the group "CaCO3 byproduct sales" (cost type "Coproduct revenue"), and adds summary fields.
 - `analyses/att_caco3_sales.py` (new): recovery table and price sensitivity. Outputs in `results/tables/`.
 - Tests: `test/test_att_breakdown.py` (reconciliation including the revenue; `test_caco3_sales_counted_once`).
@@ -312,25 +311,25 @@ and the floating TEA.
 
 **New files.**
 - `data/marine_whr.yaml`, `data/marine_tea.yaml`.
-- `analyses/att/marine_whr.py`:
+- `analyses/marine_whr.py`:
   - engine sources at a load, temperature-limited;
   - S1 heat sinks after the HXN;
   - temperature-feasible allocation;
   - itemized equipment;
   - `check_whr`.
-- `analyses/att/marine_tea.py`: floating CAPEX and labor; WHR utility savings and pumps.
-- `analyses/att/marine_lca.py`: incremental GWP.
+- `analyses/marine_tea.py`: floating CAPEX and labor; WHR utility savings and pumps.
+- `analyses/marine_lca.py`: incremental GWP.
 - `analyses/att_s2_marine.py`: driver; writes `results/tables/att_s2_*.csv`.
 - `test/test_att_s2.py`.
 
 **Changed files** (hooks are neutral by default; S1 results unchanged).
-- `analyses/att/tea.py`:
+- `analyses/tea.py`:
   - `ATTTEA(foc_fixed)` with `_FOC`;
   - `evaluate_att_tea(operating_hours, extra_capital, extra_voc, foc_frac_of_fci, foc_fixed)`;
   - the FCI-factor adjustment is now an itemized capital line.
-- `analyses/att/breakdown.py`: `tea_kwargs` pass-through; WHR and FCI-factor groups; refuses `att_s2` without the
+- `analyses/breakdown.py`: `tea_kwargs` pass-through; WHR and FCI-factor groups; refuses `att_s2` without the
   marine hooks.
-- `analyses/att/scenarios.py`: `ATT_S2` in `OPTIONAL_SCENARIOS`.
+- `analyses/scenarios.py`: `ATT_S2` in `OPTIONAL_SCENARIOS`.
 - `data/att.yaml`: `scenarios.att_s2`.
 
 **Key results** (all PROVISIONAL):
@@ -356,7 +355,7 @@ Tests: 84 run, all pass.
 Reproducibility fixes only. The process model, chemistry, inputs, WHR, TEA and LCA assumptions are unchanged, and
 so are the S1/S2 results.
 
-**Single source of the scenario assumptions.** `analyses/att/scenarios.py` now holds all of them:
+**Single source of the scenario assumptions.** `analyses/scenarios.py` now holds all of them:
 - `create` / `scale`: flowsheet, capacity and annual basis;
 - `tea_config`: waste lime at 0 USD/kg and CaCO3 sales (moved here from `breakdown._build`);
 - `lca_overrides`: waste lime is burden-free.
@@ -383,7 +382,7 @@ The SaBRe reference-treatment tables are kept and labeled **LEGACY**:
 The reference-scale model itself is `scenarios.create_legacy_reference()`. A `configuration` argument, or a
 `lime_recycle` value that contradicts the scenario, raises an error instead of silently changing S1.
 
-**Output directory.** `analyses/att/paths.py` reads the `ATT_PROJECT_RESULTS_DIR` environment variable
+**Output directory.** `analyses/paths.py` reads the `ATT_PROJECT_RESULTS_DIR` environment variable
 (`paths.RESULTS_ENV`). `run_att_all --out` now sets the same variable; it previously set `ATT_OUTPUTS_DIR`, which
 nothing read. The S1/S2 table scripts (`analyses/att_*.py`) write to `output_dir("tables")`. The default location
 is unchanged: `biorefineries/ATT/results/tables`.

@@ -31,8 +31,8 @@ are checked to sum to it. Factors and assumptions: data/att_lca.yaml.
 """
 import biosteam as bst
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = (
@@ -639,11 +639,11 @@ def export_att_lca(out_dir=None, scenario="att_s1"):
     """
     import os
     import pandas as pd
-    from biorefineries.ATT.analyses.att.paths import output_dir
+    from biorefineries.ATT.analyses.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("lca"))
 
-    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/att/marine_lca.py)
+    spec = scen.SCENARIOS[scenario]          # land-based scenarios only (ATT S2: analyses/marine_lca.py)
     overrides = scen.lca_overrides(spec)
     sys = create_att_lca_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]

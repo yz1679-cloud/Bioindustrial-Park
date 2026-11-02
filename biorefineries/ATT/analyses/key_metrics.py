@@ -28,13 +28,13 @@ Written by ``analyses/att_key_metrics.py`` to ``results/``.
 import biosteam as bst
 import pandas as pd
 
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import lca
-from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import lca
+from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.units._att import _SARGASSUM_DRY_IDS
 from biorefineries.ATT.utils import load_assumptions
 
-from biorefineries.ATT.analyses.att.breakdown import CASES, CASE_LABELS, FIGURE_CASES, LIME_LABELS
+from biorefineries.ATT.analyses.breakdown import CASES, CASE_LABELS, FIGURE_CASES, LIME_LABELS
 
 __all__ = ("build_att_key_metrics", "CASES", "CASE_LABELS", "FIGURE_CASES", "LIME_LABELS")
 LOW_GRADE_T_K = 373.15            # <= 100 C = low-grade (waste-heat usable), as in the slides

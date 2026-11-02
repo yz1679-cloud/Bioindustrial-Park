@@ -37,7 +37,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 if str(_ROOT) not in sys.path:  # run as a script without the package installed
     sys.path.insert(0, str(_ROOT))
 
-from biorefineries.ATT.analyses.att.paths import RESULTS_ENV, PROJECT_ROOT, SUBDIRS, results_root  # noqa: E402
+from biorefineries.ATT.analyses.paths import RESULTS_ENV, PROJECT_ROOT, SUBDIRS, results_root  # noqa: E402
 
 STEPS = (
     ("baseline_1kg", "run_att_1kgph_audit", ()),

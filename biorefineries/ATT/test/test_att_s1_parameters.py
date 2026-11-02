@@ -4,7 +4,7 @@ import sys
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses import scenarios as scen
 
 
 class TestATTScenario1Parameters(unittest.TestCase):
@@ -106,7 +106,7 @@ class TestATTScenario1Parameters(unittest.TestCase):
             self.assertAlmostEqual(out[e], inn[e], delta=1e-9 * max(1.0, inn[e]), msg=e)
 
     def test_residue_carbon_is_in_net_storage_credit(self):
-        from biorefineries.ATT.analyses.att import inventory as inv, lca
+        from biorefineries.ATT.analyses import inventory as inv, lca
         s = inv._streams(self.sys)
         cake = s["ash_residue_cake"]
         char_C = sum(float(cake.imol[ID]) * cake.chemicals[ID].atoms["C"]

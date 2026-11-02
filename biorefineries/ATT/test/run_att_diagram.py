@@ -4,7 +4,7 @@ import os
 
 import biosteam as bst
 
-from biorefineries.ATT.analyses.att.paths import output_dir
+from biorefineries.ATT.analyses.paths import output_dir
 from biorefineries.ATT.systems._att_system import create_att_system
 
 KINDS = ("cluster", "thorough", "surface", "minimal")

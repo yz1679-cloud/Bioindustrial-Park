@@ -29,7 +29,7 @@ from math import log
 import biosteam as bst
 from biosteam.units.heat_exchange import compute_floating_head_purchase_cost
 
-from biorefineries.ATT.analyses.att import inventory as inv
+from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = ("load_whr_config", "engine_sources", "s1_heat_sinks", "allocate", "whr_equipment", "evaluate_whr",
@@ -187,7 +187,7 @@ def s1_heat_sinks(sys, cfg=None):
         hot = feed.copy()
         hot.T = T_target
         Q_pre = float(hot.H - feed.H)                      # sensible process heat [kJ/h]
-    from biorefineries.ATT.analyses.att.tea import _ng_usd_per_MJ, _BURNER_EFFICIENCY
+    from biorefineries.ATT.analyses.tea import _ng_usd_per_MJ, _BURNER_EFFICIENCY
     loss = 1.0 + float(U2.heat_loss_fraction)
     rows.append(dict(unit="U2 feed preheat (S2 boundary)", utility="natural_gas (U2 furnace)", eligible=bool(pre["enabled"]),
                      purchased_before_hxn_kW=Q_pre * loss / 3600.0, hxn_recovered_kW=0.0,

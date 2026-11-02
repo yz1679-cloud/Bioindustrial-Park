@@ -4,11 +4,11 @@ Independent project derived from SaBRe Scenario 5 (`biorefineries/sabre`, which 
 Baseline: **ATT Scenario 1** (`att_s1`). See `IMPLEMENTATION_NOTES.md` for the changes, results and open issues.
 
 ```python
-from biorefineries.ATT.analyses.att import scenarios
+from biorefineries.ATT.analyses import scenarios
 sys = scenarios.create(scenarios.ATT_S1)                 # full capacity (5029.17 kg dry/h), HXN on
 sys_1kg = scenarios.create(scenarios.ATT_S1, dry_kgph=1.0, hxn=False)
 
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 tables = build_att_breakdown("att_s1")                   # MSP / CAPEX / OPEX / GWP, U2 balance checks
 ```
 

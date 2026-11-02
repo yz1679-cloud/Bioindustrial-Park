@@ -2,8 +2,8 @@
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown, COST_TYPES
-from biorefineries.ATT.analyses.att import scenarios as scen
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown, COST_TYPES
+from biorefineries.ATT.analyses import scenarios as scen
 
 
 class TestATTBreakdown(unittest.TestCase):
@@ -49,7 +49,7 @@ class TestATTBreakdown(unittest.TestCase):
     def test_caco3_sales_counted_once(self):
         # The CaCO3-sales OPTION (off in the baseline). Revenue on the CaCO3 COMPONENT of each listed cake (not the wet
         # cake); disposal only on the cake mass that is not sold CaCO3; no separate whole-cake disposal line for a sold cake.
-        from biorefineries.ATT.analyses.att import inventory as inv, tea as tea_mod
+        from biorefineries.ATT.analyses import inventory as inv, tea as tea_mod
         from biorefineries.ATT.test._options import sales_option
         with sales_option():
             self._caco3_sales_counted_once(inv, tea_mod, build_att_breakdown)

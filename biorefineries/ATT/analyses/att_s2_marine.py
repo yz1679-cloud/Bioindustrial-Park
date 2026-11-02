@@ -30,10 +30,10 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.ATT.analyses.att import marine_tea as mt
-from biorefineries.ATT.analyses.att import marine_whr as mw
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att.paths import output_dir
+from biorefineries.ATT.analyses import marine_tea as mt
+from biorefineries.ATT.analyses import marine_whr as mw
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses.paths import output_dir
 
 OUT = output_dir("tables")
 ALL = ("jacket", "scavenge", "exhaust")

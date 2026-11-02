@@ -511,7 +511,7 @@ def get_att_equipment_inventory(sys, cost_estimates):
 def get_att_tea_inputs(scale=None):
     """TEA inputs: what is set, where from, and what is still missing (``scale``: annual basis; None = ATT S1)."""
     if scale is None:
-        from biorefineries.ATT.analyses.att import scenarios as scen     # scenarios imports this module
+        from biorefineries.ATT.analyses import scenarios as scen     # scenarios imports this module
         scale = scen.scale(scen.ATT_S1)
     price = _TEA["price"]
     tea = _TEA["tea"]
@@ -887,7 +887,7 @@ def get_att_process_checks(sys):
     sol = float(np.interp(float(d1.T) - 273.15, *zip(*_NA2CO3_SOLUBILITY_G_PER_100G_WATER)))
     add("D1: Na2CO3 below its solubility at the slurry temperature [g/100 g water]", conc, sol,
         "PASS" if conc <= sol else "FAIL")
-    from biorefineries.ATT.analyses.att import key_metrics as km
+    from biorefineries.ATT.analyses import key_metrics as km
     heat = km.get_heat(sys)
     mj = heat["total"] / heat["dry"] / 1e3
     add("Heating duty before heat integration vs UCLA slides (16.4 MJ/kg dry seaweed)", mj, 16.4, "INFO (reference, not a test)")
@@ -898,7 +898,7 @@ def get_att_process_checks(sys):
 
 def get_att_utility_consistency_check(sys):
     """Duplicated utilities and consistency of the reporting functions."""
-    from biorefineries.ATT.analyses.att.mass_energy import get_att_energy_summary
+    from biorefineries.ATT.analyses.mass_energy import get_att_energy_summary
 
     u = _units(sys)
     unit_hus = [hu for unit in sys.units for hu in unit.heat_utilities]
@@ -1100,7 +1100,7 @@ def build_att_inventory_tables():
     Simulate the 1 kg/h basis and the full scale (the ATT S1 capacity, scenarios.create); return all tables. The
     "reference_scale" column and basis names are kept for compatibility and mean the ATT S1 capacity.
     """
-    from biorefineries.ATT.analyses.att import scenarios as scen     # scenarios imports this module
+    from biorefineries.ATT.analyses import scenarios as scen     # scenarios imports this module
     from biorefineries.ATT.systems._att_system import create_att_system
 
     small = _simulate(create_att_system(dry_sargassum_kgph=1.0), 1.0)
@@ -1187,7 +1187,7 @@ def export_att_inventory(out_dir=None, tables=None):
     """Write each table as CSV and all tables to one Excel workbook (default results/full_scale/mass_energy)."""
     import os
     import pandas as pd
-    from biorefineries.ATT.analyses.att.paths import output_dir
+    from biorefineries.ATT.analyses.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("mass_energy"))
     tables = tables or build_att_inventory_tables()

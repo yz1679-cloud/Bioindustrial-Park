@@ -2,7 +2,7 @@
 from __future__ import annotations
 import unittest
 
-from biorefineries.ATT.analyses.att.validation import (
+from biorefineries.ATT.analyses.validation import (
     sodium_kgph, composition, get_stream_sodium, native_unit_sodium_ledger,
     read_only_att_na_probe, MW_NA,
 )

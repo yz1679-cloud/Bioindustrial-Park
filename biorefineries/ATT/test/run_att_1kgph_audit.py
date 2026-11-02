@@ -1,8 +1,8 @@
 """Export the ATT 1 kg dry Sargassum/h process mass and energy audit."""
 import argparse
 
-from biorefineries.ATT.analyses.att.paths import SUBDIRS, output_dir
-from biorefineries.ATT.analyses.att.validation import export_att_1kgph_audit
+from biorefineries.ATT.analyses.paths import SUBDIRS, output_dir
+from biorefineries.ATT.analyses.validation import export_att_1kgph_audit
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

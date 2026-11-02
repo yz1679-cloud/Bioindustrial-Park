@@ -12,15 +12,15 @@ and say why.
 import unittest
 import warnings
 
-from biorefineries.ATT.analyses.att import marine_tea as mt
-from biorefineries.ATT.analyses.att import marine_whr as mw
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import marine_tea as mt
+from biorefineries.ATT.analyses import marine_whr as mw
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 
 RTOL = 1e-5
 ALL_WHR = ("jacket", "scavenge", "exhaust")
 
-# ---- S1 (analyses/att/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
+# ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
     "MSP_USD_per_kg_H2": 5.40656916,
     "GWP_kgCO2e_per_kg_H2": 6.49866239,
@@ -35,7 +35,7 @@ S1_METRICS = {
 S1_STORED_CARBON_CREDIT = -15.1280751        # kg CO2e per kg H2, in the net GWP
 S1_GWP_WITHOUT_CREDIT = 21.6267375
 
-# ---- S2 (analyses/att/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
+# ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1857.84623353
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {

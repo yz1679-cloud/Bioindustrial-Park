@@ -1,5 +1,5 @@
 # Alkaline Thermal Treatment (ATT) assumptions -- independent ATT project.
-# Baseline: ATT Scenario 1 (analyses/att/scenarios.py, "att_s1"), started from
+# Baseline: ATT Scenario 1 (analyses/scenarios.py, "att_s1"), started from
 # SaBRe Scenario 5 (biorefineries/sabre, branch sabre at 17c75376).
 # Baseline process case: Ni-CatATT_1to1 (reactor.cases).
 # Raw Sargassum composition/moisture/ash are called from feedstock.yaml (ATT copy).
@@ -11,7 +11,7 @@
 #
 att:
   # ---------------------------------------------------------------------
-  # ATT SCENARIO 1 (the baseline; analyses/att/scenarios.py reads it)
+  # ATT SCENARIO 1 (the baseline; analyses/scenarios.py reads it)
   # ---------------------------------------------------------------------
   # Process chemistry is in reactor (case Ni-CatATT_1to1) and downstream; the
   # flowsheet switches below are also the create_att_system() defaults
@@ -21,7 +21,6 @@ att:
     att_s1:
       label: "ATT Scenario 1: presscake, NaOH 1 kg/kg dry, Ni-CatATT 1:1 yields, waste-lime CO2 scrubber, no PSA"
       short: "ATT S1"
-      derived_from: "SaBRe Scenario 5 (biorefineries/sabre/analyses/att/scenarios.py 's5', branch sabre at 17c75376)"
       configuration: presscake
       psa: false
       co2_scrubber: true
@@ -41,7 +40,7 @@ att:
       waste_lime_supply_kg_per_yr: 92472373.33   # 80 kt/yr CaC2 x 74.09268/64.0993 (Intratec reference carbide plant); supply check only
     # ATT Scenario 2: the SAME process model, chemistry, capacity and settings as att_s1, operated on a ship while
     # underway; marine waste heat recovery and the floating TEA are accounting layers on top of it
-    # (analyses/att/marine_whr.py, marine_tea.py, marine_lca.py; data/marine_whr.yaml, marine_tea.yaml).
+    # (analyses/marine_whr.py, marine_tea.py, marine_lca.py; data/marine_whr.yaml, marine_tea.yaml).
     att_s2:
       label: "ATT Scenario 2: shipboard ATT with marine waste heat recovery (S1 process, floating biorefinery)"
       short: "ATT S2"
@@ -251,7 +250,7 @@ att:
       # below (Hess's law) instead of the per-pseudo-component Hf, which imply
       # 17.76 MJ/kg daf with borrowed Glucan Hf values.
       feed_HHV_MJ_per_kg_daf: 16.9
-      # U2 energy sensitivity (analyses/att/thermodynamics.py), user decision
+      # U2 energy sensitivity (analyses/thermodynamics.py), user decision
       # 2026-10-09. CONDITIONAL ENGINEERING SENSITIVITY RANGE under the
       # active gas closure; not a statistical confidence interval. U2 inlet
       # fixed; excludes the gas closure itself, NaOH conversion, heat-loss
@@ -558,7 +557,7 @@ att:
     used_in_current_heat_recovery: false
 
   # Research-stage TEA/LCA inventory (user decisions 2026-10-09). Read by
-  # biorefineries/ATT/analyses/att/inventory.py. Utilities are reported as
+  # biorefineries/ATT/analyses/inventory.py. Utilities are reported as
   # simulated, after BioSTEAM's HeatExchangerNetwork when it is in the system.
   inventory:
     reference_scale:

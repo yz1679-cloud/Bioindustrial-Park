@@ -1,8 +1,8 @@
 """Run the ATT preliminary TEA (H2 MSP) and export results."""
 import argparse
 
-from biorefineries.ATT.analyses.att.paths import SUBDIRS, output_dir
-from biorefineries.ATT.analyses.att.tea import export_att_tea
+from biorefineries.ATT.analyses.paths import SUBDIRS, output_dir
+from biorefineries.ATT.analyses.tea import export_att_tea
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

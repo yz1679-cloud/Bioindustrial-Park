@@ -1,5 +1,5 @@
 """Authoritative ATT entry points: the standard TEA/LCA paths build ATT S1 at its capacity with its waste-lime and
-CaCO3-sales assumptions (analyses/att/scenarios.py, the single source); the runner and the exports resolve one output
+CaCO3-sales assumptions (analyses/scenarios.py, the single source); the runner and the exports resolve one output
 root; the S2 operating-mode engine load reaches the WHR calculation."""
 import copy
 import os
@@ -12,15 +12,15 @@ from pathlib import Path
 from unittest import mock
 
 from biorefineries.ATT.analyses import att_s2_marine
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import lca
-from biorefineries.ATT.analyses.att import marine_tea as mt
-from biorefineries.ATT.analyses.att import marine_whr as mw
-from biorefineries.ATT.analyses.att import paths
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import lca
+from biorefineries.ATT.analyses import marine_tea as mt
+from biorefineries.ATT.analyses import marine_whr as mw
+from biorefineries.ATT.analyses import paths
 from biorefineries.ATT.test._options import sales_option
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att import tea as tea_mod
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses import tea as tea_mod
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 from biorefineries.ATT.test import run_att_all
 
 ALL = ("jacket", "scavenge", "exhaust")
@@ -129,7 +129,7 @@ class TestOutputDirectory(unittest.TestCase):
             self.assertEqual(paths.output_dir("tables"), paths.ATT_ROOT / "results" / "tables")
 
     def test_runner_and_exports_resolve_the_same_root(self):
-        code = ("from biorefineries.ATT.analyses.att.paths import output_dir\n"
+        code = ("from biorefineries.ATT.analyses.paths import output_dir\n"
                 "from biorefineries.ATT.analyses import att_s2_marine, att_caco3_sales\n"
                 "print(output_dir('tea')); print(output_dir('summary')); print(att_s2_marine.OUT); print(att_caco3_sales.OUT)")
         with tempfile.TemporaryDirectory() as d:

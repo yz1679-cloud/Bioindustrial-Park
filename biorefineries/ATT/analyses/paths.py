@@ -33,10 +33,10 @@ from pathlib import Path
 
 __all__ = ("PROJECT_ROOT", "ATT_ROOT", "RESULTS_ENV", "SUBDIRS", "results_root", "output_dir")
 
-# biorefineries/ATT/analyses/att/paths.py -> repository root
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+# biorefineries/ATT/analyses/paths.py -> repository root
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # biorefineries/ATT/
-ATT_ROOT = Path(__file__).resolve().parents[2]
+ATT_ROOT = Path(__file__).resolve().parents[1]
 # The one environment variable that overrides the output root (read here, set by test/run_att_all.py).
 RESULTS_ENV = "ATT_PROJECT_RESULTS_DIR"
 

@@ -7,7 +7,7 @@
 # for license details.
 
 """
-ATT Scenario 2 floating TEA (data/marine_tea.yaml) on the unchanged S1 process and TEA (analyses/att/tea.py,
+ATT Scenario 2 floating TEA (data/marine_tea.yaml) on the unchanged S1 process and TEA (analyses/tea.py,
 breakdown.py), with marine WHR (marine_whr.py) and its incremental GWP (marine_lca.py):
 
 * process CAPEX = S1 installed capital (units + S1 estimate items) x capex_multiplier (USER); WHR equipment is
@@ -19,10 +19,10 @@ breakdown.py), with marine WHR (marine_whr.py) and its incremental GWP (marine_l
 * operating hours (Mode A 7920 h underway, Mode B 2640 h) scale the annual production and the variable costs.
 Everything else (materials, disposal, CaCO3 sales at the configured price, financing) is the S1 TEA.
 """
-from biorefineries.ATT.analyses.att import marine_lca
-from biorefineries.ATT.analyses.att import marine_whr
-from biorefineries.ATT.analyses.att import tea as tea_mod
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import marine_lca
+from biorefineries.ATT.analyses import marine_whr
+from biorefineries.ATT.analyses import tea as tea_mod
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 from biorefineries.ATT.utils import load_assumptions
 
 import biosteam as bst

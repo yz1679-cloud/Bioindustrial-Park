@@ -9,7 +9,7 @@
 """
 att_scenarios.py
 ----------------
-Summary table of the ATT scenarios of ``analyses/att/scenarios.py`` (ATT Scenario 1): scale, H2, NaOH and lime
+Summary table of the ATT scenarios of ``analyses/scenarios.py`` (ATT Scenario 1): scale, H2, NaOH and lime
 use, MSP, FCI and GWP100 (net, with the stored-carbon credit, and the avoided-emission note for the beach-rot
 counterfactual).
 
@@ -28,9 +28,9 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from biorefineries.ATT.analyses.att.breakdown import build_att_breakdown
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att.paths import output_dir
+from biorefineries.ATT.analyses.breakdown import build_att_breakdown
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses.paths import output_dir
 
 OUT = output_dir("tables") / "att_scenarios.csv"
 

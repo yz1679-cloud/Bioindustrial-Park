@@ -3,8 +3,8 @@ import unittest
 import warnings
 import numpy as np
 import biosteam as bst
-from biorefineries.ATT.analyses.att import scenarios as scen, inventory as inv, lca, tea
-from biorefineries.ATT.analyses.att import marine_tea as mt, marine_whr as mw, reporting
+from biorefineries.ATT.analyses import scenarios as scen, inventory as inv, lca, tea
+from biorefineries.ATT.analyses import marine_tea as mt, marine_whr as mw, reporting
 from biorefineries.ATT.analyses.att_washing import washing_checks
 from biorefineries.ATT.test._options import sales_option
 

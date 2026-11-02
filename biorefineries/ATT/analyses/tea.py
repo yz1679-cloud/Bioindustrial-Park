@@ -34,9 +34,9 @@ nor costed) on which the LEGACY SaBRe tables (get_att_caco3_cases, get_att_lime_
 import biosteam as bst
 
 from biorefineries.ATT._tea import SaBReTEA
-from biorefineries.ATT.analyses.att import inventory as inv
-from biorefineries.ATT.analyses.att import scenarios as scen
-from biorefineries.ATT.analyses.att.lca import _h2so4_kgph, caco3_saleable_fraction
+from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import scenarios as scen
+from biorefineries.ATT.analyses.lca import _h2so4_kgph, caco3_saleable_fraction
 from biorefineries.ATT.utils import OPERATING_DAYS_PER_YEAR, load_assumptions
 
 __all__ = (
@@ -498,7 +498,7 @@ def get_att_p1_power_cases(sys, estimates, base=None):
     P1 (fresh-Sargassum case): municipal biosolids press (adopted) vs BioSTEAM
     ScrewPress, power, installed cost, MSP and GWP deltas. Empty without P1.
     """
-    from biorefineries.ATT.analyses.att import lca
+    from biorefineries.ATT.analyses import lca
 
     units = inv._units(sys)
     if "P1" not in units:
@@ -648,7 +648,7 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
     """
     import os
     import pandas as pd
-    from biorefineries.ATT.analyses.att.paths import output_dir
+    from biorefineries.ATT.analyses.paths import output_dir
 
     out_dir = os.fspath(out_dir or output_dir("tea"))
 

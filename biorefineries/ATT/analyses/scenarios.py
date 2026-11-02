@@ -24,7 +24,7 @@ capacity (``create``, ``scale``), the TEA lime and CaCO3-sales keywords (``tea_c
 (``lca_overrides``). ``create_legacy_reference`` keeps the historical SaBRe reference-scale model for comparison
 only; it is never an ATT scenario.
 """
-from biorefineries.ATT.analyses.att import inventory as inv
+from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.systems import _att_system
 from biorefineries.ATT.utils import load_assumptions
 
@@ -97,7 +97,7 @@ def tea_config(spec=ATT_S1, caco3_price=None, f2_sales=True):
     the rest disposed (counted once, on the cake stream prices), otherwise the whole cake is disposed (Case A).
     ``caco3_price`` [USD/t] overrides the configured price for this call only.
     """
-    from biorefineries.ATT.analyses.att import tea as tea_mod     # tea imports this module
+    from biorefineries.ATT.analyses import tea as tea_mod     # tea imports this module
     recycled = spec["lime"] == "recycled"
     sales = dict(tea_mod._T["caco3_sales"])
     if caco3_price is not None:
