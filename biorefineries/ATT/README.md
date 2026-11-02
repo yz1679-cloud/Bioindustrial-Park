@@ -13,9 +13,9 @@ tables = build_att_breakdown("att_s1")                   # MSP / CAPEX / OPEX / 
 ```
 
 Configuration: `data/att.yaml` (`att.scenarios.att_s1`, `att.reactor`, `att.downstream`).
-Standard exports (`test/run_att_*.py`, `tea.export_att_tea`, `lca.export_att_lca`, reporting) run `att_s1` with
+Standard exports (`python -m biorefineries.ATT.analyses.run`, `tea.export_att_tea`, `lca.export_att_lca`, reporting) run `att_s1` with
 `scenarios.tea_config` / `scenarios.lca_overrides`; ATT S2: `python biorefineries/ATT/analyses/att_s2_marine.py`.
-Outputs: `biorefineries/ATT/results/`, or the root in `ATT_PROJECT_RESULTS_DIR` (set by `run_att_all --out`).
+Outputs: `biorefineries/ATT/results/`, or the root in `ATT_PROJECT_RESULTS_DIR` (set by `run all --out`).
 Tests (from the repository root): `python -m unittest discover -s biorefineries/ATT/test -p "test_att_*.py" -t .`
 
 ## F2 cake washing (same S1/S2 scenarios)

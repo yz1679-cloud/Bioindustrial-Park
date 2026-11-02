@@ -88,7 +88,7 @@ Smaller items do not change the conclusions: EC1 constants, scrubber performance
 
 The engineering-screening S1/S2 model is complete and reproducible:
 - 129 tests pass;
-- the full `run_att_all` pipeline completes (8/8 steps);
+- the full `analyses/run.py all` pipeline completes (8/8 steps);
 - 266 QC checks pass, with 0 FAIL;
 - gas yields are verified as above.
 

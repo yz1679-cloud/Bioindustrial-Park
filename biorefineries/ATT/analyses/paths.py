@@ -12,7 +12,7 @@ Default output locations of the ATT runners.
 All generated results go to ``biorefineries/ATT/results/`` (inside the ATT
 project, located from this file, not from the current working directory; the
 folder is git-ignored, like the other ``results`` folders). Set the ``ATT_PROJECT_RESULTS_DIR``
-environment variable (``RESULTS_ENV``) to use another root; ``run_att_all --out`` sets it for every step, and each runner also
+environment variable (``RESULTS_ENV``) to use another root; ``run all --out`` (analyses/run.py) sets it for every step, and each step also
 accepts ``--out``.
 Nothing is ever written to ``data/``.
 
@@ -37,7 +37,7 @@ __all__ = ("PROJECT_ROOT", "ATT_ROOT", "RESULTS_ENV", "SUBDIRS", "results_root",
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # biorefineries/ATT/
 ATT_ROOT = Path(__file__).resolve().parents[1]
-# The one environment variable that overrides the output root (read here, set by test/run_att_all.py).
+# The one environment variable that overrides the output root (read here, set by analyses/run.py).
 RESULTS_ENV = "ATT_PROJECT_RESULTS_DIR"
 
 SUBDIRS = {

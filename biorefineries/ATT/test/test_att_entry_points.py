@@ -21,7 +21,7 @@ from biorefineries.ATT.test._options import sales_option
 from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses import tea as tea_mod
 from biorefineries.ATT.analyses.breakdown import build_att_breakdown
-from biorefineries.ATT.test import run_att_all
+from biorefineries.ATT.analyses import run as run_att
 
 ALL = ("jacket", "scavenge", "exhaust")
 
@@ -134,7 +134,7 @@ class TestOutputDirectory(unittest.TestCase):
                 "print(output_dir('tea')); print(output_dir('summary')); print(att_s2_marine.OUT); print(att_caco3_sales.OUT)")
         with tempfile.TemporaryDirectory() as d:
             root = Path(d).resolve()
-            env = run_att_all.step_env(root)
+            env = run_att.step_env(root)
             self.assertEqual(env[paths.RESULTS_ENV], str(root))
             out = subprocess.run([sys.executable, "-c", code], env=env, cwd=d, capture_output=True, text=True,
                                  check=True).stdout.split("\n")
