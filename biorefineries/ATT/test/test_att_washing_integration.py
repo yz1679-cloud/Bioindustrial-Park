@@ -102,9 +102,9 @@ class TestNativeF2Washing(unittest.TestCase):
     def test_washing_off_reference_values(self):
         ref = mt.land_reference(self.off)
         self.assertAlmostEqual(ref["row"]["H2_t_per_yr"], 2953.563, delta=.001)
-        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 5.413048, delta=1e-6)   # CaCO3 disposed, no washing
+        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 3.126355, delta=1e-6)   # CaCO3 sold, no washing
         self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1857.8462335, delta=1e-5)
-        for hours, expected in ((7920., 5.594851), (2640., 7.580537)):
+        for hours, expected in ((7920., 3.308159), (2640., 5.293844)):
             row, _ = mt.evaluate_case(self.off, ref, "reference", hours=hours)
             self.assertAlmostEqual(row["MSP_USD_per_kg_H2"], expected, delta=1e-6)
             # baseline: inherited accounting with the residue credited, so the net GWP equals the inherited-credit GWP

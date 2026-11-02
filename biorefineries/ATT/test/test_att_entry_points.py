@@ -61,18 +61,18 @@ class TestS1EntryPoints(unittest.TestCase):
     def test_single_source_of_scenario_assumptions(self):
         cfg = scen.tea_config(scen.ATT_S1)
         self.assertEqual(cfg["price_overrides"], {"CaOH2": 0.0})
-        self.assertIsNone(cfg["caco3_sales"])                          # baseline: the CaCO3 cakes are disposed
+        self.assertEqual(cfg["caco3_sales"]["price_usd_per_metric_ton"], 100.0)    # baseline: both CaCO3 cakes are sold
+        self.assertEqual(list(cfg["caco3_sales"]["streams"]), ["caco3_cake", "scrubber_cake"])
         self.assertEqual(cfg["caco3"], dict(fraction=0.0))
         self.assertEqual(scen.lca_overrides(scen.ATT_S1), {"CaOH2_limestone": 0.0})
         self.assertEqual(scen.tea_config(scen.ATT_S2), cfg)            # S2 = the S1 process and S1 TEA basis
         self.assertEqual(scen.lca_overrides(scen.ATT_S2), scen.lca_overrides(scen.ATT_S1))
-        with sales_option():                                           # the CaCO3-sales option
-            cfg = scen.tea_config(scen.ATT_S1)
-            self.assertEqual(cfg["caco3_sales"]["price_usd_per_metric_ton"], 100.0)
-            self.assertEqual(list(cfg["caco3_sales"]["streams"]), ["caco3_cake", "scrubber_cake"])
-            self.assertEqual(scen.tea_config(scen.ATT_S2), cfg)
-            self.assertEqual(scen.tea_config(scen.ATT_S1, caco3_price=315.0)["caco3_sales"]["price_usd_per_metric_ton"], 315.0)
-            self.assertEqual(scen.tea_config(scen.ATT_S1)["caco3_sales"]["price_usd_per_metric_ton"], 100.0)   # not mutated
+        self.assertEqual(scen.tea_config(scen.ATT_S1, caco3_price=315.0)["caco3_sales"]["price_usd_per_metric_ton"], 315.0)
+        self.assertEqual(scen.tea_config(scen.ATT_S1)["caco3_sales"]["price_usd_per_metric_ton"], 100.0)   # not mutated
+        self.assertEqual(list(scen.tea_config(scen.ATT_S1, f2_sales=False)["caco3_sales"]["saleable_fraction_by_stream"]),
+                         ["caco3_cake"])
+        with mock.patch.dict(tea_mod._T["caco3_sales"], {"enabled": False}):         # sales switched off: cakes disposed
+            self.assertIsNone(scen.tea_config(scen.ATT_S1)["caco3_sales"])
 
     def test_tea_export_matches_s1(self):
         summary = {r["item"]: r["value"] for r in self.tea_tables["00_summary"]}

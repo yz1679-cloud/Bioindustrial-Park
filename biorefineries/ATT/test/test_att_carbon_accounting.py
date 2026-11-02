@@ -27,7 +27,7 @@ def lime_carbon(streams, ID):
 
 
 class TestBaselineAccounting(unittest.TestCase):
-    """The baseline: cakes disposed, all landfilled carbon (incl. the residue) credited."""
+    """The baseline: cakes sold, the Sargassum carbon of all solids (incl. the residue) credited."""
 
     @classmethod
     def setUpClass(cls):
@@ -41,8 +41,8 @@ class TestBaselineAccounting(unittest.TestCase):
         self.assertEqual(lca._LCA["carbon_storage"]["carbonate_storage_accounting"], "inherited")
         self.assertTrue(lca._LCA["carbon_storage"]["credit_char_carbon"])
         self.assertEqual(self.t["carbonate_storage_accounting"], "inherited")
-        self.assertEqual(self.t["CaCO3_sales"], "off")
-        self.assertEqual(self.t["CaCO3_sold_t_per_yr"], 0.0)
+        self.assertEqual(self.t["CaCO3_sales"], "enabled")
+        self.assertGreater(self.t["CaCO3_sold_t_per_yr"], 0.0)       # sold CaCO3 is credited like landfilled carbon
 
     def test_credit_is_all_carbon_of_the_landfilled_solids(self):
         landfilled = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011 - lime_carbon(self.s, ID)
