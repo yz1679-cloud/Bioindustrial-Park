@@ -114,10 +114,15 @@ lca:
     #       sold under the TEA disposition (lca.apply_att_gwp caco3_sales). Sold CaCO3 gets no storage credit (end
     #       use unknown; calcination or acid use would release it) and no substitution credit; soluble Na2CO3 in
     #       landfilled solids gets none either (leachable, no permanence basis).
-    #   inherited (BASELINE since 2026-11-01, user decision): all non-residue carbon of landfill_streams credited, as
-    #       carbon in a landfilled solid (CaCO3 and Na2CO3 of the cakes). The baseline TEA disposes the cakes (no CaCO3
-    #       sales), so this is what is physically landfilled.
+    #   inherited (BASELINE, user decision 2026-11-01): the Sargassum carbon of landfill_streams is credited, sold or
+    #       not (the CaCO3 of the cakes, which the baseline TEA sells, and the residue below). The CaCO3 of the waste
+    #       lime is not Sargassum carbon and is never credited. Soluble Na2CO3 is credited only with
+    #       credit_soluble_carbonate.
     carbonate_storage_accounting: inherited
+    # Soluble Na2CO3 in the wet solid cakes (mostly the ash cake moisture): leachable, no permanence basis, so NOT
+    # credited in the baseline (user decision 2026-11-02; about 0.7 kg CO2e/kg H2). Applies to the inherited accounting
+    # (the conservative one never credits it). The Na2CO3 of the purge and the wash liquor is wastewater: never credited.
+    credit_soluble_carbonate: false
     # ATT Scenario 1: the U2 residual product (lumped residue = ATT char) is a bookkeeping sink of the organic carbon
     # that is not in the measured gases or the carbonate; its composition is an assumed surrogate and its permanence in
     # a landfill is not measured. By user decision (2026-11-01) its carbon is carbon in a landfilled solid and IS credited

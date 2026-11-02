@@ -175,7 +175,9 @@ def _stored_carbon_kgph(sys, include_char=None, caco3_sales=BASELINE, accounting
         lime_ID = _LIME_OF_CAKE.get(ID)
         lime_C = float(s[lime_ID].get_atomic_flow("C")) if lime_ID in s else 0.0
         if accounting == "inherited":
-            C = float(stream.get_atomic_flow("C")) - residue - lime_C
+            soluble = 0.0 if cfg.get("credit_soluble_carbonate", True) else (
+                float(stream.imol["Na2CO3"]) * stream.chemicals["Na2CO3"].atoms.get("C", 0.0) if "Na2CO3" in stream.chemicals else 0.0)
+            C = float(stream.get_atomic_flow("C")) - residue - lime_C - soluble
         else:
             caco3 = float(stream.imol["CaCO3"]) if "CaCO3" in stream.chemicals else 0.0
             C = (caco3 - lime_C) * (1.0 - caco3_saleable_fraction(ID, sales))

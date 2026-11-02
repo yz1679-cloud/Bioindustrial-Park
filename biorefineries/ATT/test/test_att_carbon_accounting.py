@@ -8,6 +8,7 @@ the cakes, sold CaCO3 never earns a storage credit and soluble carbonate and the
 credit stays available as a comparison. In both, the carbon of the plant closes."""
 import unittest
 import warnings
+from unittest import mock
 
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.analyses import lca
@@ -27,7 +28,7 @@ def lime_carbon(streams, ID):
 
 
 class TestBaselineAccounting(unittest.TestCase):
-    """The baseline: cakes sold, the Sargassum carbon of all solids (incl. the residue) credited."""
+    """The baseline: cakes sold; the Sargassum carbon of the solids (CaCO3, residue) credited, soluble Na2CO3 not."""
 
     @classmethod
     def setUpClass(cls):
@@ -44,8 +45,18 @@ class TestBaselineAccounting(unittest.TestCase):
         self.assertEqual(self.t["CaCO3_sales"], "enabled")
         self.assertGreater(self.t["CaCO3_sold_t_per_yr"], 0.0)       # sold CaCO3 is credited like landfilled carbon
 
+    def test_soluble_carbonate_is_not_credited(self):
+        self.assertFalse(lca._LCA["carbon_storage"]["credit_soluble_carbonate"])
+        na2co3_C = sum(float(self.s[ID].imol["Na2CO3"]) * 12.011 for ID in lca._LCA["waste_management"]["landfill_streams"]
+                       if ID in self.s and self.s[ID] in self.sys.products)
+        self.assertGreater(na2co3_C, 0.0)
+        credited = lca._stored_carbon_kgph(self.sys)
+        with mock.patch.dict(lca._LCA["carbon_storage"], {"credit_soluble_carbonate": True}):
+            self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys) - credited, na2co3_C, places=9)
+
     def test_credit_is_all_carbon_of_the_landfilled_solids(self):
         landfilled = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011 - lime_carbon(self.s, ID)
+                         - float(self.s[ID].imol["Na2CO3"]) * 12.011      # soluble carbonate: not credited
                          for ID in lca._LCA["waste_management"]["landfill_streams"] if ID in self.s
                          and self.s[ID] in self.sys.products)       # Sargassum carbon only: not the lime's CaCO3
         self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys), landfilled, places=9)
@@ -119,17 +130,18 @@ class TestCarbonateAccounting(unittest.TestCase):
     def test_inherited_comparison_is_preserved(self):
         # the earlier treatment: all non-residue carbon of the landfilled cakes, sold or not
         expected = sum(float(self.s[ID].get_atomic_flow("C")) * 12.011 - lime_carbon(self.s, ID)
+                       - float(self.s[ID].imol["Na2CO3"]) * 12.011
                        for ID in ("caco3_cake", "scrubber_cake", "ash_residue_cake")) - sum(
             float(self.s["ash_residue_cake"].imol[r]) * self.s["ash_residue_cake"].chemicals[r].atoms["C"] * 12.011
             for r in lca._LCA["carbon_storage"]["provisional_residue_species"] if r in self.s["ash_residue_cake"].chemicals)
         self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys, accounting="inherited", include_char=False), expected,
                                places=9)
         for s in (self.sold, self.kept):        # independent of the disposition, as before
-            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 14.721765, delta=1e-6)
+            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 15.443488, delta=1e-6)
             self.assertAlmostEqual(s["GWP_kgCO2e_per_kg_H2"] - s["GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2"],
                                    s["GWP_without_storage_credit_kgCO2e_per_kg_H2"], places=12)
         self.assertAlmostEqual(self.sold["GWP_kgCO2e_per_kg_H2"],
-                               14.721765 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
+                               15.443488 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
 
     def test_physical_flows_and_msp_unchanged_by_accounting(self):
         self.assertAlmostEqual(self.sold["H2_t_per_yr"], 2953.563, delta=1e-3)
