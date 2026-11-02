@@ -137,16 +137,16 @@ class TestCarbonateAccounting(unittest.TestCase):
         self.assertAlmostEqual(lca._stored_carbon_kgph(self.sys, accounting="inherited", include_char=False), expected,
                                places=9)
         for s in (self.sold, self.kept):        # independent of the disposition, as before
-            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 15.443488, delta=1e-6)
+            self.assertAlmostEqual(s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 15.375162, delta=1e-6)
             self.assertAlmostEqual(s["GWP_kgCO2e_per_kg_H2"] - s["GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2"],
                                    s["GWP_without_storage_credit_kgCO2e_per_kg_H2"], places=12)
         self.assertAlmostEqual(self.sold["GWP_kgCO2e_per_kg_H2"],
-                               15.443488 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
+                               15.375162 - self.sold["GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2"], delta=1e-6)
 
     def test_physical_flows_and_msp_unchanged_by_accounting(self):
         self.assertAlmostEqual(self.sold["H2_t_per_yr"], 2953.563, delta=1e-3)
-        self.assertAlmostEqual(self.sold["MSP_USD_per_kg_H2"], 2.892374, delta=1e-6)
-        self.assertAlmostEqual(self.kept["MSP_USD_per_kg_H2"], 5.097195, delta=1e-6)
+        self.assertAlmostEqual(self.sold["MSP_USD_per_kg_H2"], 2.796082, delta=1e-6)
+        self.assertAlmostEqual(self.kept["MSP_USD_per_kg_H2"], 5.000903, delta=1e-6)
         dry = float(self.s["caco3_cake"].F_mass - self.s["caco3_cake"].imass["Water"])
         self.assertAlmostEqual(float(self.s["caco3_cake"].imass["CaCO3"]) / dry, 0.80570, delta=1e-5)   # washed cake, with the lime impurities
 

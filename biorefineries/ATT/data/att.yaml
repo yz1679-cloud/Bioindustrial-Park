@@ -432,6 +432,7 @@ att:
     f2_washing:
       enabled: true       # the CaCO3 cake is washed and the wash liquor is recycled (recycle_wash_liquor)
       recycle_wash_liquor: true   # wash liquor to the dissolver D1 (replaces condensate / fresh dissolution water); false: wastewater
+      use_excess_condensate: true # wash water = the condensate the dissolver does not need (clean water); fresh water only for the rest
       wash_ratio_kg_per_kg_dry_cake: 1.0  # ENG: all non-water mass of the original F2 cake
       contact_time_h: 0.25               # ENG: agitated single-stage contact, not measured kinetics
       temperature_K: 298.15             # fresh ambient water; adiabatic MixTank, no preheating

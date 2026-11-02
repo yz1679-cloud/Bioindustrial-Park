@@ -57,7 +57,8 @@ CASE_LABELS = {k: v["label"] for k, v in ALL_SCENARIOS.items()}
 SHORT_LABELS = {k: v["short"] for k, v in ALL_SCENARIOS.items()}
 
 
-def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, wash_recycle=None):
+def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, wash_recycle=None,
+           wash_condensate=None):
     """Simulated system of a scenario; operating hours are set. ``dry_kgph`` defaults to the scenario capacity."""
     if washing not in (None, "washing_on", "washing_off"):
         raise ValueError("washing must be washing_on, washing_off or None (configured default)")
@@ -68,7 +69,7 @@ def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, 
         dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
         lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec["scrubber"],
         f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio,
-        f2_wash_recycle=wash_recycle), dry_kgph)
+        f2_wash_recycle=wash_recycle, f2_wash_condensate=wash_condensate), dry_kgph)
     system.operating_hours = ref["operating_hours_per_year"]
     return system
 
