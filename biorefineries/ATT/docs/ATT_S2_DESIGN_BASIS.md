@@ -60,8 +60,8 @@ Cross-check: the gross exhaust heat of 3.12 MW (to 25 °C) matches the previous 
 |---|---|---|---|---|---|
 | Exhaust (economizer → steam) | 240 → 160 °C | 3.12 | 1.16 | 1.04 | 1.04 |
 | Charge air (HT loop 95/85 °C) | 160 → 95 °C | 1.59 | 0.86 | 0.78 | 0.78 |
-| Jacket water (LT loop 80/70 °C) | 85 °C | 0.64 | 0.19 | 0.17 | 0.04 |
-| **Total** | | **5.34** | **2.21** | **1.99** | **1.86** |
+| Jacket water (LT loop 80/70 °C) | 85 °C | 0.64 | 0.19 | 0.17 | 0 |
+| **Total** | | **5.34** | **2.21** | **1.99** | **1.82** |
 
 Charge-air gross is counted to 40 °C (the previous estimate gave 2.02 MW).
 
@@ -69,15 +69,15 @@ Charge-air gross is counted to 40 °C (the previous estimate gave 2.02 MW).
 
 The sinks are the **purchased** heating that remains after the S1 heat exchanger network, which already recovers
 the U3 gas-cooler heat into C1, D0, D2 and D3. Those HXN savings are never offered again. The steam sinks add up to
-the system's net purchased LP steam of 16.78 MW (a test checks this).
+the system's net purchased LP steam of 16.46 MW (a test checks this).
 
 | Unit | Purchased before HXN (MW) | Purchased after HXN (MW) | Process T | WHR assigned (MW) | Remaining (MW) |
 |---|---|---|---|---|---|
-| D0 dryer (drum at 70 °C) | 9.29 | 3.37 | 70–74 °C | 1.82 (0.78 charge air + 1.04 steam) | 1.55 |
+| D0 dryer (drum at 70 °C) | 9.29 | 3.10 | 70–74 °C | 1.82 (0.78 charge air + 1.04 steam) | 1.28 |
 | D2 and D3 CaCO3 cake dryers (drum at 70 °C) | 1.99 | 0 (covered by the HXN) | 74 °C | 0 | 0 |
 | C1 causticizer | 1.52 | 0 (covered by the HXN) | 90 °C | 0 | 0 |
 | EC1 evaporator | 13.26 | 13.30 | 90–91.5 °C boiling | 0 | 13.30 |
-| U3D sieve regeneration | 0.11 | 0.11 | 40 → 127 °C | 0.04 (jacket, cold end) | 0.07 |
+| U3D sieve regeneration | 0.11 | 0.07 (the HXN covers 0.04) | 40 → 127 °C | 0 | 0.07 |
 | U2 feed preheater (S2 boundary, conceptual) | — | 0.29 (fired-equivalent) | 78 → 95 °C | 0 (no source left) | 0.29 |
 | U2 500 °C reaction heat (fired) | 13.54 | 13.24 | 500 °C | **not eligible** | 13.24 |
 
@@ -92,7 +92,7 @@ actually purchases.
   are covered partly, from the cold end.
 - No sink receives more than its purchased duty, and each source is used once.
 - External heating after = before − assigned (≥ 0).
-- Heat delivered but not utilized: 0.13 MW of jacket water, for which no sink is cold enough.
+- Heat delivered but not utilized: 0.17 MW of jacket water (all of it), for which no remaining sink is cold enough.
 
 ## 5. Added WHR equipment (installed USD, Mode A)
 
@@ -102,12 +102,12 @@ actually purchases.
 | Steam drum / boiler interface | 150 k | ENG placeholder (vendor data MISSING) |
 | Feedwater / condensate pump | 19 k | R-BST pump |
 | Charge-air HT recovery cooler (367 m²) | 198 k | R-BST proxy; OEM interface |
-| Jacket-water plate exchanger | 68 k | R-BST proxy at the 150 ft² minimum (likely overstated for a plate unit) |
-| Loop pumps | 38 k | R-BST pump |
-| Piping, valves, bypass, sootblowing, instruments, controls, insulation | 288 k | ENG, 40 % of the above |
-| **Total** | **1.01 M** | Sensitivity × 0.5 / × 2 and an IMO power-WHRS context of 5.2 MUSD |
+| Scavenge-air loop pump | 21 k | R-BST pump |
+| Piping, valves, bypass, sootblowing, instruments, controls, insulation | 254 k | ENG, 40 % of the above |
+| **Total** | **0.89 M** | Sensitivity × 0.5 / × 2 and an IMO power-WHRS context of 5.2 MUSD |
 
-- Pump electricity is 10.8 kW.
+- Pump electricity is 10.0 kW.
+- The jacket-water loop has no sink, so its plate exchanger and pump are not part of the equipment.
 - A buffer tank is optional and off; it is a transient buffer, not MW-hours of storage.
 - There is no ORC (future option only).
 - The process-side heaters of D0, D2, D3, EC1 and U3D are assumed to accept steam or hot water without modification
@@ -156,23 +156,23 @@ actually purchases.
 
 | Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
 |---|---|---|---|---|---|---|---|
-| S1 | 7 920 | 2 954 | 16.47 | 0.33 | 6.12 | 2.05 | 10.88 |
-| S2, no WHR | 7 920 | 2 954 | 20.58 | 0.66 | 6.12 | 2.37 | 10.88 |
-| S2, exhaust | 7 920 | 2 954 | 21.16 | 0.66 | 5.94 | 2.34 | 10.10 |
-| S2, all three | 7 920 | 2 954 | 21.59 | 0.66 | 5.80 | 2.31 | 9.49 |
+| S1 | 7 920 | 2 954 | 16.47 | 0.33 | 6.07 | 2.03 | 10.64 |
+| S2, no WHR | 7 920 | 2 954 | 20.58 | 0.66 | 6.07 | 2.35 | 10.64 |
+| S2, exhaust | 7 920 | 2 954 | 21.16 | 0.66 | 5.88 | 2.32 | 9.86 |
+| S2, all three | 7 920 | 2 954 | 21.47 | 0.66 | 5.75 | 2.29 | 9.28 |
 
 **Energy:**
-- External heating falls from 30.3 to 28.5 MW (−6.1 %).
-- Purchased LP steam falls by 11.1 %.
+- External heating falls from 30.0 to 28.2 MW (−6.1 %).
+- Purchased LP steam falls by 11.0 %.
 - The U2 fired duty (13.5 MW) is unchanged.
 
 **Engine load:**
-- At 50 % load, WHR utilizes 0.85 MW.
-- At 100 % load, it utilizes 3.36 MW.
+- At 50 % load, WHR utilizes 0.81 MW.
+- At 100 % load, it utilizes 3.32 MW.
 - At 15 % load and at anchor, it utilizes nothing.
 
 **Cost:**
-- The WHR saves 0.32 MUSD/yr of utilities, which recovers about a fifth of the floating cost penalty (+0.32 USD/kg H2
+- The WHR saves 0.31 MUSD/yr of utilities, which recovers about a fifth of the floating cost penalty (+0.32 USD/kg H2
   without WHR, +0.26 with it).
 
 ## 10. Main limitations

@@ -564,7 +564,7 @@ att:
     RC1_heat_transfer_coefficient_kW_per_m2_per_K: 0.05
     cooler_material: Stainless steel/stainless steel
     # Assumed process temperatures of duties that BioSTEAM carries without a stream
-    # (only used to size their exchangers; not matched in the HXN).
+    # (used to size their exchangers and as the stream temperatures of their duties in the HXN).
     u3k_interstage_temperature_K: 400.0
     u3d_regeneration_temperature_K: 400.0   # kept at the LP-steam level, as before
     hydrogen_product_species:

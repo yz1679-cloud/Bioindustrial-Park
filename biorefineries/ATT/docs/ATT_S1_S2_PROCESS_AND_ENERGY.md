@@ -178,16 +178,16 @@ The lumped residue that enables the H/O/electron closure is an assumed surrogate
 | U2 heat delivered (incl. 5 % loss) = natural gas agent duty | 13,537 | 9.69 | |
 | U2 natural gas fuel (LHV, burner 0.90) | 15,042 | 10.77 | |
 | LP steam, gross demand (D0 9,289; EC1 13,263; D2 1,909; C1 1,517; U3D 112; D3 78) | 26,168 | — | EC1 evaporates 19.9 t/h of water; the cake dryers D2 and D3 add 1,987 kW |
-| LP steam recovered by the heat-exchanger network (HXN) | −9,392 | — | Unchanged by the cake dryers |
-| **LP steam purchased** | **16,776** | 12.01 | |
-| Boiler natural gas for that steam (LHV, boiler 0.80) | 20,970 | 15.01 | |
-| **External heating before WHR** (U2 + purchased steam) | **30,313** | — | Basis of the S2 reduction |
+| LP steam recovered by the heat-exchanger network (HXN) | −9,705 | — | The HXN matches 11 exchangers: D0, D2, D3, C1, EC1 (evaporator, condenser), U3HX, the U3K intercooler, the U3D regeneration heater and cooler and the scrubber cooler. U2 and RC1 are not matched |
+| **LP steam purchased** | **16,463** | 11.78 | |
+| Boiler natural gas for that steam (LHV, boiler 0.80) | 20,578 | 14.73 | |
+| **External heating before WHR** (U2 + purchased steam) | **30,000** | — | Basis of the S2 reduction |
 | Electricity, unit models (U3K 678, F1 282, F1R 251, D0 410, D2 121, F2 77, F2R 32, D3 14, other 17) | 1,880 | 0.374 kWh/kg | |
-| Electricity, cooling tower and pumps (estimate) | 176 | 0.035 kWh/kg | |
-| Cooling water, net heat removed | 15,747 | 11.27 | |
+| Electricity, cooling tower and pumps (estimate) | 173 | 0.034 kWh/kg | |
+| Cooling water, net heat removed | 15,449 | 11.06 | |
 
 **[DERIVED] Energy intensity:**
-- Total natural gas fuel is ≈ 36.0 MW LHV, or 348 MJ per kg H2.
+- Total natural gas fuel is ≈ 35.6 MW LHV, or 344 MJ per kg H2.
 - The H2 product carries 12.43 MW LHV.
 - Drying (D0, D2 and D3) and NaOH evaporation (EC1) dominate the steam demand. The wash waters add to the EC1 load.
   U2 dominates direct fuel.
@@ -203,8 +203,8 @@ available heat is an optimistic upper bound.
 |---|---|---:|---:|---:|---:|
 | Exhaust gas (240 → ≥ 160 °C) | LP steam, 4 bar(a) | 3,115.4 | 1,159.2 | 1,043.3 | 1,043.3 |
 | Scavenge/charge air (160 °C) | HT hot water 95/85 °C | 1,591.3 | 862.0 | 775.8 | 775.8 |
-| Jacket water (85 °C; 30 % recoverable) | LT hot water 80/70 °C | 636.8 | 191.0 | 171.9 | 38.8 |
-| **Total** | | 5,343.5 | 2,212.2 | 1,991.0 | **1,857.8** |
+| Jacket water (85 °C; 30 % recoverable) | LT hot water 80/70 °C | 636.8 | 191.0 | 171.9 | 0 |
+| **Total** | | 5,343.5 | 2,212.2 | 1,991.0 | **1,819.1** |
 
 Allocation with a 10 K minimum approach:
 
@@ -212,26 +212,25 @@ Allocation with a 10 K minimum approach:
 |---|---:|
 | Scavenge → D0 | 775.8 |
 | Exhaust → D0 | 1,043.3 |
-| Jacket → U3D | 38.8 |
 
 The WHR offsets only purchased LP steam that remains after the S1 HXN, so heat is never counted twice. The U2
 500 °C reaction heat is not eligible. The conceptual U2 feed preheater receives 0 kW.
 
 | Result | Value |
 |---|---:|
-| Useful recovered heat | **1,857.8 kW** |
-| External heating | 30,313 → 28,455 kW (**−6.13 %**) |
-| Purchased LP steam | −11.1 % (avoided boiler fuel ≈ 2,322 kW LHV) |
-| WHR pumps | +10.8 kW electricity |
+| Useful recovered heat | **1,819.1 kW** |
+| External heating | 30,000 → 28,181 kW (**−6.06 %**) |
+| Purchased LP steam | −11.0 % (avoided boiler fuel ≈ 2,274 kW LHV) |
+| WHR pumps | +10.0 kW electricity |
 
 Engine-load sensitivity (WHR operating with ATT):
 
 | Engine load | Utilized heat | External heat reduction |
 |---|---:|---:|
 | 0.15 | 0 kW | 0 % |
-| 0.50 | 846 kW | 2.8 % |
-| 0.75 | 1,858 kW | 6.1 % |
-| 1.00 | 3,362 kW | 11.1 % |
+| 0.50 | 807 kW | 2.7 % |
+| 0.75 | 1,819 kW | 6.1 % |
+| 1.00 | 3,323 kW | 11.1 % |
 
 Below 50 % load (slow collection, anchoring) no qualifying heat is assumed.
 

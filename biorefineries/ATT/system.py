@@ -151,7 +151,8 @@ def create_att_system(
     heat_exchanger_network : bool
         Add BioSTEAM's HeatExchangerNetwork facility (default). It matches the
         heating and cooling duties that sit in exchangers with process streams
-        (D0, EC1 evaporator and condenser, C1, U3HX) and adds the network's
+        (D0, D2, D3, EC1 evaporator and condenser, C1, U3HX, the U3K intercooler, the U3D
+        regeneration heater and cooler, the scrubber cooler) and adds the network's
         exchanger cost. U2's fired duty and the solids cooler RC1 are
         excluded. False gives the flowsheet with every duty on utilities.
     hxn_T_min_app_K : float or None
@@ -1293,7 +1294,9 @@ def create_att_system(
     if heat_exchanger_network:
         T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"]
                           if hxn_T_min_app_K is None else hxn_T_min_app_K)
-        # The fired heaters of U2 and the lime kiln and the solids cooler are never matched.
+        # Not matched: the fired heaters of U2 and the lime kiln (fuel-fired, no process stream pair) and the solids
+        # cooler RC1. The HXN flashes every stream it matches and RC1's stream is all solid (no boiling point), so it
+        # fails; a water proxy would misstate a 500 -> 90 C sensible duty. Its 1.6 MW is cooled with cooling water.
         HXN = bst.HeatExchangerNetwork("HXN", T_min_app=T_min_app,
                                        ignored=[U2, RC1, *([K1] if use_lime_recycle else [])])
 

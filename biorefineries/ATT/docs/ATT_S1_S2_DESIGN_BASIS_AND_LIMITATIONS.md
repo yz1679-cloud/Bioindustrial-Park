@@ -55,7 +55,7 @@ scenarios.
 | Emission factors | NaOH 1.12; natural gas 0.056 + 0.0066 per MJ; electricity 0.449 per kWh; H2SO4 0.0445 | Collaborators' table; IPCC 2006; GREET | LIT | Electricity is a location placeholder |
 | Financial basis | IRR 10 %, 20 yr, MACRS-7, 21 % tax, 60 % debt at 8 %/10 yr, FOC 4 % FCI, FCI = installed cost, CEPCI 596.2 | `tea.yaml`; `att_tea.yaml` cost_year | SABRE | No indirect capital |
 | Reference vessel / engine | SPAR PYXIS; MAN B&W 5S60ME-C8.2, 8,050 kW; 75 % MCR; exhaust 240 °C, 8 kg/kWh; min outlet 160 °C | `marine_whr.yaml`; public vessel data | LIT / ENG | No OEM part-load data; existing onboard heat users ignored (optimistic); space, stability and class not assessed |
-| WHR equipment | 1.008 MUSD (BioSTEAM HX correlations as proxies, placeholders for drum and controls) | `marine_whr.py` | ENG | Screening-level costs; scavenge-air interface needs OEM approval |
+| WHR equipment | 0.890 MUSD (BioSTEAM HX correlations as proxies, placeholders for drum and controls) | `marine_whr.py` | ENG | Screening-level costs; scavenge-air interface needs OEM approval |
 | Floating factors | CAPEX × 1.25 (sensitivity 1.10–1.40); labor × 2.0 (S1 labor = 50 % of FOC) | `marine_tea.yaml` | USER | No marine cost data |
 | Operating hours | 7,920 h (S1 and S2, underway, idealized) | `tea.yaml`; `marine_whr.yaml` | USER | Realistic shipboard ATT hours unknown |
 | Excluded | Harvesting, collection, transport, vessel acquisition, propulsion fuel, REE recovery, CH4 credit | — | USER | Partial boundary for both TEA and LCA |
@@ -78,12 +78,12 @@ scale (sections 1 and 3) is a separate issue.
 
 | # | Uncertainty | Effect on results |
 |---|---|---|
-| 1 | **CaCO3 sales and cake quality.** No buyer, specification or verified price for the 80.8 % (F2) / 90.4 % (F3) cake | The revenue is −1.77 USD/kg H2 of the S1 MSP of 2.05; without sales it is 4.53. ±100 USD/t ≈ ±1.77 USD/kg H2 (17.7 kg CaCO3/kg H2) |
-| 2 | **Carbon storage accounting** | S1 GWP 10.88 net vs 25.88 without the storage credit (−15.00: residue −7.52, sold CaCO3 −7.47). The soluble Na2CO3 (0.21) and the lime's CaCO3 (0.30) are not credited. Storage is not verified removal |
+| 1 | **CaCO3 sales and cake quality.** No buyer, specification or verified price for the 80.8 % (F2) / 90.4 % (F3) cake | The revenue is −1.77 USD/kg H2 of the S1 MSP of 2.03; without sales it is 4.51. ±100 USD/t ≈ ±1.77 USD/kg H2 (17.7 kg CaCO3/kg H2) |
+| 2 | **Carbon storage accounting** | S1 GWP 10.64 net vs 25.64 without the storage credit (−15.00: residue −7.52, sold CaCO3 −7.47). The soluble Na2CO3 (0.21) and the lime's CaCO3 (0.30) are not credited. Storage is not verified removal |
 | 3 | **Transfer of the experimental yields** (catalyst, Ni soaking, steam co-feed, lab scale, single run; per-g-daf transfer to higher-ash presscake; NaOH dose basis) | Every per-kg-H2 result scales roughly with 1/H2 yield. A per-dry transfer would mean +21.9 % H2. Catalyst and Ni costs are absent from the TEA and LCA |
-| 4 | **ATT residue pays its disposal** | Lowers the S1 MSP by 0.59 USD/kg H2 (2.05 vs 2.64 with the residue disposed); the F1 wash behind it adds 1.5 kg CO2e/kg H2 and 2.6 MUSD of capital |
+| 4 | **ATT residue pays its disposal** | Lowers the S1 MSP by 0.59 USD/kg H2 (2.03 vs 2.62 with the residue disposed); the F1 wash behind it adds 1.5 kg CO2e/kg H2 and 2.6 MUSD of capital |
 | 5 | **Lumped residue thermochemistry** | U2 duty 9.23 MJ/kg dry drives ≈ 9.1 kg CO2e/kg H2 (combustion and upstream) and 0.63 USD/kg of fuel cost |
-| 6 | **Marine retrofit and WHR screening** (S2 at 7,920 h/yr underway) | Floating CAPEX 1.10–1.40 ⇒ S2 MSP 2.19–2.44. WHR −1.39 kg CO2e/kg H2 is an upper bound (onboard users ignored, no OEM data) |
+| 6 | **Marine retrofit and WHR screening** (S2 at 7,920 h/yr underway) | Floating CAPEX 1.10–1.40 ⇒ S2 MSP 2.17–2.42. WHR −1.36 kg CO2e/kg H2 is an upper bound (onboard users ignored, no OEM data) |
 
 Smaller items do not change the conclusions: EC1 constants, scrubber performance, cost year (CEPCI 800 adds
 +0.32 USD/kg), the electricity factor (−0.8 to +2.5 kg CO2e/kg H2), and collection-transport fuel.

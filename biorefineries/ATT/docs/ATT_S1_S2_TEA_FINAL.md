@@ -53,7 +53,7 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 
 | Group | Cost |
 |---|---:|
-| LP steam | 2.94 |
+| LP steam | 2.89 |
 | U2 natural gas | 1.87 |
 | NaOH makeup | 1.48 |
 | Electricity | 1.16 |
@@ -66,31 +66,31 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 | Ca(OH)2 (waste lime) | 0 |
 | ATT residue disposal (net) | 0 |
 | **CaCO3 sales** | **−5.22** |
-| **Net** | **3.92** |
+| **Net** | **3.87** |
 
 **S1 MSP breakdown (USD/kg H2, levelized at NPV = 0):**
 
 | Component | USD/kg H2 | Share |
 |---|---:|---:|
-| Utilities (LP steam 1.00, natural gas 0.63, electricity 0.39, cooling water 0.05) | 2.07 | 101 % |
+| Utilities (LP steam 0.98, natural gas 0.63, electricity 0.39, cooling water 0.05) | 2.05 | 101 % |
 | Capital-related (capital, debt service, tax) | 0.72 | 35 % |
 | Waste treatment and disposal (CaCO3 cakes 0.17, H2SO4 0.08, wastewater 0.05) | 0.30 | 15 % |
-| Materials (almost all NaOH: 0.50) | 0.50 | 24 % |
+| Materials (almost all NaOH: 0.50) | 0.50 | 25 % |
 | Fixed operating cost | 0.23 | 11 % |
-| **CaCO3 sales** | **−1.77** | −86 % |
-| **MSP** | **2.051** | |
+| **CaCO3 sales** | **−1.77** | −87 % |
+| **MSP** | **2.031** | |
 
-The process is dominated by operating costs, and mainly by heat: steam and natural gas are 1.63 USD/kg. The CaCO3
+The process is dominated by operating costs, and mainly by heat: steam and natural gas are 1.61 USD/kg. The CaCO3
 revenue offsets most of the costs, so the MSP depends on its price (section 4).
 
 ## 3. F2 and F1 washing (S1)
 
 | Configuration | MSP (USD/kg H2) | Net GWP (kg CO2e/kg H2) | FCI (MUSD) | AOC (MUSD/yr) | Fresh NaOH (t/yr) |
 |---|---:|---:|---:|---:|---:|
-| No washing, residue disposed | 3.045 | 10.39 | 13.26 | 7.27 | 9,758 |
-| F2 wash, wash liquor recycled | 2.728 | 9.41 | 13.88 | 6.26 | 7,065 |
-| + F1 wash, residue disposed | 2.643 | 10.88 | 16.47 | 5.67 | 4,227 |
-| **+ residue pays its disposal (baseline)** | **2.051** | 10.88 | 16.47 | 3.92 | 4,227 |
+| No washing, residue disposed | 3.023 | 10.10 | 13.29 | 7.21 | 9,758 |
+| F2 wash, wash liquor recycled | 2.709 | 9.17 | 13.90 | 6.20 | 7,065 |
+| + F1 wash, residue disposed | 2.624 | 10.64 | 16.47 | 5.62 | 4,227 |
+| **+ residue pays its disposal (baseline)** | **2.031** | 10.64 | 16.47 | 3.87 | 4,227 |
 
 All four rows include the CaCO3 cake dryers.
 
@@ -103,11 +103,11 @@ All four rows include the CaCO3 cake dryers.
 | F1 equipment | W1 MixTank 2.55 m3, installed 37,010 USD; F1R pressure filter (5,524 kg/h retentate), purchase 1.227 MUSD, installed 2.115 MUSD, 250.6 kW |
 
 **Interpretation.**
-- The F2 wash and the recycle of its liquor lower the MSP by 0.32 USD/kg H2: the recovered sodium cuts the fresh NaOH
+- The F2 wash and the recycle of its liquor lower the MSP by 0.31 USD/kg H2: the recovered sodium cuts the fresh NaOH
   from 9,758 to 7,065 t/yr.
 - The F1 wash recovers more sodium (fresh NaOH 4,227 t/yr), but the pressure filter F1R costs 2.1 MUSD installed and the
   added wash water must be evaporated in EC1. With the residue still disposed it lowers the MSP by only 0.09 USD/kg
-  and raises the GWP by 1.47 kg CO2e/kg H2.
+  and raises the GWP by 1.48 kg CO2e/kg H2.
 - Most of the MSP reduction in the last row (0.59 USD/kg H2) comes from the **assumption** that the washed residue pays
   its disposal: 5,524 kg/h × 0.04 USD/kg × 7,920 h = 1.75 MUSD/yr. There is no buyer or specification for it.
 
@@ -128,7 +128,7 @@ carbide lime. The plant makes 17.7 kg of CaCO3 per kg of H2.
 D0 type: D2 evaporates 2,531 kg/h (1.91 MW of steam duty, 0.81 MUSD installed, 121 kW) and D3 evaporates 96 kg/h
 (0.08 MW, 0.22 MUSD, 14 kW). The target moisture is an assumption; there is no filler specification, grinding or
 purification. The dryers add 1.03 MUSD to the FCI, 0.35 MUSD/yr of LP steam and 0.08 MUSD/yr of electricity.
-The S1 MSP nevertheless falls from 2.127 to 2.051, because the disposal charge (0.04 USD/kg wet) is applied to all
+The S1 MSP nevertheless falls from 2.108 to 2.031, because the disposal charge (0.04 USD/kg wet) is applied to all
 non-CaCO3 mass of the sold cakes, including their water. Drying removes 2.6 t/h of it, which is worth 0.83 MUSD/yr
 (0.28 USD/kg H2). Without that charge the dryers would raise the MSP by about 0.2 USD/kg H2 [DERIVED].
 
@@ -142,10 +142,10 @@ measured on a different, clean system. The sales case is therefore an upper boun
 
 | CaCO3 price | MSP (USD/kg H2) |
 |---|---:|
-| No sales; both cakes disposed | 4.526 |
-| 0 USD/t (taken away, non-CaCO3 mass disposed) | 3.819 |
-| 100 USD/t (baseline) | 2.051 |
-| 315 USD/t (approximate public industrial reference, unverified for this product) | −1.750 |
+| No sales; both cakes disposed | 4.506 |
+| 0 USD/t (taken away, non-CaCO3 mass disposed) | 3.799 |
+| 100 USD/t (baseline) | 2.031 |
+| 315 USD/t (approximate public industrial reference, unverified for this product) | −1.770 |
 
 Each 100 USD/t of CaCO3 price moves the S1 MSP by ≈ 1.77 USD/kg H2.
 
@@ -158,21 +158,21 @@ cost (net 0), for example as a sorbent or soil material. The assumption is switc
 
 | Case | H2 (t/yr) | FCI (MUSD) | AOC (MUSD/yr) | MSP | Net GWP (kg CO2e/kg H2) |
 |---|---:|---:|---:|---:|---:|
-| S1 | 2,953.56 | 16.466 | 3.923 | **2.051** | 10.88 |
-| S2 floating, no WHR | 2,953.56 | 20.582 | 4.334 | 2.372 | 10.88 |
-| S2 floating, exhaust WHR only | 2,953.56 | 21.164 | 4.164 | 2.340 | 10.10 |
-| **S2 floating, all WHR** | 2,953.56 | 21.590 | 4.036 | **2.315** | 9.49 |
+| S1 | 2,953.56 | 16.466 | 3.865 | **2.031** | 10.64 |
+| S2 floating, no WHR | 2,953.56 | 20.582 | 4.277 | 2.352 | 10.64 |
+| S2 floating, exhaust WHR only | 2,953.56 | 21.164 | 4.106 | 2.320 | 9.86 |
+| **S2 floating, all WHR** | 2,953.56 | 21.472 | 3.982 | **2.291** | 9.28 |
 
 S2 (all WHR) with other residue assumptions:
 
 | Case | MSP |
 |---|---:|
-| Baseline (washed residue pays its disposal) | 2.315 |
-| F1 wash, residue disposed at 0.04 USD/kg wet | 2.907 |
-| No F1 wash, residue disposed | 2.941 |
+| Baseline (washed residue pays its disposal) | 2.291 |
+| F1 wash, residue disposed at 0.04 USD/kg wet | 2.884 |
+| No F1 wash, residue disposed | 2.920 |
 
 **S2 cost structure (all WHR):**
-- Process CAPEX = 1.25 × S1 FCI = 20.582 MUSD; WHR equipment adds 1.008 MUSD after the multiplier.
+- Process CAPEX = 1.25 × S1 FCI = 20.582 MUSD; WHR equipment adds 0.890 MUSD after the multiplier.
 - WHR equipment, installed:
 
 | Item | USD |
@@ -180,28 +180,29 @@ S2 (all WHR) with other residue assumptions:
 | Economizer | 246,980 |
 | Steam drum / interface (placeholder) | 150,000 |
 | Charge-air cooler | 198,398 |
-| Jacket-water heat exchanger | 68,324 |
-| Pumps | 56,381 |
-| Piping and controls allowance | 288,033 |
+| Pumps | 40,176 |
+| Piping and controls allowance | 254,221 |
+
+The jacket-water loop (80/70 °C) finds no sink that is cold enough, so its exchanger and pump are not bought.
 
 - Labor = 2 × the S1 labor. The S1 labor is taken as 50 % of the S1 FOC (0.329 → 0.659 MUSD/yr).
-- WHR cuts purchased energy by 0.319 MUSD/yr (6.123 → 5.804 MUSD/yr).
+- WHR cuts purchased energy by 0.313 MUSD/yr (6.065 → 5.753 MUSD/yr).
 
 ## 6. Interpretation
 
-1. **S1 vs S2.** Floating operation adds +0.264 USD/kg with all WHR (2.051 → 2.315; +0.321 without WHR). The 1.25 CAPEX
-   factor (+4.1 MUSD) accounts for about 0.21 of it and the doubled labor (+0.33 MUSD/yr) for about 0.11. All three WHR
-   sources recover 0.057 USD/kg. S2 stays ≈ 13 % above S1.
-2. **WHR.** The 1.0 MUSD of WHR equipment is repaid by 0.32 MUSD/yr of avoided steam. Each MUSD of WHR equipment lowers
-   the MSP by about 0.057 USD/kg, for the exhaust-only and the full set alike. The operating hours matter: the S2
+1. **S1 vs S2.** Floating operation adds +0.260 USD/kg with all WHR (2.031 → 2.291; +0.321 without WHR). The 1.25 CAPEX
+   factor (+4.1 MUSD) accounts for about 0.21 of it and the doubled labor (+0.33 MUSD/yr) for about 0.11. The WHR (exhaust and
+   scavenge air; the jacket-water loop finds no sink) recovers 0.061 USD/kg. S2 stays ≈ 13 % above S1.
+2. **WHR.** The 0.89 MUSD of WHR equipment is repaid by 0.31 MUSD/yr of avoided steam. Each MUSD of WHR equipment lowers
+   the MSP by about 0.055 USD/kg for the exhaust-only set (0.58 MUSD) and 0.068 USD/kg for the full set. The operating hours matter: the S2
    results are at 7,920 h/yr underway, and fewer hours spread the fixed costs over less H2.
 3. **CaCO3 sales.** The revenue is −1.77 USD/kg H2 of the MSP, the largest single item and an unverified one. Without
-   sales the S1 MSP is 4.53. Unless a buyer and specification for the cake are confirmed, quote the no-sales value beside it.
+   sales the S1 MSP is 4.51. Unless a buyer and specification for the cake are confirmed, quote the no-sales value beside it.
 4. **ATT residue.** Assuming that the washed residue pays its disposal lowers the MSP by 0.59 USD/kg. Without it, S1
-   is 2.64 (S2 all WHR 2.91).
+   is 2.62 (S2 all WHR 2.88).
 5. **Other drivers:**
    - NaOH makeup is 0.50 USD/kg H2, from a 10.6 % makeup rate (4,227 of 39,831 t/yr of gross NaOH).
-   - Fuel and steam together are 1.63 USD/kg.
+   - Fuel and steam together are 1.61 USD/kg.
    - CaCO3 drying lowers the S1 MSP by 0.08 USD/kg only through the disposal charge on the cake water (section 4).
    - Equipment cost-year sensitivity: CEPCI 800 (≈ 2024) instead of 596.2 raises the S1 MSP by 0.32.
 
@@ -209,12 +210,12 @@ S2 (all WHR) with other residue assumptions:
 
 | Parameter | Low | High |
 |---|---:|---:|
-| CAPEX multiplier 1.10 / 1.40 | 2.190 | 2.440 |
-| Labor multiplier 1 / 2 | 2.202 | 2.315 |
-| WHR CAPEX × 0.5 / × 2 | 2.289 | 2.366 |
-| WHR CAPEX at the IMO lower bound for power WHRS (5.2 MUSD) | — | 2.527 |
-| No scavenge-air recovery | — | 2.343 |
-| Engine load 0.5 / 1.0 | 2.364 | 2.238 |
+| CAPEX multiplier 1.10 / 1.40 | 2.167 | 2.416 |
+| Labor multiplier 1 / 2 | 2.178 | 2.291 |
+| WHR CAPEX × 0.5 / × 2 | 2.269 | 2.336 |
+| WHR CAPEX at the IMO lower bound for power WHRS (5.2 MUSD) | — | 2.509 |
+| No scavenge-air recovery | — | 2.320 |
+| Engine load 0.5 / 1.0 | 2.340 | 2.215 |
 
 Boundary reminders:
 - No vessel acquisition, harvesting, collection or transport cost.

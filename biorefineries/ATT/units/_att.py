@@ -184,8 +184,8 @@ class ATTCompressor(bst.IsothermalCompressor):
     """
     IsothermalCompressor whose intercooling duty is carried by a costed
     auxiliary cooler (water proxy, sensible from ``intercooler_T_K`` to the
-    outlet temperature). Kept out of the heat exchanger network: the
-    interstage temperature is an assumption, not a modeled stream.
+    outlet temperature). Its duty is matched in the heat exchanger network at the assumed interstage
+    temperature (att.yaml heat_recovery.u3k_interstage_temperature_K).
     """
 
     def _init(self, *args, intercooler_T_K=400.0, **kwargs):
@@ -199,14 +199,15 @@ class ATTCompressor(bst.IsothermalCompressor):
         for hu in self.heat_utilities[n:]:
             self.heat_utilities.remove(hu)
             _att_proxy_exchanger(self, "intercooler", hu.unit_duty, self.intercooler_T_K, self.outs[0].T,
-                                 hxn_ok=False)
+                                 hxn_ok=True)
 
 
 class ATTMolecularSieve(bst.MolecularSieve):
     """
     MolecularSieve whose regeneration heating and cooling duties are carried
     by costed auxiliary exchangers (water proxy at ``regeneration_T_K``).
-    Kept out of the heat exchanger network (provisional BioSTEAM duties).
+    Both duties are matched in the heat exchanger network (BioSTEAM's duties, at the assumed regeneration
+    temperature of att.yaml heat_recovery.u3d_regeneration_temperature_K).
     """
 
     def _init(self, *args, regeneration_T_K=450.0, **kwargs):
@@ -225,10 +226,10 @@ class ATTMolecularSieve(bst.MolecularSieve):
         for hu in new:
             if hu.unit_duty > 0.0:
                 _att_proxy_exchanger(self, "regeneration_heater", hu.unit_duty, T_in, self.regeneration_T_K,
-                                     hxn_ok=False)
+                                     hxn_ok=True)
             else:
                 _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
-                                     hxn_ok=False)
+                                     hxn_ok=True)
 
 
 
@@ -376,7 +377,7 @@ class ATTLimeSlaker(bst.Unit):
     """
     Slaker of the lime recycle: CaO + water -> Ca(OH)2 (semi-dry: ``water_ratio`` kmol water per kmol
     CaO, so the hydrate leaves as a dry solid). The heat of slaking is removed by a costed auxiliary
-    cooler (water proxy) to ``T``; not matched in the HXN.
+    cooler (water proxy) to ``T``; matched in the HXN.
     ins: [0] lime solids from the kiln (after the purge), [1] slaking water (set here). outs: [0] hydrated lime.
     """
     _N_ins = 2
@@ -409,7 +410,7 @@ class ATTLimeSlaker(bst.Unit):
         lime, water = self.ins
         duty = float(self.outs[0].Hnet - lime.Hnet - water.Hnet)       # kJ/h, negative: heat released
         if duty < 0.0:
-            _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=False)
+            _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=True)
 
 
 class ATTScrubber(bst.Unit):
@@ -470,7 +471,7 @@ class ATTScrubber(bst.Unit):
         self.tank.ins[0].copy_like(slurry)
         self.tank.simulate()
         if duty < 0.0:
-            _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=False)
+            _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=True)
 
 
 class ATTPress(bst.Unit):

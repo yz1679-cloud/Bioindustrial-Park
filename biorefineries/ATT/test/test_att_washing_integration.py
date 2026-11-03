@@ -103,14 +103,14 @@ class TestNativeF2Washing(unittest.TestCase):
     def test_washing_off_reference_values(self):
         ref = mt.s1_reference(self.off)
         self.assertAlmostEqual(ref["row"]["H2_t_per_yr"], 2953.563, delta=.001)
-        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 3.126355, delta=1e-6)   # CaCO3 sold, no washing
-        self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1857.8462335, delta=1e-5)
-        for hours, expected in ((7920., 3.308159), (2640., 5.293844)):
+        self.assertAlmostEqual(ref["row"]["MSP_USD_per_kg_H2"], 3.102809, delta=1e-6)   # CaCO3 sold, no washing
+        self.assertAlmostEqual(mw.evaluate_whr(self.off)["utilized_kW"], 1819.0580470, delta=1e-5)
+        for hours, expected in ((7920., 3.280775), (2640., 5.254495)):
             row, _ = mt.evaluate_case(self.off, ref, "reference", hours=hours)
             self.assertAlmostEqual(row["MSP_USD_per_kg_H2"], expected, delta=1e-6)
             # baseline: inherited accounting with the residue credited, so the net GWP equals the inherited-credit GWP
-            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 7.475096, delta=1e-6)
-            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 7.475096, delta=1e-6)
+            self.assertAlmostEqual(row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"], 7.213638, delta=1e-6)
+            self.assertAlmostEqual(row["GWP_kgCO2e_per_kg_H2"], 7.213638, delta=1e-6)
 
     def test_wash_liquor_recycle_to_the_dissolver(self):
         rs, ru = inv._streams(self.rec), inv._units(self.rec)
