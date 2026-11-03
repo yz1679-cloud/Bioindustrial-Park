@@ -90,6 +90,7 @@ def create_att_system(
     f1_wash=None,
     f1_wash_ratio=None,
     f1_wash_condensate=None,
+    caco3_drying=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -136,6 +137,10 @@ def create_att_system(
     f2_wash_condensate : bool or None
         Wash with the condensate that the dissolver does not need (fresh water only makes up the rest). None uses
         att.yaml downstream.f2_washing.use_excess_condensate.
+    caco3_drying : bool or None
+        Dry the two CaCO3 cakes (F2 cake in D2, scrubber cake in D3, drum dryers like D0) to the moisture of att.yaml
+        downstream.caco3_drying before they are sold. Not used with the lime recycle (the kiln takes the wet cake).
+        None uses att.yaml downstream.caco3_drying.enabled.
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None
@@ -1107,6 +1112,30 @@ def create_att_system(
             moisture_content=float(_ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"]))
         add_mother_liquor_entrainment_spec(
             F2R, _ATT_DOWNSTREAM["f2_cake_moisture_wt_frac"], solids_recovery=1.0)
+    # --------------------------------------------------------------
+    # D2 / D3 - drying of the two CaCO3 cakes before sale (att.yaml downstream.caco3_drying): the same ATT drum dryer
+    # as D0, steam heated, drying air sized for the exhaust relative humidity, the dryer settings of feed_preparation.
+    # The cakes keep the IDs caco3_cake and scrubber_cake (the sold streams); the filter outlets become *_wet.
+    # --------------------------------------------------------------
+    dry_cfg = _ATT_DOWNSTREAM.get("caco3_drying", {})
+    dry_cakes = bool(dry_cfg.get("enabled", False) if caco3_drying is None else caco3_drying) and not use_lime_recycle
+    D2 = D3 = None
+    if dry_cakes:
+        def cake_dryer(ID, cake, air_ID, product_ID):
+            wet_ID = product_ID + "_wet"
+            cake.ID = wet_ID
+            return ATTDrumDryer(
+                ID, ins=(cake, bst.Stream(air_ID), bst.Stream(air_ID.replace("_air", "_backup_fuel"))),
+                outs=(product_ID, air_ID.replace("_air", "_exhaust"), air_ID.replace("_air", "_emissions")),
+                split={"Water": 1.0}, moisture_content=float(dry_cfg["product_moisture_wt_frac"]),
+                T=_ATT_FEED_PREP["dryer_temperature_K"], P=101325.0, utility_agent="Steam",
+                RH=float(_dryer_cfg["exhaust_relative_humidity"]),
+                length_to_diameter=float(_dryer_cfg["drum_length_to_diameter"]),
+                max_drum_diameter_m=float(_dryer_cfg["max_drum_diameter_m"]))
+        D2 = cake_dryer("D2", (F2R if F2R is not None else F2).outs[0], "caco3_dryer_air", "caco3_cake")
+        if F3 is not None:
+            D3 = cake_dryer("D3", F3.outs[0], "scrubber_dryer_air", "scrubber_cake")
+
     # The original F2 filtrate and NaOH loop are unchanged. The wash liquor is recycled to the dissolver D1 (or,
     # with recycle_wash_liquor false, is a separate wastewater product); it is never routed to EC1.
     sp1_feed = F2 - 1
@@ -1238,6 +1267,7 @@ def create_att_system(
         U3HX,
         U3C,
         *([SCRUB, F3, SF] if SCRUB is not None else []),
+        *([D3] if D3 is not None else []),
         U3D,
         U3K,
         *([U3P, U3V] if psa else []),
@@ -1253,6 +1283,7 @@ def create_att_system(
         C1,
         F2,
         *([W2, F2R] if W2 is not None else []),
+        *([D2] if D2 is not None else []),
         *lime_loop_units,
         SP1,
         EC1,

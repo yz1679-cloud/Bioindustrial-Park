@@ -389,6 +389,12 @@ att:
     # F2: CaCO3 + residual Ca(OH)2 mineral cake. 25 wt% is the revised
     # baseline from the CaCO3/lime-filtration literature review.
     f2_cake_moisture_wt_frac: 0.25
+    # Drying of the two CaCO3 cakes before sale (user decision 2026-11-03: the CaCO3 is sold as a filler, so it is dried).
+    # ASSUMPTION: the dried cake keeps 1 wt % moisture (no filler specification or buyer); same drum dryer, drum
+    # temperature and exhaust humidity as the feed dryer D0 (feed_preparation.dryer). No grinding, no purification.
+    caco3_drying:
+      enabled: true
+      product_moisture_wt_frac: 0.01
 
     # Hypothetical wash-displacement model; disabled reproduces baseline.
     # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
@@ -590,6 +596,10 @@ att:
     stream_fates:
       att_sargassum_feed: [input, feedstock, "Pelagic Sargassum as harvested (wet)."]
       dryer_air: [input, ambient_air, "D0 drying air; no burden."]
+      caco3_dryer_air: [input, ambient_air, "D2 drying air (F2 CaCO3 cake); no burden."]
+      scrubber_dryer_air: [input, ambient_air, "D3 drying air (scrubber CaCO3 cake); no burden."]
+      caco3_dryer_backup_fuel: [input, fuel, "Not used in the baseline (zero flow)."]
+      scrubber_dryer_backup_fuel: [input, fuel, "Not used in the baseline (zero flow)."]
       dryer_backup_fuel: [input, fuel, "Not used in the baseline (zero flow)."]
       dissolution_water: [input, process_water, "D1 dissolution water."]
       lime: [input, reagent, "Ca(OH)2, stoichiometric x lime_equiv."]
@@ -620,6 +630,10 @@ att:
       ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]
       dryer_exhaust: [output, air_emission, "Drying air and water vapor; no GHG."]
       dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
+      caco3_dryer_exhaust: [output, air_emission, "D2 drying air and water vapor; no GHG."]
+      scrubber_dryer_exhaust: [output, air_emission, "D3 drying air and water vapor; no GHG."]
+      caco3_dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
+      scrubber_dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
     lca:
       impact: "GWP100, kg CO2e"
       # Steam is generated in a natural-gas boiler: fuel = steam heat / efficiency.

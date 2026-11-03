@@ -1,7 +1,7 @@
 # ATT S1/S2: process basis, material balance and energy balance
 
 **Model state.** BioSTEAM 2.54.0. The baseline washes the F2 cake and the F1 residue cake with the recycled
-condensate, sells the CaCO3 cakes, assumes that the washed residue pays its disposal, and credits the Sargassum carbon of
+condensate, dries and sells the CaCO3 cakes, assumes that the washed residue pays its disposal, and credits the Sargassum carbon of
 the solids in the LCA. All values are simulation outputs of the committed model unless marked:
 - **[ASSUMPTION]**: an engineering or user-defined input;
 - **[EXP]**: an experimental input;
@@ -21,7 +21,7 @@ Companion documents:
 | Location | Land-based plant | Existing bulk carrier, retrofitted |
 | Process | ATT flowsheet below | **Identical** process, chemistry, capacity and yields |
 | Added layer | — | Marine waste-heat recovery (WHR) from the main engine; floating CAPEX and labor factors |
-| Inside the boundary | Presscake receipt → drying (D0) → ATT reactor (U2) → gas cooling, CO2 scrubbing (SCRUB/F3), drying, compression (U3K) → residue filtration (F1) → F1 washing (W1/F1R) → causticization (C1) → CaCO3 filtration (F2) → F2 washing (W2/F2R) → NaOH evaporation and recycle (EC1); wash-liquor recycles; purchased utilities; CaCO3 sales; wastewater and solid disposal | Same, plus WHR equipment (economizer, recovery coolers, pumps) |
+| Inside the boundary | Presscake receipt → drying (D0) → ATT reactor (U2) → gas cooling, CO2 scrubbing (SCRUB/F3), drying, compression (U3K) → residue filtration (F1) → F1 washing (W1/F1R) → causticization (C1) → CaCO3 filtration (F2) → F2 washing (W2/F2R) → CaCO3 cake drying (D2, D3) → NaOH evaporation and recycle (EC1); wash-liquor recycles; purchased utilities; CaCO3 sales; wastewater and solid disposal | Same, plus WHR equipment (economizer, recovery coolers, pumps) |
 | Outside the boundary | Harvesting, collection, initial dewatering, transport, presscake production, vessel acquisition, propulsion fuel |
 
 S1 and S2 use the same simulated process. Their gas yields, H2 output and material flows are identical. S2
@@ -121,7 +121,8 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 | F1 washing | Same ratio (1.0 kg/kg dry cake), the condensate left after the dissolver and the F2 wash (fresh water for the rest), W1 MixTank + F1R pressure filter at the 30 wt % F1 cake moisture, no dryer. The wash liquor joins the F1 filtrate (the carbonate solution to C1) | [ASSUMPTION] user decision 2026-11-02 |
 | Lime source | Waste carbide lime of an acetylene plant, free and burden-free: a paste with 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals (dry basis) and 40 wt % water. The Ca(OH)2 dose follows the stoichiometry | [ASSUMPTION] from literature ranges (`att.yaml waste_lime`) |
 | Condensate use | The EC1, U3C and scrubber condensate is the dissolution water first (3 kg per kg of U2 Na2CO3, less the recycled F2 wash water), then the F2 wash water, then the F1 wash water. The rest (2.5 t/h) is wastewater | [ASSUMPTION] |
-| CaCO3 cakes and ATT residue | Both CaCO3 cakes are sold at 100 USD/t of CaCO3; the washed F1 residue cake (30 wt % moisture) pays its own disposal (net 0) | [ASSUMPTION] |
+| CaCO3 cake drying | The F2 cake (D2) and the scrubber cake (D3) are dried from 25 to 1 wt % moisture in steam-heated drum dryers (same type, drum temperature and exhaust humidity as D0). No grinding or purification | [ASSUMPTION] user decision 2026-11-03; the moisture target is assumed |
+| CaCO3 cakes and ATT residue | Both dried CaCO3 cakes are sold at 100 USD/t of CaCO3; the washed F1 residue cake (30 wt % moisture) pays its own disposal (net 0) | [ASSUMPTION] |
 
 ## 4. Material balance (S1 = S2)
 
@@ -134,7 +135,7 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 | Carbide lime paste to the scrubber | 384.52 | 3,045.4 | Ca(OH)2 212.25, CaCO3 9.23, inert minerals 9.23, water 153.81 |
 | Total Ca(OH)2 | 5,836.92 | **46,228.4** | Within the 92.5 kt/yr waste-lime supply (Ca(OH)2 basis) |
 | Fresh process water (dissolution, scrubber makeup, F2 and F1 wash) | 0 | 0 | The wash and dissolution water is condensate |
-| Dryer air (D0) | ≈ 54,700 | — | Ambient |
+| Dryer air (D0 ≈ 54,700; D2 ≈ 12,400; D3 ≈ 470) | ≈ 67,560 | — | Ambient |
 | **Internal recycles** | | | |
 | NaOH recycle from EC1 | 10,279.31 | — | NaOH 4,495.51 (**35,604.6 t/yr**), Na2CO3 754.63, water 5,029.17; effective NaOH recovery 89.4 % |
 | F2 wash liquor to D1 | 8,863.23 | 70,196.8 | NaOH 379.27, Na2CO3 63.66, water 8,420.30 |
@@ -142,12 +143,13 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 | Condensate pool (EC1, U3C, scrubber) | 28,995.5 | — | To D1 13,833.8; to the F2 wash 8,272.7; to the F1 wash 4,349.9; excess 2,539.2 |
 | **Outputs** | | | |
 | H2 product gas | 406.97 | — | H2 372.925 (**2,953.56 t/yr**), CH4 32.884, CO2 1.158 |
-| F2 washed CaCO3 cake (sold) | 10,439.63 | 82,681.8 | CaCO3 6,322.95 (50,077.7 t/yr), Ca(OH)2 1,124.93, inert minerals 244.55, NaOH 117.56, Na2CO3 19.73, water 2,609.91; **80.756 %** CaCO3 dry basis |
-| F3 scrubber CaCO3 cake (sold) | 397.87 | 3,151.2 | CaCO3 269.88 (2,137.5 t/yr), Ca(OH)2 19.30, inert minerals 9.23, water 99.47; **90.441 %** CaCO3 dry basis |
+| F2 washed CaCO3 cake (dried in D2, sold) | 7,908.81 | 62,637.8 | CaCO3 6,322.95 (50,077.7 t/yr), Ca(OH)2 1,124.93, inert minerals 244.55, NaOH 117.56, Na2CO3 19.73, water 79.09 (1 wt %; D2 evaporates 2,530.8 kg/h); **80.756 %** CaCO3 dry basis |
+| F3 scrubber CaCO3 cake (dried in D3, sold) | 301.42 | 2,387.2 | CaCO3 269.88 (2,137.5 t/yr), Ca(OH)2 19.30, inert minerals 9.23, water 3.01 (D3 evaporates 96.5 kg/h); **90.441 %** CaCO3 dry basis |
 | Total CaCO3 sold | 6,592.83 | **52,215.2** | Includes the CaCO3 of the lime (253.8 kg/h); solids fully retained (an assumption) |
 | ATT residue (washed F1 cake) | 5,524.29 | 43,752.4 | Ash 1,612.85, lumped residue 2,017.00, CharN/CharS 61.52, Na2CO3 167.15, NaOH 8.47, water 1,657.29 (30 wt %); not dried |
 | Liquor purge | 1,589.57 | 12,589.4 | NaOH 236.61, Na2CO3 39.72, water 1,313.25 |
 | Excess condensate | 2,539.18 | 20,110.3 | Wastewater (clean water) |
+| Cake dryer exhaust (D2 + D3) | 15,499.3 | 122,754 | Air 12,872.1 and water vapor 2,627.3; no GHG |
 | Gas-dryer water (U3D) | 268.62 | 2,127.5 | Wastewater |
 | H2SO4 for neutralization (purge, pH 8.3) | 308.5 | 2,443 | Off-flowsheet reagent |
 
@@ -163,7 +165,7 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 - U2 C, H, O and electron closure: residuals ≤ 1e-13 mmol/g daf.
 - U2 mass error 3.0e-9.
 - Plant Na, Ca and carbon balances close (carbon: 1,607.53 kg C/h in = out, including the lime's CaCO3).
-- The component and total checks on the W2/F2R and W1/F1R washing steps pass. The exported QC tables have 300 PASS and
+- The component and total checks on the W2/F2R and W1/F1R washing steps pass. The exported QC tables have 324 PASS and
   0 FAIL.
 
 The lumped residue that enables the H/O/electron closure is an assumed surrogate (see the design-basis document).
@@ -175,20 +177,20 @@ The lumped residue that enables the H/O/electron closure is an assumed surrogate
 | U2 process heat (incl. reaction enthalpy) | 12,893 | 9.229 | Provisional: depends on the lumped-residue thermochemistry |
 | U2 heat delivered (incl. 5 % loss) = natural gas agent duty | 13,537 | 9.69 | |
 | U2 natural gas fuel (LHV, burner 0.90) | 15,042 | 10.77 | |
-| LP steam, gross demand (D0 9,289; EC1 13,263; C1 1,517; U3D 112) | 24,181 | — | EC1 evaporates 19.9 t/h of water |
-| LP steam recovered by the heat-exchanger network (HXN) | −9,392 | — | Existing S1 heat integration |
-| **LP steam purchased** | **14,789** | 10.59 | |
-| Boiler natural gas for that steam (LHV, boiler 0.80) | 18,486 | 13.23 | |
-| **External heating before WHR** (U2 + purchased steam) | **28,326** | — | Basis of the S2 reduction |
-| Electricity, unit models (U3K 678, F1 282, F1R 251, D0 410, F2 77, F2R 32, other 17) | 1,746 | 0.347 kWh/kg | |
+| LP steam, gross demand (D0 9,289; EC1 13,263; D2 1,909; C1 1,517; U3D 112; D3 78) | 26,168 | — | EC1 evaporates 19.9 t/h of water; the cake dryers D2 and D3 add 1,987 kW |
+| LP steam recovered by the heat-exchanger network (HXN) | −9,392 | — | Unchanged by the cake dryers |
+| **LP steam purchased** | **16,776** | 12.01 | |
+| Boiler natural gas for that steam (LHV, boiler 0.80) | 20,970 | 15.01 | |
+| **External heating before WHR** (U2 + purchased steam) | **30,313** | — | Basis of the S2 reduction |
+| Electricity, unit models (U3K 678, F1 282, F1R 251, D0 410, D2 121, F2 77, F2R 32, D3 14, other 17) | 1,880 | 0.374 kWh/kg | |
 | Electricity, cooling tower and pumps (estimate) | 176 | 0.035 kWh/kg | |
 | Cooling water, net heat removed | 15,747 | 11.27 | |
 
 **[DERIVED] Energy intensity:**
-- Total natural gas fuel is ≈ 33.5 MW LHV, or 324 MJ per kg H2.
+- Total natural gas fuel is ≈ 36.0 MW LHV, or 348 MJ per kg H2.
 - The H2 product carries 12.43 MW LHV.
-- Drying (D0) and NaOH evaporation (EC1) dominate the steam demand. The wash waters add to the EC1 load. U2 dominates
-  direct fuel.
+- Drying (D0, D2 and D3) and NaOH evaporation (EC1) dominate the steam demand. The wash waters add to the EC1 load.
+  U2 dominates direct fuel.
 
 ## 6. S2 marine waste-heat recovery (75 % MCR reference)
 
@@ -209,8 +211,7 @@ Allocation with a 10 K minimum approach:
 | Source → sink | kW |
 |---|---:|
 | Scavenge → D0 | 775.8 |
-| Exhaust → D0 | 604.2 |
-| Exhaust → EC1 | 439.1 |
+| Exhaust → D0 | 1,043.3 |
 | Jacket → U3D | 38.8 |
 
 The WHR offsets only purchased LP steam that remains after the S1 HXN, so heat is never counted twice. The U2
@@ -219,8 +220,8 @@ The WHR offsets only purchased LP steam that remains after the S1 HXN, so heat i
 | Result | Value |
 |---|---:|
 | Useful recovered heat | **1,857.8 kW** |
-| External heating | 28,326 → 26,468 kW (**−6.56 %**) |
-| Purchased LP steam | −12.6 % (avoided boiler fuel ≈ 2,322 kW LHV) |
+| External heating | 30,313 → 28,455 kW (**−6.13 %**) |
+| Purchased LP steam | −11.1 % (avoided boiler fuel ≈ 2,322 kW LHV) |
 | WHR pumps | +10.8 kW electricity |
 
 Engine-load sensitivity (WHR operating with ATT):
@@ -228,9 +229,9 @@ Engine-load sensitivity (WHR operating with ATT):
 | Engine load | Utilized heat | External heat reduction |
 |---|---:|---:|
 | 0.15 | 0 kW | 0 % |
-| 0.50 | 846 kW | 3.0 % |
-| 0.75 | 1,858 kW | 6.6 % |
-| 1.00 | 3,090 kW | 10.9 % |
+| 0.50 | 846 kW | 2.8 % |
+| 0.75 | 1,858 kW | 6.1 % |
+| 1.00 | 3,362 kW | 11.1 % |
 
 Below 50 % load (slow collection, anchoring) no qualifying heat is assumed.
 

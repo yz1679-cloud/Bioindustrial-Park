@@ -24,17 +24,19 @@ The baseline washes two cakes. F2 (CaCO3): the cake goes to a native MixTank W2 
 wash liquor is recycled to the dissolver D1. F1 (ATT residue): the cake goes to a MixTank W1 and a PressureFilter F1R
 (30 wt % moisture, no dryer), and the wash liquor is combined with the carbonate solution that feeds C1. The wash
 water is the condensate that the dissolver does not need (fresh water only as a top-up); the ratio is 1 kg water/kg dry
-cake in both. The final F2 product is `caco3_cake` and the final F1 product `ash_residue_cake`.
+cake in both. The final F1 product is `ash_residue_cake`. Both CaCO3 cakes are then dried to 1 wt % moisture before sale (`downstream.caco3_drying`): the F2
+cake in a drum dryer D2 and the scrubber cake in D3, the same dryer type as the feed dryer D0. The sold streams are `caco3_cake`
+and `scrubber_cake` (their undried forms are `caco3_cake_wet` and `scrubber_cake_wet`).
 
 Switches (`scenarios.create(...)`): `washing="washing_on"|"washing_off"` and `wash_ratio=` (F2), `wash_recycle=`,
-`wash_condensate=`, `f1_wash=`, `f1_wash_ratio=`, `f1_wash_condensate=`. The defaults are in `data/att.yaml`
-(`downstream.f2_washing`, `downstream.f1_washing`). A ratio of 0 means no washing.
+`wash_condensate=`, `f1_wash=`, `f1_wash_ratio=`, `f1_wash_condensate=`, `caco3_dry=`. The defaults are in `data/att.yaml`
+(`downstream.f2_washing`, `downstream.f1_washing`, `downstream.caco3_drying`). A ratio of 0 means no washing.
 
 Waste lime: `downstream.waste_lime` in `data/att.yaml` models the carbide lime of an acetylene plant as a paste (dry
 basis 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals; 40 wt % water). It is free and burden-free; the Ca(OH)2 dose follows
 the stoichiometry. Trace metals and other impurities are not modeled.
 
-Economics (`data/att_tea.yaml`): both CaCO3 cakes are sold at 100 USD/t of CaCO3 (`caco3_sales`, an **optimistic,
+Economics (`data/att_tea.yaml`): both (dried) CaCO3 cakes are sold at 100 USD/t of CaCO3 (`caco3_sales`, an **optimistic,
 unverified** price; `build_att_breakdown(..., f2_sales=False)` disposes the F2 cake), and the washed ATT residue is
 assumed to pay for its own disposal (`residue_sale`, net cost 0, no buyer or specification). Either assumption can be
 switched off in the file.

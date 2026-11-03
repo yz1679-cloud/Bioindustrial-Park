@@ -3,7 +3,8 @@
 **Model state.** BioSTEAM 2.54.0. The baseline credits the **Sargassum carbon in the solids** as stored carbon: the
 CaCO3 of the cakes (sold or landfilled) and the lumped residue (`att_lca.yaml carbon_storage.carbonate_storage_accounting:
 inherited`, `credit_char_carbon: true`). The soluble Na2CO3 in the cakes (`credit_soluble_carbonate: false`) and the
-CaCO3 of the waste lime are **not** credited. S2 results are for 7,920 h/yr underway.
+CaCO3 of the waste lime are **not** credited. The CaCO3 cakes are dried to 1 wt % moisture (steam-heated drum dryers D2 and D3) before they are sold.
+S2 results are for 7,920 h/yr underway.
 
 ## 1. Basis
 
@@ -34,43 +35,47 @@ Emission factors:
 
 | Contributor | kg CO2e/kg H2 | Share of gross emissions |
 |---|---:|---:|
-| Natural gas, LP-steam boiler: combustion | 9.993 | 41.3 % |
-| Natural gas, U2 furnace: combustion | 8.131 | 33.6 % |
-| Electricity, process units | 2.102 | 8.7 % |
-| NaOH makeup | 1.603 | 6.6 % |
-| Natural gas upstream, boiler | 1.178 | 4.9 % |
-| Natural gas upstream, U2 | 0.958 | 4.0 % |
-| Electricity, cooling tower | 0.212 | 0.9 % |
-| H2SO4 neutralization (purge) | 0.037 | 0.2 % |
+| Natural gas, LP-steam boiler: combustion | 11.336 | 43.8 % |
+| Natural gas, U2 furnace: combustion | 8.131 | 31.4 % |
+| Electricity, process units | 2.264 | 8.7 % |
+| NaOH makeup | 1.603 | 6.2 % |
+| Natural gas upstream, boiler | 1.336 | 5.2 % |
+| Natural gas upstream, U2 | 0.958 | 3.7 % |
+| Electricity, cooling tower | 0.212 | 0.8 % |
+| H2SO4 neutralization (purge) | 0.037 | 0.1 % |
 | Wastewater treatment | 0.004 | < 0.1 % |
 | Process water | 0 | — |
 | Ca(OH)2 (waste lime), landfill burden | 0 | — |
-| **Gross emissions** | **24.218** | 100 % |
+| **Gross emissions** | **25.881** | 100 % |
 | Biogenic carbon stored in the solids (credit) | −14.998 | |
-| **Net GWP** | **9.220** | |
+| **Net GWP** | **10.883** | |
 
 By stage (gross emissions):
 
 | Stage | kg CO2e/kg H2 | Share |
 |---|---:|---:|
-| Onsite fuel combustion | 18.12 | 75 % |
-| Natural gas supply chain | 2.14 | 9 % |
-| Electricity | 2.31 | 10 % |
-| Chemical supply | 1.64 | 7 % |
+| Onsite fuel combustion | 19.47 | 75 % |
+| Natural gas supply chain | 2.29 | 9 % |
+| Electricity | 2.48 | 10 % |
+| Chemical supply | 1.64 | 6 % |
 
 The footprint comes from natural-gas heat: the U2 reaction heat plus steam for drying and for evaporating the NaOH
-liquor. The storage credit offsets 62 % of the gross emissions, so the net result depends on it (section 3).
+liquor. The storage credit offsets 58 % of the gross emissions, so the net result depends on it (section 3).
 
 **Washing and recycle (net GWP, kg CO2e/kg H2):**
 
 | Configuration | Net GWP |
 |---|---:|
-| No washing | 8.87 |
-| F2 wash, wash liquor recycled | 7.85 |
-| + F1 wash (baseline) | 9.22 |
+| No washing | 10.39 |
+| F2 wash, wash liquor recycled | 9.41 |
+| + F1 wash (baseline) | 10.88 |
 
-The F2 wash and its recycle lower the GWP, since the recovered sodium cuts the fresh NaOH. The F1 wash adds 1.37 kg
-CO2e/kg H2: its wash water (4.3 t/h) is evaporated again in EC1, whose duty rises from 10.2 to 13.3 MW.
+All rows include the CaCO3 cake dryers. The F2 wash and its recycle lower the GWP, since the recovered sodium cuts the
+fresh NaOH. The F1 wash adds 1.47 kg CO2e/kg H2: its wash water (4.3 t/h) is evaporated again in EC1, whose duty rises
+from 10.2 to 13.3 MW.
+
+**CaCO3 cake drying (D2, D3):** the dryers add 1.66 kg CO2e/kg H2 (9.22 to 10.88). The steam is 1.99 MW of purchased LP
+steam (the boiler adds 2.5 MW LHV of natural gas), plus 135 kW of electricity.
 
 **Marine WHR contribution (S2): −1.390406 kg CO2e/kg H2.**
 
@@ -79,7 +84,7 @@ CO2e/kg H2: its wash water (4.3 t/h) is evaporated again in EC1, whose duty rise
 | Avoided boiler natural gas (combustion + upstream) | −1.403381 |
 | WHR pumps (electricity) | +0.012975 |
 
-Exhaust-only WHR gives −0.787. S2 without WHR equals S1 (9.220), and S2 with all three sources is 7.830.
+Exhaust-only WHR gives −0.787. S2 without WHR equals S1 (10.883), and S2 with all three sources is 9.493.
 
 ## 3. Carbon accounting
 
@@ -138,33 +143,34 @@ kg CO2e/kg H2.
 
 | Case | Net GWP | Gross emissions (no storage credit) |
 |---|---:|---:|
-| **S1** | **9.220** | 24.218 |
-| **S2 with WHR** (7,920 h) | **7.830** | 22.828 |
-| S2 exhaust WHR only | 8.433 | |
-| S2 without WHR | 9.220 | 24.218 |
+| **S1** | **10.883** | 25.881 |
+| **S2 with WHR** (7,920 h) | **9.493** | 24.491 |
+| S2 exhaust WHR only | 10.096 | |
+| S2 without WHR | 10.883 | 25.881 |
 | Storage credit in the result | −14.998 | |
 
 **Notes outside the net result:**
 - *Avoided beach decomposition.* If the Sargassum would otherwise rot on the beach, IPCC 2006 defaults give an extra
   −13.70 kg CO2e/kg H2 of avoided CH4. This depends on the counterfactual and is reported as a note only. With it,
-  S1 would be −4.48.
+  S1 would be −2.82.
 
 ## 5. Interpretation
 
-1. **Pairing.** The net GWP of 9.22 (S1) pairs with the MSP of 2.13; S2 with WHR pairs 7.83 with 2.37
+1. **Pairing.** The net GWP of 10.88 (S1) pairs with the MSP of 2.05; S2 with WHR pairs 9.49 with 2.31
    (`ATT_S1_S2_TEA_FINAL.md`).
 2. **Main levers.**
    - U2 and boiler natural gas make up ≈ 84 % of the gross emissions (combustion plus upstream).
    - Heat electrification or renewable heat would act on the largest share.
-   - WHR removes 5.7 % of the gross emissions (S2).
-   - NaOH makeup is 6.6 %.
+   - WHR removes 5.4 % of the gross emissions (S2).
+   - NaOH makeup is 6.2 %.
+   - The CaCO3 dryers are 1.66 kg CO2e/kg H2 (6 %).
 3. **No carbon-removal claim.** The process does not establish verified net carbon removal. The storage credit
-   (62 % of the gross emissions) rests on the fate of the sold CaCO3 and on landfill permanence of the residue, whose
+   (58 % of the gross emissions) rests on the fate of the sold CaCO3 and on landfill permanence of the residue, whose
    composition is assumed.
-4. **Washing.** The F1 wash raises the GWP by 1.4 kg CO2e/kg H2 and lowers the fresh NaOH by 40 %; its MSP benefit
+4. **Washing.** The F1 wash raises the GWP by 1.5 kg CO2e/kg H2 and lowers the fresh NaOH by 40 %; its MSP benefit
    depends on the assumed disposal-free residue (`ATT_S1_S2_TEA_FINAL.md`).
 5. **Partial boundary.** Collection and transport are excluded, so the results understate the cradle-to-gate
    footprint. Each kg of marine fuel per wet tonne of presscake adds ≈ 0.18 kg CO2e/kg H2 (21.22 wet t/h × 3.2 kg
    CO2/kg fuel / 372.9 kg H2/h; fuel upstream excluded).
-6. **Location.** The electricity factor (US average) is a placeholder. The plant uses 5.15 kWh/kg H2, so the
-   range 0.3–0.9 kg CO2e/kWh changes S1 by about −0.8 to +2.3 kg CO2e/kg H2.
+6. **Location.** The electricity factor (US average) is a placeholder. The plant uses 5.51 kWh/kg H2, so the
+   range 0.3–0.9 kg CO2e/kWh changes S1 by about −0.8 to +2.5 kg CO2e/kg H2.

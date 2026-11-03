@@ -63,7 +63,7 @@ marine_whr:
   sinks:
     min_approach_K: 10.0         # ENG: heating medium to process (hot and cold end)
     # S1 purchased LP steam consumers (residual duty AFTER the S1 heat exchanger network; MODEL).
-    steam_units: [D0, C1, EC1, U3D]
+    steam_units: [D0, D2, D3, C1, EC1, U3D]       # D2, D3: the CaCO3 cake dryers
     # U2 feed preheating (S2 accounting boundary): sensible heating of the U2 feed from its M1 temperature to
     # target_C, a new conceptual preheater; it reduces the U2 fired duty by the same process heat. The 500 C
     # reaction heat stays on the U2 furnace. The feed is a wet solid/NaOH slurry: preheater feasibility unverified.

@@ -42,12 +42,17 @@ def get_heat(sys):
         return sum(hu.duty for hu in unit.heat_utilities if hu.duty > 0.0)
 
     unit_heat = {"D0": heating(D0), "U2": heating(U2), "C1": heating(C1), "EC1": heating(EC1), "U3D": heating(U3D)}
+    cake_dryers = [u[ID] for ID in ("D2", "D3") if ID in u]        # CaCO3 cake dryers (downstream.caco3_drying)
+    for D in cake_dryers:
+        unit_heat[D.ID] = heating(D)
     if "K1" in u:
         unit_heat["K1"] = heating(u["K1"])        # lime kiln (lime recycle): natural gas, high-grade
     loss = {"U2": float(U2._heat_loss_kJph), "C1": float(C1._heat_loss_kJph), "EC1": float(EC1._heat_loss_kJph)}
     # D0: latent heat of the evaporated water; the rest is sensible (solids, air)
     d0_latent = float(D0.design_results["Evaporation"]) * float(water.Hvap(D0.T)) / float(water.MW)
     d0_sensible = unit_heat["D0"] - d0_latent
+    cake_latent = sum(float(D.design_results["Evaporation"]) * float(water.Hvap(D.T)) / float(water.MW) for D in cake_dryers)
+    cake_sensible = sum(unit_heat[D.ID] for D in cake_dryers) - cake_latent
     # U2 breakdown
     hf, aq = float(U2._feed_Hf_HHV_correction_kJph), float(U2._aqueous_feed_correction_kJph)
     u2_rxn_all = float(U2._reaction_and_product_state_kJph)
@@ -69,6 +74,8 @@ def get_heat(sys):
         "Sensible heat of solids and NaOH (U2)": (u2_sens, s_low),
         "Water evaporation, feed dryer (D0)": (d0_latent, d0_latent),
         "Sensible heat in the dryer (D0)": (d0_sensible, d0_sensible),
+        **({"Water evaporation, CaCO3 cake dryers (D2, D3)": (cake_latent, cake_latent),
+            "Sensible heat in the CaCO3 cake dryers (D2, D3)": (cake_sensible, cake_sensible)} if cake_dryers else {}),
         "Causticizing (C1)": (c1_process, c1_process),
         "Water evaporation, NaOH concentrator (EC1)": (ec1_process, ec1_process),
         "Gas-drying regeneration (U3D)": (u3d_heat, 0.0),

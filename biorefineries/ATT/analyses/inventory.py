@@ -358,7 +358,7 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
          f"tail gas LHV {offset['tail_gas_LHV_MJph'] / dry:.4g} MJ/kg dry; burned in the U2 burner, capped at U2 fuel"),
         ("U2 natural gas: BioSTEAM agent fuel (cross-check only)",
          sum(hu.flow for hu in ng) * ch4_LHV_kJ_per_kmol / 1e3, "MJ", "BioSTEAM agent flow x CH4 LHV; not used"),
-        ("LP steam: process heat", sum(hu.unit_duty for hu in steam) / 1e3, "MJ", "D0, U3D, C1, EC1"),
+        ("LP steam: process heat", sum(hu.unit_duty for hu in steam) / 1e3, "MJ", "D0, D2, D3, U3D, C1, EC1"),
         ("LP steam: utility heat incl. 5 % loss", steam_heat / 1e3, "MJ", "simulated"),
         ("LP steam: mass", sum(hu.flow * hu.agent.MW for hu in steam), "kg", "simulated"),
         ("LP steam: boiler natural gas (LHV)", steam_heat / 1e3 / boiler, "MJ",
