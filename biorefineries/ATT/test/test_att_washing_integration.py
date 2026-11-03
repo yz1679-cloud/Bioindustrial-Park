@@ -13,10 +13,10 @@ class TestNativeF2Washing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.off = scen.create(washing="washing_off", f1_wash=False, caco3_dry=False)                    # the F1 wash is tested below
-        cls.on = scen.create(washing="washing_on", wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False)   # fresh water, liquor to wastewater
-        cls.rec = scen.create(washing="washing_on", wash_condensate=False, f1_wash=False, caco3_dry=False)    # wash liquor recycled to the dissolver
-        cls.cond = scen.create(washing="washing_on", f1_wash=False, caco3_dry=False)                          # and the excess condensate as wash water
+        cls.off = scen.create(washing="washing_off", f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)                    # the F1 wash is tested below
+        cls.on = scen.create(washing="washing_on", wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)   # fresh water, liquor to wastewater
+        cls.rec = scen.create(washing="washing_on", wash_condensate=False, f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)    # wash liquor recycled to the dissolver
+        cls.cond = scen.create(washing="washing_on", f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)                          # and the excess condensate as wash water
         cls.u, cls.s = inv._units(cls.on), inv._streams(cls.on)
         cls.off_s = inv._streams(cls.off)
 
@@ -158,7 +158,7 @@ class TestNativeF2Washing(unittest.TestCase):
         dry = float(original.F_mass - original.imass["Water"])
         self.assertAlmostEqual(float(s["condensate_to_f1_wash"].F_mass) + float(s["f1_wash_water"].F_mass), dry, places=4)
         self.assertLess(float(s["ash_residue_cake"].imass["Na2CO3"]), 0.4 * float(ns["ash_residue_cake"].imass["Na2CO3"]))
-        self.assertLess(float(s["fresh_naoh_solid"].F_mass), 0.7 * float(ns["fresh_naoh_solid"].F_mass))
+        self.assertLess(float(s["fresh_naoh_solid"].F_mass), 0.9 * float(ns["fresh_naoh_solid"].F_mass))      # the cake is small at the 0.15 g/g char yield
         self.assertAlmostEqual(float(s["ash_residue_cake"].imass["Water"] / s["ash_residue_cake"].F_mass), 0.30, places=10)
         rows = inv.get_att_external_flows(base)
         error = sum(r["kg_per_h"] * (1 if r["direction"] == "input" else -1) for r in rows if r["component"] == "TOTAL")
@@ -209,13 +209,13 @@ class TestNativeF2Washing(unittest.TestCase):
         self.assertAlmostEqual(row["FCI_USD"], 1.25 * ref["FCI_USD"] + row["WHR_CAPEX_USD"], places=6)
 
     def test_zero_wash_and_sensitivity(self):
-        zero = scen.create(washing="washing_on", wash_ratio=0., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False)
+        zero = scen.create(washing="washing_on", wash_ratio=0., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)
         np.testing.assert_allclose(inv._streams(zero)["caco3_cake"].mass, inv._units(zero)["F2"].outs[0].mass,
                                    atol=1e-8, rtol=1e-10)
-        more = scen.create(washing="washing_on", wash_ratio=2., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False)
+        more = scen.create(washing="washing_on", wash_ratio=2., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)
         self.assertLess(inv._streams(more)["caco3_cake"].imass["NaOH"], self.s["caco3_cake"].imass["NaOH"])
         with self.assertRaises(ValueError):
-            scen.create(washing="washing_on", wash_ratio=-1., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False)
+            scen.create(washing="washing_on", wash_ratio=-1., wash_recycle=False, wash_condensate=False, f1_wash=False, caco3_dry=False, ash_salts=False, char_yield=0.0)
 
     def test_empty_tail_gas_excluded_and_boundary_closed(self):
         rows = inv.get_att_external_flows(self.on)

@@ -28,6 +28,8 @@ from biorefineries.ATT.units._att import (
     ATTScrubber,
     ATTLimeKiln,
     ATTLimeSlaker,
+    ATTResidueSplit,
+    ATTSaltCrystallizer,
     aqueous_naoh_enthalpy_correction_kJph,
     _SARGASSUM_DRY_IDS,
 )
@@ -91,6 +93,8 @@ def create_att_system(
     f1_wash_ratio=None,
     f1_wash_condensate=None,
     caco3_drying=None,
+    ash_salts=None,
+    char_yield=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -141,6 +145,14 @@ def create_att_system(
         Dry the two CaCO3 cakes (F2 cake in D2, scrubber cake in D3, drum dryers like D0) to the moisture of att.yaml
         downstream.caco3_drying before they are sold. Not used with the lime recycle (the kiln takes the wet cake).
         None uses att.yaml downstream.caco3_drying.enabled.
+    ash_salts : bool or None
+        Split the seaweed ash of the presscake feed into insoluble minerals and soluble NaCl/KCl (att.yaml
+        feed_preparation.ash_split) and remove the salts from the NaOH recycle in the crystallizer XL1 (downstream.salt_crystallizer).
+        None uses att.yaml feed_preparation.ash_split.enabled. Presscake configuration only.
+    char_yield : float or None
+        Insoluble char [g per g of dry feed] after the water dissolution (the collaborator's 0.15): RS1 splits the lumped
+        U2 residue into the char and untracked carbon. None uses att.yaml downstream.char; 0 keeps the lumped residue of U2.
+        Presscake configuration only.
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None
@@ -243,6 +255,25 @@ def create_att_system(
     )
 
     raw_feed.ID = "att_sargassum_feed"
+
+    # Seaweed ash split (user decision 2026-11-03, collaborator's metal contents): part of the ash is insoluble minerals (Ca, Mg;
+    # they stay in the char), the rest is soluble K and Na salts, here all as KCl and NaCl.
+    ash_cfg = _ATT_FEED_PREP.get("ash_split", {})
+    use_salts = (bool(ash_cfg.get("enabled", False)) if ash_salts is None else bool(ash_salts)) and configuration != "fresh_sargassum"
+    if use_salts:
+        ash_kgph0 = float(raw_feed.imass["Ash"])
+        shares = {"Ash": float(ash_cfg["insoluble_share_of_ash"]), "NaCl": float(ash_cfg["NaCl_share_of_ash"]), "KCl": float(ash_cfg["KCl_share_of_ash"])}
+        if abs(sum(shares.values()) - 1.0) > 1e-6:
+            raise ValueError("att.yaml feed_preparation.ash_split: the shares of the ash must add up to 1")
+        for ID, share in shares.items():
+            raw_feed.imass[ID] = share * ash_kgph0
+    salt_cfg = _ATT_DOWNSTREAM.get("salt_crystallizer", {})
+    use_xl = use_salts and bool(salt_cfg.get("enabled", False))
+    if use_salts and not use_xl:
+        raise ValueError("the soluble ash salts need the salt crystallizer (downstream.salt_crystallizer.enabled)")
+    char_cfg = _ATT_DOWNSTREAM.get("char", {})
+    char_yield_gg = (float(char_cfg["yield_g_per_g_dry_feed"]) if bool(char_cfg.get("enabled", False)) else 0.0) if char_yield is None else float(char_yield)
+    use_char = char_yield_gg > 0.0 and configuration != "fresh_sargassum"
 
     # --------------------------------------------------------------
     # P1 - Mechanical dewatering before ATT.
@@ -674,6 +705,16 @@ def create_att_system(
         material=_ATT_HEAT_RECOVERY["cooler_material"],
     )
 
+    # RS1 - the insoluble char of the water dissolution is char_yield g/g of the dry feed; the rest of the lumped residual carbon of U2
+    # is not tracked (att.yaml downstream.char).
+    RS1 = None
+    if use_char:
+        RS1 = ATTResidueSplit(
+            "RS1", ins=RC1 - 0, outs=("char_residue", "untracked_organics"), char_yield=char_yield_gg,
+            dry_feed_kgph=lambda: sum(float(D0.outs[0].imass[ID]) for ID in _SARGASSUM_DRY_IDS),
+            char_species=char_cfg.get("species", "Char"))
+    residue_to_D1 = RS1 - 0 if RS1 is not None else RC1 - 0
+
     # --------------------------------------------------------------
     # D1 - Dissolution
     #
@@ -780,7 +821,7 @@ def create_att_system(
     D1 = bst.Mixer(
         "D1",
         ins=(
-            RC1 - 0,
+            residue_to_D1,
             SW - 0,
             dissolution_water,
             *([wash_liquor] if wash_liquor is not None else []),
@@ -823,6 +864,8 @@ def create_att_system(
         "Water",
         "Na2CO3",
         "NaOH",
+        "NaCl",
+        "KCl",
     )
     filtration_solids_recovery = float(
         _ATT_DOWNSTREAM[
@@ -1243,7 +1286,7 @@ def create_att_system(
     EC1 = NaOHEvaporator(
         "EC1",
         ins=SP1 - 0,
-        outs=(naoh_recycle, ec1_condensate),
+        outs=("ec1_concentrate" if use_xl else naoh_recycle, ec1_condensate),
         T=ec1_T,
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
     )
@@ -1256,6 +1299,14 @@ def create_att_system(
             * (1.0 - target_naoh_wt_frac)
             / target_naoh_wt_frac
         )
+
+    # XL1 - salt crystallizer on the EC1 concentrate: the NaCl and KCl of the seaweed ash leave as a salt cake; the clarified liquor
+    # is the NaOH recycle.
+    XL1 = None
+    if use_xl:
+        XL1 = ATTSaltCrystallizer(
+            "XL1", ins=EC1 - 0, outs=(naoh_recycle, "salt_cake"), removal=float(salt_cfg["removal_fraction"]),
+            cake_liquor_wt_frac=float(salt_cfg["cake_liquor_wt_frac"]), tau_h=float(salt_cfg["vessel_tau_h"]))
 
     # --------------------------------------------------------------
     # System
@@ -1273,6 +1324,7 @@ def create_att_system(
         U3K,
         *([U3P, U3V] if psa else []),
         RC1,
+        *([RS1] if RS1 is not None else []),
         W3,
         SW,
         *([SX] if SX is not None else []),
@@ -1288,6 +1340,7 @@ def create_att_system(
         *lime_loop_units,
         SP1,
         EC1,
+        *([XL1] if XL1 is not None else []),
     ]
 
     HXN = None

@@ -27,27 +27,27 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
-    "MSP_USD_per_kg_H2": 2.03109830,
-    "GWP_kgCO2e_per_kg_H2": 10.64273472,
-    "FCI_MUSD": 16.4657064,
-    "AOC_MUSD_per_yr": 3.86508148,
+    "MSP_USD_per_kg_H2": 1.75246213,
+    "GWP_kgCO2e_per_kg_H2": 15.70763843,
+    "FCI_MUSD": 13.4992164,
+    "AOC_MUSD_per_yr": 3.42655826,
     "H2_t_per_yr": 2953.56307,
-    "fresh_NaOH_t_per_yr": 4226.5946,
-    "Ca_OH_2_used_t_per_yr": 46228.4239,
-    "U2_heat_duty_MJ_per_kg_dry": 9.22875829,
+    "fresh_NaOH_t_per_yr": 3956.8688,
+    "Ca_OH_2_used_t_per_yr": 47076.9328,
+    "U2_heat_duty_MJ_per_kg_dry": 9.15712330,
     "dry_feed_t_per_day": 120.7001,
 }
-S1_STORED_CARBON_CREDIT = -14.9978453        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 25.6405800
+S1_STORED_CARBON_CREDIT = -8.2281722        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 23.9358106
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {
-    ("A", "no WHR"): (2.35229340, 10.64273472, 20582133.0),
-    ("A", "all WHR"): (2.29142308, 9.28072868, 21471907.4),
-    ("B", "no WHR"): (4.88563609, 10.64273472, 20582133.0),
-    ("B", "all WHR"): (4.91472556, 9.28072868, 21471907.4),
+    ("A", "no WHR"): (2.01579017, 15.70763843, 16874020.5),
+    ("A", "all WHR"): (1.95491984, 14.34563238, 17763795.0),
+    ("B", "no WHR"): (4.09270801, 15.70763843, 16874020.5),
+    ("B", "all WHR"): (4.12181095, 14.34563238, 17763795.0),
 }
 
 

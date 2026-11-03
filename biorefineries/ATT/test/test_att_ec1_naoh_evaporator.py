@@ -26,10 +26,11 @@ class TestEC1Flowsheet(unittest.TestCase):
         gross = M1._required_gross_naoh_kgph
         self.assertAlmostEqual(EC1.outs[0].imass["Water"], gross, places=9)  # 50 %: water = NaOH
         recycle, fresh = M1.ins[1], M1.ins[2]
-        self.assertIs(recycle, EC1.outs[0])
+        self.assertIs(recycle, self.u.XL1.outs[0])          # the salt crystallizer XL1 follows EC1
+        self.assertIs(self.u.XL1.ins[0], EC1.outs[0])
         naoh_total = recycle.imass["NaOH"] + fresh.imass["NaOH"]
         x = naoh_total / (naoh_total + recycle.imass["Water"])
-        self.assertAlmostEqual(x, 0.5, places=6)
+        self.assertAlmostEqual(x, 0.5, delta=0.005)          # XL1 removes a little liquor with the salt cake
         self.assertAlmostEqual(naoh_total, gross, places=6)
         self.assertAlmostEqual(M1.outs[0].imass["NaOH"], gross, places=6)
 

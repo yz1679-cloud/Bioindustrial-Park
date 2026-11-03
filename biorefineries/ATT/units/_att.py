@@ -43,6 +43,8 @@ _NAOH_HEAT_OF_SOLUTION_kJ_per_kg = float(_ATT_DOWNSTREAM["naoh_heat_of_solution_
 
 _SARGASSUM_DRY_IDS = (
     "Ash",
+    "NaCl",       # soluble ash salts (att.yaml feed_preparation.ash_split); with Ash they are the inorganic part of the dry feed
+    "KCl",
     "Protein",
     "Lignin",
     "Glucan",
@@ -474,6 +476,113 @@ class ATTScrubber(bst.Unit):
             _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=True)
 
 
+class ATTResidueSplit(bst.Unit):
+    """
+    RS1: partition of the cooled ATT residue into the insoluble CHAR that goes to the dissolver and the part of the lumped residual
+    carbon that is not tracked (att.yaml downstream.char, user decision 2026-11-03).
+
+    The insoluble solids leaving the water dissolution are ``char_yield`` g per g of dry feed (the collaborator's ATT mass balance,
+    10-20 wt %): the insoluble seaweed minerals (Ash), the N and S char and an organic char (``char_species``, CH0.5O0.1) that
+    takes the rest of that mass. The remaining lumped residue (U2's elemental-closure surrogate, same H/C) leaves as
+    ``untracked_organics``: its carbon has no measured sink, is neither credited nor treated, and no element is created
+    (the split conserves C, H and O exactly). U2 itself, and so its heat duty, is not changed.
+    ins: [0] cooled residue. outs: [0] char residue (to D1), [1] untracked organics.
+    """
+    _N_ins = 1
+    _N_outs = 2
+
+    def _init(self, char_yield, dry_feed_kgph, char_species="Char", lumped_species=("ResidueCH", "ResidueCHO")):
+        self.char_yield = float(char_yield)
+        self.dry_feed_kgph = dry_feed_kgph                       # callable: dry feed [kg/h]
+        self.char_species = char_species
+        self.lumped_species = tuple(lumped_species)
+
+    def _run(self):
+        res = self.ins[0]
+        char, lost = self.outs
+        char.copy_like(res)
+        lost.empty()
+        lost.phase = "s"
+        lost.T, lost.P = res.T, res.P
+        ch, cho = self.lumped_species
+        c_res = float(res.imol[ch] + res.imol[cho])
+        o_res = 2.0 * float(res.imol[cho])
+        char.imol[ch] = 0.0
+        char.imol[cho] = 0.0
+        mineral_kgph = float(res.imass["Ash"] + res.imass["CharN"] + res.imass["CharS"])
+        organic_kgph = self.char_yield * float(self.dry_feed_kgph()) - mineral_kgph
+        if organic_kgph < 0.0:
+            raise ValueError(f"RS1: the char yield {self.char_yield} g/g is below the mineral and N, S char of the residue "
+                             f"({mineral_kgph:.1f} kg/h of {self.char_yield * float(self.dry_feed_kgph()):.1f} kg/h)")
+        spec = res.chemicals[self.char_species]
+        n_char = organic_kgph / spec.MW                          # kmol/h of CH_aO_b = kmol C/h
+        o_char = n_char * spec.atoms.get("O", 0.0) / spec.atoms["C"]
+        if n_char > c_res * (1.0 + 1e-9) or o_char > o_res * (1.0 + 1e-9):
+            raise ValueError("RS1: the organic char would hold more C or O than the lumped residue of U2")
+        char.imol[self.char_species] = n_char
+        c_left, o_left = c_res - n_char, o_res - o_char
+        lost.imol[cho] = o_left / 2.0
+        lost.imol[ch] = c_left - o_left / 2.0
+
+
+class ATTSaltCrystallizer(bst.Unit):
+    """
+    XL1: removes the soluble ash salts (NaCl, KCl) from the NaOH recycle liquor (the EC1 concentrate, 50 wt % NaOH, in which they
+    are nearly insoluble): a crystallizer vessel and a solids centrifuge. ``removal`` of each salt leaves in the salt cake, which
+    holds ``cake_liquor_wt_frac`` of entrained liquor (its NaOH is lost). Costing: BioSTEAM MixTank (``tau_h``) and SolidsCentrifuge
+    sized on the EC1 concentrate with the crystals as the solids; PRELIMINARY (carbon-steel/stainless defaults, no nickel
+    alloy, no cooling or evaporation duty, no solubility data: the removal fraction is an input).
+    ins: [0] EC1 concentrate. outs: [0] clarified liquor (the NaOH recycle), [1] salt cake.
+    """
+    _N_ins = 1
+    _N_outs = 2
+
+    def _init(self, salts=("NaCl", "KCl"), removal=0.99, cake_liquor_wt_frac=0.10, tau_h=2.0):
+        self.salts = tuple(salts)
+        self.removal = float(removal)
+        self.cake_liquor_wt_frac = float(cake_liquor_wt_frac)
+        vessel = self.auxiliary("vessel", bst.MixTank, ins=bst.Stream(None), tau=float(tau_h))
+        self.register_auxiliary(vessel, "vessel")
+        separator = self.auxiliary("separator", bst.SolidsCentrifuge, ins=bst.Stream(None),
+                                   outs=(bst.Stream(None), bst.Stream(None)), split={"Ash": 0.99}, moisture_content=self.cake_liquor_wt_frac)
+        self.register_auxiliary(separator, "separator")
+
+    def _run(self):
+        feed = self.ins[0]
+        liquor, cake = self.outs
+        liquor.copy_like(feed)
+        cake.empty()
+        cake.phases = liquor.phases                     # the cake keeps the phase of every species (energy is conserved)
+        cake.T, cake.P = feed.T, feed.P
+        for ID in self.salts:
+            n = self.removal * float(feed.imol[ID])
+            liquor.imol["l", ID] -= n
+            cake.imol["l", ID] += n
+        salt_kgph = float(cake.F_mass)
+        entrained = salt_kgph * self.cake_liquor_wt_frac / (1.0 - self.cake_liquor_wt_frac)      # kg/h of liquor in the cake
+        share = min(entrained / float(liquor.F_mass), 1.0) if float(liquor.F_mass) > 0.0 else 0.0
+        for phase in liquor.phases:
+            for chemical in liquor.chemicals:
+                ID = chemical.ID
+                moved = share * float(liquor.imass[phase, ID])
+                liquor.imass[phase, ID] -= moved
+                cake.imass[phase, ID] += moved
+
+    def _design(self):
+        feed = self.ins[0]
+        self.vessel.ins[0].copy_like(feed)
+        self.vessel.simulate()
+        sep_in = self.separator.ins[0]
+        sep_in.empty()
+        sep_in.phase = "l"
+        sep_in.T, sep_in.P = feed.T, feed.P
+        for chemical in feed.chemicals:
+            if chemical.ID not in self.salts:
+                sep_in.imass[chemical.ID] = float(feed.imass[chemical.ID])
+        sep_in.imass["Ash"] = self.removal * sum(float(feed.imass[ID]) for ID in self.salts)     # the crystals as the solids of the separator
+        self.separator.simulate()
+
+
 class ATTPress(bst.Unit):
     """
     P1: screw press of the fresh-Sargassum plant, with the cost and power basis of a
@@ -793,7 +902,7 @@ class ATTReactor(bst.Unit):
         )
 
         ash_kgph = float(
-            feed.imass["Ash"]
+            feed.imass["Ash"] + feed.imass["NaCl"] + feed.imass["KCl"]
         )
 
         daf_sargassum_kgph = max(
@@ -829,9 +938,10 @@ class ATTReactor(bst.Unit):
         # 1. Fixed (non-gas) outlets: inert ash, Na2CO3/NaOH from the
         #    specified conversion, and feed N/S retained in the char.
         # ----------------------------------------------------------
-        residue.imass["Ash"] = ash_kgph
+        for ID in ("Ash", "NaCl", "KCl"):        # the inorganic part of the seaweed passes through unchanged
+            residue.imass[ID] = float(feed.imass[ID])
 
-        sodium_kmolph = float(feed.get_atomic_flow("Na"))
+        sodium_kmolph = float(feed.imol["NaOH"] + 2.0 * feed.imol["Na2CO3"])    # NaCl is not a NaOH source
         na2co3_kmolph = (
             0.5 * sodium_kmolph * self.naoh_to_na2co3_conversion
         )
@@ -839,7 +949,7 @@ class ATTReactor(bst.Unit):
         residue.imol["NaOH"] = sodium_kmolph - 2.0 * na2co3_kmolph
 
         chemicals = feed.chemicals
-        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash")
+        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl")
         organic_IDs = tuple(
             chemical.ID for chemical in chemicals
             if chemical.ID not in inorganic_IDs
@@ -1222,7 +1332,7 @@ class ATTReactor(bst.Unit):
         Hf_products = {"C": -393474.0, "H": -285825.0 / 2.0, "S": -296810.0}
         organic_IDs = [
             chemical.ID for chemical in chemicals
-            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash")
+            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl")
             and float(feed.imol[chemical.ID]) > 0.0
         ]
         native_Hf_kJph = 0.0
@@ -1778,13 +1888,14 @@ class CausticizationReactor(bst.Unit):
 _MW_NAOH = 39.997      # g/mol
 _MW_NA2CO3 = 105.988   # g/mol
 _LIQUOR_IDS = ("Water", "NaOH", "Na2CO3")
+_PASSIVE_SALTS = ("NaCl", "KCl")      # soluble ash salts: carried through EC1 unchanged, removed in the crystallizer XL1
 
 
 def _liquor_masses(stream, unit_ID):
     other = {
         chemical.ID: float(stream.imass[chemical.ID])
         for chemical in stream.chemicals
-        if chemical.ID not in _LIQUOR_IDS and float(stream.imass[chemical.ID]) != 0.0
+        if chemical.ID not in _LIQUOR_IDS and chemical.ID not in _PASSIVE_SALTS and float(stream.imass[chemical.ID]) != 0.0
     }
     if other:
         raise RuntimeError(
@@ -1896,6 +2007,8 @@ class NaOHEvaporator(bst.Unit):
         concentrate.imass["l", "NaOH"] = naoh
         concentrate.imass["l", "Na2CO3"] = dissolved
         concentrate.imass["s", "Na2CO3"] = crystals
+        for ID in _PASSIVE_SALTS:                      # dissolved ash salts (the model carries them in the liquid phase)
+            concentrate.imass["l", ID] = float(feed.imass[ID])
         concentrate.T = T
         concentrate.P = 101325.0
 

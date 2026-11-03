@@ -144,6 +144,17 @@ att:
       # The press liquid is the raw juice for biostimulant production and is
       # a coproduct of the fresh-Sargassum plant (no wastewater charge; transfer
       # price in att_tea.yaml).
+    # Split of the seaweed ash of the presscake (user decision 2026-11-03). Basis: the collaborator's major-element contents of
+    # the seaweed (median of 14 samples, mg/kg dw: K 70,446; Na 33,166; Ca 40,690; Mg 8,610; P 748; S about 15,000), scaled to the
+    # ash of the presscake (nlr_pressed, 32.07 wt % dry). Insoluble: Ca as CaCO3, Mg as Mg(OH)2 and traces of Al, Fe, Si, Ti
+    # (619 kg/h at 5,029 kg dry/h); they stay in the char. Soluble: all K and Na as KCl and NaCl (the Cl content of the seaweed
+    # is NOT measured; chloride is assumed to be the counter-anion) and dissolve with the Na2CO3. S (about 1.5 wt %), P, Si, Al
+    # and Fe as soluble species are not modeled. The shares are of the ash mass; the feed atoms follow the species.
+    ash_split:
+      enabled: true
+      insoluble_share_of_ash: 0.3838
+      NaCl_share_of_ash: 0.2377
+      KCl_share_of_ash: 0.3785
     att_sargassum_moisture_wt_frac: 0.5
     dryer_temperature_K: 343.15
     dryer:
@@ -395,6 +406,23 @@ att:
     caco3_drying:
       enabled: true
       product_moisture_wt_frac: 0.01
+    # Insoluble char of the water dissolution (the collaborator's ATT mass balance: 10-20 wt % of the dry seaweed; blank 0.155,
+    # low REE soaks 0.126-0.169; user decision 2026-11-03: 0.15). RS1 keeps this mass as Ash minerals + CharN/CharS + an organic
+    # char (species Char, CH0.5O0.1) and sends the rest of U2's lumped residual carbon to the stream untracked_organics:
+    # the carbon beyond the carbonate, the measured gas and the char has NO measured sink (the user: the carbon balance need not
+    # close, atoms out must not exceed atoms in). That carbon gets no credit and no treatment cost. U2's heat duty is not re-derived.
+    char:
+      enabled: true
+      yield_g_per_g_dry_feed: 0.15
+      species: Char
+    # Salt crystallizer on the EC1 concentrate (NaCl, KCl nearly insoluble in 50 wt % NaOH): a vessel and a solids centrifuge
+    # (BioSTEAM MixTank and SolidsCentrifuge; PRELIMINARY, carbon-steel/stainless defaults, no solubility data). The salt cake
+    # entrains 10 wt % of liquor (its NaOH is lost) and is disposed at the solid-waste price.
+    salt_crystallizer:
+      enabled: true
+      removal_fraction: 0.99
+      cake_liquor_wt_frac: 0.10
+      vessel_tau_h: 2.0
 
     # Hypothetical wash-displacement model; disabled reproduces baseline.
     # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
@@ -630,6 +658,9 @@ att:
       ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]
       dryer_exhaust: [output, air_emission, "Drying air and water vapor; no GHG."]
       dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
+      salt_cake: [output, solid_waste, "Salt cake of the crystallizer XL1: NaCl and KCl of the seaweed ash with 10 wt % entrained liquor; disposal."]
+      untracked_organics: [output, untracked_carbon, "Lumped residual carbon of U2 beyond the carbonate, the measured gas and the char (RS1): no measured sink; no credit, no cost."]
+      ec1_concentrate: [internal, process, "EC1 concentrate before the salt crystallizer."]
       caco3_dryer_exhaust: [output, air_emission, "D2 drying air and water vapor; no GHG."]
       scrubber_dryer_exhaust: [output, air_emission, "D3 drying air and water vapor; no GHG."]
       caco3_dryer_emissions: [output, air_emission, "Zero flow in the baseline."]

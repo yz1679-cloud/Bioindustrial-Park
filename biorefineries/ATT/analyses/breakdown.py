@@ -63,6 +63,7 @@ COST_TYPES = {
     "Neutralization (H2SO4)": "Waste treatment and disposal",
     "Wastewater treatment": "Waste treatment and disposal",
     "Ash/char cake disposal": "Waste treatment and disposal",
+    "Salt cake disposal": "Waste treatment and disposal",
     "CaCO3 cake disposal": "Waste treatment and disposal",
     "CaCO3 byproduct sales": "Coproduct revenue",
     "Marine WHR: purchased heat displaced": "Utilities",
@@ -81,7 +82,7 @@ _AREAS = {
     "W2": "F2 washing and refiltration", "F2R": "F2 washing and refiltration",
     "W1": "F1 washing and refiltration", "F1R": "F1 washing and refiltration",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
-    "D2": "CaCO3 cake drying (D2, D3)", "D3": "CaCO3 cake drying (D2, D3)",
+    "D2": "CaCO3 cake drying (D2, D3)", "D3": "CaCO3 cake drying (D2, D3)", "RS1": "Residue split (RS1)", "XL1": "Salt crystallizer (XL1)", "HXN": "Heat exchanger network (HXN)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
     "FCI": "Floating process CAPEX adjustment (FCI factor)", "WHR": "Marine waste heat recovery (WHR)",
@@ -111,6 +112,8 @@ def _cost_group(item, category):
             return group
     if item == "Disposal: scrubber_cake":
         return "CaCO3 cake disposal"
+    if item == "Disposal: salt_cake":
+        return "Salt cake disposal"
     if item.startswith("Disposal: "):
         return "Ash/char cake disposal" if item.split(": ")[1] in solid else "Wastewater treatment"
     raise KeyError(item)
