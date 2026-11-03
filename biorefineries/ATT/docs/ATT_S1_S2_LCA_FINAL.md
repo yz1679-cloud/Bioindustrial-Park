@@ -1,8 +1,9 @@
 # ATT S1/S2: life-cycle GWP100 (final)
 
-**Model state.** BioSTEAM 2.54.0. The baseline is F2 washing on, with a storage credit for **all carbon in landfilled
-solids**: the CaCO3, the Na2CO3 and the lumped residue (`att_lca.yaml carbon_storage.carbonate_storage_accounting:
-inherited`, `credit_char_carbon: true`). The CaCO3 cakes are disposed (no CaCO3 sales).
+**Model state.** BioSTEAM 2.54.0. The baseline credits the **Sargassum carbon in the solids** as stored carbon: the
+CaCO3 of the cakes (sold or landfilled) and the lumped residue (`att_lca.yaml carbon_storage.carbonate_storage_accounting:
+inherited`, `credit_char_carbon: true`). The soluble Na2CO3 in the cakes (`credit_soluble_carbonate: false`) and the
+CaCO3 of the waste lime are **not** credited. S2 results are for 7,920 h/yr underway.
 
 ## 1. Basis
 
@@ -11,8 +12,8 @@ inherited`, `credit_char_carbon: true`). The CaCO3 cakes are disposed (no CaCO3 
 | Functional unit | 1 kg of H2 contained in the product gas (98.89 mol % H2, 2 MPa); results in kg CO2e/kg H2 |
 | Method | GWP100, IPCC AR6, using BioSTEAM characterization factors on the simulated system: `System.get_net_impact`, with contributions checked to sum to the total |
 | Boundary | Gate-to-gate process plus cradle-to-gate supply of chemicals, fuel, electricity and water, wastewater treatment and landfill. **Excluded:** harvesting, collection, dewatering and transport of Sargassum (no fuel-use data), capital goods, vessel construction, propulsion fuel, H2 use |
-| Allocation | None. CaCO3 leaves the system with no burden and **no substitution credit** |
-| Biogenic carbon | Sargassum uptake and biogenic CO2 releases are not counted (0/0 convention). Only permanently stored biogenic carbon may earn a credit (section 3) |
+| Allocation | None. CaCO3 leaves the system as a sold coproduct with no burden and **no substitution credit** |
+| Biogenic carbon | Sargassum uptake and biogenic CO2 releases are not counted (0/0 convention). Only stored biogenic carbon may earn a credit (section 3). The CaCO3 of the carbide lime is not Sargassum carbon and is never credited |
 | S2 | Incremental: S1 LCA + WHR effect (avoided boiler fuel for the displaced LP steam, plus WHR pump electricity). Recovered waste heat carries no burden because it comes from propulsion that happens anyway. Not a ship life-cycle assessment |
 
 Emission factors:
@@ -29,135 +30,141 @@ Emission factors:
 | Water supply / wastewater treatment | 0.46 / 0.38 kg CO2e/m3 | Zib et al. 2021 |
 | Inert landfill | 0 | User decision 2026-10-17 |
 
-## 2. S1 contributions (washing on)
+## 2. S1 contributions
 
 | Contributor | kg CO2e/kg H2 | Share of gross emissions |
 |---|---:|---:|
-| Natural gas, U2 furnace: combustion | 7.988 | 36.9 % |
-| Natural gas, LP-steam boiler: combustion | 6.079 | 28.1 % |
-| NaOH makeup | 3.892 | 18.0 % |
-| Electricity, process units | 1.758 | 8.1 % |
-| Natural gas upstream, U2 | 0.941 | 4.4 % |
-| Natural gas upstream, boiler | 0.716 | 3.3 % |
-| Electricity, cooling tower | 0.138 | 0.6 % |
-| H2SO4 neutralization (purge + F2 wash liquor) | 0.095 | 0.4 % |
-| Process water (incl. F2 wash water) | 0.010 | < 0.1 % |
-| Wastewater treatment | 0.009 | < 0.1 % |
+| Natural gas, LP-steam boiler: combustion | 9.993 | 41.3 % |
+| Natural gas, U2 furnace: combustion | 8.131 | 33.6 % |
+| Electricity, process units | 2.102 | 8.7 % |
+| NaOH makeup | 1.603 | 6.6 % |
+| Natural gas upstream, boiler | 1.178 | 4.9 % |
+| Natural gas upstream, U2 | 0.958 | 4.0 % |
+| Electricity, cooling tower | 0.212 | 0.9 % |
+| H2SO4 neutralization (purge) | 0.037 | 0.2 % |
+| Wastewater treatment | 0.004 | < 0.1 % |
+| Process water | 0 | — |
 | Ca(OH)2 (waste lime), landfill burden | 0 | — |
-| **Gross emissions** | **21.627** | 100 % |
-| Biogenic carbon stored in landfilled solids (credit) | −15.128 | |
-| **Net GWP** | **6.499** | |
+| **Gross emissions** | **24.218** | 100 % |
+| Biogenic carbon stored in the solids (credit) | −14.998 | |
+| **Net GWP** | **9.220** | |
 
 By stage (gross emissions):
 
 | Stage | kg CO2e/kg H2 | Share |
 |---|---:|---:|
-| Onsite fuel combustion | 14.07 | 65 % |
-| Chemical supply | 3.99 | 18 % |
-| Electricity | 1.90 | 9 % |
-| Natural gas supply chain | 1.66 | 8 % |
+| Onsite fuel combustion | 18.12 | 75 % |
+| Natural gas supply chain | 2.14 | 9 % |
+| Electricity | 2.31 | 10 % |
+| Chemical supply | 1.64 | 7 % |
 
-The footprint comes from natural-gas heat: the U2 reaction heat plus steam for drying and NaOH evaporation. NaOH
-makeup is next. The storage credit offsets 70 % of the gross emissions, so the net result depends on it (section 3).
+The footprint comes from natural-gas heat: the U2 reaction heat plus steam for drying and for evaporating the NaOH
+liquor. The storage credit offsets 62 % of the gross emissions, so the net result depends on it (section 3).
 
-**Washing contribution: +0.198737 kg CO2e/kg H2** (net GWP, washing on minus off).
+**Washing and recycle (net GWP, kg CO2e/kg H2):**
 
-| Washing component | kg CO2e/kg H2 |
+| Configuration | Net GWP |
 |---|---:|
-| H2SO4 neutralization | +0.064085 |
-| Electricity | +0.035109 |
-| Water | +0.008946 |
-| Wastewater | +0.008048 |
-| Lost storage credit (the Na2CO3 that washing removes from the cake) | +0.082549 |
+| No washing | 8.87 |
+| F2 wash, wash liquor recycled | 7.85 |
+| + F1 wash (baseline) | 9.22 |
 
-**Marine WHR contribution: −1.390406 kg CO2e/kg H2.**
+The F2 wash and its recycle lower the GWP, since the recovered sodium cuts the fresh NaOH. The F1 wash adds 1.37 kg
+CO2e/kg H2: its wash water (4.3 t/h) is evaporated again in EC1, whose duty rises from 10.2 to 13.3 MW.
+
+**Marine WHR contribution (S2): −1.390406 kg CO2e/kg H2.**
 
 | WHR component | kg CO2e/kg H2 |
 |---|---:|
 | Avoided boiler natural gas (combustion + upstream) | −1.403381 |
 | WHR pumps (electricity) | +0.012975 |
 
-Exhaust-only WHR gives −0.787. Because both are per-kg-H2 rates, the WHR effect is the same at 7,920 h and
-2,640 h.
+Exhaust-only WHR gives −0.787. S2 without WHR equals S1 (9.220), and S2 with all three sources is 7.830.
 
-## 3. Carbonate carbon accounting
+## 3. Carbon accounting
 
 ### 3.1 Carbon source and balance
 
-The feed carbon is entirely organic (CHN carbon of the presscake). The feed contains no carbonate, and the waste
-lime and NaOH contain no carbon. In U2, part of the Sargassum carbon becomes gas and part is fixed by NaOH as
-Na2CO3. C1 converts that Na2CO3 to CaCO3 (F2 cake). The scrubber fixes the gas CO2 as CaCO3 (F3 cake). All
-carbonate carbon is therefore **biogenic, from Sargassum**.
+The feed carbon is entirely organic (CHN carbon of the presscake). The NaOH carries no carbon. The carbide lime carries
+a little non-Sargassum carbon: its CaCO3 (4 % of the dry lime, 30.5 kg C/h). In U2, part of the Sargassum carbon
+becomes gas and part is fixed by NaOH as Na2CO3. C1 converts that Na2CO3 to CaCO3 (F2 cake). The scrubber fixes the gas
+CO2 as CaCO3 (F3 cake). The carbonate carbon of the cakes is therefore **biogenic, from Sargassum**, plus the lime's own.
 
-Plant carbon balance (kg C/h; in = out = 1,577.07):
+Plant carbon balance (kg C/h; in = out = 1,607.53):
 
 | Stream | kg C/h | Form | Credited |
 |---|---:|---|---|
 | Feed | 1,577.07 | Organic | |
-| Ash/residue cake | 835.45 | Lumped residue 765.73 + Na2CO3 69.72 | Yes |
-| F2 CaCO3 cake | 672.98 | CaCO3 670.42 + Na2CO3 2.56 | Yes |
-| F3 scrubber cake | 31.28 | CaCO3 | Yes |
+| Waste-lime CaCO3 (C1 lime 29.35, scrubber lime 1.11) | 30.46 | Carbonate, not Sargassum | |
+| Ash/residue cake | 784.67 | Lumped residue 765.73 + Na2CO3 18.94 | Residue yes, Na2CO3 no |
+| F2 CaCO3 cake | 761.03 | CaCO3 758.80 (29.35 from the lime) + Na2CO3 2.24 | CaCO3 yes (Sargassum part), Na2CO3 no |
+| F3 scrubber cake | 32.39 | CaCO3 (1.11 from the lime) | Yes (Sargassum part) |
 | H2 product gas | 24.94 | CH4 + residual CO2 | No (emitted) |
-| F2 wash liquor | 8.40 | Dissolved Na2CO3 → neutralized to HCO3−, wastewater | No |
-| Liquor purge | 4.02 | Dissolved carbonate, wastewater | No |
+| Liquor purge | 4.50 | Dissolved carbonate, wastewater | No |
+
+The wash liquors are internal recycles.
 
 ### 3.2 Storage credit
 
-All carbon in the landfilled solids is credited at 44.01/12.011 kg CO2 per kg C: 1,539.71 kg C/h, which is
-−15.128 kg CO2e/kg H2.
+The Sargassum carbon of the CaCO3 and of the residue is credited at 44.01/12.011 kg CO2 per kg C: 1,526.46 kg C/h,
+which is −14.998 kg CO2e/kg H2.
 
-| Landfilled form | kg C/h | kg CO2e/kg H2 |
+| Credited form | kg C/h | kg CO2e/kg H2 |
 |---|---:|---:|
 | Lumped residue (ATT char) | 765.73 | −7.523 |
-| CaCO3, F2 cake | 670.42 | −6.587 |
-| CaCO3, F3 cake | 31.28 | −0.307 |
-| Na2CO3 in the ash cake and F2 cake | 72.28 | −0.710 |
-| **Total** | **1,539.71** | **−15.128** |
+| CaCO3, F2 cake (sold; Sargassum part) | 729.45 | −7.167 |
+| CaCO3, F3 cake (sold; Sargassum part) | 31.28 | −0.307 |
+| **Total** | **1,526.46** | **−14.998** |
 
-- **CaCO3** is insoluble and generally stable in a landfill, so permanence is assumed.
+Not credited:
+
+| Carbon | kg C/h | kg CO2e/kg H2 |
+|---|---:|---:|
+| Soluble Na2CO3 in the ash cake and the F2 cake (leachable) | 21.18 | 0.208 |
+| CaCO3 of the carbide lime (not Sargassum carbon) | 30.46 | 0.299 |
+| Dissolved carbonate of the purge (wastewater) | 4.50 | 0.044 |
+
+- **CaCO3** is insoluble and stable if landfilled. The baseline sells it, so its fate is outside the plant: calcination
+  or acid use would release the CO2. The credit assumes that sold CaCO3 stays out of the atmosphere, which is a user
+  decision (2026-11-01), not an established fact.
 - **The lumped residue** is credited as landfilled carbon. Its composition (CH0.5O1.195) is assumed, not measured, and
   its permanence is unknown. It is half of the credit.
-- **Na2CO3** in the landfilled solids is soluble and leachable, so its permanence is also an assumption.
-- **Dissolved carbonate** in the wash liquor and the purge goes to wastewater and is not credited.
+- **Soluble Na2CO3** has no basis for permanence and is not credited.
 
-This is a storage assumption, not verified carbon removal. The gross emissions without any credit are 21.627
+This is a storage assumption, not verified carbon removal. The gross emissions without any credit are 24.218
 kg CO2e/kg H2.
 
-## 4. Results (kg CO2e/kg H2, washing on)
+## 4. Results (kg CO2e/kg H2)
 
 | Case | Net GWP | Gross emissions (no storage credit) |
 |---|---:|---:|
-| **S1** | **6.498662** | 21.626737 |
-| **S2 with WHR** (7,920 or 2,640 h) | **5.108256** | 20.236331 |
-| S2 exhaust WHR only | 5.711723 | |
-| S2 without WHR | 6.498662 | 21.626737 |
-| Storage credit in the result | −15.128075 | |
-
-Reference only, washing off:
-
-| Case | Net GWP |
-|---|---:|
-| S1 | 6.299926 |
-| S2 with WHR | 4.909519 |
+| **S1** | **9.220** | 24.218 |
+| **S2 with WHR** (7,920 h) | **7.830** | 22.828 |
+| S2 exhaust WHR only | 8.433 | |
+| S2 without WHR | 9.220 | 24.218 |
+| Storage credit in the result | −14.998 | |
 
 **Notes outside the net result:**
 - *Avoided beach decomposition.* If the Sargassum would otherwise rot on the beach, IPCC 2006 defaults give an extra
   −13.70 kg CO2e/kg H2 of avoided CH4. This depends on the counterfactual and is reported as a note only. With it,
-  S1 would be −7.20.
+  S1 would be −4.48.
 
 ## 5. Interpretation
 
-1. **Pairing.** The net GWP of 6.50 (S1) pairs with the MSP of 5.41; S2 with WHR at 7,920 h pairs 5.11 with 5.59
+1. **Pairing.** The net GWP of 9.22 (S1) pairs with the MSP of 2.13; S2 with WHR pairs 7.83 with 2.37
    (`ATT_S1_S2_TEA_FINAL.md`).
 2. **Main levers.**
-   - U2 and boiler natural gas make up ≈ 73 % of the gross emissions (combustion plus upstream).
+   - U2 and boiler natural gas make up ≈ 84 % of the gross emissions (combustion plus upstream).
    - Heat electrification or renewable heat would act on the largest share.
-   - WHR removes 6.4 % of the gross emissions (S2).
-   - NaOH makeup is 18 %.
+   - WHR removes 5.7 % of the gross emissions (S2).
+   - NaOH makeup is 6.6 %.
 3. **No carbon-removal claim.** The process does not establish verified net carbon removal. The storage credit
-   (70 % of the gross emissions) rests on landfill permanence, and half of it on an assumed residue composition.
-4. **Partial boundary.** Collection and transport are excluded, so the results understate the cradle-to-gate
+   (62 % of the gross emissions) rests on the fate of the sold CaCO3 and on landfill permanence of the residue, whose
+   composition is assumed.
+4. **Washing.** The F1 wash raises the GWP by 1.4 kg CO2e/kg H2 and lowers the fresh NaOH by 40 %; its MSP benefit
+   depends on the assumed disposal-free residue (`ATT_S1_S2_TEA_FINAL.md`).
+5. **Partial boundary.** Collection and transport are excluded, so the results understate the cradle-to-gate
    footprint. Each kg of marine fuel per wet tonne of presscake adds ≈ 0.18 kg CO2e/kg H2 (21.22 wet t/h × 3.2 kg
    CO2/kg fuel / 372.9 kg H2/h; fuel upstream excluded).
-5. **Location.** The electricity factor (US average) is a placeholder. The plant uses 4.23 kWh/kg H2, so the
-   range 0.3–0.9 kg CO2e/kWh changes S1 by about −0.6 to +1.9 kg CO2e/kg H2.
+6. **Location.** The electricity factor (US average) is a placeholder. The plant uses 5.15 kWh/kg H2, so the
+   range 0.3–0.9 kg CO2e/kWh changes S1 by about −0.8 to +2.3 kg CO2e/kg H2.

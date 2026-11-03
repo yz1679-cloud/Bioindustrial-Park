@@ -3,7 +3,8 @@ Key metrics of the ATT scenarios (S1, S2; add S3 and later ones as new entries b
 
 Baseline assumptions (data/*.yaml): presscake feed, NaOH 1 kg/kg dry, Ni-CatATT 1:1 gas yields, lumped residue (ATT
 char), 88 % causticization, F2 washing with the excess condensate as wash water and the wash liquor recycled to the
-dissolver, free waste carbide lime of an
+dissolver, F1 washing of the residue cake (1 kg water/kg dry cake, liquor combined with the carbonate solution; the
+washed residue is assumed to pay for its own disposal), free waste carbide lime of an
 acetylene plant (a paste with CaCO3 and inert mineral impurities), waste-lime CO2 scrubber, no PSA, both CaCO3 cakes
 SOLD at 100 USD/t of CaCO3 (assumed; the non-CaCO3 mass is disposed), and the storage credit for the Sargassum carbon
 in the solids (CaCO3 sold or landfilled, the residue); soluble Na2CO3 carbon is not credited.
@@ -25,27 +26,27 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
-    "MSP_USD_per_kg_H2": 2.79608173,
-    "GWP_kgCO2e_per_kg_H2": 7.85164488,
-    "FCI_MUSD": 12.8748341,
-    "AOC_MUSD_per_yr": 6.58987,
+    "MSP_USD_per_kg_H2": 2.12744222,
+    "GWP_kgCO2e_per_kg_H2": 9.22013861,
+    "FCI_MUSD": 15.4408998,
+    "AOC_MUSD_per_yr": 4.28245,
     "H2_t_per_yr": 2953.56307,
-    "fresh_NaOH_t_per_yr": 7065.4161,
-    "Ca_OH_2_used_t_per_yr": 43059.0100,
-    "U2_heat_duty_MJ_per_kg_dry": 9.14913814,
+    "fresh_NaOH_t_per_yr": 4226.5946,
+    "Ca_OH_2_used_t_per_yr": 46228.4239,
+    "U2_heat_duty_MJ_per_kg_dry": 9.22875829,
     "dry_feed_t_per_day": 120.7001,
 }
-S1_STORED_CARBON_CREDIT = -14.4879350        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 22.3395799
+S1_STORED_CARBON_CREDIT = -14.9978453        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 24.2179839
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1857.84623353
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {
-    ("A", "no WHR"): (3.04723000, 7.85164488, 16093542.6),
-    ("A", "all WHR"): (2.99019686, 6.46123859, 17101658.9),
-    ("B", "no WHR"): (5.02809654, 7.85164488, 16093542.6),
-    ("B", "all WHR"): (5.07298805, 6.46123859, 17101658.9),
+    ("A", "no WHR"): (2.42864651, 9.22013861, 19301124.8),
+    ("A", "all WHR"): (2.37161337, 7.82973232, 20309241.1),
+    ("B", "no WHR"): (4.80431687, 9.22013861, 19301124.8),
+    ("B", "all WHR"): (4.84920837, 7.82973232, 20309241.1),
 }
 
 

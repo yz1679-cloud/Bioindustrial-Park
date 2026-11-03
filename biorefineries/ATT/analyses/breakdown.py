@@ -79,6 +79,7 @@ _AREAS = {
     "U3D": "Gas cooling and drying (U3HX, U3C, U3D)", "U3P": "PSA (U3P)", "U3K": "H2 compression (U3K)",
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
     "W2": "F2 washing and refiltration", "F2R": "F2 washing and refiltration",
+    "W1": "F1 washing and refiltration", "F1R": "F1 washing and refiltration",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",

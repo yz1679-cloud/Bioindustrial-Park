@@ -18,32 +18,31 @@ Standard exports (`python -m biorefineries.ATT.analyses.run`, `tea.export_att_te
 Outputs: `biorefineries/ATT/results/`, or the root in `ATT_PROJECT_RESULTS_DIR` (set by `run all --out`).
 Tests (from the repository root): `python -m unittest discover -s biorefineries/ATT/test -p "test_att_*.py" -t .`
 
-## F2 cake washing (same S1/S2 scenarios)
+## Washing, lime, sales and the residue (S1 and S2)
 
-The updated default is washing_on: original C1/F2 -> native MixTank W2 -> native
-RotaryVacuumFilter F2R. Select the previous process with
-scenarios.create(washing="washing_off"); use washing="washing_on", wash_ratio=...
-for the fresh-water ratio [kg/kg original dry F2 cake, including dissolved solids].
-The final F2 product remains caco3_cake; the original cake is f2_unwashed_cake.
+The baseline washes two cakes. F2 (CaCO3): the cake goes to a native MixTank W2 and a RotaryVacuumFilter F2R, and the
+wash liquor is recycled to the dissolver D1. F1 (ATT residue): the cake goes to a MixTank W1 and a PressureFilter F1R
+(30 wt % moisture, no dryer), and the wash liquor is combined with the carbonate solution that feeds C1. The wash
+water is the condensate that the dissolver does not need (fresh water only as a top-up); the ratio is 1 kg water/kg dry
+cake in both. The final F2 product is `caco3_cake` and the final F1 product `ash_residue_cake`.
 
-data/att.yaml downstream.f2_washing records the screening assumptions: 1 kg water/kg
-dry cake, 25 C fresh water, 0.25 h agitated contact, one perfectly mixed dilution stage,
-and refiltration to the unchanged F2 cake moisture. CaCO3 and Ca(OH)2 remain solids;
-NaOH/Na2CO3 follow diluted mother liquor. No reaction or 97% purity target is imposed.
-The wash filtrate f2_wash_liquor is separately neutralized/treated using the existing
-ATT H2SO4 stoichiometry and wastewater price/factors; it is not recycled to EC1.
+Switches (`scenarios.create(...)`): `washing="washing_on"|"washing_off"` and `wash_ratio=` (F2), `wash_recycle=`,
+`wash_condensate=`, `f1_wash=`, `f1_wash_ratio=`, `f1_wash_condensate=`. The defaults are in `data/att.yaml`
+(`downstream.f2_washing`, `downstream.f1_washing`). A ratio of 0 means no washing.
 
-The 100 USD/t CaCO3-component sales price is an **optimistic, unverified reference**.
-An approximately 84% theoretical dry purity is not a confirmed commercial specification.
-build_att_breakdown(..., f2_sales=False) disposes the entire F2 cake, earns no F2
-revenue or F2 avoided-disposal credit, and retains the existing F3 sales assumption.
-The corresponding marine functions accept f2_sales=False.
+Waste lime: `downstream.waste_lime` in `data/att.yaml` models the carbide lime of an acetylene plant as a paste (dry
+basis 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals; 40 wt % water). It is free and burden-free; the Ca(OH)2 dose follows
+the stoichiometry. Trace metals and other impurities are not modeled.
 
-Run python -m biorefineries.ATT.analyses.att_washing to export both operating
-configurations, equipment, material/component checks, itemized costs, optimistic and
-conservative S1/S2 economics, and LCA contributions to results/tables/att_washing_*.csv.
-The inherited DCF methodology is unchanged. The carbonate storage credit now follows the
-CaCO3 disposition (att_lca.yaml carbonate_storage_accounting: conservative): only CaCO3
-that is landfilled (not sold) is credited, so sold CaCO3 earns no storage credit. The
-earlier credit is kept as GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2, an optimistic
-comparison only (see IMPLEMENTATION_NOTES.md, "Finalization").
+Economics (`data/att_tea.yaml`): both CaCO3 cakes are sold at 100 USD/t of CaCO3 (`caco3_sales`, an **optimistic,
+unverified** price; `build_att_breakdown(..., f2_sales=False)` disposes the F2 cake), and the washed ATT residue is
+assumed to pay for its own disposal (`residue_sale`, net cost 0, no buyer or specification). Either assumption can be
+switched off in the file.
+
+Carbon (`data/att_lca.yaml`): the Sargassum carbon of the CaCO3 and of the lumped residue is credited as stored carbon;
+the soluble Na2CO3 (`credit_soluble_carbonate: false`) and the CaCO3 of the lime are not.
+
+Exports: `python -m biorefineries.ATT.analyses.att_washing` writes the washing-on and washing-off configurations,
+equipment, material/component checks, itemized costs, the economics with and without F2 sales, and the LCA
+contributions to `results/tables/att_washing_*.csv`. `python -m biorefineries.ATT.analyses.run figures` saves the
+BioSTEAM flowsheet diagrams of S1 and S2 to `results/figures/`. The DCF methodology is inherited unchanged.

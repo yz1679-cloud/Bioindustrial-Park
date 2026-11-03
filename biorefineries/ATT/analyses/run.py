@@ -21,6 +21,7 @@ STEP is one of:
     consolidated     full-scale summary
     documentation    master model documentation
     diagram          process flow diagrams (--format svg|png|pdf, --dry-feed, --dark, --no-hxn)
+    figures          BioSTEAM flowsheet diagrams of S1 and S2 at their capacity (svg and png; not part of ``all``)
     all              the steps above in this order (diagram as svg and png), then the ATT unit tests (unless
                      --skip-tests) and a tally of every exported QC table, written to
                      validation/run_summary.md and run_summary.json
@@ -93,8 +94,28 @@ def export_diagrams(out, format="svg", dry_feed=1.0, dark=False, hxn=True):
         print(f"{kind:>8} diagram written to {file}.{format}")
 
 
+def export_figures(out, formats=("svg", "png")):
+    """BioSTEAM's own flowsheet diagram of the S1 and S2 systems at their capacity (S2 is the S1 process)."""
+    import biosteam as bst
+    from biorefineries.ATT.analyses import scenarios as scen
+
+    out = os.fspath(out)
+    os.makedirs(out, exist_ok=True)
+    bst.preferences.light_mode()
+    for key, spec in (("att_s1", scen.ATT_S1), ("att_s2", scen.ATT_S2)):
+        bst.main_flowsheet.clear()
+        system = scen.create(spec)
+        for fmt in formats:
+            file = os.path.join(out, f"{key}_flowsheet")
+            system.diagram(kind="thorough", file=file, format=fmt, number=True, label=True)
+            print(f"{spec['short']} diagram written to {file}.{fmt}")
+
+
 def run_step(step, out=None, format="svg", dry_feed=1.0, dark=False, hxn=True):
     """Run one export step; ``out`` defaults to its folder under paths.results_root()."""
+    if step == "figures":
+        export_figures(out or output_dir("figures"))
+        return
     if step == "diagram":
         export_diagrams(out or output_dir("diagrams"), format, dry_feed, dark, hxn)
         return
@@ -210,7 +231,7 @@ def run_all(out=None, skip_tests=False, real_system_test=False):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("step", nargs="?", default="all", choices=("all", *EXPORTS, "diagram"))
+    p.add_argument("step", nargs="?", default="all", choices=("all", *EXPORTS, "diagram", "figures"))
     p.add_argument("--out", default=None, help="output directory (all: the output root); default biorefineries/ATT/results/...")
     p.add_argument("--skip-tests", action="store_true", help="all: do not run the ATT unit tests")
     p.add_argument("--real-system-test", action="store_true",

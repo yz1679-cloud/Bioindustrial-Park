@@ -24,7 +24,8 @@ Layout (keys of ``output_dir``)::
     full_scale/lca/            lca            GWP100, contributions, scenarios
     full_scale/summary/        summary        consolidated results, final sheets C1-C14
     documentation/             documentation  master model documentation
-    documentation/diagrams/    diagrams       process flow diagrams
+    documentation/diagrams/    diagrams       process flow diagrams (1 kg/h basis)
+    figures/                   figures        S1 and S2 flowsheet diagrams (run.py figures)
     validation/                validation     run summary, tests and QC tally
     tables/                    tables         ATT S1/S2 scenario tables (analyses/att_*.py)
 """
@@ -48,6 +49,7 @@ SUBDIRS = {
     "summary": "full_scale/summary",
     "documentation": "documentation",
     "diagrams": "documentation/diagrams",
+    "figures": "figures",
     "validation": "validation",
     "tables": "tables",
 }

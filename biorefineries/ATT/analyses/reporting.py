@@ -710,10 +710,11 @@ def _opex_detail(sys, result):
                           ("dissolution_water", "Process water", "process_water")):
         add(name, float(s[ID].F_mass) / dry, "kg", s[ID].price, "USD/kg", s[ID].cost * hours, P[key]["source"],
             P[key].get("year", "not stated"), "purchased")
-    if "f2_wash_water" in s:
-        water = s["f2_wash_water"]
-        add("Process water (F2 washing)", float(water.F_mass) / dry, "kg", water.price,
-            "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
+    for ID, label in (("f2_wash_water", "Process water (F2 washing)"), ("f1_wash_water", "Process water (F1 washing)")):
+        if ID in s:
+            water = s[ID]
+            add(label, float(water.F_mass) / dry, "kg", water.price,
+                "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
     add("Sargassum (delivered)", float(s["att_sargassum_feed"].F_mass) / dry, "kg wet", s["att_sargassum_feed"].price,
         "USD/kg wet", s["att_sargassum_feed"].cost * hours, "tea.yaml price.sargassum.baseline", "-",
         "purchased (0 in baseline; see collection sensitivity)")

@@ -374,6 +374,9 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
     if "f2_wash_water" in _streams(sys):
         rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
                      "kg", "fresh water to the independent washing stage"))
+    if "f1_wash_water" in _streams(sys):
+        rows.append(("Process water (F1 washing)", float(_streams(sys)["f1_wash_water"].F_mass),
+                     "kg", "fresh water to the F1 cake washing stage"))
     return [dict(item=i, per_kg_dry=v / dry, unit=f"{un}/kg dry", note=n) for i, v, un, n in rows]
 
 

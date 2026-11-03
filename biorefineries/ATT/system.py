@@ -87,6 +87,9 @@ def create_att_system(
     f2_wash_ratio=None,
     f2_wash_recycle=None,
     f2_wash_condensate=None,
+    f1_wash=None,
+    f1_wash_ratio=None,
+    f1_wash_condensate=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -122,6 +125,14 @@ def create_att_system(
     f2_wash_recycle : bool or None
         Recycle the F2 wash liquor to the dissolver D1 (False: wastewater). None uses att.yaml
         downstream.f2_washing.recycle_wash_liquor.
+    f1_wash : bool or None
+        Wash the F1 ash/residue cake (W1 + F1R) and combine the wash liquor with the carbonate solution that feeds C1.
+        None uses att.yaml downstream.f1_washing.enabled.
+    f1_wash_ratio : float or None
+        W1 wash water [kg/kg dry cake]. None uses att.yaml downstream.f1_washing.wash_ratio_kg_per_kg_dry_cake.
+    f1_wash_condensate : bool or None
+        Take the F1 wash water from the condensate left after the dissolver and the F2 wash (fresh water makes up the
+        rest). None uses att.yaml downstream.f1_washing.use_excess_condensate.
     f2_wash_condensate : bool or None
         Wash with the condensate that the dissolver does not need (fresh water only makes up the rest). None uses
         att.yaml downstream.f2_washing.use_excess_condensate.
@@ -697,6 +708,19 @@ def create_att_system(
     wash_with_condensate = wash_enabled and bool(
         wash_settings["use_excess_condensate"] if f2_wash_condensate is None else f2_wash_condensate)
     condensate_to_wash = bst.Stream("condensate_to_wash", Water=0.0, units="kg/hr") if wash_with_condensate else None
+    # F1 (ash/residue cake) wash: the same ideas, settings in downstream.f1_washing.
+    f1_cfg = _ATT_DOWNSTREAM.get("f1_washing", {})
+    f1_wash_enabled = bool(f1_cfg.get("enabled", False) if f1_wash is None else f1_wash)
+    f1_ratio = float(f1_cfg.get("wash_ratio_kg_per_kg_dry_cake", 1.0) if f1_wash_ratio is None else f1_wash_ratio)
+    if not isfinite(f1_ratio) or f1_ratio < 0:
+        raise ValueError("F1 washing ratio must be finite and nonnegative")
+    if f1_ratio == 0.0:
+        f1_wash_enabled = False
+    f1_wash_with_condensate = f1_wash_enabled and bool(
+        f1_cfg.get("use_excess_condensate", False) if f1_wash_condensate is None else f1_wash_condensate)
+    condensate_to_f1_wash = (bst.Stream("condensate_to_f1_wash", Water=0.0, units="kg/hr")
+                             if f1_wash_with_condensate else None)
+    condensate_split = wash_with_condensate or f1_wash_with_condensate
 
     # Clear F3 filtrate that the scrubber does not need (the waste lime paste brings its own water) joins the condensates.
     scrubber_excess = bst.Stream("scrubber_excess_water", Water=0.0, units="kg/hr")
@@ -709,7 +733,7 @@ def create_att_system(
     SW = bst.Splitter(
         "SW",
         ins=W3 - 0,
-        outs=("condensate_to_D1", "condensate_surplus" if wash_with_condensate else "excess_condensate"),
+        outs=("condensate_to_D1", "condensate_surplus" if condensate_split else "excess_condensate"),
         split=1.0,
     )
 
@@ -725,7 +749,8 @@ def create_att_system(
 
     SX = None
     if wash_with_condensate:
-        SX = bst.Splitter("SX", ins=SW - 1, outs=(condensate_to_wash, "excess_condensate"), split=0.0)
+        SX = bst.Splitter("SX", ins=SW - 1, outs=(condensate_to_wash, "condensate_surplus_f1" if f1_wash_with_condensate
+                                                  else "excess_condensate"), split=0.0)
 
         @SX.add_specification(run=True)
         def send_surplus_to_wash():
@@ -733,6 +758,18 @@ def create_att_system(
             demand_kgph = ratio * float(original.F_mass - original.imass["Water"])
             surplus_kgph = float(SX.ins[0].F_mass)
             SX.split = min(1.0, demand_kgph / surplus_kgph) if surplus_kgph > 0.0 else 0.0
+
+    SY = None
+    if f1_wash_with_condensate:
+        SY = bst.Splitter("SY", ins=(SX - 1 if SX is not None else SW - 1),
+                          outs=(condensate_to_f1_wash, "excess_condensate"), split=0.0)
+
+        @SY.add_specification(run=True)
+        def send_surplus_to_f1_wash():
+            original = F1.outs[0]          # the cake of the previous iteration (F1 is defined below)
+            demand_kgph = f1_ratio * float(original.F_mass - original.imass["Water"])
+            surplus_kgph = float(SY.ins[0].F_mass)
+            SY.split = min(1.0, demand_kgph / surplus_kgph) if surplus_kgph > 0.0 else 0.0
 
     D1 = bst.Mixer(
         "D1",
@@ -914,6 +951,40 @@ def create_att_system(
     )
 
     # --------------------------------------------------------------
+    # Optional F1 cake wash (variant, off in the baseline): the residue cake is re-slurried with fresh water in W1 and
+    # refiltered in F1R at the F1 cake moisture; the wash liquor (dissolved Na2CO3 / NaOH of the cake moisture) is
+    # combined with the F1 filtrate in MC, so it is causticized and its sodium is recovered. The cake is not dried.
+    # --------------------------------------------------------------
+    W1 = F1R = MC = None
+    carbonate_solution = F1 - 1
+    if f1_wash_enabled:
+        f1_moisture = float(_ATT_DOWNSTREAM["f1_cake_moisture_wt_frac"])
+        F1.outs[0].ID = "f1_unwashed_cake"
+        F1.outs[1].ID = "f1_filtrate"
+        f1_wash_water = bst.Stream("f1_wash_water", Water=0.0, phase="l", T=float(f1_cfg.get("temperature_K", 298.15)))
+        W1 = bst.MixTank("W1", ins=(F1 - 0, f1_wash_water, *([condensate_to_f1_wash] if f1_wash_with_condensate else [])),
+                         outs=("f1_wash_slurry",), tau=float(f1_cfg.get("contact_time_h", 0.25)))
+
+        @W1.add_specification(run=True)
+        def adjust_f1_wash_feed():
+            original = F1.outs[0]
+            dry_cake = float(original.F_mass - original.imass["Water"])
+            from_condensate = float(condensate_to_f1_wash.imass["Water"]) if f1_wash_with_condensate else 0.0
+            f1_wash_water.empty()
+            makeup = f1_ratio * dry_cake - from_condensate                                   # fresh makeup only
+            f1_wash_water.imass["Water"] = makeup if makeup > 1e-6 else 0.0                 # no roundoff dust
+            f1_wash_water.phase = "l"
+            f1_wash_water.T = float(f1_cfg.get("temperature_K", 298.15))
+
+        F1R = bst.PressureFilter(
+            "F1R", ins=W1 - 0, outs=("ash_residue_cake", "f1_wash_liquor"),
+            split={ID: 0.0 if ID in mother_liquor_IDs else 1.0 for ID in F1.outs[0].chemicals.IDs},
+            moisture_content=f1_moisture)
+        add_mother_liquor_entrainment_spec(F1R, f1_moisture, solids_recovery=1.0)
+        MC = bst.Mixer("MC", ins=(F1 - 1, F1R - 1), outs=("carbonate_solution",))
+        carbonate_solution = MC - 0
+
+    # --------------------------------------------------------------
     # C1 - Causticization
     #
     # Na2CO3 + Ca(OH)2 -> 2 NaOH + CaCO3
@@ -930,7 +1001,7 @@ def create_att_system(
 
         @LM.add_specification(run=True)
         def dose_makeup_lime():
-            na2co3 = float(F1.outs[1].imol["Na2CO3"]) + float(recycled_lime.imol["Na2CO3"])
+            na2co3 = float(carbonate_solution.imol["Na2CO3"]) + float(recycled_lime.imol["Na2CO3"])
             need = float(_ATT_DOWNSTREAM["lime_equiv"]) * na2co3
             have = float(recycled_lime.imol["CaOH2"])
             lime.empty()
@@ -944,7 +1015,7 @@ def create_att_system(
     C1 = CausticizationReactor(
         "C1",
         ins=(
-            F1 - 1,
+            carbonate_solution,
             lime_to_C1,
         ),
         lime_supplied=use_lime_recycle,
@@ -1174,8 +1245,10 @@ def create_att_system(
         W3,
         SW,
         *([SX] if SX is not None else []),
+        *([SY] if SY is not None else []),
         D1,
         F1,
+        *([W1, F1R, MC] if W1 is not None else []),
         *([LM] if LM is not None else []),
         C1,
         F2,
@@ -1196,7 +1269,7 @@ def create_att_system(
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else []), *([condensate_to_f1_wash] if f1_wash_with_condensate else [])),
         # The makeup/concentration specification is nonlinear.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

@@ -13,10 +13,10 @@ class TestNativeF2Washing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.off = scen.create(washing="washing_off")
-        cls.on = scen.create(washing="washing_on", wash_recycle=False, wash_condensate=False)   # fresh wash water, liquor to wastewater
-        cls.rec = scen.create(washing="washing_on", wash_condensate=False)            # wash liquor recycled to the dissolver
-        cls.cond = scen.create(washing="washing_on")                                  # S1: and the excess condensate as wash water
+        cls.off = scen.create(washing="washing_off", f1_wash=False)                    # the F1 wash is tested below
+        cls.on = scen.create(washing="washing_on", wash_recycle=False, wash_condensate=False, f1_wash=False)   # fresh water, liquor to wastewater
+        cls.rec = scen.create(washing="washing_on", wash_condensate=False, f1_wash=False)    # wash liquor recycled to the dissolver
+        cls.cond = scen.create(washing="washing_on", f1_wash=False)                          # and the excess condensate as wash water
         cls.u, cls.s = inv._units(cls.on), inv._streams(cls.on)
         cls.off_s = inv._streams(cls.off)
 
@@ -147,6 +147,35 @@ class TestNativeF2Washing(unittest.TestCase):
         error = sum(r["kg_per_h"] * (1 if r["direction"] == "input" else -1) for r in rows if r["component"] == "TOTAL")
         self.assertAlmostEqual(error, 0., delta=1e-5)
 
+    def test_f1_wash_of_the_residue_cake(self):
+        base = scen.create()                                          # S1: F1 wash, condensate wash water, residue pays its disposal
+        none = scen.create(f1_wash=False)
+        u, s, ns = inv._units(base), inv._streams(base), inv._streams(none)
+        self.assertEqual([i.ID for i in u["MC"].ins], ["f1_filtrate", "f1_wash_liquor"])
+        self.assertIs(u["C1"].ins[0], u["MC"].outs[0])               # the wash liquor joins the carbonate solution
+        self.assertNotIn(s["f1_wash_liquor"], base.products)         # not wastewater
+        original = u["F1"].outs[0]
+        dry = float(original.F_mass - original.imass["Water"])
+        self.assertAlmostEqual(float(s["condensate_to_f1_wash"].F_mass) + float(s["f1_wash_water"].F_mass), dry, places=4)
+        self.assertLess(float(s["ash_residue_cake"].imass["Na2CO3"]), 0.4 * float(ns["ash_residue_cake"].imass["Na2CO3"]))
+        self.assertLess(float(s["fresh_naoh_solid"].F_mass), 0.7 * float(ns["fresh_naoh_solid"].F_mass))
+        self.assertAlmostEqual(float(s["ash_residue_cake"].imass["Water"] / s["ash_residue_cake"].F_mass), 0.30, places=10)
+        rows = inv.get_att_external_flows(base)
+        error = sum(r["kg_per_h"] * (1 if r["direction"] == "input" else -1) for r in rows if r["component"] == "TOTAL")
+        self.assertAlmostEqual(error, 0., delta=1e-5)
+
+    def test_washed_residue_pays_its_disposal(self):
+        for system, paid in ((scen.create(), True), (scen.create(f1_wash=False), False)):
+            result = tea.evaluate_att_tea(system, **scen.tea_config())
+            price = inv._streams(system)["ash_residue_cake"].price
+            row = next(r for r in tea._opex_table(system, result) if r["item"] == "Disposal: ash_residue_cake")
+            if paid:
+                self.assertEqual(price, 0.0)
+                self.assertEqual(row["USD_per_yr"], 0.0)
+            else:
+                self.assertEqual(price, tea._PRICE["disposal_solid"]["baseline"])      # unwashed: disposed
+                self.assertGreater(row["USD_per_yr"], 0.0)
+
     def test_waste_lime_is_a_carbide_lime_paste(self):
         for system in (self.off, self.on, self.rec, self.cond):
             s = inv._streams(system)
@@ -164,13 +193,13 @@ class TestNativeF2Washing(unittest.TestCase):
         self.assertAlmostEqual(row["FCI_USD"], 1.25 * ref["FCI_USD"] + row["WHR_CAPEX_USD"], places=6)
 
     def test_zero_wash_and_sensitivity(self):
-        zero = scen.create(washing="washing_on", wash_ratio=0., wash_recycle=False, wash_condensate=False)
+        zero = scen.create(washing="washing_on", wash_ratio=0., wash_recycle=False, wash_condensate=False, f1_wash=False)
         np.testing.assert_allclose(inv._streams(zero)["caco3_cake"].mass, inv._units(zero)["F2"].outs[0].mass,
                                    atol=1e-8, rtol=1e-10)
-        more = scen.create(washing="washing_on", wash_ratio=2., wash_recycle=False, wash_condensate=False)
+        more = scen.create(washing="washing_on", wash_ratio=2., wash_recycle=False, wash_condensate=False, f1_wash=False)
         self.assertLess(inv._streams(more)["caco3_cake"].imass["NaOH"], self.s["caco3_cake"].imass["NaOH"])
         with self.assertRaises(ValueError):
-            scen.create(washing="washing_on", wash_ratio=-1., wash_recycle=False, wash_condensate=False)
+            scen.create(washing="washing_on", wash_ratio=-1., wash_recycle=False, wash_condensate=False, f1_wash=False)
 
     def test_empty_tail_gas_excluded_and_boundary_closed(self):
         rows = inv.get_att_external_flows(self.on)

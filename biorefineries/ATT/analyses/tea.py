@@ -159,14 +159,18 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         s["slaking_water"].price = p["process_water"]
     if "scrubber_makeup_water" in s:
         s["scrubber_makeup_water"].price = p["process_water"]
-    if "f2_wash_water" in s:
-        s["f2_wash_water"].price = p["process_water"]
+    for ID in ("f2_wash_water", "f1_wash_water"):
+        if ID in s:
+            s[ID].price = p["process_water"]
     for ID in _T["prices"]["wastewater_streams"]:
         if ID in s:
             s[ID].price = float(_PRICE["disposal_wastewater"]["baseline"])
     for ID in _T["prices"]["solid_waste_streams"]:
         if ID in s:
             s[ID].price = float(_PRICE["disposal_solid"]["baseline"])
+    residue_sale = _T.get("residue_sale", {})
+    if residue_sale.get("enabled", False) and "F1R" in inv._units(sys) and "ash_residue_cake" in s:
+        s["ash_residue_cake"].price = float(residue_sale["net_price_usd_per_kg_wet"])     # the washed residue pays its disposal
     s["caco3_cake"].price = float(_T["prices"]["CaCO3_cake"]) if cake_price is None else float(cake_price)
     if "u3_tail_gas" in s:
         s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
@@ -342,6 +346,9 @@ def _opex_table(sys, result):
     if "f2_wash_water" in s:
         add("Process water (F2 washing)", "materials", s["f2_wash_water"].cost * hours,
             f"{s['f2_wash_water'].price:.6g} USD/kg fresh wash water")
+    if "f1_wash_water" in s:
+        add("Process water (F1 washing)", "materials", s["f1_wash_water"].cost * hours,
+            f"{s['f1_wash_water'].price:.6g} USD/kg fresh wash water")
     if "slaking_water" in s:
         add("Process water", "materials", s["slaking_water"].cost * hours, f"{s['slaking_water'].price:.6g} USD/kg (slaking)")
     if "scrubber_lime" in s:

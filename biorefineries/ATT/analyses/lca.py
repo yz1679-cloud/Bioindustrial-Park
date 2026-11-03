@@ -59,7 +59,7 @@ _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
 _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
                  "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply"),
-                 "f2_wash_water": ("Water", "water_supply")}
+                 "f2_wash_water": ("Water", "water_supply"), "f1_wash_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
@@ -148,10 +148,11 @@ _LIME_OF_CAKE = {"caco3_cake": "lime", "scrubber_cake": "scrubber_lime"}     # c
 
 def _stored_carbon_kgph(sys, include_char=None, caco3_sales=BASELINE, accounting=None):
     """
-    Carbon (kg C/h) credited as permanently stored in landfilled solids. ``accounting`` (default att_lca.yaml
-    carbon_storage.carbonate_storage_accounting): "conservative" counts only the CaCO3 carbon that is landfilled,
-    i.e. not sold under ``caco3_sales`` (the TEA disposition; "baseline" = att_tea.yaml, None = nothing sold);
-    "inherited" counts all carbon of the landfill streams, sold or not (comparison only). The carbon of the
+    Sargassum carbon (kg C/h) credited as stored in the solids. ``accounting`` (default att_lca.yaml
+    carbon_storage.carbonate_storage_accounting): "inherited" (the baseline) counts the Sargassum carbon of the CaCO3
+    of the cakes, sold or not, without the soluble Na2CO3 (unless att_lca.yaml credit_soluble_carbonate);
+    "conservative" counts only the CaCO3 carbon that is not sold under ``caco3_sales`` (the TEA disposition;
+    "baseline" = att_tea.yaml, None = nothing sold). The CaCO3 of the waste lime is never credited. The carbon of the
     provisional U2 residual product (att_lca.yaml provisional_residue_species) is added only with ``include_char``
     (default: att_lca.yaml carbon_storage.credit_char_carbon).
     """
@@ -317,7 +318,8 @@ def get_att_gwp_contributions(sys, applied):
     naoh = s["fresh_naoh_solid"]
     # C1 lime and the CO2-scrubber lime carry the same factor (apply_att_gwp); both are in this line.
     limes = [s[ID] for ID in ("lime", "scrubber_lime") if ID in s]
-    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water") if ID in s]
+    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water",
+                                                      "f1_wash_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
     add("Ca(OH)2", sum(l.imass["CaOH2"] for l in limes) * hours, "kg", f[applied["lime_source"]], "kg CO2e/kg",
@@ -360,6 +362,18 @@ def get_att_gwp_contributions(sys, applied):
 
 
 AVOIDED_CH4_ITEM = "Avoided CH4 if rotted on the beach (extra credit, not in net)"
+
+
+def _credit_scope():
+    """Plain-text statement of what the storage credit covers under the configured accounting."""
+    cfg = _LCA["carbon_storage"]
+    residue = "the U2 residual product (char) is credited" if cfg.get("credit_char_carbon", True) else         "the U2 residual product is not credited"
+    if cfg.get("carbonate_storage_accounting", "inherited") == "conservative":
+        return ("only the CaCO3 carbon that is not sold, permanence assumed; sold CaCO3 and soluble Na2CO3 not credited; "
+                + residue)
+    soluble = "soluble Na2CO3 credited" if cfg.get("credit_soluble_carbonate", True) else "soluble Na2CO3 not credited"
+    return ("the Sargassum carbon of the CaCO3 of the cakes (sold or landfilled); " + soluble + "; the CaCO3 of the "
+            "waste lime never; " + residue)
 
 
 def get_att_stored_carbon_credit(sys, include_char=None, caco3_sales=BASELINE, accounting=None):
@@ -485,15 +499,16 @@ def get_att_gwp_summary(sys, applied):
          "burned with the tail gas (natural gas offset); H2 indirect warming not quantified"),
         ("PSA off-gas total", float(tail.F_mass) / dry, "kg/kg dry", _LCA["offgas"]["treatment"]),
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
-         "credited as stored carbon when the cake is landfilled (a product); not when it is recycled to the kiln"),
+         "carbon of the F2 cake (CaCO3, incl. the waste lime's, and Na2CO3); the Sargassum part of the CaCO3 is credited "
+         "as stored carbon, sold or landfilled (inherited accounting); not when it is recycled to the kiln"),
         ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
-         "char carbon credited only if credit_char_carbon (provisional U2 residual product: char or lumped residue; not measured)"),
+         "carbon of the cake (residue and Na2CO3); the residue is credited only if credit_char_carbon (provisional U2 "
+         "residual product: char or lumped residue; not measured), the soluble Na2CO3 only if credit_soluble_carbonate"),
         ("Stored-carbon credit in the net GWP", get_att_stored_carbon_credit(sys, caco3_sales=sales), "kg CO2e/kg H2",
-         f"{applied['carbonate_storage_accounting']}: landfilled (unsold) CaCO3 only, permanence assumed; sold CaCO3 "
-         "and soluble Na2CO3 not credited (and the U2 residual product only if credit_char_carbon)"),
-        ("Stored-carbon credit, inherited accounting (optimistic comparison only)",
+         f"{applied['carbonate_storage_accounting']}: {_credit_scope()}"),
+        ("Stored-carbon credit, inherited accounting (comparison)",
          get_att_stored_carbon_credit(sys, caco3_sales=sales, accounting="inherited"), "kg CO2e/kg H2",
-         "earlier treatment: all carbonate carbon of the cakes credited, including the CaCO3 sold in the TEA"),
+         "the Sargassum carbon of the CaCO3 of the cakes credited, sold or not (the baseline rule), without the residue"),
         ("Stored-carbon credit incl. provisional U2 residual product (comparison only)",
          get_att_stored_carbon_credit(sys, True, caco3_sales=sales),
          "kg CO2e/kg H2", "assumption-based; not in the net GWP unless credit_char_carbon"),
@@ -592,10 +607,10 @@ def get_att_lca_data_gaps(sys, applied):
         ("Cooling-tower and boiler make-up water", "NOT INCLUDED", float("nan"), "small", "LOW"),
         ("Water/WWT factors (Zib et al. 2021)", "AS PROVIDED, not rechecked", float("nan"), "tiny contribution", "LOW"),
         ("Capital goods, chemical transport", "EXCLUDED", float("nan"), "outside the workbook boundary", "LOW"),
-        ("Biogenic C storage in landfilled solids", "CREDITED in the net only for landfilled (unsold) CaCO3",
+        ("Biogenic C storage in the solids", "CREDITED in the net: " + _credit_scope(),
          summary["Biogenic C retained in CaCO3 cake"] * 44.0095 / 12.011,
-         "kg CO2 equivalent of the C in the cake; sold CaCO3 has no storage credit (end use unknown); "
-         "permanence of the landfilled carbonate is assumed", "assumption"),
+         "kg CO2 equivalent of the C in the CaCO3 cake; the end use of sold CaCO3 is unknown (calcination or acid use "
+         "would release it) and the permanence of the stored carbonate is assumed", "assumption"),
     ]
     return [dict(item=a, status=b, indicative_kgCO2e_per_kg_dry=c, note=d, importance=e) for a, b, c, d, e in rows]
 

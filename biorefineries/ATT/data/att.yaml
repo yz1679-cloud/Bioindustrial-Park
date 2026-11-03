@@ -429,6 +429,15 @@ att:
         LimeInerts: 0.04            # SiO2, Al2O3, Fe2O3, MgO, sulfate, unreacted carbon (lumped as an inert mineral)
       moisture_wt_frac: 0.40        # filter-pressed paste: 30-50 wt % water (EIGA Doc 143/25)
       source: "Dry composition: dried acetylene-plant sludge 95 % Ca(OH)2, 2 % CaCO3, 1.3 % SiO2 (carbide sludge vacuum-filtration study); reviews 85-95 % Ca(OH)2, CaCO3 1-10 %, silicates and carbon 1-3 %; XRF SiO2 2-3 %, Al2O3 about 1.3 %; the EIGA slurry table reports 16-22 % CaCO3 on dry matter (an upper bound). Water: EIGA Doc 143/25 sect. 4.5-4.6.2 (settled slurry 25-30 % solids; press-filtered paste 30-50 % water). Trace metals (Cu, Mn, Ni, Ba, Cr), chloride, sulfate and ammonium are not modeled."
+    # Wash of the F1 ash/residue cake (user decision 2026-11-02; scenarios.create(f1_wash=False) switches it off): one
+    # ideal stage, no dryer; the wash liquor joins the carbonate solution that feeds C1 (its Na2CO3 is causticized, its
+    # NaOH recovered).
+    f1_washing:
+      enabled: true
+      wash_ratio_kg_per_kg_dry_cake: 1.0   # ENG: wash water per kg of the dry solids of the unwashed F1 cake (as the F2 wash)
+      use_excess_condensate: true          # wash water = the condensate left after the dissolver and the F2 wash; fresh for the rest
+      contact_time_h: 0.25
+      temperature_K: 298.15
     f2_washing:
       enabled: true       # the CaCO3 cake is washed and the wash liquor is recycled (recycle_wash_liquor)
       recycle_wash_liquor: true   # wash liquor to the dissolver D1 (replaces condensate / fresh dissolution water); false: wastewater
@@ -590,6 +599,7 @@ att:
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
       ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
       f2_wash_water: [input, process_water, "Fresh F2 cake wash water; engineering ratio on original dry cake."]
+      f1_wash_water: [input, process_water, "Fresh F1 cake wash water (optional F1 wash variant)."]
       f2_wash_liquor: [output, liquid_waste, "F2 wash filtrate: water and dissolved sodium; neutralization and wastewater treatment, no recycle."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
       lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
