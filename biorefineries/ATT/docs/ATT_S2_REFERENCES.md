@@ -46,7 +46,7 @@ No value is claimed from a source that was not read.
 |---|---|---|---|
 | R-UCLA | `SabRe Meeting_Gyudae_20260928.pptx` (UCLA, G. Sim, 28 Sep 2026); local copies in `Downloads/` and `Box/PhD_Yu Zhou-Li/SaBRe/slide/` | Slide text read | Motivation only: slide 12 cites R-Z2020 for ship waste heat; slide 16 states "water evaporation takes 65–77 % of energy in ATT" and about 9.5 kg CO2e/kg H2 with waste heat. **Not transferred**: different model, moisture and boundary |
 | R-PREFEED | `ATT_ship_waste_heat_preFEED_model.xlsx` | **Not found locally** (Downloads, Desktop, Documents, Box searched) | Its assumptions are used only as documented by the user: 3.123 / 2.021 / 0.637 MW gross and 1.062 / 0.601 / 0.162 MW delivered at about 30 t dry/d; fractions 25.5 / 16.5 / 5.2 %; capture 40 / 35 / 30 %; delivery 85 %. Its historical U2 value is about 3 619 **kW** at 30 t dry/d (not "MW"); it is not used |
-| R-ATT | ATT S1 model (this project): `data/att.yaml`, `IMPLEMENTATION_NOTES.md`, the simulated utility ledger | MODEL | Heat sinks, utility prices, TEA and LCA basis |
+| R-ATT | ATT S1 model (this project): `data/att.yaml`, the simulated utility ledger | MODEL | Heat sinks, utility prices, TEA and LCA basis |
 
 ## User-supplied assumptions (not literature-verified)
 

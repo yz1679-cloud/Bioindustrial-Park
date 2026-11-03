@@ -1,7 +1,7 @@
 # ATT: alkaline thermal treatment of Sargassum to H2
 
 Independent project derived from SaBRe Scenario 5 (`biorefineries/sabre`, which it does not import or modify).
-Baseline: **ATT Scenario 1** (`att_s1`). See `IMPLEMENTATION_NOTES.md` for the changes, results and open issues.
+Baseline: **ATT Scenario 1** (`att_s1`). See `docs/` for the process, TEA, LCA and design-basis documents.
 
 ```python
 from biorefineries.ATT.analyses import scenarios

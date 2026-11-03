@@ -18,7 +18,7 @@ class TestATTBreakdown(unittest.TestCase):
 
     def test_u2_checks_pass(self):
         # Known to FAIL for ATT Scenario 1: the measured gases + residual-carbon char hold more hydrogen than the
-        # feed (unresolved balance, see IMPLEMENTATION_NOTES.md). Kept as is so that the issue stays visible.
+        # feed (unresolved balance). Kept as is so that the issue stays visible.
         rows = self.t["U2_balance_checks"]
         status = rows["status"].dropna()
         self.assertFalse(status.str.startswith("FAIL").any(), rows.to_string())
