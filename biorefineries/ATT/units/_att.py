@@ -26,7 +26,7 @@ __all__ = (
     "ATTDrumDryer",
     "ATTCompressor",
     "ATTMolecularSieve",
-    "ATTVesselCost",
+    "ATTReactorVessel",
     "ATTPSA",
     "ATTLimeKiln",
     "ATTLimeSlaker",
@@ -235,10 +235,13 @@ class ATTMolecularSieve(bst.MolecularSieve):
 
 
 
-class ATTVesselCost(bst.Unit, PressureVessel):
+class ATTReactorVessel(bst.Unit, PressureVessel):
     """
     Vertical vessel of a given volume, costed with BioSTEAM's pressure-vessel
     correlation (auxiliary unit of the ATT reactor; no mass or energy effect).
+    Material: Inconel-600 (cost factor), assumed for the hot, high-salt caustic feed (user decision
+    2026-11-04); stainless steel may not be sufficient. BioSTEAM has no density for Inconel, so the wall weight
+    is computed with stainless steel 316.
     """
     _N_ins = _N_outs = 1
     _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
@@ -1150,7 +1153,7 @@ class ATTReactor(bst.Unit):
         # Reactor vessel (hold-up volume): costed with the pressure-vessel
         # correlation; its volume follows the feed in _design().
         cfg = _EQUIPMENT["U2_vessel"]
-        vessel = self.auxiliary("vessel", ATTVesselCost, ins=bst.Stream(None),
+        vessel = self.auxiliary("vessel", ATTReactorVessel, ins=bst.Stream(None),
                                 length_to_diameter=cfg["length_to_diameter"], material=cfg["material"])
         self.register_auxiliary(vessel, "vessel")
 
