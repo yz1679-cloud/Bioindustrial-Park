@@ -96,7 +96,7 @@ def scale(spec=ATT_S1):
 def tea_config(spec=ATT_S1, caco3_price=None, f2_sales=True):
     """
     evaluate_att_tea keywords for the lime and CaCO3 assumptions of a scenario. Waste lime: Ca(OH)2 at 0 USD/kg.
-    Without the lime recycle the cakes are products: with att_tea.yaml caco3_sales enabled their CaCO3 is sold and
+    Without the lime recycle the cakes are products: with tea.yaml caco3_sales enabled their CaCO3 is sold and
     the rest disposed (counted once, on the cake stream prices), otherwise the whole cake is disposed (Case A).
     ``caco3_price`` [USD/t] overrides the configured price for this call only.
     """

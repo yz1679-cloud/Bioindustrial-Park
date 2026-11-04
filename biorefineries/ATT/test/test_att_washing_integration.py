@@ -79,7 +79,7 @@ class TestNativeF2Washing(unittest.TestCase):
     def test_wash_costs_and_lca_are_included(self):
         result = tea.evaluate_att_tea(self.on, **scen.tea_config())
         self.assertEqual(self.s["f2_wash_water"].price, result["prices"]["process_water"])
-        self.assertEqual(self.s["f2_wash_liquor"].price, tea._PRICE["disposal_wastewater"]["baseline"])
+        self.assertEqual(self.s["f2_wash_liquor"].price, tea._PRICE["disposal_wastewater"]["value"])
         rows = tea._opex_table(self.on, result)
         self.assertEqual(sum(r["item"] == "Disposal: f2_wash_liquor" for r in rows), 1)
         self.assertTrue(any(r["item"] == "Process water (F2 washing)" for r in rows))
@@ -173,7 +173,7 @@ class TestNativeF2Washing(unittest.TestCase):
                 self.assertEqual(price, 0.0)
                 self.assertEqual(row["USD_per_yr"], 0.0)
             else:
-                self.assertEqual(price, tea._PRICE["disposal_solid"]["baseline"])      # unwashed: disposed
+                self.assertEqual(price, tea._PRICE["disposal_solid"]["value"])      # unwashed: disposed
                 self.assertGreater(row["USD_per_yr"], 0.0)
 
     def test_caco3_cakes_are_dried_before_sale(self):

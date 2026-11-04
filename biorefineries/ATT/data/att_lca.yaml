@@ -109,7 +109,7 @@ lca:
     credit_stored_carbon: true
     # CARBONATE STORAGE ACCOUNTING (finalization 2026-11-01). The credited carbonate carbon is biogenic (U2 converts
     # Sargassum carbon to CO2/Na2CO3; C1 and the scrubber fix it as CaCO3; lime and NaOH carry no carbon), but a
-    # credit needs the material to be landfilled, and the TEA sells the CaCO3 (att_tea.yaml caco3_sales):
+    # credit needs the material to be landfilled, and the TEA sells the CaCO3 (tea.yaml caco3_sales):
     #   conservative (option): credit only the CaCO3 carbon that is physically landfilled, i.e. the cake CaCO3 NOT
     #       sold under the TEA disposition (lca.apply_att_gwp caco3_sales). Sold CaCO3 gets no storage credit (end
     #       use unknown; calcination or acid use would release it) and no substitution credit; soluble Na2CO3 in

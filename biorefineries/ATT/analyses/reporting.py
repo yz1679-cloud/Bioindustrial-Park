@@ -51,7 +51,6 @@ FILES = {
     "feedstock.yaml": "biorefineries/ATT/data/feedstock.yaml",
     "tea.yaml": "biorefineries/ATT/data/tea.yaml",
     "att_lca.yaml": "biorefineries/ATT/data/att_lca.yaml",
-    "att_tea.yaml": "biorefineries/ATT/data/att_tea.yaml",
 }
 WORKBOOK = "ATT_Master_Model_Documentation.xlsx"
 EXP, SDB, BSD, LIT, ENG, CALC = ("Experimental (UCLA)", "SaBRe database", "BioSTEAM default", "Literature",
@@ -266,29 +265,29 @@ def _register_rows():
             "Baseline" if k != "marine_fuel" else "Scenario",
             v.get("note", ""), "LCA", f"range {v.get('range', '')}", v.get("status", ""),
             "Yes" if k in ("electricity",) else "No")
-    for k, v in Y("att_tea.yaml", "tea.prices").items():
-        if isinstance(v, dict):
+    for k, v in Y("tea.yaml", "prices").items():
+        if isinstance(v, dict) and k not in tea_mod._FEED_AND_DISPOSAL:
             add("TEA", f"Price {k}", v["value"], "USD/kg", "TEA", "", LIT if "USGS" in v["source"] else
-                (SDB if "tea.yaml" in v["source"] else LIT), v["source"], f"att_tea.yaml:tea.prices.{k}",
+                (SDB if "tea.yaml" in v["source"] else LIT), v["source"], f"tea.yaml:prices.{k}",
                 "Baseline" if k != "CaOH2_updated" else "Scenario", v.get("year", ""), "TEA",
                 f"range {v.get('range', '')}")
     for k in ("disposal_solid", "disposal_wastewater"):
-        add("TEA", f"Price {k}", Y("tea.yaml", f"price.{k}.baseline"), "USD/kg", "TEA", "negative = cost", SDB,
-            "SaBRe tea.yaml (notes: biosolids $30-80/dry t; WWT $3-8/m3)", f"tea.yaml:price.{k}.baseline",
-            "Baseline", affects="TEA", uncertainty=f"range {Y('tea.yaml', f'price.{k}.range')}")
-    add("TEA", "Price sargassum (delivered)", Y("tea.yaml", "price.sargassum.baseline"), "USD/kg wet", "TEA",
-        "Collection/transport cost", SDB, Y("tea.yaml", "price.sargassum.source"), "tea.yaml:price.sargassum.baseline",
+        add("TEA", f"Price {k}", Y("tea.yaml", f"prices.{k}.value"), "USD/kg", "TEA", "negative = cost", SDB,
+            "SaBRe tea.yaml (standard biosolids $30-80/dry t; WWT $3-8/m3)", f"tea.yaml:prices.{k}.value",
+            "Baseline", affects="TEA", uncertainty=f"range {Y('tea.yaml', f'prices.{k}.range')}")
+    add("TEA", "Price sargassum (delivered)", Y("tea.yaml", "prices.sargassum.value"), "USD/kg wet", "TEA",
+        "Collection/transport cost", SDB, Y("tea.yaml", "prices.sargassum.source"), "tea.yaml:prices.sargassum.value",
         "Baseline 0; sensitivity 0-50 USD/t", affects="TEA", confirm="Yes (logistics data)")
-    for k, v in Y("tea.yaml", "tea").items():
+    for k, v in Y("tea.yaml", "financial").items():
         add("Financial", k, str(v) if isinstance(v, list) else v, "-", "SaBReTEA", "", SDB,
-            "SaBRe tea.yaml (project financial convention)", f"tea.yaml:tea.{k}", "Baseline", affects="TEA")
+            "SaBRe tea.yaml (project financial convention)", f"tea.yaml:financial.{k}", "Baseline", affects="TEA")
     psa = Y("att.yaml", "att.gas_treatment.psa_cost")
     add("TEA", "PSA installed cost anchor", psa["anchor_installed_cost_usd"], "USD", "U3P",
         f"{psa['anchor_capacity_t_H2_per_day']} t H2/d, exponent {psa['exponent']}", LIT, psa["source"],
         "att.yaml:att.gas_treatment.psa_cost", psa["status"], affects="TEA", basis="Baseline (+/-50 %)",
         uncertainty="Primary reference and cost year not verified")
     add("TEA", "Equipment cost year", bst.CE, "CEPCI", "all equipment", "BioSTEAM default CE", BSD,
-        "BioSTEAM settings (bst.CE)", "att_tea.yaml:tea.cost_year.reference_CE", "Baseline", affects="TEA",
+        "BioSTEAM settings (bst.CE)", "tea.yaml:cost_year.reference_CE", "Baseline", affects="TEA",
         uncertainty="Prices are 2024-2025; ~2024 CEPCI comparison provided")
     return r
 
@@ -347,7 +346,7 @@ def _units_table(sys, estimates):
                                            "no model cost (see TEA-only estimates)"),
             sizing_costing_source="native BioSTEAM" if u.purchase_cost > 0 else
             ("custom estimate (att.yaml inventory.cost_estimates)" if u.ID in ("C1", "EC1") else
-             ("preliminary PSA estimate (att_tea.yaml)" if u.ID == "U3P" else "no equipment (junction)")),
+             ("preliminary PSA estimate (tea.yaml)" if u.ID == "U3P" else "no equipment (junction)")),
             configuration=cfg, data_origin=ORIGIN_SYS))
     for r in estimates:
         rows.append(dict(unit_ID=r["unit"], BioSTEAM_class="TEA-only estimate", function=r["item"],
@@ -715,7 +714,7 @@ def _opex_detail(sys, result):
             add(label, float(water.F_mass) / dry, "kg", water.price,
                 "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
     add("Sargassum (delivered)", float(s["att_sargassum_feed"].F_mass) / dry, "kg wet", s["att_sargassum_feed"].price,
-        "USD/kg wet", s["att_sargassum_feed"].cost * hours, "tea.yaml price.sargassum.baseline", "-",
+        "USD/kg wet", s["att_sargassum_feed"].cost * hours, "tea.yaml prices.sargassum.value", "-",
         "purchased (0 in baseline; see collection sensitivity)")
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     fuel = sum(hu.duty for hu in gas) / 1e3 / tea_mod._BURNER_EFFICIENCY
@@ -749,12 +748,12 @@ def _opex_detail(sys, result):
         sold = ID in (result.get("caco3_sales") or {})
         add(f"CaCO3 cake, net (CaCO3 sales - disposal of the rest): {ID}" if sold else f"Disposal: {ID}",
             float(s[ID].F_mass) / dry, "kg", -s[ID].price, "USD/kg (cost)",
-            -s[ID].price * float(s[ID].F_mass) * hours, "att_tea.yaml caco3_sales" if sold else
+            -s[ID].price * float(s[ID].F_mass) * hours, "tea.yaml caco3_sales" if sold else
             "tea.yaml disposal price" if ID != "caco3_cake" else "reference: 0; Case A: tea.yaml disposal_solid",
             "-", "coproduct sale and service" if sold else "service")
     tea = result["tea"]
     add("Fixed operating cost (labor, maintenance, overhead)", float("nan"), "-", tea_mod._FIN["foc_frac_of_fci"],
-        "fraction of FCI/yr", tea.FOC, "tea.yaml tea.foc_frac_of_fci", "-",
+        "fraction of FCI/yr", tea.FOC, "tea.yaml financial.foc_frac_of_fci", "-",
         "fixed; labor and maintenance not itemized")
     return rows
 
@@ -797,7 +796,7 @@ def _capex_detail(sys, result):
 
 def _financial(result):
     tea = result["tea"]
-    rows = [dict(parameter=k, value=str(v), source=f"tea.yaml:tea.{k}") for k, v in tea_mod._FIN.items()]
+    rows = [dict(parameter=k, value=str(v), source=f"tea.yaml:financial.{k}") for k, v in tea_mod._FIN.items()]
     rows += [
         dict(parameter="operating_days", value=tea.operating_days, source="tea.yaml:operating_days"),
         dict(parameter="operating_hours", value=tea.operating_days * 24, source="derived"),
@@ -819,7 +818,7 @@ def _caco3_detail(sys, caco3):
     hours = sys.operating_hours
     cake_t = float(s["caco3_cake"].F_mass) * hours / 1e3
     caco3_t = float(s["caco3_cake"].imass["CaCO3"]) * hours / 1e3
-    disposal = -float(tea_mod._PRICE["disposal_solid"]["baseline"]) * 1e3
+    disposal = -float(tea_mod._PRICE["disposal_solid"]["value"]) * 1e3
     rows = []
     for r in caco3:
         f = r["marketable_fraction"] if r["marketable_fraction"] == r["marketable_fraction"] else 0.0
@@ -840,14 +839,14 @@ def _gaps_and_inconsistencies(lca_gaps):
     rows = [dict(type="Data gap (LCA)", item=r["item"], status=r["status"], magnitude=r["indicative_kgCO2e_per_kg_dry"],
                  note=r["note"], importance=r["importance"]) for r in lca_gaps]
     rows += [dict(type="TEA limitation", item=x, status="documented", magnitude=float("nan"), note="", importance="")
-             for x in Y("att_tea.yaml", "tea.limitations")]
+             for x in Y("tea.yaml", "limitations")]
     inconsistencies = [
         ("att.yaml energy_sources.marine_fuel.emission_factor_kgCO2e_per_L = 3.2", "key says per litre; workbook and "
          "att_lca.yaml state 3.2 kg CO2/kg fuel. Key is not used by any calculation."),
-        ("tea.yaml price.sargassum.scenario mid_cost_collect = high_cost_collect = 0.05", "range reaches 0.10; "
+        ("tea.yaml prices.sargassum.scenario mid_cost_collect = high_cost_collect = 0.05", "range reaches 0.10; "
          "likely a typo in existing SaBRe data (not changed)."),
-        ("tea.yaml price.naoh.baseline = 0.35", "note 'fermentation medium', source 'no literature source cited in "
-         "legacy scripts'."),
+        ("tea.yaml prices.NaOH.value = 0.35", "SaBRe baseline with no literature source (the high value 0.526 is from "
+         "biorefineries/lactic)."),
         ("att.yaml reactor.legacy_heat_duty_kJ_per_kg_dry_sargassum = 10423.77", "not used by any code (legacy)."),
         ("att.yaml heat_recovery.minimum_approach_temperature_K = 5", "used only by legacy diagnostics "
          "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),
@@ -1119,7 +1118,7 @@ traceability only: no model, LCA or TEA parameter is changed.
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/ATT/data/att.yaml`.
 - **Configuration:** `biorefineries/ATT/data/att.yaml` (process),
   `feedstock.yaml`, `tea.yaml` (SaBRe common), `att_lca.yaml` (GWP100 factors),
-  `att_tea.yaml` (ATT prices and capital items).
+  `tea.yaml` (ATT prices and capital items).
 - **Inventory:** `analyses/inventory.py` (mass, element, water, Na/Ca,
   energy, utilities, equipment estimates) -> `results/full_scale/mass_energy/`.
 - **LCA:** `analyses/lca.py` (BioSTEAM characterization factors and
@@ -1184,7 +1183,7 @@ def export_att_documentation(out_dir=None):
 # Consolidated research-stage results (process, TEA, GWP100)
 # ==========================================================================
 
-_TEA_PRICE = load_assumptions("tea.yaml")["price"]
+_TEA_PRICE = load_assumptions("tea.yaml")["prices"]
 COLLECTION_COST_USD_PER_WET_T = (0.0, 5.0, 10.0, 20.0, 50.0)
 ILLUSTRATIVE_FUEL_KG_PER_WET_T = (1.0, 5.0, 10.0)   # parametric only; no data
 
@@ -1469,8 +1468,8 @@ def _assumptions_table():
          "att_lca.yaml"),
     ]
     rows = [dict(type=a, item=b, value=c, source=d) for a, b, c, d in rows]
-    rows += [dict(type="LIMITATION", item="TEA", value=x, source="att_tea.yaml") for x in
-             load_assumptions("att_tea.yaml")["tea"]["limitations"]]
+    rows += [dict(type="LIMITATION", item="TEA", value=x, source="tea.yaml") for x in
+             load_assumptions("tea.yaml")["limitations"]]
     return rows
 
 

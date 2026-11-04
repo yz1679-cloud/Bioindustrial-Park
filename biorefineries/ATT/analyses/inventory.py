@@ -425,8 +425,8 @@ def get_att_tea_inputs(scale=None):
     if scale is None:
         from biorefineries.ATT.analyses import scenarios as scen     # scenarios imports this module
         scale = scen.scale(scen.ATT_S1)
-    price = _TEA["price"]
-    tea = _TEA["tea"]
+    price = _TEA["prices"]
+    tea = _TEA["financial"]
     lps = bst.HeatUtility.get_agent("low_pressure_steam")
     cw = bst.HeatUtility.get_agent("cooling_water")
     ng = bst.HeatUtility.get_agent("natural_gas")
@@ -436,11 +436,11 @@ def get_att_tea_inputs(scale=None):
         ("Operating time", f"{scale['operating_days_per_year']:.0f} d/yr = {scale['operating_hours_per_year']:.0f} h/yr",
          "tea.yaml operating_days", "set"),
         ("Financial parameters", ", ".join(f"{k}={tea[k]}" for k in ("IRR", "duration", "depreciation", "income_tax")),
-         "tea.yaml tea (SaBReTEA)", "set"),
-        ("Fixed operating cost", f"{tea['foc_frac_of_fci']} x FCI", "tea.yaml tea", "set"),
-        ("Sargassum price", f"{price['sargassum']['baseline']} USD/kg wet (range {price['sargassum']['range']})",
-         "tea.yaml price.sargassum", "set"),
-        ("NaOH price", f"{price['naoh']['baseline']} USD/kg", "tea.yaml price.naoh (no literature source)",
+         "tea.yaml financial (SaBReTEA)", "set"),
+        ("Fixed operating cost", f"{tea['foc_frac_of_fci']} x FCI", "tea.yaml financial", "set"),
+        ("Sargassum price", f"{price['sargassum']['value']} USD/kg wet (range {price['sargassum']['range']})",
+         "tea.yaml prices.sargassum", "set"),
+        ("NaOH price", f"{price['NaOH']['value']} USD/kg", "tea.yaml prices.NaOH (no literature source)",
          "set; source to verify"),
         ("Ca(OH)2 price", "", "", "MISSING"),
         ("Natural gas price", f"{ng.regeneration_price} USD/kmol (BioSTEAM default agent)", "BioSTEAM default",
@@ -453,8 +453,8 @@ def get_att_tea_inputs(scale=None):
         ("H2 price", "solve minimum selling price", "SaBReTEA.solve_price", "output"),
         ("CH4 off-gas value", "0 in baseline; later scenario", "user decision 2026-10-09", "scenario"),
         ("CaCO3 value", "0 in baseline", "user decision 2026-10-09", "scenario"),
-        ("Solid disposal (ash/char cake)", f"{price['disposal_solid']['baseline']} USD/kg", "tea.yaml disposal_solid", "set"),
-        ("Wastewater disposal", f"{price['disposal_wastewater']['baseline']} USD/kg", "tea.yaml disposal_wastewater",
+        ("Solid disposal (ash/char cake)", f"{price['disposal_solid']['value']} USD/kg", "tea.yaml disposal_solid", "set"),
+        ("Wastewater disposal", f"{price['disposal_wastewater']['value']} USD/kg", "tea.yaml disposal_wastewater",
          "set; caustic purge may need neutralization cost"),
         ("PSA capital", "", "", "MISSING"),
     ]

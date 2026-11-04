@@ -143,7 +143,7 @@ att:
       power_kWh_per_dry_ton: 5.0
       # The press liquid is the raw juice for biostimulant production and is
       # a coproduct of the fresh-Sargassum plant (no wastewater charge; transfer
-      # price in att_tea.yaml).
+      # price in tea.yaml).
     # Split of the seaweed ash of the presscake (user decision 2026-11-03). Basis: ILLUSTRATIVE typical major-element contents of
     # seaweed that the user shared (median of 14 samples, mg/kg dw: K 70,446; Na 33,166; Ca 40,690; Mg 8,610; P 748; S about 15,000;
     # NOT the collaborators' own sample, so the split is an expectation, not a measurement), scaled to the
@@ -319,7 +319,7 @@ att:
       anchor_capacity_t_H2_per_day: 203.4
       exponent: 0.6
       cost_factor: 1.0
-      source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed and not escalated. Sensitivity: att_tea.yaml PSA_capex_factor."
+      source: "Review statement: PSA unit cost 45-81 million USD for 203.4-453.6 t H2/d (arXiv:2502.12211, citing primary studies not checked); lower anchor used, six-tenths scaling on H2 product capacity; cost year and scope (installed vs purchased) not confirmed, treated as installed and not escalated. Sensitivity: tea.yaml PSA_capex_factor."
     # U3K compressor type: BioSTEAM picks screw compressors, outside their bounds (10-750 hp)
     # at this size; reciprocating is the conventional service for the PSA-feed gas and is
     # within its correlation bounds.
@@ -718,7 +718,7 @@ att:
       condensate_surplus_leach: [internal, process, "Surplus condensate before the leach water takeoff."]
       leachate_naoh: [input, reagent, "NaOH for the HCl left after the Na2CO3 and NaOH of the cake liquor (normally zero)."]
       roaster_air: [input, ambient_air, "Roaster combustion air; no burden."]
-      ree_product: [output, coproduct, "Roasted REE oxalate with mineral filler (1.31 wt % REO), sold on its REO content (att_tea.yaml prices.REO)."]
+      ree_product: [output, coproduct, "Roasted REE oxalate with mineral filler (1.31 wt % REO), sold on its REO content (tea.yaml prices.REO)."]
       char_cake: [internal, process, "Washed char cake to the REE leach LC1 (the leached char leaves as ash_residue_cake)."]
       leach_co2: [output, air_emission, "CO2 of the carbonate that neutralizes the HCl (biogenic)."]
       roaster_exhaust: [output, air_emission, "Roaster exhaust: CO2 (biogenic char carbon and fossil oxalate), water vapor, N2 and O2."]

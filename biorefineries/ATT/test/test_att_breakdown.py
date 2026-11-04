@@ -61,7 +61,7 @@ class TestATTBreakdown(unittest.TestCase):
         self.assertTrue(cfg["enabled"])
         caco3 = sum(float(s[ID].imass["CaCO3"]) for ID in cfg["streams"])
         rest = sum(float(s[ID].F_mass - s[ID].imass["CaCO3"]) for ID in cfg["streams"])
-        price, disposal = cfg["price_usd_per_metric_ton"], -float(tea_mod._PRICE["disposal_solid"]["baseline"])
+        price, disposal = cfg["price_usd_per_metric_ton"], -float(tea_mod._PRICE["disposal_solid"]["value"])
         self.assertAlmostEqual(t["summary"]["CaCO3_sales_revenue_USD_per_yr"], caco3 * hours / 1e3 * price, places=3)
         self.assertAlmostEqual(t["summary"]["CaCO3_cake_disposal_USD_per_yr"], rest * disposal * hours, places=3)
         groups = t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]

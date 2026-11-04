@@ -1,6 +1,6 @@
 """Carbon accounting of ATT S1.
 
-Baseline (att_tea.yaml caco3_sales.enabled false; att_lca.yaml inherited accounting, char credited): the CaCO3 cakes are
+Baseline (tea.yaml caco3_sales.enabled false; att_lca.yaml inherited accounting, char credited): the CaCO3 cakes are
 disposed and ALL carbon in landfilled solids (CaCO3, Na2CO3, the lumped residue = ATT char) earns the storage credit.
 
 Option (``sales_option()``): CaCO3 sales and the conservative accounting, where the LCA follows the TEA disposition of

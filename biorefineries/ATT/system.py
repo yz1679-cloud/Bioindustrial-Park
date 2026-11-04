@@ -51,7 +51,7 @@ if "heat_recovery" not in _ATT_DATA:
         "Install the data file as data/att.yaml (not under a versioned filename)."
     )
 _ATT_HEAT_RECOVERY = _ATT_DATA["heat_recovery"]
-_COST_YEAR = load_assumptions("att_tea.yaml")["tea"]["cost_year"]
+_COST_YEAR = load_assumptions("tea.yaml")["cost_year"]
 
 
 def get_att_press_retention():
@@ -219,7 +219,7 @@ def create_att_system(
         create_chemicals(include_att=True)
     if configuration not in ("fresh_sargassum", "presscake"):
         raise ValueError("configuration must be 'fresh_sargassum' or 'presscake'.")
-    # All equipment is costed at the cost-year CEPCI of att_tea.yaml (2020 USD).
+    # All equipment is costed at the cost-year CEPCI of tea.yaml (2020 USD).
     bst.CE = float(_COST_YEAR["reference_CE"])
 
     # --------------------------------------------------------------

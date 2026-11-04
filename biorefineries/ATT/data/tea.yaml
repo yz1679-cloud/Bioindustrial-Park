@@ -1,10 +1,16 @@
-# Model Assumptions: Techno-Economic Analysis (TEA)
+# Model Assumptions: Techno-Economic Analysis (TEA) of the ATT system (research stage)
+#
+# Read by analyses/tea.py (and the inventory, LCA and reporting modules). Top-level sections:
+#   operating_days, financial   plant uptime and the SaBReTEA financial assumptions (FCI = installed equipment cost)
+#   prices                      Sargassum, disposal, reagent and product prices
+#   caco3_sales, residue_sale   byproduct sales assumptions;  cost_year: equipment cost basis
+#   sensitivities, limitations  sensitivity ranges and the documented TEA limitations
 
 # Plant uptime, in operating days per year.
 operating_days: 330
 
-# create_tea()/SaBReTEA default economic and financing assumptions.
-tea:
+# Economic and financing assumptions of SaBReTEA (the DCF behind the MSP).
+financial:
   IRR: 0.10
   duration: [2026, 2046]
   depreciation: "MACRS7"
@@ -20,15 +26,14 @@ tea:
   startup_salesfrac: 0.5
   foc_frac_of_fci: 0.04
 
-price:
-  note:
-    - "all prices are USD per wet kg unless noted otherwisely."
-    - "different values for baseline, scenario, and uncertainty/sensitivity analysis."
-    - "for waste streams, cod_basis means disposal prices estimated vased on stream COD load (rate -$0.3676 kg-COD, Schueller (2020) Municipal Residential Wastewater Rates excess-COD surcharge), see details in biorefineries/wwt module. Cost might have deviated due to system update."
+basis: "SaBReTEA with tea.yaml financial assumptions; ATT model with the active U2 closure (att.yaml) at the SaBRe reference scale"
+cost_year_note: "ASSUMPTION: all equipment is costed in 2020 USD (CEPCI 596.2, the basis of the NLR Sargassum TEA used for the feed and press data); see cost_year below. Material and utility prices are of mixed years, recorded below, and are not escalated."
+product: h2_product   # MSP solved on this stream
 
+prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feedstock and the disposal entries)
   # Feedstock
   sargassum:
-    baseline: 0.0
+    value: 0.0
     scenario:
       tipping_fee: -0.02
       low_cost_collect: 0.02
@@ -38,113 +43,146 @@ price:
     distribution: "uniform"
     source: "Rodriguez-Martinez et al. 2023 (Sci Total Environ); cleanup costs $19-85/m3 wet = $0.024-0.106/kg wet"
   
-  # Reagents
-  mgso4:
-    baseline: 0.40
-    note: "fermentation medium, industrial grade"
-    source: "no literature source cited in legacy scripts"
-  ammonia:
-    baseline: 0.50
-    note: "liquid ammonia, N source for fermentation medium"
-    source: "no literature source cited in legacy scripts"
-  phosphate:
-    baseline: 0.80
-    note: "KH2PO4, P source for fermentation medium"
-    source: "no literature source cited in legacy scripts"
-  naoh:
-    baseline: 0.35
-    note: "fermentation medium, pH base"
-    source: "no literature source cited in legacy scripts"
-  enzyme:
-    baseline: 2.68
-    note: "$6.16/kg hydrolysis enzyme cocktail (cellulase + alginate lyase) dosed in EnzymaticPress, sabre/units/_preprocessing.py; priced as soy protein (isolate) since no separate published price exists for this cocktail, applied on the same $/kg protein basis as the prior Davis et al. (2018) enzyme price."
-    source: "$2.68/kg protein, 100%-protein-equivalent basis for soy protein isolate ($2.52/kg as-is at ~95% protein); Green Circle Capital, 'GC Protein Pricing Review Year End 2023' (Mar 2024), average of Alibaba wholesale prices for 1-MT shipments."
-  lime:
-    baseline: 0.262
-    note: "CalciumDihydroxide (Ca(OH)2), dosed in HPFermentation (sabre/units/_3hp.py) for in-situ neutralization; same value biorefineries.HP.process_settings uses for its own 'Lime' price."
-    source: "biorefineries.HP.process_settings.py, lime_price = 0.1189 * _lb_per_kg (hydrated-lime $/ton at plant, Mineral Commodity Summaries 2020, 2015-2019 average; see the comment block above that line)."
-  sulfuric_acid:
-    baseline: 0.0897171175961359
-    note: "$/kg of ~93.3 wt% H2SO4 SOLUTION (1800 kg H2SO4 : 130 kg water), dosed in the dilute-acid pretreatment of the 3-HP cake configurations (systems/_3hp_system.py)."
-    source: "biorefineries.cellulosic.streams.sulfuric_acid price (corn stover dilute-acid pretreatment)."
-
   # Waste streams, negative price to indicate as a cost
   disposal_solid:
-    baseline: -0.04
+    value: -0.04
     range: [-0.08, 0]
     distribution: "uniform"
-    note:
-      acidogenic_residual_solids:
-        legacy_assumption: -0.04
-        cod_basis: -0.02846
-        sensitivity_range: [-0.02, -0.04, -0.10]
-        note: renamed solid_digestate
-        source: "standard biosolids, $30-80/dry ton (~$0.03-0.08/kg wet)"
-      solid_digestate:
-        legacy_assumption: -0.02
-        cod_basis: -0.03691
-        note: previously named soil_amendment
-        source: "standard biosolids, heavy metal contamination (As, Cd, Pb) from pelagic Sargassum digestate prevents land application as fertilizer"
-      vfa_retentate:
-        legacy_assumption: -0.005 # treated as a wastewater
-        cod_basis: -0.14904
-        note: >
-          - reanmed to vfa_cake
-          - mixed upstream into the fermentation_wastewater stream so shares its disposal price.
-          - "Dominated (~97% of COD) by Alginate/Fucoidan/OtherSolids, excluded here as
-          insoluble solids, consistent with how Glucan/Protein/CellMass are
-          already excluded; counting them as soluble organics instead would give
-          -0.1027, ~33x higher."
-        source: "biological wastewater treatment, $3-8/m3 (~$0.003-0.008/kg)"
+
   disposal_wastewater:
-    baseline: -0.004
+    value: -0.004
     range: [-0.008, 0]
     distribution: "uniform"
-    note:
-      fermentation_wastewater:
-        legacy_assumption: -0.005
-        cod_basis: -0.02432
-        source: "biological wastewater treatment, $3-8/m3 (~$0.003-0.008/kg)"
-      liquid_digestate:
-        legacy_assumption: -0.002
-        cod_basis: -0.02702
-        source: "$2/m3 wastewater disposal"
 
-  # Products
-  biostimulant:
-    baseline: 1.00
-    range: [0.50, 2.00]
-    distribution: "uniform"
-    source: >
-      Market.us Seaweed Extract Biostimulant Market (2024): global market
-      $1.1B (2024), brown seaweed 64.7% share, liquid 76.8% share;
-      wholesale bulk liquid concentrate $0.50-2.00/kg.
-  vfa:
-    baseline: 1.00
-    range: [0.5, 2]
-    distribution: "triangular"
-    note: "price is for individual purified acids, not a mixture, hence needs updating"
-    source: "lower range of VFAs at https://encyclopedia.pub/entry/history/show/32510"
-  biomethane_mmbtu: # $/mmbtu
-    baseline: 10
-    scenario:
-      low: 5
-      mid: 10
-      high: 20
-    range: [2, 30]
-    mmbtu_per_kg: 0.0526
-    distribution: "triangular"
-    source:
-      - "US Henry Hub $2-8/MMBtu typical range for natural gas."
-      - "$10/MMBtu for European TTF, $14/MMBtu for Asian JKM."
-      - "$10-30/GJ ($1/GJ=$1.055/MMBtu) for biomethane per IEA (https://www.iea.org/reports/outlook-for-biogas-and-biomethane/key-findings)"
-  microbial_oil:
-    baseline: 1.00
-    range: [0.6, 1.5]
-    distribution: "triangular"
-    source: "midpoint of soybean oil $0.62-1.50/kg market price benchmark"
-  3hp:
-    baseline: 1.1
-    note: >
-      Back-calculated based on the market price of acrylic acid of $1.3-1.5/kg for North America.
-    source: "Expert Market Research: https://www.expertmarketresearch.com/price-forecast/acrylic-acid-price-trends; IMARC Group: https://www.imarcgroup.com/acrylic-acid-pricing-report"
+  NaOH:
+    value: 0.35
+    range: [0.35, 0.526]
+    source: "SaBRe tea.yaml baseline (no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py."
+  CaOH2:                 # fresh (purchased) lime; ATT S1 uses free waste lime (price 0, scenarios.tea_config)
+    value: 0.280
+    year: 2025
+    source: "USGS MCS 2026, hydrated lime 2025 estimate 280 USD/t, average value at plant (f.o.b.), transport NOT included."
+  H2SO4:
+    value: 0.0948
+    source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, att_lca.yaml endpoint)"
+  HCl_31:                # 31 wt % HCl solution, per kg of solution (REE leach; used only with ree_recovery)
+    value: 0.20
+    source: "2026 quotes: US 215, global 185-205 USD/t (Expert Market Research, ChemAnalyst); assumption."
+  oxalic_acid:           # per kg of oxalic acid (REE precipitation; used only with ree_recovery)
+    value: 0.60
+    source: "China 2026: 435-710 USD/t (ChemAnalyst, ChemicalBook); assumption."
+  REO:                   # sale price of the REE product per kg of REO it contains (ree_recovery only)
+    value: 35.0
+    range: [2.0, 151.0]
+    source: "ASSUMPTION: 35 USD/kg REO (mixed concentrate, >= 92 % TREO, Apr 2026); 2 = light mixed carbonate, 65 = heavy-REE clay basket, 97 = NdPr oxide, 151 = equal-mass 14-REE oxides. A 1.3 wt % TREO solid would not fetch these without a buyer."
+  process_water:
+    value: 0.000441
+    source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
+  wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge, f2_wash_liquor]
+  solid_waste_streams: [ash_residue_cake, lime_purge, scrubber_cake, salt_cake]
+  # Streams priced at disposal_wastewater / disposal_solid above (negative = cost).
+  juice: 0.0               # biostimulant_juice (fresh-Sargassum case): transferred to the biostimulant plant, no price
+  CaCO3_cake: 0.0          # reference treatment of evaluate_att_tea() without caco3/caco3_sales; ATT S1 sales: caco3_sales below
+  offgas: 0.0              # no sale price; its fuel value is credited as natural gas displaced in the U2 burner (voc item)
+  natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
+  steam_note: "LP steam at the BioSTEAM default agent price, which covers generation; boiler natural gas is not priced separately (no double counting)."
+  cooling_note: "Cooling water at the BioSTEAM default price, which covers tower operation; cooling-tower electricity is not priced separately."
+  electricity_note: "BioSTEAM default PowerUtility price on the modeled unit power; estimated agitator and EC1 vacuum power added."
+
+# Equipment capital is costed inside the unit models (U2 vessel and furnace, C1 tank, EC1 evaporator,
+# condenser and vacuum system, the PSA in U3P, the reciprocating compressor U3K; see att.yaml).
+# The TEA only adds the P1 press alternative and the PSA cost-factor adjustment.
+
+# ATT Scenario 1 CaCO3 BYPRODUCT SALES: ON in the baseline (user decision 2026-11-02: both CaCO3 cakes are sold at the
+# price below, the non-CaCO3 mass is disposed; TEA marketing ASSUMPTION, no sales agreement). With enabled: false the
+# cakes are disposed at the tea.yaml solid-waste price and earn no revenue.
+# Applied by analyses/breakdown.py (the ATT S1 TEA) to each listed cake stream that is a system product:
+#   revenue  = saleable_fraction x CaCO3 component mass x price (the CaCO3 content only, not the wet cake);
+#   disposal = tea.yaml disposal_solid x (cake mass - sold CaCO3 mass): the moisture, excess Ca(OH)2 and entrained
+#              NaOH/Na2CO3 stay a disposed residue (dispose_non_caco3_mass); the sold CaCO3 is not disposed
+#              (disposal_of_sold_caco3: false). Net = one stream price, so revenue and disposal enter the DCF once.
+# Simplification: the cake is sold as recovered (no drying, classification, packaging or transport is modeled or
+# costed; F2 washing W2/F2R is modeled); industrial grade only. Modeled purity (F2 82.5 %, F3 93.1 % dry basis) is
+# below the experimental ~97 %, whose measurement basis is not confirmed (see notes).
+# ACCOUNTING APPROXIMATION (finalization 2026-11-01): no unit separates the CaCO3 from the cake. Physically the
+# whole wet cake leaves; the split above is a NET CAKE PRICE = CaCO3 content x price - disposal_solid x the
+# non-CaCO3 mass, i.e. a buyer discount for moisture, Ca(OH)2 and sodium. It is not double counted (one stream
+# price) but it is an UPPER-BOUND case: no buyer or specification exists for this cake. Conservative case: no F2
+# sales (scenarios.tea_config f2_sales=False; whole F2 cake disposed). The LCA credits the Sargassum carbon of the
+# sold CaCO3 like landfilled carbon (att_lca.yaml carbonate_storage_accounting: inherited).
+caco3_sales:
+  enabled: true
+  streams: [caco3_cake, scrubber_cake]   # F2 causticizing cake and F3 CO2-scrubber cake (distinct CaCO3 flows)
+  saleable_fraction: 1.0
+  price_usd_per_metric_ton: 100.0        # OPTIMISTIC unverified reference, no confirmed product specification or buyer
+  disposal_of_sold_caco3: false
+  dispose_non_caco3_mass: true
+  sensitivity_prices_usd_per_metric_ton: [0.0, 100.0, 315.0]   # 315: approximate public US industrial reference
+  price_note: "100 USD/t baseline assumption; 315 USD/t approximate public US industrial-market reference (not verified for this product); 0 = no-revenue outlet with the same routing (sold CaCO3 taken away at no cost, non-CaCO3 mass still disposed)."
+
+# ATT RESIDUE (washed F1 cake, or the leached char with REE recovery; 30 wt % moisture): ASSUMED to be taken as a sorbent, so its net cost is
+# net_price_usd_per_kg_wet (user decision 2026-11-02; no buyer or specification: the value to a buyer would have to
+# equal the disposal fee of tea.yaml disposal_solid, 0.04 USD/kg wet). Applies only when the F1 wash is in the flowsheet.
+# The LCA is unchanged (landfill factor 0; the carbon of the residue stays credited).
+residue_sale:
+  enabled: true
+  net_price_usd_per_kg_wet: 0.0
+
+# REE PRODUCT GRADE sensitivity (analyses/ree_sensitivity.py). The collaborators' case of a seaweed soaked in a concentrated REE
+# solution gives a 98 wt % REO product (their 0.01 M Nd run: 98.8 % Nd2O3). ONLY THE GRADE changes: the REO mass of the product
+# stays at overall_recovery of the REE of the dilute wastewater and the mineral filler shrinks; a larger REE loading of the seaweed
+# is NOT modeled. The REO price is swept because a 98 % product may sell above the 35 USD/kg of the mixed concentrate.
+ree_grade_sensitivity:
+  grades_REO_wt_frac: [0.0131, 0.05, 0.20, 0.50, 0.98]
+  prices_usd_per_kg_REO: [65.0, 97.0, 151.0]
+
+# CaCO3-treatment sensitivity table (tea.get_att_caco3_cases; F2 cake only, single-stream mechanism), not the
+# caco3_sales option above. Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
+# content of the cake (not the wet cake). The sold share of the cake is
+# not disposed; the unsold share is disposed at tea.yaml disposal_solid.
+caco3_coproduct:
+  marketable_fractions: [0.0, 0.10, 0.25, 0.50, 1.0]
+  price_usd_per_t_CaCO3: [250.0, 50.0]
+  price_note: "250 USD/t: preliminary commodity-price illustration given by the user, not a selling price for this impure product. 50 USD/t: illustrative low value for low-grade use (assumption, unverified)."
+  handling_usd_per_t_CaCO3: [0.0, 50.0]
+  handling_note: "Additional drying/washing/handling cost per t CaCO3 sold: 0 (optimistic) or 50 USD/t (placeholder assumption; no purification plant designed)."
+
+# PSA off-gas (mainly CH4 + unrecovered H2, CO, CO2): fate unresolved; no reliable handling cost;
+# explicit placeholders per t of off-gas. Reference: 0.
+offgas_handling_usd_per_t: [0.0, 10.0, 25.0]
+offgas_note: "Placeholder collection/flaring/venting cost; no equipment designed. Off-gas carries the model CH4 (s x reported); final fate unresolved."
+
+# Cost basis: 2020 USD (user decision 2026-10-16, the basis of the NLR Sargassum
+# preprint TEA). Equipment is costed at the 2020 CEPCI; prices keep the year
+# recorded with each entry (no escalation); the municipal biosolids press anchor
+# (2021 report) and the PSA anchor (year unknown) are used as 2020 USD.
+cost_year:
+  basis_year: 2020
+  reference_CE: 596.2
+  reference_note: "Annual CEPCI 2020 (Chemical Engineering), set as bst.CE by create_att_system. The other SaBRe pathways use the BioSTEAM default 567.5 (2017)."
+  comparison_CE: 800.0
+  comparison_note: "Approximate 2024 CEPCI (monthly values ~800 in 2024, Chemical Engineering, https://www.chemengonline.com/cepci). Escalates BioSTEAM correlations and the inventory equipment estimates only; the PSA anchor (year unknown) and all prices are not escalated."
+
+limitations:
+  - "FCI = installed equipment cost (SaBRe convention): no separate engineering, construction, contingency or other indirect capital; see FCI sensitivity."
+  - "PSA capital is a preliminary review-based estimate (+/-50 %), not a correlation or vendor quote."
+  - "Equipment at CEPCI 596.2 (2020 USD) while chemical prices are 2024-2025 and utility prices are BioSTEAM defaults (older basis); the MSP is therefore not a single-year number. Only the municipal press anchor (3.1 MUSD, year unrecorded in the source) and the PSA anchor (year unknown) are not escalated."
+  - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
+  - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
+  - "P1 (fresh-Sargassum case) is costed as a municipal biosolids screw press (3.1 MUSD per 0.953 dry t/h, 5 kWh per dry t); the BioSTEAM ScrewPress (37.2 kWh per t of total wet feed, 115 parallel units) is reported as the alternative."
+  - "fresh-Sargassum case: the press liquid (raw juice for biostimulant production) is transferred at zero price and burden; the presscake case has no P1 and no juice."
+  - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
+  - "No lime regeneration (kiln) or alternative lime sourcing in the economics."
+
+sensitivities:
+  PSA_capex_factor: [0.5, 1.5]
+  CaOH2_price: [0.235, 0.350]
+  NaOH_price: [0.35, 0.526]
+  natural_gas_price_factor: [0.7, 1.3]
+  electricity_price_factor: [0.7, 1.3]
+  FCI_factor: [0.7, 1.3]
+  # P1 (fresh-Sargassum case only): baseline = municipal biosolids press (5 kWh/t dry,
+  # 3.1 MUSD anchor). Alternative = BioSTEAM ScrewPress (power 37.2 kWh per t
+  # of TOTAL wet feed, installed cost from its own correlations), applied by
+  # evaluate_att_tea(p1_biosteam_screwpress=True).
+  P1_biosteam_screwpress: true

@@ -9,7 +9,7 @@
 """
 att_caco3_sales.py
 ------------------
-ATT Scenario 1 CaCO3 byproduct sales (att_tea.yaml caco3_sales): the recovered CaCO3 of each cake stream (component
+ATT Scenario 1 CaCO3 byproduct sales (tea.yaml caco3_sales): the recovered CaCO3 of each cake stream (component
 mass, dry and wet cake, dry-basis purity), the previous treatment (whole cakes disposed, no sales) and the MSP at
 the sensitivity prices (0, 100, 315 USD/t). One process simulation; only the CaCO3 price changes between the
 sensitivity cases (overridden per call, the configuration file is not changed).

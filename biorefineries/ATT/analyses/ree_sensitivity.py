@@ -10,7 +10,7 @@
 ree_sensitivity.py
 ------------------
 Sensitivity of ATT S1 and S2 (Mode A, all WHR) to the REO grade of the roasted REE product. The collaborators' case of a
-seaweed soaked in a concentrated REE solution gives a 98 wt % REO product (att_tea.yaml ree_grade_sensitivity).
+seaweed soaked in a concentrated REE solution gives a 98 wt % REO product (tea.yaml ree_grade_sensitivity).
 
 Only the grade changes: the REO mass of the product stays at ``overall_recovery`` of the REE of the dilute wastewater
 (att.yaml downstream.ree_recovery) and the mineral filler that dilutes it shrinks, so the roaster, the oxalate filter and the
@@ -86,7 +86,7 @@ def _tea_rows(system, price):
 def get_att_ree_grade_sensitivity(grades=None, prices=None):
     """
     One row per (REO grade, REO price): the product (kg/h, REO, mineral filler), the LC1 and RO1 installed costs, and S1 and S2
-    (Mode A, all WHR) MSP, GWP and FCI. ``grades`` [REO wt fraction] and ``prices`` [USD/kg REO] default to att_tea.yaml
+    (Mode A, all WHR) MSP, GWP and FCI. ``grades`` [REO wt fraction] and ``prices`` [USD/kg REO] default to tea.yaml
     ree_grade_sensitivity (the price list always starts with the baseline price). The first rows are the process without REE recovery.
     """
     cfg = _config()

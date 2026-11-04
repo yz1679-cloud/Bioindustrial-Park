@@ -124,7 +124,7 @@ BASELINE = "baseline"     # caco3_sales default: the configured TEA disposition 
 
 
 def caco3_saleable_fraction(ID, caco3_sales):
-    """Share of the CaCO3 of cake ``ID`` that is sold under ``caco3_sales`` (att_tea.yaml caco3_sales; None = none)."""
+    """Share of the CaCO3 of cake ``ID`` that is sold under ``caco3_sales`` (tea.yaml caco3_sales; None = none)."""
     if not caco3_sales or ID not in caco3_sales.get("streams", ()):
         return 0.0
     fraction = float((caco3_sales.get("saleable_fraction_by_stream") or {}).get(
@@ -152,7 +152,7 @@ def _stored_carbon_kgph(sys, include_char=None, caco3_sales=BASELINE, accounting
     carbon_storage.carbonate_storage_accounting): "inherited" (the baseline) counts the Sargassum carbon of the CaCO3
     of the cakes, sold or not, without the soluble Na2CO3 (unless att_lca.yaml credit_soluble_carbonate);
     "conservative" counts only the CaCO3 carbon that is not sold under ``caco3_sales`` (the TEA disposition;
-    "baseline" = att_tea.yaml, None = nothing sold). The CaCO3 of the waste lime is never credited. The carbon of the
+    "baseline" = tea.yaml, None = nothing sold). The CaCO3 of the waste lime is never credited. The carbon of the
     provisional U2 residual product (att_lca.yaml provisional_residue_species) is added only with ``include_char``
     (default: att_lca.yaml carbon_storage.credit_char_carbon).
     """
@@ -202,7 +202,7 @@ def _auxiliary_power_kW(estimates):
 def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None, caco3_sales=BASELINE):
     """
     Set all GWP100 characterization factors on the frozen system. ``caco3_sales``: the TEA disposition of the
-    CaCO3 cakes (scenarios.tea_config caco3_sales; "baseline" = att_tea.yaml, None = nothing sold), which sets
+    CaCO3 cakes (scenarios.tea_config caco3_sales; "baseline" = tea.yaml, None = nothing sold), which sets
     the carbonate storage credit (att_lca.yaml carbonate_storage_accounting).
     """
     caco3_sales = _sales(caco3_sales)

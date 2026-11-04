@@ -6,7 +6,7 @@ marine_tea:
   capex_multiplier_sensitivity: [1.10, 1.25, 1.40]   # USER range 1.1-1.4
   labor_multiplier: 2.0                     # floating labor OPEX = 2.0 x land labor OPEX (USER)
   labor_multiplier_sensitivity: [1.0, 2.0]
-  # S1 has no explicit labor: its FOC = 4 % of FCI lumps labor, maintenance and overhead (att_tea.yaml limitations).
+  # S1 has no explicit labor: its FOC = 4 % of FCI lumps labor, maintenance and overhead (tea.yaml limitations).
   # The labor-only component is therefore an ASSUMED share of the S1 FOC (ENG, no staffing basis); the rest
   # (maintenance, overhead, insurance) stays proportional to FCI. S2 FOC = labor_multiplier x S1 labor (fixed
   # USD/yr) + (1 - share) x 4 % x FCI_S2, so the CAPEX multiplier does not scale labor and labor is not doubled.
