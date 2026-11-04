@@ -79,7 +79,7 @@ att:
       energy_sources: "Kept from 261005, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat); not in 261023."
       heat_recovery: "BioSTEAM defaults and engineering assumptions; cooler heat-transfer coefficients and the HXN approach temperature are unverified."
       inventory.lca.emission_factors: "NaOH, Ca(OH)2 and natural-gas factors kept from the collaborators' workbook 261005 (energy-analysis sheet B25-B28; not in 261023); electricity from GREET 2022 US mix (biorefineries/HP/process_settings.py); boiler efficiency from the BioSTEAM default."
-      inventory.cost_estimates: "Engineering estimates (TEA input only)."
+      inventory.equipment_sizing: "Engineering estimates (TEA input only)."
       inventory.reference_scale: "SaBRe common plant scale (feedstock.yaml, tea.yaml)."
   # Definition differences between the source workbook
   # (ATT Inputs and Assumptions_261023.xlsx) and this model, recorded so
@@ -377,7 +377,7 @@ att:
       product_moisture_wt_frac: 0.01
     # Insoluble char of the water dissolution (the collaborator's ATT mass balance: 10-20 wt % of the dry seaweed; blank 0.155,
     # low REE soaks 0.126-0.169; user decision 2026-11-03: 0.15). RS1 keeps this mass as Ash minerals + CharN/CharS + an organic
-    # char (species Char, CH0.5O0.1) and sends the rest of U2's lumped residual carbon to the stream untracked_organics:
+    # char (species Char, CH0.5O0.1) and sends the rest of U2's lumped residual carbon to the stream att_residue_untracked:
     # the carbon beyond the carbonate, the measured gas and the char has NO measured sink (the user: the carbon balance need not
     # close, atoms out must not exceed atoms in). That carbon gets no credit and no treatment cost. U2's heat duty is not re-derived.
     char:
@@ -666,7 +666,7 @@ att:
       roaster_feed: [internal, process, "Leached char and REE oxalate to the roaster RO1."]
       spent_leachate: [internal, recycle, "Spent leachate, recycled to the dissolver D1."]
       salt_cake: [output, solid_waste, "Salt cake of the crystallizer XL1: NaCl and KCl of the seaweed ash with 10 wt % entrained liquor; disposal."]
-      untracked_organics: [output, untracked_carbon, "Lumped residual carbon of U2 beyond the carbonate, the measured gas and the char (RS1): no measured sink; no credit, no cost."]
+      att_residue_untracked: [output, untracked_carbon, "Lumped residual carbon of U2 beyond the carbonate, the measured gas and the char (RS1): no measured sink; no credit, no cost."]
       ec1_concentrate: [internal, process, "EC1 concentrate before the salt crystallizer."]
       caco3_dryer_exhaust: [output, air_emission, "D2 drying air and water vapor; no GHG."]
       scrubber_dryer_exhaust: [output, air_emission, "D3 drying air and water vapor; no GHG."]
@@ -684,7 +684,7 @@ att:
       cooling_water_kW_per_kmolph: [0.0028680, 0.0016748]
     # Engineering estimates for equipment that has no BioSTEAM cost in the
     # model (TEA input only; no effect on mass or energy balances).
-    cost_estimates:
+    equipment_sizing:
       C1: {method: bst.MixTank, tau_h: 2.0, note: "Agitated causticizer; residence time typical of kraft recausticizing (~1.5-3 h), assumed."}
       U2_vessel: {method: "BioSTEAM PressureVessel (vertical)", tau_h: 1.0, density_kg_per_m3: 1200.0, fill_fraction: 0.8, length_to_diameter: 3.0, material: Inconel-600, note: "No ATT reaction-time data; 1 h on the inlet volume, assumed. Elevated-temperature allowable stress not modeled. Inconel-600 assumed (user decision 2026-11-04): the hot, high-salt caustic feed may not be handled by stainless steel. Reactor type (vertical vessel) is a placeholder: no ATT reactor design exists in the literature."}
       EC1: {method: "Seider et al. forced-circulation evaporator correlation (A in ft2, <= 8000 ft2 per unit, CE 500)", U_W_per_m2_K: 1000.0, vessel_holdup_h: 0.25, vessel_fill_fraction: 0.5, liquor_density_kg_per_m3: 1300.0, note: "U from heat_recovery overall_U steam_to_boiling_liquor. Carbon-steel correlation; nickel tubes for caustic service not applied (cost likely low). Condenser: bst.HXutility; vacuum: BioSTEAM vacuum-system correlation."}

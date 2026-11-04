@@ -590,7 +590,7 @@ def create_att_system(
     # RS1 - the insoluble char of the water dissolution is att.yaml downstream.char.yield_g_per_g_dry_feed g/g of the dry feed; the rest of the lumped residual carbon of U2
     # is not tracked (att.yaml downstream.char).
     RS1 = ATTResidueSplit(
-        "RS1", ins=RC1 - 0, outs=("att_residue_to_D1", "untracked_organics"),
+        "RS1", ins=RC1 - 0, outs=("att_residue_to_D1", "att_residue_untracked"),
         char_yield=float(char_cfg["yield_g_per_g_dry_feed"]),
         dry_feed_kgph=lambda: sum(float(D0.outs[0].imass[ID]) for ID in _SARGASSUM_DRY_IDS),
         char_species=char_cfg["species"])

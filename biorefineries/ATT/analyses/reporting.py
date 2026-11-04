@@ -134,9 +134,9 @@ def _register_rows():
         "att.yaml:att.reactor.target_temperature_K", "Experimental condition")
     add("ATT reaction", "U2 pressure", 101325.0, "Pa", "U2", "Atmospheric", ENG, NV,
         "biorefineries/ATT/system.py (P=101325)", "Specified in code")
-    add("ATT reaction", "Residence time (cost estimate only)", Y("att.yaml", "att.inventory.cost_estimates.U2_vessel.tau_h"),
+    add("ATT reaction", "Residence time (cost estimate only)", Y("att.yaml", "att.inventory.equipment_sizing.U2_vessel.tau_h"),
         "h", "U2", "Vessel sizing for TEA", EXP, "Workbook footnote '1 h hold'",
-        "att.yaml:att.inventory.cost_estimates.U2_vessel.tau_h", "Experimental hold time used for sizing",
+        "att.yaml:att.inventory.equipment_sizing.U2_vessel.tau_h", "Experimental hold time used for sizing",
         affects="TEA")
     add("ATT reaction", "NaOH : dry Sargassum (gross)", Y("att.yaml", "att.reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry"),
         "kg/kg dry", "M1", "NaOH loading", EXP, "User decision 2026-10-31 (workbook 261023 B14, basis not stated)",
@@ -335,7 +335,7 @@ def _units_table(sys):
             cost_correlation=cost_spec or ("BioSTEAM unit _cost" if u.purchase_cost > 0 else
                                            "no model cost"),
             sizing_costing_source="native BioSTEAM" if u.purchase_cost > 0 else
-            ("custom estimate (att.yaml inventory.cost_estimates)" if u.ID in ("C1", "EC1") else
+            ("custom estimate (att.yaml inventory.equipment_sizing)" if u.ID in ("C1", "EC1") else
              ("preliminary PSA estimate (tea.yaml)" if u.ID == "U3P" else "no equipment (junction)")),
             configuration=cfg, data_origin=ORIGIN_SYS))
     for item, note in (("Pumps and conveyors", "Not modeled as units (not costed separately)"),
@@ -798,7 +798,6 @@ def _gaps_and_inconsistencies(lca_gaps):
          "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),
         ("att.yaml heat_recovery future_tail_gas_fuel_species / gas_energy_diagnostic_species list CH4, CO",
          "legacy diagnostic keys used only by att.mass_energy diagnostics."),
-        ("feedstock.yaml dry_composition", "no citation in the file."),
     ]
     rows += [dict(type="Inconsistency / traceability", item=a, status="documented, not changed", magnitude=float("nan"),
                   note=b, importance="") for a, b in inconsistencies]
@@ -979,6 +978,7 @@ def _feedstock(sys):
     daf = float(U2._daf_sargassum_kgph)
     dry = float(U2._dry_sargassum_kgph)
     AW = {"C": 12.011, "H": 1.008, "O": 15.999, "N": 14.007, "S": 32.06}
+    ftype = Y("att.yaml", "att.feed_preparation.presscake_feedstock_type")      # the ATT feed
     rows, tot = [], {e: 0.0 for e in AW}
     for c in feed.chemicals:
         m = float(feed.imass[c.ID])
@@ -991,22 +991,22 @@ def _feedstock(sys):
         rows.append(dict(item=f"Pseudo-component {c.ID}", wt_frac_dry=m / dry,
                          wt_frac_daf=m / daf if c.ID != "Ash" else float("nan"),
                          formula=str(dict(c.atoms)) if c.atoms else "inert", MW=c.MW,
-                         source="feedstock.yaml:dry_composition (" + NV + "); formula: biorefineries/ATT/_chemicals.py"))
+                         source=f"feedstock.yaml:feedstock_type.{ftype}.dry_composition (" + NV + "); formula: biorefineries/ATT/_chemicals.py"))
     for e, v in tot.items():
         rows.append(dict(item=f"Ultimate analysis {e} (calculated)", wt_frac_dry=v / dry, wt_frac_daf=v / daf,
                          formula="", MW=float("nan"), source=CALC + " from pseudo-component formulas"))
     rows += [
         dict(item="daf / dry", wt_frac_dry=daf / dry, wt_frac_daf=float("nan"), formula="", MW=float("nan"),
              source=CALC + " (1 - ash)"),
-        dict(item="Moisture as harvested (wet basis)", wt_frac_dry=Y("feedstock.yaml", "feedstock_type.pelagic.moisture_frac"),
-             wt_frac_daf=float("nan"), formula="", MW=float("nan"), source="feedstock.yaml (milledge2020)"),
-        dict(item="Wet feed per kg dry", wt_frac_dry=1 / (1 - Y("feedstock.yaml", "feedstock_type.pelagic.moisture_frac")),
+        dict(item="Moisture of the presscake feed (wet basis)", wt_frac_dry=Y("feedstock.yaml", f"feedstock_type.{ftype}.moisture_frac"),
+             wt_frac_daf=float("nan"), formula="", MW=float("nan"), source=f"feedstock.yaml:feedstock_type.{ftype}.moisture_frac"),
+        dict(item="Wet feed per kg dry", wt_frac_dry=1 / (1 - Y("feedstock.yaml", f"feedstock_type.{ftype}.moisture_frac")),
              wt_frac_daf=float("nan"), formula="", MW=float("nan"), source=CALC),
         dict(item="Available electrons (mmol e-/g daf)", wt_frac_dry=float("nan"),
              wt_frac_daf=U2._redox_balance_kmol_e_per_h["feed_organics"] / daf * 1e3, formula="4C+H-2O-3N",
              MW=float("nan"), source=CALC + " (ATTReactor redox bookkeeping)"),
-        dict(item="Proximate: volatile solids / total solids", wt_frac_dry=Y("feedstock.yaml", "feedstock_type.pelagic.vs_ts"),
-             wt_frac_daf=float("nan"), formula="", MW=float("nan"), source="feedstock.yaml (milledge2020); not used"),
+        dict(item="Proximate: volatile solids / total solids", wt_frac_dry=Y("feedstock.yaml", f"feedstock_type.{ftype}.vs_ts"),
+             wt_frac_daf=float("nan"), formula="", MW=float("nan"), source=f"feedstock.yaml:feedstock_type.{ftype}.vs_ts; not used"),
         dict(item="Proximate: fixed carbon", wt_frac_dry=float("nan"), wt_frac_daf=float("nan"), formula="", MW=float("nan"),
              source="Not available in the repository"),
     ]

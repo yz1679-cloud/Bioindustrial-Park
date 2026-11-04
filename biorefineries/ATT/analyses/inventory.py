@@ -285,7 +285,7 @@ def get_att_unit_energy(sys):
 @contextmanager
 def _scratch_flowsheet():
     previous = bst.main_flowsheet.get_flowsheet()
-    bst.main_flowsheet.set_flowsheet("att_cost_estimates")
+    bst.main_flowsheet.set_flowsheet("att_equipment_sizing")
     try:
         yield
     finally:
@@ -926,7 +926,7 @@ ASSUMPTION_REGISTER = (
     ("2 engineering", "EC1 dissolved Na2CO3 fraction", "5 % dissolved (Wu et al. 2020 near 50 wt% NaOH; single source)",
      "<10 kJ/kg dry effect", "LOW"),
     ("2 engineering", "Missing costs", "C1 tank; U2 vessel (Inconel, tau 1 h); EC1 evaporator/condenser/vacuum",
-     "BioSTEAM correlations; att.yaml inventory.cost_estimates", "MEDIUM (U2 vessel uncertain)"),
+     "BioSTEAM correlations; att.yaml inventory.equipment_sizing", "MEDIUM (U2 vessel uncertain)"),
     ("2 engineering", "Plant scale", "NLR preprint scale 3 million wet t/yr (9,091 wet t/d), 330 d/yr", "att.yaml, tea.yaml",
      "HIGH for TEA"),
     ("2 engineering", "Wastes", "Ash/char cake, purge, wastewater: disposal prices from tea.yaml; GWP factors missing",

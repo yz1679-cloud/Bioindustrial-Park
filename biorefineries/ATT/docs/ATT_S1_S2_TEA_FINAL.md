@@ -6,7 +6,7 @@
   soluble part (all K and Na, modeled as KCl and NaCl). The soluble salts are removed from the NaOH recycle by a **salt
   crystallizer** (XL1) and disposed of.
 - The insoluble char is set to 0.15 g per g of dry feed (RS1). The rest of the lumped U2 residue leaves as
-  `untracked_organics` with no credit and no cost.
+  `att_residue_untracked` with no credit and no cost.
 - Both CaCO3 cakes (F2 and F3) are **dried** to 1 wt % moisture (steam-heated drum dryers D2 and D3; the target is an
   assumption) and **sold** at 100 USD/t of CaCO3 (an assumption with no buyer); the non-CaCO3 mass is disposed.
 - The F2 cake and the F1 char cake are washed (1 kg water per kg of dry cake) with the condensate the dissolver does not

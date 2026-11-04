@@ -115,7 +115,7 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 | U2 temperature | 500 °C | [EXP] workbook B13 / experiment |
 | NaOH dose (gross, fresh + recycled) | 1.0 kg/kg dry feed = 5,029.17 kg/h (1.472 kg/kg daf) | [ASSUMPTION] user decision 2026-10-31. The experiment's seaweed mass basis is not stated |
 | NaOH → Na2CO3 in U2 | 100 % | [EXP] workbook B15 (stated assumption) |
-| Residual organic carbon | Lumped residue CH0.5O1.195, 0.590 g/g daf (2,017 kg/h) in U2; RS1 keeps 0.15 g insoluble char per g dry feed (754 kg/h, of which organic Char 78.2) and the rest is `untracked_organics` (1,939 kg/h, no credit, no cost) | [ASSUMPTION] elemental-closure surrogate, not measured; char yield from the collaborator's mass balance |
+| Residual organic carbon | Lumped residue CH0.5O1.195, 0.590 g/g daf (2,017 kg/h) in U2; RS1 keeps 0.15 g insoluble char per g dry feed (754 kg/h, of which organic Char 78.2) and the rest is `att_residue_untracked` (1,939 kg/h, no credit, no cost) | [ASSUMPTION] elemental-closure surrogate, not measured; char yield from the collaborator's mass balance |
 | Causticization (C1) | 88 % conversion; Ca(OH)2:Na2CO3 = 1.1 mol/mol | [EXP] workbook B16–B17 ("commercial causticizing") and the CaCO3 experiment (88.3 %) |
 | CO2 scrubber | 99 % capture with Ca(OH)2 (1.1× excess); filter F3 | [ASSUMPTION] preliminary |
 | Liquor recycle | 95 % to EC1 (5 % purge); EC1 concentrates NaOH to 50 wt % | [ASSUMPTION] / workbook B19 |
@@ -157,7 +157,7 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 | ATT residue (leached char cake) | 871.97 | 6,906 | Ash 466.5, Char 78.2, CharN/CharS 61.5, REO 2.36, Na2CO3 0.86, NaCl 1.42, KCl 0.18, NaOH 0.12, water 260.8 (30 wt %); not dried |
 | REE product (roasted oxalate precipitate) | 150.79 | 1,194 | Ash (mineral filler) 148.16, REO 1.98 (**1.31 wt %**), salts 0.66 |
 | Salt cake (XL1) | 1,040.5 | 8,240.8 | NaCl 372.9, KCl 563.6, NaOH 45.9, Na2CO3 7.6, water 50.4 |
-| `untracked_organics` (RS1) | 1,938.8 | 15,355 | Lumped residue CH/CHO beyond the char: no measured sink, no credit, no cost |
+| `att_residue_untracked` (RS1) | 1,938.8 | 15,355 | Lumped residue CH/CHO beyond the char: no measured sink, no credit, no cost |
 | Liquor purge | 1,536.35 | 12,168 | NaOH 241.3, Na2CO3 40.0, NaCl 19.8, KCl 30.0, water 1,205.2 |
 | Excess condensate | 3,978.2 | 31,507 | Wastewater (clean water) |
 | Cake dryer exhaust (D2 + D3) | 15,897.3 | 125,907 | Air 13,202.6 and water vapor 2,694.7; no GHG |
@@ -167,7 +167,7 @@ presscake (ash 32.07 %) and does not model or cost the Ni impregnation, the cata
 
 **RS1 and the char.** U2 makes 2,017 kg/h of lumped residue (ResidueCH 321.0 + ResidueCHO 1,696.0). RS1 keeps the insoluble
 char at 0.15 g per g of dry feed: 754.4 kg/h = Ash minerals 614.7 (after the REO carve-out) + CharN 58.7 + CharS 2.8 +
-organic Char 78.2. The remaining 1,938.8 kg/h of lumped residue is `untracked_organics`. The atoms leaving never exceed the
+organic Char 78.2. The remaining 1,938.8 kg/h of lumped residue is `att_residue_untracked`. The atoms leaving never exceed the
 atoms entering, but the carbon balance is not closed on measured sinks (user decision 2026-11-03).
 
 **Washing performance:**
@@ -186,7 +186,7 @@ its 2.36 kg/h of unrecovered REO leave as the residue.
 - U2 C, H, O and electron closure: residuals ≤ 1e-13 mmol/g daf.
 - U2 mass error 3.0e-9.
 - Plant Na, Ca, K, Cl and carbon balances close (carbon: 1,608.90 kg C/h in = out, including the lime's CaCO3 and
-  `untracked_organics`).
+  `att_residue_untracked`).
 - The component and total checks on the W2/F2R and W1/F1R washing steps pass. The exported QC tables are listed in
   `results/validation/run_summary.md`.
 

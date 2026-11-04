@@ -12,7 +12,7 @@ u2_cost_sensitivity.py
 Sensitivity of the ATT S1 MSP to the cost of the reactor U2.
 
 No ATT reactor design exists in the literature (reviews name the reactor as an open problem), so the reactor is a
-placeholder: a vertical pressure vessel sized on a 1 h hold-up (att.yaml cost_estimates.U2_vessel) heated by a natural-gas
+placeholder: a vertical pressure vessel sized on a 1 h hold-up (att.yaml equipment_sizing.U2_vessel) heated by a natural-gas
 furnace. The vessel is only a small part of U2 (the furnace is the rest), so this module shows what a more expensive reactor
 would do to the MSP. Cases (all other inputs are the S1 baseline):
 

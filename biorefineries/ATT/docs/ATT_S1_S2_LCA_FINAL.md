@@ -97,7 +97,7 @@ The feed carbon is entirely organic (CHN carbon of the presscake). The NaOH carr
 a little non-Sargassum carbon: its CaCO3 (4 % of the dry lime, 31.1 kg C/h). In U2, part of the Sargassum carbon
 becomes gas, part is fixed by NaOH as Na2CO3, and the rest is the lumped residue. C1 converts the Na2CO3 to CaCO3 (F2
 cake). The scrubber fixes the gas CO2 as CaCO3 (F3 cake). RS1 keeps 0.15 g of char per g of dry feed (the Ash minerals,
-CharN, CharS and 78.2 kg/h of organic Char) and sends the rest of the lumped residue to `untracked_organics`. The
+CharN, CharS and 78.2 kg/h of organic Char) and sends the rest of the lumped residue to `att_residue_untracked`. The
 carbonate carbon of the cakes is **biogenic, from Sargassum**, plus the lime's own.
 
 Plant carbon balance (kg C/h; in = out = 1,608.90):
@@ -110,7 +110,7 @@ Plant carbon balance (kg C/h; in = out = 1,608.90):
 | F2 CaCO3 cake | 777.29 | CaCO3 774.77 (29.97 from the lime) + Na2CO3 2.52 | CaCO3 yes (Sargassum part), Na2CO3 no |
 | F3 scrubber cake | 32.39 | CaCO3 (1.11 from the lime) | Yes (Sargassum part) |
 | Leached-char residue | 66.62 | Organic char 66.52 + Na2CO3 0.10 | Char yes, Na2CO3 no |
-| `untracked_organics` | 699.21 | Lumped residue beyond the char (no measured sink) | **No** (no credit, no emission counted) |
+| `att_residue_untracked` | 699.21 | Lumped residue beyond the char (no measured sink) | **No** (no credit, no emission counted) |
 | H2 product gas | 24.94 | CH4 + residual CO2 | No (emitted) |
 | Liquor purge | 4.54 | Dissolved carbonate, wastewater | No |
 | Salt cake | 0.86 | Na2CO3 | No |
@@ -139,7 +139,7 @@ Not credited:
 | Soluble Na2CO3 in the residue, F2 cake and salt cake (leachable) | 3.48 | 0.034 |
 | CaCO3 of the carbide lime (not Sargassum carbon) | 31.07 | 0.305 |
 | Dissolved carbonate of the purge (wastewater) | 4.54 | 0.045 |
-| `untracked_organics` (no measured sink; counted neither as emission nor as stored) | 699.21 | 6.87 |
+| `att_residue_untracked` (no measured sink; counted neither as emission nor as stored) | 699.21 | 6.87 |
 
 - **CaCO3** is insoluble and stable if landfilled. The baseline sells it, so its fate is outside the plant: calcination
   or acid use would release the CO2. The credit assumes that sold CaCO3 stays out of the atmosphere, which is a user
@@ -166,7 +166,7 @@ kg CO2e/kg H2.
 - *Avoided beach decomposition.* If the Sargassum would otherwise rot on the beach, IPCC 2006 defaults give an extra
   −13.70 kg CO2e/kg H2 of avoided CH4. This depends on the counterfactual and is reported as a note only. With it,
   S1 would be 2.13.
-- *Untracked organics.* If the 699 kg C/h of `untracked_organics` were emitted as fossil-equivalent CO2 it would add
+- *Untracked organics.* If the 699 kg C/h of `att_residue_untracked` were emitted as fossil-equivalent CO2 it would add
   6.9 kg CO2e/kg H2; under the biogenic 0/0 convention it adds nothing.
 
 ## 5. Interpretation

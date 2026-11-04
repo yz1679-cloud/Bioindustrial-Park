@@ -34,7 +34,7 @@ _ATT_DATA = load_assumptions("att.yaml")["att"]
 
 _ATT = _ATT_DATA["reactor"]
 _ATT_DOWNSTREAM = _ATT_DATA["downstream"]
-_EQUIPMENT = _ATT_DATA["inventory"]["cost_estimates"]   # sizing of equipment BioSTEAM has no unit model for
+_EQUIPMENT = _ATT_DATA["inventory"]["equipment_sizing"]   # sizing of equipment BioSTEAM has no unit model for
 _NAOH_HEAT_OF_SOLUTION_kJ_per_kg = float(_ATT_DOWNSTREAM["naoh_heat_of_solution_kJ_per_kg"])
 
 _SARGASSUM_DRY_IDS = (
@@ -330,7 +330,7 @@ class ATTResidueSplit(bst.Unit):
     The insoluble solids leaving the water dissolution are ``char_yield`` g per g of dry feed (the collaborator's ATT mass balance,
     10-20 wt %): the insoluble seaweed minerals (Ash), the N and S char and an organic char (``char_species``, CH0.5O0.1) that
     takes the rest of that mass. The remaining lumped residue (U2's elemental-closure surrogate, same H/C) leaves as
-    ``untracked_organics``: its carbon has no measured sink, is neither credited nor treated, and no element is created
+    ``att_residue_untracked``: its carbon has no measured sink, is neither credited nor treated, and no element is created
     (the split conserves C, H and O exactly). U2 itself, and so its heat duty, is not changed.
     ins: [0] cooled residue. outs: [0] char residue (to D1), [1] untracked organics.
     """
