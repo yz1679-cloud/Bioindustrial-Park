@@ -3,7 +3,25 @@ import unittest
 import warnings
 import numpy as np
 from biorefineries.ATT.analyses import scenarios as scen, inventory as inv
-from biorefineries.ATT.analyses.att_washing import washing_checks
+
+
+def washing_checks(system):
+    u = inv._units(system)
+    rows = []
+    for ID in ("W2", "F2R"):
+        unit = u[ID]
+        residual = sum((s.mass for s in unit.outs)) - sum((s.mass for s in unit.ins))
+        for component, error in zip(unit.chemicals.IDs, residual):
+            rows.append(dict(check=f"{ID} {component} component balance [kg/h]",
+                             residual=float(error), status="PASS" if abs(error) < 1e-8 else "FAIL"))
+        error = sum(s.F_mass for s in unit.outs) - sum(s.F_mass for s in unit.ins)
+        rows.append(dict(check=f"{ID} total mass [kg/h]", residual=float(error),
+                         status="PASS" if abs(error) < 1e-8 else "FAIL"))
+    for component in ("CaCO3", "CaOH2"):
+        error = float(u["F2R"].outs[0].imass[component] - u["F2"].outs[0].imass[component])
+        rows.append(dict(check=f"Washing preserves {component} [kg/h]", residual=error,
+                         status="PASS" if abs(error) < 1e-8 else "FAIL"))
+    return rows
 
 
 class TestNativeF2Washing(unittest.TestCase):

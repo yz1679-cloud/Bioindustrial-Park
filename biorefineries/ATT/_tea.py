@@ -42,14 +42,7 @@ class SaBReTEA(bst.TEA):
         """
         hourly = 0.0
         for u in self.system.units:
-            add_opex = getattr(u, "add_OPEX", None)
-            if not add_opex:
-                continue
-
-            if isinstance(add_opex, dict):
-                hourly += sum(float(v or 0.0) for v in add_opex.values())
-            else:
-                hourly += float(add_opex or 0.0)
+            hourly += float(getattr(u, "add_OPEX", 0.0) or 0.0)
 
         return hourly * self.operating_days * 24.0
 

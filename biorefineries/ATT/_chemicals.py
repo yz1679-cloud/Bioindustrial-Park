@@ -187,9 +187,7 @@ def create_chemicals(set_thermo: bool = True, include_att: bool = False):
 
     # "solids" group derived directly from which chemicals are actually
     # locked to phase='s' above, determines which
-    # chemicals count as solids in unit simulations (Press,
-    # VFAMicrofilter, DigestateDecanterCentrifuge via
-    # utils.get_solids_group_IDs()).
+    # chemicals count as solids in unit simulations.
     solid_IDs = [c.ID for c in chems if c.locked_state == "s"]
     if solid_IDs:
         chems.define_group("solids", solid_IDs)

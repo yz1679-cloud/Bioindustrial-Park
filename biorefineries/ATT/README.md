@@ -51,7 +51,5 @@ switched off in the file.
 Carbon (`data/att_lca.yaml`): the Sargassum carbon of the CaCO3 and of the lumped residue is credited as stored carbon;
 the soluble Na2CO3 (`credit_soluble_carbonate: false`) and the CaCO3 of the lime are not.
 
-Exports: `python -m biorefineries.ATT.analyses.att_washing` writes the washing-on and washing-off configurations,
-equipment, material/component checks, itemized costs, the economics with and without F2 sales, and the LCA
-contributions to `results/tables/att_washing_*.csv`. `python -m biorefineries.ATT.analyses.run figures` saves the
+Exports: `python -m biorefineries.ATT.analyses.run figures` saves the
 BioSTEAM flowsheet diagrams of S1 and S2 to `results/figures/`. The DCF methodology is inherited unchanged.

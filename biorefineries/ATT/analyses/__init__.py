@@ -28,7 +28,7 @@ Reporting
     breakdown        MSP / CAPEX / OPEX / GWP breakdown of the ATT scenarios
 
 Diagnostics (read-only audits)
-    validation       1 kg/h mass/energy audit; sodium ledger
+    validation       1 kg/h mass/energy audit
 
 Runners
     run              export steps and the full pipeline (python -m biorefineries.ATT.analyses.run)
