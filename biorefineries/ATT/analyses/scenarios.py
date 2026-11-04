@@ -68,7 +68,7 @@ def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, 
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(att_system.create_att_system(
         dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
-        lime_recycle=spec["lime"] == "recycled", psa=spec["psa"], co2_scrubber=spec["scrubber"],
+        psa=spec["psa"], co2_scrubber=spec["scrubber"],
         f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio,
         f2_wash_recycle=wash_recycle, f2_wash_condensate=wash_condensate,
         f1_wash=f1_wash, f1_wash_ratio=f1_wash_ratio,
@@ -96,20 +96,19 @@ def scale(spec=ATT_S1):
 def tea_config(spec=ATT_S1, caco3_price=None, f2_sales=True):
     """
     evaluate_att_tea keywords for the lime and CaCO3 assumptions of a scenario. Waste lime: Ca(OH)2 at 0 USD/kg.
-    Without the lime recycle the cakes are products: with tea.yaml caco3_sales enabled their CaCO3 is sold and
+    The cakes are products: with tea.yaml caco3_sales enabled their CaCO3 is sold and
     the rest disposed (counted once, on the cake stream prices), otherwise the whole cake is disposed (Case A).
     ``caco3_price`` [USD/t] overrides the configured price for this call only.
     """
     from biorefineries.ATT.analyses import tea as tea_mod     # tea imports this module
-    recycled = spec["lime"] == "recycled"
     sales = dict(tea_mod._T["caco3_sales"])
     if caco3_price is not None:
         sales["price_usd_per_metric_ton"] = float(caco3_price)
     if not f2_sales:
         sales["saleable_fraction_by_stream"] = {"caco3_cake": 0.0}
-    sell = bool(sales.pop("enabled")) and not recycled
+    sell = bool(sales.pop("enabled"))
     return dict(price_overrides={"CaOH2": 0.0} if spec["lime"] == "waste" else None,
-                caco3=None if recycled else dict(fraction=0.0),
+                caco3=dict(fraction=0.0),
                 caco3_sales=sales if sell else None)
 
 

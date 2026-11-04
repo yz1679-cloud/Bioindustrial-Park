@@ -98,7 +98,7 @@ lca:
   # solids (CaCO3 cake, ash/char cake, lime purge; waste_management.landfill_streams that are system products) is
   # stored instead of being released as CO2 when the Sargassum decomposes, so it earns -44.01/12.011 kg CO2e per kg C.
   # Permanence is assumed (carbonate and char in a landfill). Carbon released as CO2 anywhere (PSA tail gas, product
-  # gas, lime-kiln exhaust) is not credited. The avoided CH4 of the beach-rot counterfactual below is added to it only
+  # gas) is not credited. The avoided CH4 of the beach-rot counterfactual below is added to it only
   # in the note, never in the net.
   carbon_storage:
     credit_stored_carbon: true

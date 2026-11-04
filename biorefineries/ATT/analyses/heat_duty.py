@@ -45,8 +45,6 @@ def get_heat(sys):
     cake_dryers = [u[ID] for ID in ("D2", "D3") if ID in u]        # CaCO3 cake dryers (downstream.caco3_drying)
     for D in cake_dryers:
         unit_heat[D.ID] = heating(D)
-    if "K1" in u:
-        unit_heat["K1"] = heating(u["K1"])        # lime kiln (lime recycle): natural gas, high-grade
     loss = {"U2": float(U2._heat_loss_kJph), "C1": float(C1._heat_loss_kJph), "EC1": float(EC1._heat_loss_kJph)}
     # D0: latent heat of the evaporated water; the rest is sensible (solids, air)
     d0_latent = float(D0.design_results["Evaporation"]) * float(water.Hvap(D0.T)) / float(water.MW)
@@ -79,7 +77,6 @@ def get_heat(sys):
         "Causticizing (C1)": (c1_process, c1_process),
         "Water evaporation, NaOH concentrator (EC1)": (ec1_process, ec1_process),
         "Gas-drying regeneration (U3D)": (u3d_heat, 0.0),
-        **({"Lime kiln: calcination and cake drying (K1)": (unit_heat["K1"], 0.0)} if "K1" in unit_heat else {}),
         "Heat losses": (sum(loss.values()),
                         loss["U2"] * u2_low_share + loss["C1"] + loss["EC1"]),
     }

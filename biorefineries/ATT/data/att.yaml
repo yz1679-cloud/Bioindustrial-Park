@@ -15,8 +15,7 @@ att:
   # ---------------------------------------------------------------------
   # Process chemistry is in reactor (case Ni-CatATT_1to1) and downstream; the
   # flowsheet switches below are also the create_att_system() defaults
-  # (gas_treatment.psa_enabled, downstream.co2_scrubber.enabled,
-  # downstream.lime_recycle.enabled).
+  # (gas_treatment.psa_enabled, downstream.co2_scrubber.enabled).
   scenarios:
     att_s1:
       label: "ATT Scenario 1: presscake, NaOH 1 kg/kg dry, Ni-CatATT 1:1 yields, waste-lime CO2 scrubber, no PSA"
@@ -422,7 +421,7 @@ att:
     # can precipitate 85 % of the REE of the 4,913 ppm char). The product is 1.31 wt % REO (the slide table sums to 13,096 ppm as
     # oxides); the rest is mineral filler from the char's Ash (the Ca and Mg balance is not tracked). The leached char, with the REO not
     # recovered, is the residue product. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic
-    # acid); the roaster is PRELIMINARY (kiln correlation of the lime kiln K1; only the precipitate is roasted).
+    # acid); the roaster is PRELIMINARY (drum-dryer kiln correlation; only the precipitate is roasted).
     ree_recovery:
       enabled: true
       seaweed_TREE_ppm: 737.0
@@ -471,9 +470,6 @@ att:
 
     # Hypothetical wash-displacement model; disabled reproduces baseline.
     # Wash water and dissolved NaOH/Na2CO3 all conserved. Thermal mixing unresolved.
-    # Lime recycle: the F2 cake is calcined in a lime kiln (CaCO3 -> CaO + CO2; Ca(OH)2 -> CaO + H2O),
-    # slaked back to Ca(OH)2 and returned to C1 (the kraft-pulping lime cycle). Fresh Ca(OH)2 only makes
-    # up the lime purge and the shortfall. Sodium in the cake rides with the lime and returns to C1.
     # CO2 scrubber (on in ATT Scenario 1, as in SaBRe Scenario 5): the cooled gas bubbles through a Ca(OH)2 slurry
     # (waste lime), Ca(OH)2 + CO2 -> CaCO3 + H2O, before the gas dryer and compressor; the CaCO3 slurry is dewatered in
     # the filter F3 (cake at the F2 moisture) and the filtrate is recycled. PRELIMINARY (no vendor data): capture,
@@ -486,17 +482,6 @@ att:
       lime_excess: 1.1                  # Ca(OH)2 fed per CO2 captured (the excess leaves with the cake)
       slurry_solids_wt_frac: 0.25       # solids of the slurry leaving the scrubber
       tank_tau_h: 0.5                   # slurry residence time (costing)
-    lime_recycle:      # off in ATT Scenario 1 (waste Ca(OH)2, cake disposed); kept for sensitivity runs
-      enabled: false
-      calcination_conversion: 0.98      # CaCO3 -> CaO; the rest recycles as inert dead load
-      purge_fraction: 0.05              # share of the burnt lime sent to disposal (impurities; kraft makeup is 5-10 %)
-      solids_outlet_temperature_K: 363.15   # lime leaves cooled: its heat is recovered inside the kiln (air preheat)
-      exhaust_temperature_K: 473.15
-      heat_loss_fraction: 0.45          # lumps flue-gas, shell and discharge losses on the net duty; calibrated so the fuel is about 7.4 GJ LHV per t CaO (7 MMBtu/ton, the low end of the 7-8 MMBtu/ton quoted for kraft kilns)
-      slaking_water_ratio: 1.0          # kmol water per kmol CaO (semi-dry slaking to a dry hydrate)
-      kiln_area_m2_per_t_CaO_per_day: 3.14   # a kraft kiln of ~400 t CaO/d is about 4 m x 100 m (1,257 m2)
-      refractory_factor: 2.0            # kiln shell cost = BioSTEAM drum-dryer correlation x this (refractory lining; assumed)
-      status: "PRELIMINARY: no sourced modern kiln cost; the rotating shell is costed with BioSTEAM's drum-dryer correlation (area-based) times an assumed refractory factor, the firing with the BioSTEAM furnace correlation. +/-50 % or worse."
     # Waste carbide lime of an acetylene plant (CaC2 + 2 H2O -> C2H2 + Ca(OH)2), used for the C1 causticization and the
     # CO2 scrubber. Free and burden-free (scenario lime: waste). It is a filter-pressed paste: the flows below are set so
     # that the Ca(OH)2 of the stream equals the requirement of C1 / the scrubber; the rest is carried along.
@@ -682,9 +667,6 @@ att:
       f1_wash_water: [input, process_water, "Fresh F1 cake wash water (optional F1 wash variant)."]
       f2_wash_liquor: [output, liquid_waste, "F2 wash filtrate: water and dissolved sodium; neutralization and wastewater treatment, no recycle."]
       liquor_purge: [output, liquid_waste, "Alkaline purge (NaOH/Na2CO3); neutralization and treatment."]
-      lime_purge: [output, solid_waste, "Purge of the burnt lime (lime recycle); carries the sodium of that share."]
-      kiln_exhaust: [output, air_emission, "Lime kiln exhaust: CO2 from CaCO3 (biogenic, from the seaweed carbon) and water vapor."]
-      slaking_water: [input, process_water, "Water for slaking CaO to Ca(OH)2."]
       scrubber_lime: [input, reagent, "Ca(OH)2 of the CO2 scrubber (waste lime in scenario 5)."]
       scrubber_makeup_water: [input, process_water, "Makeup slurry water of the CO2 scrubber."]
       u3_scrubbed_gas: [internal, process, "Gas leaving the CO2 scrubber."]

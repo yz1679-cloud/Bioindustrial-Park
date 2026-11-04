@@ -46,7 +46,7 @@ __all__ = ("kiln_analog", "get_att_u2_cost_sensitivity")
 
 BODY_FACTORS = (1.0, 2.0, 5.0, 10.0)
 TOTAL_FACTORS = (1.5, 2.0, 3.0)
-# Rotary-kiln cost basis of ATTReeRoaster / ATTLimeKiln (BioSTEAM DrumDryer: 0.52 x 2.268 MUSD at 1235.35 m2, CE 525.4, 2007).
+# Rotary-kiln cost basis of ATTReeRoaster (BioSTEAM DrumDryer: 0.52 x 2.268 MUSD at 1235.35 m2, CE 525.4, 2007).
 KILN_AREA_M2_PER_T_PER_DAY = 3.14
 KILN_REFRACTORY_FACTOR = 2.0
 KILN_F_BM = 2.06

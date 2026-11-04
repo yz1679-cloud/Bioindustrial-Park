@@ -570,12 +570,6 @@ def get_att_water_balance(sys):
         rows.append(dict(group="reaction", item="SCRUB water formation (carbonation)",
                          kg_per_kg_dry=scrubber_water / dry))
         formation += scrubber_water
-    if "K1" in u:   # lime recycle: Ca(OH)2 -> CaO + H2O in the kiln, CaO + H2O -> Ca(OH)2 in the slaker
-        kiln = float(u["K1"].outs[1].imass["Water"] - u["K1"].ins[0].imass["Water"])
-        slaker = float(u["S1"].outs[0].imass["Water"] - sum(x.imass["Water"] for x in u["S1"].ins))
-        rows.append(dict(group="reaction", item="Lime kiln water formation (Ca(OH)2 dehydration)", kg_per_kg_dry=kiln / dry))
-        rows.append(dict(group="reaction", item="Slaker water consumption (CaO hydration)", kg_per_kg_dry=slaker / dry))
-        formation += kiln + slaker
     for ID, label in (("LC1", "LC1 water formation (HCl neutralization)"), ("RO1", "RO1 water formation (combustion of the char and the oxalic acid)")):
         if ID in u:         # REE recovery (downstream.ree_recovery)
             made = float(sum(x.imass["Water"] for x in u[ID].outs) - sum(x.imass["Water"] for x in u[ID].ins))
@@ -630,11 +624,6 @@ def get_att_sodium_calcium_ledger(sys):
         ("EC1: Na2CO3 crystallized (recycled as solid)", float(EC1._na2co3_crystals_kgph)),
         ("Loss: NaOH in CaCO3 cake", float(s["caco3_cake"].imass["NaOH"])),
         ("Loss: Na2CO3 in CaCO3 cake", float(s["caco3_cake"].imass["Na2CO3"])),
-        ("Loss: NaOH in lime purge", float(s["lime_purge"].imass["NaOH"]) if "lime_purge" in s else 0.0),
-        ("Loss: Na2CO3 in lime purge", float(s["lime_purge"].imass["Na2CO3"]) if "lime_purge" in s else 0.0),
-        ("Lime recycle: NaOH + Na2CO3 returned to C1 with the lime [kg NaOH eq]",
-         (float(s["recycled_lime"].imass["NaOH"]) + 2 * 39.99711 / 105.9888 * float(s["recycled_lime"].imass["Na2CO3"]))
-         if "recycled_lime" in s else 0.0),
         ("Loss: NaOH in liquor purge", float(s["liquor_purge"].imass["NaOH"])),
         ("Loss: Na2CO3 in liquor purge", float(s["liquor_purge"].imass["Na2CO3"])),
         ("Loss: Na2CO3 in ash/char cake", float(s["ash_residue_cake"].imass["Na2CO3"])),
@@ -981,7 +970,7 @@ ASSUMPTION_REGISTER = (
     ("2 engineering", "Sargassum burden", "Zero upstream burden; collection/transport excluded",
      "Waste-biomass cut-off", "MEDIUM (decision)"),
     ("2 engineering", "Heat integration", "BioSTEAM HeatExchangerNetwork (10 K approach); process-process exchangers at BioSTEAM default U", "User decision 2026-10-16", "HIGH (steam and cooling duty)"),
-    ("3 optional", "Dryer alternatives, EC1 multi-effect/MVR, lime kiln", "Not modeled", "Out of scope", "Scenario"),
+    ("3 optional", "Dryer alternatives, EC1 multi-effect/MVR, lime regeneration", "Not modeled", "Out of scope", "Scenario"),
 )
 
 

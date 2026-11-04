@@ -26,8 +26,6 @@ from biorefineries.ATT.units._att import (
     ATTMolecularSieve,
     ATTPSA,
     ATTScrubber,
-    ATTLimeKiln,
-    ATTLimeSlaker,
     ATTResidueSplit,
     ATTSaltCrystallizer,
     ATTReeLeach,
@@ -100,7 +98,6 @@ def create_att_system(
     ree_grade=None,
     ree_params=None,
     heat_exchanger_network=True,
-    lime_recycle=None,
     configuration="presscake",
     psa=None,
     co2_scrubber=None,
@@ -179,10 +176,6 @@ def create_att_system(
         Purify the compressed gas in a PSA (U3P, 90 % H2 recovery, tail gas burned) or not. None uses
         att.yaml gas_treatment.psa_enabled (ATT Scenario 1: False; the scrubbed, dried and
         compressed gas leaves as h2_product).
-    lime_recycle : bool or None
-        Calcine the F2 cake in a lime kiln (K1), slake it (S1) and recycle the Ca(OH)2
-        to C1 (a purge of the burnt lime and fresh makeup close the loop). False sends the
-        cake to disposal and buys all the Ca(OH)2. None uses att.yaml downstream.lime_recycle.
 
     Returns
     -------
@@ -1089,33 +1082,12 @@ def create_att_system(
     # Ca(OH)2 requirement is calculated automatically.
     # --------------------------------------------------------------
     lime = bst.Stream("lime")
-    lime_cfg = _ATT_DOWNSTREAM["lime_recycle"]
-    use_lime_recycle = bool(lime_cfg["enabled"]) if lime_recycle is None else bool(lime_recycle)
-    if use_lime_recycle:
-        # Recycled (slaked) lime plus fresh makeup, dosed to the stoichiometric need of C1.
-        recycled_lime = bst.Stream("recycled_lime", phase="s")
-        LM = bst.Mixer("LM", ins=(recycled_lime, lime), outs=("lime_to_C1",))
-
-        @LM.add_specification(run=True)
-        def dose_makeup_lime():
-            na2co3 = float(carbonate_solution.imol["Na2CO3"]) + float(recycled_lime.imol["Na2CO3"])
-            need = float(_ATT_DOWNSTREAM["lime_equiv"]) * na2co3
-            have = float(recycled_lime.imol["CaOH2"])
-            lime.empty()
-            lime.imol["CaOH2"] = max(need - have, 0.0)
-            lime.phase = "s"
-        lime_to_C1 = LM - 0
-    else:
-        recycled_lime = LM = None
-        lime_to_C1 = lime
-
     C1 = CausticizationReactor(
         "C1",
         ins=(
             carbonate_solution,
-            lime_to_C1,
+            lime,
         ),
-        lime_supplied=use_lime_recycle,
         outs=("causticized_slurry",),
         conversion=_ATT_DOWNSTREAM["causticization_conversion"],
         lime_equiv=_ATT_DOWNSTREAM["lime_equiv"],
@@ -1210,7 +1182,7 @@ def create_att_system(
     # The cakes keep the IDs caco3_cake and scrubber_cake (the sold streams); the filter outlets become *_wet.
     # --------------------------------------------------------------
     dry_cfg = _ATT_DOWNSTREAM.get("caco3_drying", {})
-    dry_cakes = bool(dry_cfg.get("enabled", False) if caco3_drying is None else caco3_drying) and not use_lime_recycle
+    dry_cakes = bool(dry_cfg.get("enabled", False) if caco3_drying is None else caco3_drying)
     D2 = D3 = None
     if dry_cakes:
         def cake_dryer(ID, cake, air_ID, product_ID):
@@ -1231,38 +1203,6 @@ def create_att_system(
     # The original F2 filtrate and NaOH loop are unchanged. The wash liquor is recycled to the dissolver D1 (or,
     # with recycle_wash_liquor false, is a separate wastewater product); it is never routed to EC1.
     sp1_feed = F2 - 1
-
-    # --------------------------------------------------------------
-    # Lime recycle: K1 kiln -> LP purge -> S1 slaker -> back to C1 (via LM)
-    # --------------------------------------------------------------
-    if use_lime_recycle:
-        K1 = ATTLimeKiln(
-            "K1",
-            ins=(F2R - 0 if F2R is not None else F2 - 0),
-            outs=("kiln_solids", "kiln_exhaust"),
-            calcination_conversion=lime_cfg["calcination_conversion"],
-            solids_outlet_temperature_K=lime_cfg["solids_outlet_temperature_K"],
-            exhaust_temperature_K=lime_cfg["exhaust_temperature_K"],
-            heat_loss_fraction=lime_cfg["heat_loss_fraction"],
-            kiln_area_m2_per_t_CaO_per_day=lime_cfg["kiln_area_m2_per_t_CaO_per_day"],
-            refractory_factor=lime_cfg["refractory_factor"],
-        )
-        LP = bst.Splitter(
-            "LP",
-            ins=K1 - 0,
-            outs=("lime_to_slaker", "lime_purge"),
-            split=1.0 - float(lime_cfg["purge_fraction"]),
-        )
-        slaking_water = bst.Stream("slaking_water", Water=0.0, units="kg/hr")
-        S1 = ATTLimeSlaker(
-            "S1",
-            ins=(LP - 0, slaking_water),
-            outs=(recycled_lime,),
-            water_ratio=lime_cfg["slaking_water_ratio"],
-        )
-        lime_loop_units = [K1, LP, S1]
-    else:
-        lime_loop_units = []
 
     # --------------------------------------------------------------
     # SP1 - Whole-liquor purge / recycle split
@@ -1378,12 +1318,10 @@ def create_att_system(
         F1,
         *([W1, F1R, MC] if W1 is not None else []),
         *([LC1, RO1] if LC1 is not None else []),
-        *([LM] if LM is not None else []),
         C1,
         F2,
         *([W2, F2R] if W2 is not None else []),
         *([D2] if D2 is not None else []),
-        *lime_loop_units,
         SP1,
         EC1,
         *([XL1] if XL1 is not None else []),
@@ -1392,16 +1330,16 @@ def create_att_system(
     HXN = None
     if heat_exchanger_network:
         T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"])
-        # Not matched: the fired heaters of U2, the lime kiln and the REE roaster (fuel-fired, no process stream pair) and the solids
+        # Not matched: the fired heaters of U2 and the REE roaster (fuel-fired, no process stream pair) and the solids
         # cooler RC1. The HXN flashes every stream it matches and RC1's stream is all solid (no boiling point), so it
         # fails; a water proxy would misstate a 500 -> 90 C sensible duty. Its 1.6 MW is cooled with cooling water.
         HXN = bst.HeatExchangerNetwork("HXN", T_min_app=T_min_app,
-                                       ignored=[U2, RC1, *([K1] if use_lime_recycle else []), *([RO1] if RO1 is not None else [])])
+                                       ignored=[U2, RC1, *([RO1] if RO1 is not None else [])])
 
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else []), *([condensate_to_f1_wash] if f1_wash_with_condensate else []), *([spent_leachate, condensate_to_leach] if spent_leachate is not None else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else []), *([condensate_to_f1_wash] if f1_wash_with_condensate else []), *([spent_leachate, condensate_to_leach] if spent_leachate is not None else [])),
         # The makeup/concentration specification is nonlinear.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

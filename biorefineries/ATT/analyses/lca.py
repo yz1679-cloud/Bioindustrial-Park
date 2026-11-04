@@ -58,7 +58,7 @@ KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
 _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Water", "water_supply"),
-                 "slaking_water": ("Water", "water_supply"), "scrubber_makeup_water": ("Water", "water_supply"),
+                 "scrubber_makeup_water": ("Water", "water_supply"),
                  "f2_wash_water": ("Water", "water_supply"), "f1_wash_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
@@ -214,7 +214,7 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None, caco3_s
         stream.characterization_factors.pop(KEY, None)
     # Purchased materials (pure streams; checked).
     for ID, (component, name) in _FEED_FACTORS.items():
-        if ID not in s:      # slaking water exists only with the lime recycle
+        if ID not in s:
             continue
         stream = s[ID]
         if abs(float(stream.imass[component]) - float(stream.F_mass)) > 1e-9 * max(1.0, stream.F_mass):
@@ -312,7 +312,7 @@ def get_att_gwp_contributions(sys, applied):
     naoh = s["fresh_naoh_solid"]
     # C1 lime and the CO2-scrubber lime carry the same factor (apply_att_gwp); both are in this line.
     limes = [s[ID] for ID in ("lime", "scrubber_lime") if ID in s]
-    waters = [s[ID] for ID in ("dissolution_water", "slaking_water", "scrubber_makeup_water", "f2_wash_water",
+    waters = [s[ID] for ID in ("dissolution_water", "scrubber_makeup_water", "f2_wash_water",
                                                       "f1_wash_water") if ID in s]
     add("NaOH makeup", naoh.F_mass * hours, "kg", f["NaOH"], "kg CO2e/kg", naoh.get_impact(KEY) * hours,
         _EF["NaOH"]["source"])
@@ -330,7 +330,7 @@ def get_att_gwp_contributions(sys, applied):
                                       eta["boiler_efficiency"])):
         gwp = sys.get_net_heat_utility_impact(agent, KEY)
         fuel_MJ_yr = sum(hu.duty for hu in sys.heat_utilities if hu.agent.ID == agent) / 1e3 / efficiency * hours
-        # The PSA tail gas burned in the U2/kiln burners replaces natural gas: the fuel bought is the total need
+        # The PSA tail gas burned in the U2 burner replaces natural gas: the fuel bought is the total need
         # minus the tail gas LHV (capped at the need), shown in the same lines instead of a separate line.
         burned = inv.get_att_tail_gas_offset(sys)["offset_MJph"] * hours if agent == "natural_gas" else 0.0
         for part, name in (("natural_gas_combustion", "combustion"), ("natural_gas_upstream", "upstream supply")):
@@ -490,7 +490,7 @@ def get_att_gwp_summary(sys, applied):
         ("PSA off-gas total", float(tail.F_mass) / dry, "kg/kg dry", _LCA["offgas"]["treatment"]),
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
          "carbon of the F2 cake (CaCO3, incl. the waste lime's, and Na2CO3); the Sargassum part of the CaCO3 is credited "
-         "as stored carbon, sold or landfilled (inherited accounting); not when it is recycled to the kiln"),
+         "as stored carbon, sold or landfilled (inherited accounting)"),
         ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
          "carbon of the cake (residue and Na2CO3); the residue is credited only if credit_char_carbon (provisional U2 "
          "residual product: char or lumped residue; not measured), the soluble Na2CO3 only if credit_soluble_carbonate"),

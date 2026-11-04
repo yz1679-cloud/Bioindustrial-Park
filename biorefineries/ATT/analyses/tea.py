@@ -80,16 +80,11 @@ class ATTTEA(SaBReTEA):
         return super().VOC + self.extra_VOC
 
 
-def create_att_tea_system(scenario="att_s1", lime_recycle=None):
-    """
-    Simulated system of an ATT scenario (scenarios.create; default ATT S1 at its capacity). ``lime_recycle`` is
-    kept for backward compatibility and must agree with the scenario.
-    """
+def create_att_tea_system(scenario="att_s1"):
+    """Simulated system of an ATT scenario (scenarios.create; default ATT S1 at its capacity)."""
     if scenario not in scen.ALL_SCENARIOS:
         raise ValueError(f"unknown ATT scenario {scenario!r} (expected one of {tuple(scen.ALL_SCENARIOS)})")
     spec = scen.ALL_SCENARIOS[scenario]
-    if lime_recycle is not None and bool(lime_recycle) != (spec["lime"] == "recycled"):
-        raise ValueError(f"lime_recycle={lime_recycle} contradicts {scenario} (lime: {spec['lime']})")
     return scen.create(spec)
 
 
@@ -161,8 +156,6 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         product.price = p["REO"] * float(product.imass["REO"]) / float(product.F_mass) if float(product.F_mass) > 0.0 else 0.0
     if "biostimulant_juice" in s:
         s["biostimulant_juice"].price = float(_T["prices"]["juice"])
-    if "slaking_water" in s:
-        s["slaking_water"].price = p["process_water"]
     if "scrubber_makeup_water" in s:
         s["scrubber_makeup_water"].price = p["process_water"]
     for ID in ("f2_wash_water", "f1_wash_water"):
@@ -361,8 +354,6 @@ def _opex_table(sys, result):
     if "f1_wash_water" in s:
         add("Process water (F1 washing)", "materials", s["f1_wash_water"].cost * hours,
             f"{s['f1_wash_water'].price:.6g} USD/kg fresh wash water")
-    if "slaking_water" in s:
-        add("Process water", "materials", s["slaking_water"].cost * hours, f"{s['slaking_water'].price:.6g} USD/kg (slaking)")
     if "scrubber_lime" in s:
         add("Ca(OH)2", "materials", s["scrubber_lime"].cost * hours, f"{s['scrubber_lime'].price:.6g} USD/kg (CO2 scrubber)")
         add("Process water", "materials", s["scrubber_makeup_water"].cost * hours,
@@ -393,7 +384,7 @@ def _opex_table(sys, result):
         if ID not in {p.ID for p in sys.products} or ID in sales:
             continue
         add(f"Disposal: {ID}", "waste disposal", -s[ID].price * s[ID].F_mass * hours, f"{s[ID].price} USD/kg")
-    if s["caco3_cake"] in sys.products and "caco3_cake" not in sales:   # with the lime recycle it is internal
+    if s["caco3_cake"] in sys.products and "caco3_cake" not in sales:
         add("CaCO3 cake: disposal (+) or net sales (-)", "CaCO3 cake", -s["caco3_cake"].price * s["caco3_cake"].F_mass * hours,
             f"{s['caco3_cake'].price:.6g} USD/kg wet cake")
     tail = inv._tail_gas(sys)

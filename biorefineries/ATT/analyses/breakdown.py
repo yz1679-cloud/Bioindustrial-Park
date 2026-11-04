@@ -85,7 +85,7 @@ _AREAS = {
     "W1": "F1 washing and refiltration", "F1R": "F1 washing and refiltration",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
     "D2": "CaCO3 cake drying (D2, D3)", "D3": "CaCO3 cake drying (D2, D3)", "RS1": "Residue split (RS1)", "LC1": "REE leach and oxalate precipitation (LC1)", "RO1": "REE oxalate roaster (RO1)", "XL1": "Salt crystallizer (XL1)", "HXN": "Heat exchanger network (HXN)",
-    "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
+    "EC1": "NaOH evaporation (EC1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
     "FCI": "Floating process CAPEX adjustment (FCI factor)", "WHR": "Marine waste heat recovery (WHR)",
 }
