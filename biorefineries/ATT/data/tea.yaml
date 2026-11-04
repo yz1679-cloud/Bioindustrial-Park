@@ -1,7 +1,7 @@
 # Model Assumptions: Techno-Economic Analysis (TEA) of the ATT system (research stage)
 #
 # Read by analyses/tea.py (and the inventory, LCA and reporting modules). Top-level sections:
-#   operating_days, financial   plant uptime and the SaBReTEA financial assumptions (FCI = installed equipment cost)
+#   operating_days, financial   plant uptime and the ATTTEA financial assumptions (FCI = installed equipment cost)
 #   prices                      Sargassum, disposal, reagent and product prices
 #   caco3_sales                 CaCO3 byproduct sales assumptions;  cost_year: equipment cost basis
 #   sensitivities, limitations  sensitivity ranges and the documented TEA limitations
@@ -9,7 +9,7 @@
 # Plant uptime, in operating days per year.
 operating_days: 330
 
-# Economic and financing assumptions of SaBReTEA (the DCF behind the MSP).
+# Economic and financing assumptions of ATTTEA (the DCF behind the MSP).
 financial:
   IRR: 0.10
   duration: [2026, 2046]
@@ -26,7 +26,7 @@ financial:
   startup_salesfrac: 0.5
   foc_frac_of_fci: 0.04
 
-basis: "SaBReTEA with tea.yaml financial assumptions; ATT model with the active U2 closure (att.yaml) at the SaBRe reference scale"
+basis: "ATTTEA with tea.yaml financial assumptions; ATT model with the active U2 closure (att.yaml) at the SaBRe reference scale"
 cost_year_note: "ASSUMPTION: all equipment is costed in 2020 USD (CEPCI 596.2, the basis of the NLR Sargassum TEA used for the feed and press data); see cost_year below. Material and utility prices are of mixed years, recorded below, and are not escalated."
 product: h2_product   # MSP solved on this stream
 

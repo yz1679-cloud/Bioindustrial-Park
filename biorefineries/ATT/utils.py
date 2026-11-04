@@ -27,8 +27,8 @@ def load_assumptions(filename: str):
         return yaml.safe_load(f)
 
 
-# data/tea.yaml's operating_days -- single source of truth for SaBReTEA's
-# operating_days default (_tea.py) and every unit-level add_OPEX
+# data/tea.yaml's operating_days -- single source of truth for ATTTEA's
+# operating_days default (analyses/tea.py) and every unit-level add_OPEX
 # annualization (units/_ad.py, _pretreatment.py, _biostimulant.py).
 OPERATING_DAYS_PER_YEAR = load_assumptions("tea.yaml")["operating_days"]
 OPERATING_HOURS_PER_YEAR = float(OPERATING_DAYS_PER_YEAR) * 24.0

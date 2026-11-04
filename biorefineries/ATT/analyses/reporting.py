@@ -9,7 +9,7 @@
 """ATT reporting: consolidated results and the master documentation package.
 
 Consolidated research-stage ATT results (process, TEA, GWP100) on one frozen
-system, built only from the inventory (mass/energy), tea (SaBReTEA cases) and
+system, built only from the inventory (mass/energy), tea (ATTTEA cases) and
 lca (BioSTEAM GWP100) modules. Adds only the collection/transport sensitivity
 and TEA-LCA consistency checks. Writes results/full_scale/summary/att_consolidated_results.xlsx.
 The system and the headline TEA/LCA are ATT S1 (scenarios.create, tea_config,
@@ -270,7 +270,7 @@ def _register_rows():
         "Collection/transport cost", SDB, Y("tea.yaml", "prices.sargassum.source"), "tea.yaml:prices.sargassum.value",
         "Baseline 0 (collection and transport not costed)", affects="TEA", confirm="Yes (logistics data)")
     for k, v in Y("tea.yaml", "financial").items():
-        add("Financial", k, str(v) if isinstance(v, list) else v, "-", "SaBReTEA", "", SDB,
+        add("Financial", k, str(v) if isinstance(v, list) else v, "-", "ATTTEA", "", SDB,
             "SaBRe tea.yaml (project financial convention)", f"tea.yaml:financial.{k}", "Baseline", affects="TEA")
     psa = Y("att.yaml", "att.gas_treatment.psa_cost")
     add("TEA", "PSA installed cost anchor", psa["anchor_installed_cost_usd"], "USD", "U3P",
@@ -762,7 +762,7 @@ def _capex_detail(sys, result):
                     ("Total installed = DPI = TDC = FCI", tea.FCI), ("Working capital", tea.working_capital),
                     ("Total capital investment", tea.TCI)):
         rows.append(dict(item=item, class_="TOTAL", purchase_cost_USD=v if "purchased" in item else float("nan"),
-                         installed_cost_USD=v if "purchased" not in item else float("nan"), source="SaBReTEA"))
+                         installed_cost_USD=v if "purchased" not in item else float("nan"), source="ATTTEA"))
     return rows
 
 
@@ -774,11 +774,11 @@ def _financial(result):
         dict(parameter="operating_hours", value=tea.operating_days * 24, source="derived"),
         dict(parameter="lang_factor", value="None (installed costs from bare-module factors)", source="att.tea.evaluate_att_tea"),
         dict(parameter="FCI definition", value="FCI = DPI = TDC = installed equipment (no indirect capital)",
-             source="SaBReTEA (bst.TEA defaults _DPI/_TDC/_FCI)"),
+             source="ATTTEA (bst.TEA defaults _DPI/_TDC/_FCI)"),
         dict(parameter="FOC", value=f"{tea_mod._FIN['foc_frac_of_fci']} x FCI per year (labor, maintenance, overhead)",
-             source="biorefineries/ATT/_tea.py SaBReTEA._FOC"),
+             source="analyses/tea.py ATTTEA._FOC"),
         dict(parameter="CEPCI", value=bst.CE, source="BioSTEAM default bst.CE"),
-        dict(parameter="TEA class", value="ATTTEA(SaBReTEA): + extra installed capital, + extra VOC",
+        dict(parameter="TEA class", value="ATTTEA(bst.TEA): FOC = fraction x FCI + fixed FOC, + extra installed capital, + extra VOC",
              source="biorefineries/ATT/analyses/tea.py"),
         dict(parameter="MSP solver", value="bst.TEA.solve_price (DCF, NPV = 0 at IRR)", source="BioSTEAM"),
     ]
@@ -1054,7 +1054,7 @@ traceability only: no model, LCA or TEA parameter is changed.
   energy, utilities, equipment estimates) -> `results/full_scale/mass_energy/`.
 - **LCA:** `analyses/lca.py` (BioSTEAM characterization factors and
   process impacts, `System.get_net_impact`) -> `results/full_scale/lca/`.
-- **TEA:** `analyses/tea.py` (`ATTTEA` = SaBReTEA + extra capital/VOC,
+- **TEA:** `analyses/tea.py` (`ATTTEA`, a `bst.TEA` subclass with extra capital/VOC,
   `solve_price`) -> `results/full_scale/tea/`.
 - **Consolidation:** `analyses/reporting.py` -> `results/full_scale/summary/`.
 - **This package:** `analyses/reporting.py` -> `results/documentation/`.
@@ -1340,7 +1340,7 @@ def _assumptions_table():
         ("ENGINEERING", "Heat supply", "U2 burner 0.90; steam boiler 0.80; 5 % heat loss", "workbook / BioSTEAM"),
         ("ENGINEERING", "Cake disposal (non-CaCO3 mass of the sold cakes)", "0.04 USD/kg wet", "tea.yaml disposal_solid (assumed)"),
         ("ILLUSTRATIVE", "CaCO3 price", "100 USD/t (baseline assumption)", "not a demonstrated price"),
-        ("FINANCIAL", "SaBReTEA", "IRR 10 %, 20 yr, MACRS7, 21 % tax, FOC 4 % FCI, FCI = installed cost",
+        ("FINANCIAL", "ATTTEA", "IRR 10 %, 20 yr, MACRS7, 21 % tax, FOC 4 % FCI, FCI = installed cost",
          "tea.yaml"),
         ("COST YEAR", "Equipment / prices", "CEPCI 567.5 (2017) / 2024-2025 prices", "see att_tea 10_cost_year"),
         ("BOUNDARY", "LCA", "cradle-to-gate, collection/transport EXCLUDED, no allocation or CaCO3 credit",

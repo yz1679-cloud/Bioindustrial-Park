@@ -20,7 +20,7 @@ Process-level helpers (called by the model itself)
 Full-scale analyses (frozen BioSTEAM model)
     inventory        material/energy inventory, cost inputs
     heat_duty        heating duties by unit and origin (UCLA slides reference)
-    tea              minimum H2 selling price (SaBReTEA)
+    tea              minimum H2 selling price (ATTTEA)
     lca              GWP100 (BioSTEAM impact framework)
 
 Reporting

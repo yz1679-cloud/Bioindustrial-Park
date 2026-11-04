@@ -9,8 +9,8 @@
 """
 Preliminary TEA of the frozen ATT model: minimum H2 selling price (MSP).
 
-Reuses SaBReTEA (tea.yaml financial assumptions; FCI = installed equipment
-cost; FOC = 4 % of FCI) through a thin subclass that adds only what the
+Uses ATTTEA, a bst.TEA subclass (tea.yaml financial assumptions; FCI = installed equipment
+cost; FOC = 4 % of FCI) that adds only what the
 frozen unit models do not carry:
 
 - extra installed capital: only the PSA cost-factor sensitivity (all equipment is costed inside the units: the
@@ -32,7 +32,6 @@ sold or disposed as tea.yaml caco3_sales says). ``evaluate_att_tea(sys)`` is tha
 """
 import biosteam as bst
 
-from biorefineries.ATT._tea import SaBReTEA
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses.lca import _h2so4_kgph
@@ -56,24 +55,37 @@ _FEED_AND_DISPOSAL = ("sargassum", "disposal_solid", "disposal_wastewater")     
 _BURNER_EFFICIENCY = float(load_assumptions("att.yaml")["att"]["energy_sources"]["natural_gas"]["burner_efficiency"])
 
 
-class ATTTEA(SaBReTEA):
-    """SaBReTEA plus installed capital and annual costs outside the unit models."""
+class ATTTEA(bst.TEA):
+    """
+    BioSTEAM TEA of the ATT flowsheet (the DCF is BioSTEAM's). Assumptions:
 
-    def __init__(self, *args, extra_installed_cost=0.0, extra_VOC=0.0, foc_fixed=0.0, **kwargs):
+    - FCI = installed equipment cost (``_DPI`` adds ``extra_installed_cost``);
+    - fixed operating cost = ``foc_frac_of_fci`` x FCI + ``foc_fixed`` [USD/yr] (S2 labor; 0 in S1);
+    - variable operating cost = BioSTEAM material and utility cost + the ``add_OPEX`` of the units + ``extra_VOC``.
+    """
+
+    def __init__(self, *args, foc_frac_of_fci=0.04, extra_installed_cost=0.0, extra_VOC=0.0, foc_fixed=0.0, **kwargs):
+        self.foc_frac_of_fci = float(foc_frac_of_fci)
         self.extra_installed_cost = float(extra_installed_cost)
         self.extra_VOC = float(extra_VOC)
-        self.foc_fixed = float(foc_fixed)     # fixed annual FOC added to foc_frac_of_fci x FCI (S2 labor); 0 in S1
+        self.foc_fixed = float(foc_fixed)
         super().__init__(*args, **kwargs)
 
     def _FOC(self, FCI):
-        return super()._FOC(FCI) + self.foc_fixed
+        return self.foc_frac_of_fci * FCI + self.foc_fixed
 
     def _DPI(self, installed_equipment_cost):
         return installed_equipment_cost + self.extra_installed_cost
 
+    def _annual_unit_add_opex(self):
+        """Sum of the unit-level add_OPEX [USD/h] annualized."""
+        hourly = sum(float(getattr(u, "add_OPEX", 0.0) or 0.0) for u in self.system.units)
+        return hourly * self.operating_days * 24.0
+
     @property
     def VOC(self):
-        return super().VOC + self.extra_VOC
+        """BioSTEAM's default VOC would leave out the unit-level add_OPEX (reagent and other OPEX), so it is added here."""
+        return self.material_cost + self.utility_cost + self._annual_unit_add_opex() + self.extra_VOC
 
 
 def create_att_tea_system(scenario="att_s1"):
@@ -197,7 +209,7 @@ def evaluate_att_tea(sys, price_overrides=_S1_BASELINE, psa_factor=1.0, ng_facto
                      offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=_S1_BASELINE,
                      operating_hours=None, extra_capital=(), extra_voc=(), foc_frac_of_fci=None, foc_fixed=0.0):
     """
-    Build the TEA for one case and solve the H2 MSP with SaBReTEA's DCF.
+    Build the TEA for one case and solve the H2 MSP with ATTTEA's DCF.
 
     price_overrides, caco3_sales: left out, they take the ATT S1 treatment of ``scenarios.tea_config``
     (waste lime at 0 USD/kg, the CaCO3 cakes sold, the rest disposed). price_overrides: prices [USD/kg] that replace
@@ -269,7 +281,7 @@ def _capex_table(sys, result):
         rows.append(dict(item=name, purchase_cost=float("nan"), installed_cost=value, source=source))
     rows += [
         dict(item="Installed equipment cost = DPI = TDC = FCI (SaBRe: no indirect factors)",
-             purchase_cost=float("nan"), installed_cost=tea.FCI, source="SaBReTEA"),
+             purchase_cost=float("nan"), installed_cost=tea.FCI, source="ATTTEA"),
         dict(item="Working capital", purchase_cost=float("nan"), installed_cost=tea.working_capital, source="5 % of FCI"),
         dict(item="Total capital investment", purchase_cost=float("nan"), installed_cost=tea.TCI, source=""),
     ]
@@ -336,7 +348,7 @@ def _opex_table(sys, result):
                      USD_per_yr=(result["msp"] - covered) * h2_yr, USD_per_kg_H2=result["msp"] - covered,
                      USD_per_kg_dry=(result["msp"] - covered) * h2_yr / dry_yr, basis="MSP - sum of costs"))
     rows.append(dict(item="MSP", category="total", USD_per_yr=result["msp"] * h2_yr, USD_per_kg_H2=result["msp"],
-                     USD_per_kg_dry=result["msp"] * h2_yr / dry_yr, basis="SaBReTEA.solve_price"))
+                     USD_per_kg_dry=result["msp"] * h2_yr / dry_yr, basis="ATTTEA.solve_price"))
     return rows
 
 

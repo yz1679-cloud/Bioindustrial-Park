@@ -11,7 +11,7 @@ Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 of the scenarios 
 at their capacity, with their lime and CaCO3 assumptions (scenarios.tea_config / lca_overrides). (the ATT plant is
 fed with the presscake of a biostimulant plant, normally a waste).
 
-* MSP by cost type and group: SaBReTEA's cash-flow table levelized at the
+* MSP by cost type and group: ATTTEA's cash-flow table levelized at the
   solved MSP (NPV = 0), so the parts add up to the MSP. CAPEX-related =
   capital outlays (net of the loan), debt service and income tax; the rest
   are operating costs (materials, utilities, waste treatment and disposal,
@@ -20,7 +20,7 @@ fed with the presscake of a biostimulant plant, normally a waste).
   with the CAPEX-related MSP allocated to the areas in proportion to their
   installed cost (an allocation, not a separate calculation).
 * OPEX: annual operating cost (undiscounted) by group and its share. It includes
-  waste treatment and disposal, which SaBReTEA books as negative sales.
+  waste treatment and disposal, which ATTTEA books as negative sales.
 * GWP100: contribution of each input, with the stage totals.
 
 Written by ``analyses/cost_gwp_breakdown_att.py`` to ``results/tables`` and
@@ -112,7 +112,7 @@ def _cost_group(item, category):
 
 
 def _dcf_breakdown(sys, result):
-    """Levelize SaBReTEA's cash-flow table at the solved MSP (NPV = 0)."""
+    """Levelize ATTTEA's cash-flow table at the solved MSP (NPV = 0)."""
     tea = result["tea"]
     hours = sys.operating_hours
     product = inv._streams(sys)[tea_mod._T["product"]]
