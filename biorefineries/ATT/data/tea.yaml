@@ -59,7 +59,7 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
     source: "USGS MCS 2026, hydrated lime 2025 estimate 280 USD/t, average value at plant (f.o.b.), transport NOT included."
   H2SO4:
     value: 0.0948
-    source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, att_lca.yaml endpoint)"
+    source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, lca.yaml endpoint)"
   HCl_31:                # 31 wt % HCl solution, per kg of solution (REE leach; used only with ree_recovery)
     value: 0.20
     source: "2026 quotes: US 215, global 185-205 USD/t (Expert Market Research, ChemAnalyst); assumption."
@@ -104,7 +104,7 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
 # whole wet cake leaves; the split above is a NET CAKE PRICE = CaCO3 content x price - disposal_solid x the
 # non-CaCO3 mass, i.e. a buyer discount for moisture, Ca(OH)2 and sodium. It is not double counted (one stream
 # price) but it is an UPPER-BOUND case: no buyer or specification exists for this cake. The LCA credits the Sargassum
-# carbon of the sold CaCO3 like landfilled carbon (att_lca.yaml carbon_storage).
+# carbon of the sold CaCO3 like landfilled carbon (lca.yaml carbon_storage).
 caco3_sales:
   enabled: true
   streams: [caco3_cake, scrubber_cake]   # F2 causticizing cake and F3 CO2-scrubber cake (distinct CaCO3 flows)

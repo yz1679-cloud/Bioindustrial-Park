@@ -50,7 +50,7 @@ FILES = {
     "att.yaml": "biorefineries/ATT/data/att.yaml",
     "feedstock.yaml": "biorefineries/ATT/data/feedstock.yaml",
     "tea.yaml": "biorefineries/ATT/data/tea.yaml",
-    "att_lca.yaml": "biorefineries/ATT/data/att_lca.yaml",
+    "lca.yaml": "biorefineries/ATT/data/lca.yaml",
 }
 WORKBOOK = "ATT_Master_Model_Documentation.xlsx"
 EXP, SDB, BSD, LIT, ENG, CALC = ("Experimental (UCLA)", "SaBRe database", "BioSTEAM default", "Literature",
@@ -243,16 +243,16 @@ def _register_rows():
         uncertainty="1048-1113 kJ/kg in the sources")
     for name, eta, src in (("U2 burner efficiency", Y("att.yaml", "att.energy_sources.natural_gas.burner_efficiency"),
                             "Workbook: 'IPCC 2006; burner eff. 0.90'"),
-                           ("Steam boiler efficiency", Y("att_lca.yaml", "lca.natural_gas.boiler_efficiency"),
+                           ("Steam boiler efficiency", Y("lca.yaml", "lca.natural_gas.boiler_efficiency"),
                             "BioSTEAM BoilerTurbogenerator default boiler_efficiency")):
         add("Energy", name, eta, "-", "U2" if "U2" in name else "steam", "Fuel (LHV) = delivered heat / efficiency",
             EXP if "U2" in name else BSD, src,
             "att.yaml:att.energy_sources.natural_gas.burner_efficiency" if "U2" in name
-            else "att_lca.yaml:lca.natural_gas.boiler_efficiency", "Specified", affects="LCA, TEA",
+            else "lca.yaml:lca.natural_gas.boiler_efficiency", "Specified", affects="LCA, TEA",
             basis="Baseline (boiler 0.80-0.90 sensitivity)" if "boiler" in name.lower() else "Baseline")
-    for k, v in Y("att_lca.yaml", "lca.emission_factors").items():
+    for k, v in Y("lca.yaml", "lca.emission_factors").items():
         add("LCA", f"EF {k}", v["value"], v["unit"], "LCA", v.get("boundary", ""),
-            EXP if "collaborators" in v["source"] else LIT, v["source"], f"att_lca.yaml:lca.emission_factors.{k}",
+            EXP if "collaborators" in v["source"] else LIT, v["source"], f"lca.yaml:lca.emission_factors.{k}",
             "Baseline",
             v.get("note", ""), "LCA", f"range {v.get('range', '')}", v.get("status", ""),
             "Yes" if k in ("electricity",) else "No")
@@ -1048,7 +1048,7 @@ traceability only: no model, LCA or TEA parameter is changed.
   with custom units in `biorefineries/ATT/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/ATT/data/att.yaml`.
 - **Configuration:** `biorefineries/ATT/data/att.yaml` (process),
-  `feedstock.yaml`, `tea.yaml` (SaBRe common), `att_lca.yaml` (GWP100 factors),
+  `feedstock.yaml`, `tea.yaml` (SaBRe common), `lca.yaml` (GWP100 factors),
   `tea.yaml` (ATT prices and capital items).
 - **Inventory:** `analyses/inventory.py` (mass, element, water, Na/Ca,
   energy, utilities, equipment estimates) -> `results/full_scale/mass_energy/`.
@@ -1333,7 +1333,7 @@ def _assumptions_table():
         ("LITERATURE", "Feedstock", "NLR preprint fresh (14.3 % solids) and pressed Sargassum", "feedstock.yaml (Wiatrowski et al.)"),
         ("LITERATURE", "Ca(OH)2 price", "0.24 (ref.) / 0.28 USD/kg, f.o.b.", "USGS MCS 2025 / 2026"),
         ("LITERATURE", "Emission factors", "NaOH 1.12, Ca(OH)2 0.91/0, NG 0.056 + 0.0199, grid 0.449",
-         "collaborators; NETL 2019; GREET 2022 (att_lca.yaml)"),
+         "collaborators; NETL 2019; GREET 2022 (lca.yaml)"),
         ("ENGINEERING", "PSA recovery / capital", "90 % / 38.6 MUSD (+/-50 %)", "assumption / review anchor"),
         ("ENGINEERING", "Filter cakes, recycle, C1", "F1 30 %, F2 25 % moisture; 95 % recycle; C1 88 %, lime 1.1x",
          "att.yaml"),
@@ -1344,7 +1344,7 @@ def _assumptions_table():
          "tea.yaml"),
         ("COST YEAR", "Equipment / prices", "CEPCI 567.5 (2017) / 2024-2025 prices", "see att_tea 10_cost_year"),
         ("BOUNDARY", "LCA", "cradle-to-gate, collection/transport EXCLUDED, no allocation or CaCO3 credit",
-         "att_lca.yaml"),
+         "lca.yaml"),
     ]
     rows = [dict(type=a, item=b, value=c, source=d) for a, b, c, d in rows]
     rows += [dict(type="LIMITATION", item="TEA", value=x, source="tea.yaml") for x in

@@ -208,7 +208,7 @@ att:
       # b ~ 1.195 (CH0.5O1.195, 2.11 available e-/C). Routed with the solids
       # (U2 residue -> RC1 -> D1 -> F1 -> att_char): an assumption,
       # since part of such oxidized carbon could be soluble. No revenue, no
-      # heating-value credit, no carbon-storage credit (att_lca.yaml).
+      # heating-value credit, no carbon-storage credit (lca.yaml).
       lumped_residue:
         H_per_C: 0.5       # ASSUMED (user decision 2026-10-31); must equal the H/C of both basis species
         # Basis pseudo-components (_chemicals.py) with the same H/C, end members

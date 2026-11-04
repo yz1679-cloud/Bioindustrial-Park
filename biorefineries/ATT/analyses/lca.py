@@ -27,7 +27,7 @@ is burden-free); apply_att_gwp without overrides is the reference treatment:
   System.define_process_impact.
 
 The total is System.get_net_impact; the contribution tables decompose it and
-are checked to sum to it. Factors and assumptions: data/att_lca.yaml.
+are checked to sum to it. Factors and assumptions: data/lca.yaml.
 """
 import biosteam as bst
 
@@ -51,7 +51,7 @@ __all__ = (
     "export_att_lca",
 )
 
-_LCA = load_assumptions("att_lca.yaml")["lca"]
+_LCA = load_assumptions("lca.yaml")["lca"]
 KEY = _LCA["impact_key"]
 _EF = _LCA["emission_factors"]
 _MW = {"NaOH": 39.99711, "Na2CO3": 105.9888, "H2SO4": 98.07848, "H2O": 18.01528}
@@ -305,7 +305,7 @@ _CREDIT_SCOPE = ("the Sargassum carbon of the CaCO3 of the cakes (sold or landfi
 
 
 def get_att_stored_carbon_credit(sys):
-    """Stored-carbon credit [kg CO2e per kg H2; negative], 0 if switched off (att_lca.yaml carbon_storage.credit_stored_carbon)."""
+    """Stored-carbon credit [kg CO2e per kg H2; negative], 0 if switched off (lca.yaml carbon_storage.credit_stored_carbon)."""
     on = _LCA["carbon_storage"]["credit_stored_carbon"]
     h2 = float(inv._streams(sys)["h2_product"].imass["H2"])
     return -(_stored_carbon_kgph(sys) * 44.0095 / 12.011 / h2) if on else 0.0
@@ -316,7 +316,7 @@ def get_att_avoided_emission(sys):
     Avoided emission if the Sargassum would otherwise rot on the beach [kg CO2e per kg H2, negative = avoided]:
     ``stored`` (the carbon the plant stores, already credited in the net GWP as CO2), ``CH4_extra`` (the extra
     warming of the CH4 that rotting would form, net of the CO2 its carbon is already counted as in ``stored``; NOT in
-    the net) and ``total`` = stored + CH4_extra. CH4 formed: IPCC 2006 long-term potential (att_lca.yaml
+    the net) and ``total`` = stored + CH4_extra. CH4 formed: IPCC 2006 long-term potential (lca.yaml
     beach_rot_counterfactual).
     """
     c = _LCA["beach_rot_counterfactual"]
@@ -399,7 +399,7 @@ def get_att_gwp_summary(sys, applied):
         ("CH4 in PSA off-gas (model)", float(tail.imass["CH4"]) / dry, "kg/kg dry",
          "explicit collected stream; final fate UNRESOLVED; direct CH4 emission not in baseline GWP; no credit"),
         ("Avoided CH4 if rotted on the beach: extra credit (not in net)", credit["CH4_extra_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
-         f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 defaults, att_lca.yaml beach_rot_counterfactual), "
+         f"{credit['CH4_kg_per_kg_dry']:.4f} kg CH4/kg dry avoided (IPCC 2006 defaults, lca.yaml beach_rot_counterfactual), "
          "net of the CO2 its carbon is counted as in the stored-carbon credit; counterfactual-dependent"),
         ("Avoided emission if rotted on the beach: stored carbon + extra CH4", credit["total_kgCO2e_per_kg_H2"], "kg CO2e/kg H2",
          "the stored-carbon credit already in the net plus the extra CH4 credit"),
@@ -472,7 +472,7 @@ def get_att_lca_factor_register():
              source="assumption", boundary="", note=_LCA["neutralization"]["endpoint"]),
     ]
     for key in ("functional_unit", "boundary", "allocation", "energy_basis"):
-        rows.append(dict(factor=key, value=float("nan"), range="", unit="", source="att_lca.yaml",
+        rows.append(dict(factor=key, value=float("nan"), range="", unit="", source="lca.yaml",
                          boundary="", note=_LCA[key]))
     return rows
 

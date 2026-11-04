@@ -48,7 +48,7 @@ unverified** price), and the washed ATT residue (the char cake) is
 assumed to be taken as a sorbent at a net price of 0 (`prices.att_char`, no buyer or specification; set it to -0.04, the
 disposal fee, to dispose of it).
 
-Carbon (`data/att_lca.yaml`): the Sargassum carbon of the CaCO3 and of the lumped residue is credited as stored carbon;
+Carbon (`data/lca.yaml`): the Sargassum carbon of the CaCO3 and of the lumped residue is credited as stored carbon;
 the soluble Na2CO3 and the CaCO3 of the lime are not.
 
 Exports: `python -m biorefineries.ATT.analyses.run figures` saves the

@@ -42,7 +42,7 @@ __all__ = (
 
 WORKBOOK = "ATT_1kgph_Process_Mass_Energy_Audit.xlsx"
 _ATT = load_assumptions("att.yaml")["att"]
-_LCA = load_assumptions("att_lca.yaml")["lca"]
+_LCA = load_assumptions("lca.yaml")["lca"]
 _MW = {"H2": 2.01588, "CH4": 16.04246, "CO": 28.0101, "CO2": 44.0095, "NaOH": 39.99711, "H2O": 18.01528}
 
 
