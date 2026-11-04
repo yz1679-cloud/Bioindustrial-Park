@@ -23,7 +23,7 @@ is burden-free); apply_att_gwp without overrides is the reference treatment:
   CoolingTower electricity (not in the unit power utilities);
 - unit electricity: PowerUtility factor;
 - off-flowsheet items (wastewater treatment, purge neutralization reagent,
-  landfill, auxiliary electricity, optional collection/transport):
+  landfill, auxiliary electricity):
   System.define_process_impact.
 
 The total is System.get_net_impact; the contribution tables decompose it and
@@ -75,7 +75,6 @@ _STAGES = {
     "Wastewater treatment": "Waste management",
     "Landfill: solid residues": "Waste management",
     "Biogenic carbon stored in landfilled solids (credit)": "Stored biogenic carbon",
-    "Sargassum collection and transport": "Feedstock collection and transport",
 }
 
 
@@ -271,11 +270,6 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None, caco3_s
     # Natural gas displaced by the PSA tail gas burned in the U2 burner (fuel basis, MJ).
     sys.define_process_impact(KEY, "Natural gas displaced by PSA tail gas (burned in U2)", "MJ fuel",
                               lambda: -inv.get_att_tail_gas_offset(sys)["offset_MJph"] * hours, ng)
-    fuel = _LCA["collection_transport"]["marine_fuel_kg_per_t_wet"]
-    if fuel is not None:
-        wet_tph = float(s["att_sargassum_feed"].F_mass) / 1e3
-        sys.define_process_impact(KEY, "Sargassum collection and transport", "kg marine fuel",
-                                  lambda: wet_tph * float(fuel) * hours, f["marine_fuel"])
 
     # CaCO3 coproduct (BioSTEAM subtracts product impacts as displacement).
     treatment = _LCA["coproduct"]["CaCO3_treatment"]
@@ -417,9 +411,6 @@ def get_att_gwp_by_stage(contributions):
         stages[r["stage"]][1] += r["GWP_kgCO2e_per_kg_H2"]
     rows = [dict(stage=k, GWP_kgCO2e_per_kg_dry=v[0], GWP_kgCO2e_per_kg_H2=v[1],
                  share=v[0] / total["GWP_kgCO2e_per_kg_dry"]) for k, v in stages.items()]
-    if "Feedstock collection and transport" not in stages:
-        rows.append(dict(stage="Feedstock collection and transport", GWP_kgCO2e_per_kg_dry=float("nan"),
-                         GWP_kgCO2e_per_kg_H2=float("nan"), share=float("nan")))
     rows.append(dict(stage="Direct process emissions (fossil)", GWP_kgCO2e_per_kg_dry=0.0,
                      GWP_kgCO2e_per_kg_H2=0.0, share=0.0))
     return rows
@@ -489,8 +480,7 @@ def get_att_gwp_summary(sys, applied):
          "net (incl. the stored-carbon credit) plus the extra CH4 credit"),
         ("Lime source", float("nan"), "", applied["lime_source"]),
         ("Boundary status", float("nan"), "",
-         "PARTIAL: Sargassum collection/transport pending" if _LCA["collection_transport"][
-             "marine_fuel_kg_per_t_wet"] is None else "collection/transport included"),
+         "PARTIAL: Sargassum collection/transport not included"),
         ("Allocation", float("nan"), "", _LCA["allocation"]),
         ("Fossil CO2, onsite natural gas combustion", ng_fuel * f["natural_gas_combustion"] / dry, "kg CO2/kg dry", ""),
         ("Biogenic CO2 in PSA off-gas", float(tail.imass["CO2"]) / dry, "kg CO2/kg dry",
@@ -572,11 +562,8 @@ def get_att_lca_data_gaps(sys, applied):
     f = applied["factors"]
     hours, dry_yr, h2_yr = _basis(sys)
     dry = inv._dry_feed_kgph(sys)
-    h2 = h2_yr / dry_yr
     s = inv._streams(sys)
     summary = {r["item"]: r["value"] for r in get_att_gwp_summary(sys, applied)}
-    wet_t_per_kg_dry = float(s["att_sargassum_feed"].F_mass) / 1e3 / dry
-    per_fuel = wet_t_per_kg_dry * f["marine_fuel"]
     gwp_ch4 = _LCA["indicative_gwp100"]["CH4_non_fossil"]["value"]
     ch4_model = summary["CH4 in PSA off-gas (model)"] * gwp_ch4
     steam_fuel = sum(hu.duty for hu in sys.heat_utilities if hu.agent.ID == "low_pressure_steam") / 1e3 / dry
@@ -585,8 +572,8 @@ def get_att_lca_data_gaps(sys, applied):
     cake = s["caco3_cake"]
     cake_landfill = float(cake.F_mass) / dry * f["inert_landfill"]
     rows = [
-        ("Sargassum collection and transport", "PENDING (no SaBRe data)",
-         per_fuel, f"per 1 kg marine fuel per t wet Sargassum ({per_fuel / h2:.2f} per kg H2)", "potentially HIGH"),
+        ("Sargassum collection and transport", "NOT INCLUDED (no data)", float("nan"),
+         "outside the boundary; no collection distance or fuel-use data", "potentially HIGH"),
         ("Model off-gas CH4 if vented", "NOT IN BASELINE GWP (baseline burns the off-gas in the U2 burner)", ch4_model,
          "indicative: model off-gas CH4 x GWP100 27.0 (AR6 non-fossil); burning gives biogenic CO2 (0)",
          "HIGH if vented instead of burned"),

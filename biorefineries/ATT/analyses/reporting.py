@@ -162,9 +162,9 @@ def _register_rows():
             "Closes the electron balance (see U2 balance checks)",
             "Process, LCA, TEA",
             confirm="Yes (gas quantification)")
-    add("ATT reaction", "U2 gas method", Y("att.yaml", "att.reactor.material_balance.gas_closure_method"), "-", "U2",
+    add("ATT reaction", "U2 gas method", "specified_yields", "-", "U2",
         "Specified gas yields; water from the oxygen balance; checks on NaOH capacity for CO2, electrons, mass, energy",
-        ENG, "User decision 2026-10-16", "att.yaml:att.reactor.material_balance.gas_closure_method",
+        ENG, "User decision 2026-10-16", "units/_att.py:ATTReactor.gas_closure_method",
         "Model specification", "No all-element tracking: unidentified products are not modeled",
         "Process, LCA, TEA")
     add("ATT reaction", "NaOH -> Na2CO3 conversion", Y("att.yaml", "att.reactor.material_balance.naoh_to_na2co3_conversion"),
@@ -262,7 +262,7 @@ def _register_rows():
     for k, v in Y("att_lca.yaml", "lca.emission_factors").items():
         add("LCA", f"EF {k}", v["value"], v["unit"], "LCA", v.get("boundary", ""),
             EXP if "collaborators" in v["source"] else LIT, v["source"], f"att_lca.yaml:lca.emission_factors.{k}",
-            "Baseline" if k != "marine_fuel" else "Scenario",
+            "Baseline",
             v.get("note", ""), "LCA", f"range {v.get('range', '')}", v.get("status", ""),
             "Yes" if k in ("electricity",) else "No")
     for k, v in Y("tea.yaml", "prices").items():
@@ -277,7 +277,7 @@ def _register_rows():
             "Baseline", affects="TEA", uncertainty=f"range {Y('tea.yaml', f'prices.{k}.range')}")
     add("TEA", "Price sargassum (delivered)", Y("tea.yaml", "prices.sargassum.value"), "USD/kg wet", "TEA",
         "Collection/transport cost", SDB, Y("tea.yaml", "prices.sargassum.source"), "tea.yaml:prices.sargassum.value",
-        "Baseline 0; sensitivity 0-50 USD/t", affects="TEA", confirm="Yes (logistics data)")
+        "Baseline 0 (collection and transport not costed)", affects="TEA", confirm="Yes (logistics data)")
     for k, v in Y("tea.yaml", "financial").items():
         add("Financial", k, str(v) if isinstance(v, list) else v, "-", "SaBReTEA", "", SDB,
             "SaBRe tea.yaml (project financial convention)", f"tea.yaml:financial.{k}", "Baseline", affects="TEA")
@@ -841,10 +841,6 @@ def _gaps_and_inconsistencies(lca_gaps):
     rows += [dict(type="TEA limitation", item=x, status="documented", magnitude=float("nan"), note="", importance="")
              for x in Y("tea.yaml", "limitations")]
     inconsistencies = [
-        ("att.yaml energy_sources.marine_fuel.emission_factor_kgCO2e_per_L = 3.2", "key says per litre; workbook and "
-         "att_lca.yaml state 3.2 kg CO2/kg fuel. Key is not used by any calculation."),
-        ("tea.yaml prices.sargassum.scenario mid_cost_collect = high_cost_collect = 0.05", "range reaches 0.10; "
-         "likely a typo in existing SaBRe data (not changed)."),
         ("tea.yaml prices.NaOH.value = 0.35", "SaBRe baseline with no literature source (the high value 0.526 is from "
          "biorefineries/lactic)."),
         ("att.yaml reactor.legacy_heat_duty_kJ_per_kg_dry_sargassum = 10423.77", "not used by any code (legacy)."),
@@ -933,16 +929,12 @@ def build_att_documentation():
     sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
     applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
     total = contributions[-1]
-    ct = _collection_transport(sys, estimates, total["GWP_kgCO2e_per_kg_dry"], base)
     consistency = _existing_outputs_check(_consistency(sys, estimates, result, contributions, utilities),
                                               result["msp"], total["GWP_kgCO2e_per_kg_H2"])
 
     lca_scen = [dict(scenario=r["scenario"], parameter=r["parameter"], value=r["value"],
                      GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"], GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"],
                      delta_per_kg_H2=r["delta_per_kg_H2"], note="") for r in sens_lca]
-    lca_scen += [dict(scenario=f"Collection/transport: {r['parameter']}", parameter=r["unit"], value=r["value"],
-                      GWP_kgCO2e_per_kg_dry=float("nan"), GWP_kgCO2e_per_kg_H2=r["result"], delta_per_kg_H2=float("nan"),
-                      note=r["note"]) for r in ct if r["analysis"] == "LCA"]
     lca_scen += [dict(scenario=f"Carbon/biogenic: {r['item']}", parameter=r["unit"], value=r["value"],
                       GWP_kgCO2e_per_kg_dry=float("nan"), GWP_kgCO2e_per_kg_H2=float("nan"), delta_per_kg_H2=float("nan"),
                       note=r["note"]) for r in summary_lca]
@@ -952,9 +944,6 @@ def build_att_documentation():
                 + [dict(group="P1 press", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta_MSP"],
                         note=f"P1 {r['P1_GWh_per_yr']:.1f} GWh/yr; {r['P1_installed_MUSD']:.1f} MUSD; "
                              f"dGWP {r['delta_GWP_kgCO2e_per_kg_H2']:.2f} kg CO2e/kg H2") for r in p1]
-                + [dict(group="Collection/transport", case=f"{r['case']} | {r['parameter']} {r['value']} {r['unit']}",
-                        MSP_USD_per_kg_H2=r["result"], delta=float("nan"), note=r["note"])
-                   for r in ct if r["analysis"] == "TEA"]
                 + [dict(group="Off-gas handling", case=r["item"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"],
                         delta=float("nan"), note=f"{r['value']} {r['unit']}") for r in offgas])
 
@@ -1184,8 +1173,6 @@ def export_att_documentation(out_dir=None):
 # ==========================================================================
 
 _TEA_PRICE = load_assumptions("tea.yaml")["prices"]
-COLLECTION_COST_USD_PER_WET_T = (0.0, 5.0, 10.0, 20.0, 50.0)
-ILLUSTRATIVE_FUEL_KG_PER_WET_T = (1.0, 5.0, 10.0)   # parametric only; no data
 
 
 def _row(table, section, item, value, unit, basis=""):
@@ -1245,38 +1232,6 @@ def _process_and_materials(sys, utilities):
          "treatment equipment and cost not in baseline TEA")
     for gas in ("CH4", "H2", "CO", "CO2"):
         _row(rows, M, f"  {gas} in PSA off-gas", float(tail.imass[gas]) / dry, "kg/kg dry", "model")
-    return rows
-
-
-def _collection_transport(sys, estimates, gwp_per_kg_dry, base=None):
-    """Collection/transport sensitivity around ``base`` (scenarios.tea_config)."""
-    s = inv._streams(sys)
-    dry = inv._dry_feed_kgph(sys)
-    h2 = float(s["h2_product"].imass["H2"]) / dry
-    wet_t_per_kg_dry = float(s["att_sargassum_feed"].F_mass) / 1e3 / dry
-    rows = []
-    for case, kw in (("ATT S1", base or {}),):
-        for cost in COLLECTION_COST_USD_PER_WET_T:
-            msp = tea_mod.evaluate_att_tea(sys, estimates, feedstock_usd_per_wet_t=cost, **kw)["msp"]
-            rows.append(dict(analysis="TEA", case=case, parameter="collection + transport cost",
-                             value=cost, unit="USD/wet t", result=msp, result_unit="MSP USD/kg H2",
-                             note="sensitivity; no SaBRe/ATT location-specific data"))
-    sc = _TEA_PRICE["sargassum"]
-    for name, v in sc["scenario"].items():
-        msp = tea_mod.evaluate_att_tea(sys, estimates, feedstock_usd_per_wet_t=v * 1e3, **(base or {}))["msp"]
-        rows.append(dict(analysis="TEA", case="ATT S1", parameter=f"tea.yaml sargassum.{name}", value=v * 1e3,
-                         unit="USD/wet t", result=msp, result_unit="MSP USD/kg H2", note=sc["source"]))
-    tea_mod.evaluate_att_tea(sys, estimates, **(base or {}))
-    ef = float(lca._EF["marine_fuel"]["value"])
-    coeff = wet_t_per_kg_dry * ef
-    rows.append(dict(analysis="LCA", case="Baseline", parameter="GWP coefficient per kg fuel per wet t",
-                     value=1.0, unit="kg fuel/wet t", result=coeff / h2, result_unit="kg CO2e/kg H2",
-                     note=f"marine fuel combustion {ef} kg CO2/kg (collaborators); fuel upstream not included; "
-                          f"{coeff:.4f} kg CO2e/kg dry"))
-    for fuel in ILLUSTRATIVE_FUEL_KG_PER_WET_T:
-        rows.append(dict(analysis="LCA", case="Baseline", parameter="illustrative fuel intensity (NOT data)",
-                         value=fuel, unit="kg fuel/wet t", result=(gwp_per_kg_dry + fuel * coeff) / h2,
-                         result_unit="kg CO2e/kg H2", note="parametric; no collection fuel-use data available"))
     return rows
 
 
@@ -1403,10 +1358,9 @@ def build_att_consolidated_results():
     stage = lca.get_att_gwp_by_stage(contributions)
     sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
     total = contributions[-1]
-    gwp_dry, gwp_h2 = total["GWP_kgCO2e_per_kg_dry"], total["GWP_kgCO2e_per_kg_H2"]
+    gwp_h2 = total["GWP_kgCO2e_per_kg_H2"]
     s = inv._streams(sys)
     utilities = inv.get_att_purchased_utilities(sys, estimates)
-    ct = _collection_transport(sys, estimates, gwp_dry, base)
     gwp_rows = [dict(view="by stage", item=r["stage"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
                      GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"], share=r["share"]) for r in stage]
     gwp_rows += [dict(view="by input", item=r["item"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
@@ -1438,7 +1392,6 @@ def build_att_consolidated_results():
         "04_msp_cases": msp_rows,
         "05_gwp100": gwp_rows,
         "06_sensitivities": sens,
-        "07_collection_transport": ct,
         "08_consistency_checks": consistency,
         "09_assumptions_sources": assumptions,
     }
@@ -1454,7 +1407,6 @@ def _assumptions_table():
         ("LITERATURE", "Ca(OH)2 price", "0.24 (ref.) / 0.28 USD/kg, f.o.b.", "USGS MCS 2025 / 2026"),
         ("LITERATURE", "Emission factors", "NaOH 1.12, Ca(OH)2 0.91/0, NG 0.056 + 0.0199, grid 0.449",
          "collaborators; NETL 2019; GREET 2022 (att_lca.yaml)"),
-        ("LITERATURE", "Collection cost scenarios", "-20 to 100 USD/wet t", "tea.yaml, Rodriguez-Martinez 2023"),
         ("ENGINEERING", "PSA recovery / capital", "90 % / 38.6 MUSD (+/-50 %)", "assumption / review anchor"),
         ("ENGINEERING", "Filter cakes, recycle, C1", "F1 30 %, F2 25 % moisture; 95 % recycle; C1 88 %, lime 1.1x",
          "att.yaml"),

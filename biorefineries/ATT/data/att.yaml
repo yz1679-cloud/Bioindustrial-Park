@@ -218,26 +218,20 @@ att:
       # Workbook 261023 B15, retained: all NaOH is converted to Na2CO3 in U2.
       naoh_to_na2co3_conversion: 1.0
       # The gas yields above are held fixed. U2 closes C with the gases, the
-      # Na2CO3 and the residual-carbon sink below; product water and the sink's
-      # composition close H and O (lumped) or water closes O only (char, co2).
-      # N and S stay with the residue (CharN/CharS). All residuals and the
-      # electron balance are reported by ATTReactor.balance_checks().
-      gas_closure_method: specified_yields
-      # Fate of the organic carbon that is not in the specified gases or the
-      # carbonate (the residual carbon); never extra gas CO2 in ATT Scenario 1.
-      #  - lumped (BASELINE, user decision 2026-10-31): the LUMPED RESIDUAL
-      #    PRODUCT CH_aO_b, a stoichiometric surrogate for the uncharacterized
-      #    carbon-containing residue (NOT measured char): a = lumped_residue.H_per_C
-      #    (assumed), b solved by U2 from its own C/H/O balance (product water
-      #    closes H, b closes O), so C, H, O, mass and electrons all close. ATT S1:
-      #    b ~ 1.195 (CH0.5O1.195, 2.11 available e-/C). Routed with the solids
-      #    (U2 residue -> RC1 -> D1 -> F1 -> ash_residue_cake): an assumption,
-      #    since part of such oxidized carbon could be soluble. No revenue, no
-      #    heating-value credit, no carbon-storage credit (att_lca.yaml).
-      #  - char: all residual carbon as 'Char' (CH0.5O0.1); leaves an unresolved
-      #    H excess (+40.9 mmol H/g daf in ATT S1).
-      #  - co2: the SaBRe closure (extra CO2 in the gas).
-      residual_carbon_fate: lumped
+      # Na2CO3 and the lumped residual product below; product water and the
+      # product's composition close H and O. N and S stay with the residue
+      # (CharN/CharS). All residuals and the electron balance are reported by
+      # ATTReactor.balance_checks().
+      # Residual carbon (not in the specified gases or the carbonate) leaves as
+      # the LUMPED RESIDUAL PRODUCT CH_aO_b (user decision 2026-10-31), a
+      # stoichiometric surrogate for the uncharacterized carbon-containing
+      # residue (NOT measured char): a = lumped_residue.H_per_C (assumed), b
+      # solved by U2 from its own C/H/O balance (product water closes H, b
+      # closes O), so C, H, O, mass and electrons all close. ATT S1:
+      # b ~ 1.195 (CH0.5O1.195, 2.11 available e-/C). Routed with the solids
+      # (U2 residue -> RC1 -> D1 -> F1 -> ash_residue_cake): an assumption,
+      # since part of such oxidized carbon could be soluble. No revenue, no
+      # heating-value credit, no carbon-storage credit (att_lca.yaml).
       lumped_residue:
         H_per_C: 0.5       # ASSUMED (user decision 2026-10-31); must equal the H/C of both basis species
         # Basis pseudo-components (_chemicals.py) with the same H/C, end members
@@ -246,11 +240,9 @@ att:
         # the sum equals the correlation at CH0.5O_b; O-rich compositions are
         # outside its validation range); Cp 1 J/g/K; solid.
         species: [ResidueCH, ResidueCHO]
-      # When the identified products hold more hydrogen than the feed (possible
-      # with residual_carbon_fate = char): 'raise' stops the run (SaBRe
-      # behavior); 'report' keeps the measured gases, warns, and reports the
-      # excess in balance_checks() as FAIL. It does NOT add or remove products.
-      hydrogen_excess_action: report
+      # When the identified products hold more hydrogen than the feed, U2 keeps
+      # the measured gases, warns, and reports the excess in balance_checks()
+      # as FAIL. It does NOT add or remove products.
       char_species: Char
       heteroatom_species:
         N: CharN
@@ -618,9 +610,6 @@ att:
       burner_efficiency: 0.9
     engine_waste_heat:
       emission_factor_kgCO2e_per_MJ_heat: 0.0
-    marine_fuel:
-      emission_factor_kgCO2e_per_L: 3.2
-      LHV_MJ_per_kg: 41.0
   heat_recovery:
     residue_cooling_target_temperature_K: 363.15
     residue_cooler_rigorous_vle: false

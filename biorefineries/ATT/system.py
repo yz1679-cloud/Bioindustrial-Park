@@ -86,7 +86,6 @@ def get_att_reference_dry_feed_kgph(configuration="presscake"):
 
 def create_att_system(
     dry_sargassum_kgph=1.0,
-    att_case=None,
     f2_wash_enabled=None,
     f2_wash_ratio=None,
     f2_wash_recycle=None,
@@ -100,10 +99,7 @@ def create_att_system(
     ree_recovery=None,
     ree_grade=None,
     ree_params=None,
-    liquor_recycle_fraction=None,
-    ec1_temperature_K=None,
     heat_exchanger_network=True,
-    hxn_T_min_app_K=None,
     lime_recycle=None,
     configuration="presscake",
     psa=None,
@@ -119,9 +115,6 @@ def create_att_system(
         stream is constructed from the feedstock.yaml wet-feed composition
         and therefore has a larger wet mass flow. The gross NaOH is
         naoh_kg_per_kg_dry x the dry Sargassum reaching M1.
-    att_case : str or None
-        ATT process case. None selects the baseline case defined in
-        data/att.yaml (currently Ni-CatATT_1to1, ATT Scenario 1).
     configuration : str
         'presscake' (default): ATT plant that receives the presscake of a
         biostimulant plant (normally a waste), without P1; ``dry_sargassum_kgph``
@@ -170,13 +163,6 @@ def create_att_system(
     ree_params : dict or None
         Overrides of other att.yaml downstream.ree_recovery keys (e.g. a seaweed soaked in a concentrated REE solution:
         ``analyses.ree_sensitivity.concentrated_soak_params``). Unknown keys raise.
-    liquor_recycle_fraction : float or None
-        SP1 whole-liquor recycle fraction. None uses att.yaml.
-    ec1_temperature_K : float or None
-        EC1 boiling temperature for OPTIMIZATION SCENARIOS. None keeps the
-        baseline (att.yaml concentration_temperature_K, 90 C). Any other
-        value keeps the baseline boiling-point elevation and dissolved
-        Na2CO3 fraction (approximation).
     heat_exchanger_network : bool
         Add BioSTEAM's HeatExchangerNetwork facility (default). It matches the
         heating and cooling duties that sit in exchangers with process streams
@@ -184,8 +170,6 @@ def create_att_system(
         regeneration heater and cooler, the scrubber cooler) and adds the network's
         exchanger cost. U2's fired duty and the solids cooler RC1 are
         excluded. False gives the flowsheet with every duty on utilities.
-    hxn_T_min_app_K : float or None
-        HXN minimum approach temperature. None uses att.yaml.
     co2_scrubber : bool or None
         Scrub the CO2 out of the cooled gas (after U3C, before U3D) with a Ca(OH)2 slurry (SCRUB) and dewater the
         CaCO3 slurry in the filter F3 (cake at the F2 moisture, filtrate recycled to the scrubber). The scrubber lime
@@ -225,17 +209,7 @@ def create_att_system(
     # --------------------------------------------------------------
     # ATT case selection
     # --------------------------------------------------------------
-    if att_case is None:
-        att_case = _ATT["baseline_case"]
-
-    cases = _ATT["cases"]
-    if att_case not in cases:
-        raise KeyError(
-            f"Unknown ATT case '{att_case}'. "
-            f"Available cases: {tuple(cases)}"
-        )
-
-    att_case_data = cases[att_case]
+    att_case_data = _ATT["cases"][_ATT["baseline_case"]]
 
     # --------------------------------------------------------------
     # Raw Sargassum feed - use the default SaBRe composition.
@@ -514,7 +488,6 @@ def create_att_system(
             "att_gas",
             "att_residue",
         ),
-        case_name=att_case,
     )
 
     # --------------------------------------------------------------
@@ -1306,9 +1279,7 @@ def create_att_system(
     # This gives residual Na2CO3 a real system outlet and allows its
     # recycle concentration to be determined by steady-state convergence.
     # --------------------------------------------------------------
-    if liquor_recycle_fraction is None:
-        liquor_recycle_fraction = _ATT_DOWNSTREAM["whole_liquor_recycle_fraction"]
-    liquor_recycle_fraction = float(liquor_recycle_fraction)
+    liquor_recycle_fraction = float(_ATT_DOWNSTREAM["whole_liquor_recycle_fraction"])
     if not 0.0 < liquor_recycle_fraction < 1.0:
         raise ValueError("SP1 recycle fraction must be strictly between 0 and 1")
 
@@ -1356,8 +1327,7 @@ def create_att_system(
         )
     target_naoh_wt_frac = float(_ATT_DOWNSTREAM["recycle_naoh_wt_frac"])
 
-    baseline_ec1_T = float(_ATT_DOWNSTREAM["concentration_temperature_K"])
-    ec1_T = baseline_ec1_T if ec1_temperature_K is None else float(ec1_temperature_K)
+    ec1_T = float(_ATT_DOWNSTREAM["concentration_temperature_K"])
     EC1 = NaOHEvaporator(
         "EC1",
         ins=SP1 - 0,
@@ -1365,7 +1335,6 @@ def create_att_system(
         T=ec1_T,
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
     )
-    EC1.is_baseline_temperature = abs(ec1_T - baseline_ec1_T) <= 0.5
 
     @EC1.add_specification(run=True)
     def set_ec1_water_limit():
@@ -1422,8 +1391,7 @@ def create_att_system(
 
     HXN = None
     if heat_exchanger_network:
-        T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"]
-                          if hxn_T_min_app_K is None else hxn_T_min_app_K)
+        T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"])
         # Not matched: the fired heaters of U2, the lime kiln and the REE roaster (fuel-fired, no process stream pair) and the solids
         # cooler RC1. The HXN flashes every stream it matches and RC1's stream is all solid (no boiling point), so it
         # fails; a water proxy would misstate a 500 -> 90 C sensible duty. Its 1.6 MW is cooled with cooling water.

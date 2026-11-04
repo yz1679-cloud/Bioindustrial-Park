@@ -34,11 +34,6 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
   # Feedstock
   sargassum:
     value: 0.0
-    scenario:
-      tipping_fee: -0.02
-      low_cost_collect: 0.02
-      mid_cost_collect: 0.05
-      high_cost_collect: 0.05
     range: [-0.02, 0.1]
     distribution: "uniform"
     source: "Rodriguez-Martinez et al. 2023 (Sci Total Environ); cleanup costs $19-85/m3 wet = $0.024-0.106/kg wet"

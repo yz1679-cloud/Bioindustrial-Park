@@ -879,45 +879,29 @@ class ATTPress(bst.Unit):
         self.baseline_purchase_costs["Press system"] = capex
 
 
-def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, char_atoms=None,
-                         residual_carbon_fate="co2", lumped_atoms=None, char_ID="Char"):
+def close_att_u2_balance(feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, lumped_atoms):
     """
     Specified-yield U2 closure: the gas yields are inputs and are never
     changed. Carbon that is not in the specified gases or the carbonate (the
-    residual carbon) leaves as
-
-    * ``residual_carbon_fate='lumped'`` (ATT Scenario 1): the lumped residual
-      product CH_aO_b, a stoichiometric surrogate (not measured char). a is the
-      H/C of the two basis species in ``lumped_atoms`` ({ID: atoms}, end members
-      b = 0 and b = 2); the product water closes H and b closes O, so C, H and O
-      (and with them mass and electrons) all balance. Requires water >= 0 and
-      0 <= b <= 2, otherwise it raises (nothing is forced);
-    * ``residual_carbon_fate='char'`` (PROVISIONAL): the solid char
-      (``char_atoms``, CH0.5O0.1); water closes O and H is left unresolved;
-    * ``residual_carbon_fate='co2'`` (SaBRe closure): extra gas CO2; water
-      closes O and H is left unresolved.
-
-    For 'char' and 'co2' the hydrogen difference between the identified
-    products and the feed is reported by the reactor (negative: H in
-    unidentified products such as NH3, H2S, tars; positive: the identified
-    products hold more H than the feed, an unresolved balance). A carbon
-    deficit is left as an unresolved C residual instead of inventing carbon.
+    residual carbon) leaves as the lumped residual product CH_aO_b, a
+    stoichiometric surrogate (not measured char). a is the H/C of the two
+    basis species in ``lumped_atoms`` ({ID: atoms}, end members b = 0 and
+    b = 2); the product water closes H and b closes O, so C, H and O (and with
+    them mass and electrons) all balance. Requires water >= 0 and 0 <= b <= 2,
+    otherwise it raises (nothing is forced). A carbon deficit (the specified
+    gases and carbonate hold more C than the feed) leaves no residue and the
+    water closes O.
 
     Returns (gas kmol/h by species, residual product kmol/h by species, product
     water kmol/h, scale factor 1.0).
     """
-    if method != "specified_yields":
-        raise ValueError(f"Unsupported gas_closure_method '{method}'.")
-    if residual_carbon_fate not in ("lumped", "char", "co2"):
-        raise ValueError(f"residual_carbon_fate must be 'lumped', 'char' or 'co2', not {residual_carbon_fate!r}.")
     gas = dict(specified_gas_kmolph)
     fixed = dict(fixed_atoms)
     for ID, kmolph in gas.items():
         for element, n in species_atoms[ID].items():
             fixed[element] = fixed.get(element, 0.0) + n * kmolph
     remaining_C = feed_atoms.get("C", 0.0) - fixed.get("C", 0.0)
-    residue_kmolph = {}
-    if remaining_C > 0.0 and residual_carbon_fate == "lumped":
+    if remaining_C > 0.0:
         (ID0, atoms0), (ID2, atoms2) = sorted(lumped_atoms.items(), key=lambda kv: kv[1].get("O", 0.0))
         a = atoms0.get("H", 0.0) / atoms0["C"]
         if abs(atoms2.get("H", 0.0) / atoms2["C"] - a) > 1e-12 or atoms0.get("O", 0.0) != 0.0:
@@ -932,25 +916,14 @@ def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, 
             )
         x2 = b / b_max * remaining_C / atoms2["C"]
         x0 = (remaining_C - x2 * atoms2["C"]) / atoms0["C"]
-        residue_kmolph = {ID0: x0, ID2: x2}
-        return gas, residue_kmolph, water_kmolph, 1.0
-    if remaining_C > 0.0:
-        if residual_carbon_fate == "char":
-            char_kmolph = remaining_C / char_atoms["C"]
-            residue_kmolph = {char_ID: char_kmolph}
-            for element, n in char_atoms.items():
-                fixed[element] = fixed.get(element, 0.0) + n * char_kmolph
-        else:
-            gas["CO2"] = gas.get("CO2", 0.0) + remaining_C
-            fixed["C"] = fixed.get("C", 0.0) + remaining_C
-            fixed["O"] = fixed.get("O", 0.0) + 2.0 * remaining_C
+        return gas, {ID0: x0, ID2: x2}, water_kmolph, 1.0
     water_kmolph = feed_atoms.get("O", 0.0) - fixed.get("O", 0.0)
     if water_kmolph < 0.0:
         raise RuntimeError(
             f"The specified gas slate cannot be produced from this feed: the oxygen balance "
             f"gives product water {water_kmolph:.6g} kmol/h."
         )
-    return gas, residue_kmolph, water_kmolph, 1.0
+    return gas, {}, water_kmolph, 1.0
 
 
 class ATTReactor(bst.Unit, PressureVessel):
@@ -964,12 +937,11 @@ class ATTReactor(bst.Unit, PressureVessel):
 
     The gas yields are specified (att.yaml: measured Ni-CatATT 1:1 slate) and
     never changed. C, O and Na are closed: carbon beyond the specified gases
-    and the carbonate leaves as the char (``residual_carbon_fate='char'``,
-    provisional) or as extra CO2 ('co2', SaBRe), and the product water
-    closes oxygen. Hydrogen is a check, not an unknown; an excess of H in
-    the identified products (unresolved balance) raises or is reported as
-    FAIL (``hydrogen_excess_action``). N and S are not followed (they stay
-    in an inert N/S residue). ``balance_checks`` reports (i) whether the
+    and the carbonate leaves as the lumped residual product CH_aO_b (an
+    assumed surrogate), and the product water closes hydrogen. Hydrogen is
+    a check, not an unknown; an excess of H in the identified products
+    (unresolved balance) is warned about and reported as FAIL. N and S are
+    not followed (they stay in an inert N/S residue). ``balance_checks`` reports (i) whether the
     NaOH can absorb the CO2 generated and (ii) whether the products respect
     the electron, mass and energy balances of the feed.
 
@@ -990,6 +962,9 @@ class ATTReactor(bst.Unit, PressureVessel):
     mechanistic reaction model.
     """
 
+    gas_closure_method = "specified_yields"     # the gas yields are inputs and are never changed
+    residual_carbon_fate = "lumped"             # residual carbon leaves as the lumped residual product CH_aO_b
+
     _N_ins = 2          # [0] feed, [1] PSA tail gas: fuel gas burned in the U2 furnace (empty without a PSA)
     _N_outs = 2
 
@@ -1000,8 +975,6 @@ class ATTReactor(bst.Unit, PressureVessel):
         self,
         target_temperature_K=_ATT["target_temperature_K"],
         heat_loss_fraction=_ATT["heat_loss_fraction"],
-        case_name=None,
-        gas_closure_method=None,
     ):
         self.target_temperature_K = float(
             target_temperature_K
@@ -1027,18 +1000,8 @@ class ATTReactor(bst.Unit, PressureVessel):
             1.0 / (1.0 + self.heat_loss_fraction)
         )
 
-        if case_name is None:
-            case_name = _ATT["baseline_case"]
-
-        cases = _ATT["cases"]
-        if case_name not in cases:
-            raise KeyError(
-                f"Unknown ATT case '{case_name}'. "
-                f"Available cases: {tuple(cases)}"
-            )
-
-        self.case_name = case_name
-        self.case_data = cases[case_name]
+        self.case_name = _ATT["baseline_case"]
+        self.case_data = _ATT["cases"][self.case_name]
 
         # Dose of the case [kg NaOH/kg dry Sargassum]; applied by the
         # flowsheet (M1), kept here for reporting.
@@ -1065,22 +1028,9 @@ class ATTReactor(bst.Unit, PressureVessel):
             balance["naoh_to_na2co3_conversion"]
         )
 
-        self.gas_closure_method = str(
-            balance["gas_closure_method"] if gas_closure_method is None
-            else gas_closure_method
-        )
-        if self.gas_closure_method != "specified_yields":
-            raise ValueError(
-                f"Unsupported gas_closure_method '{self.gas_closure_method}'."
-            )
-        self.char_ID = str(balance["char_species"])
-        self.residual_carbon_fate = str(balance.get("residual_carbon_fate", "co2"))
-        # Basis species of the lumped residual product (residual_carbon_fate = 'lumped').
-        self.lumped_residue_IDs = tuple(balance.get("lumped_residue", {}).get("species", ()))
-        self.lumped_residue_H_per_C = float(balance.get("lumped_residue", {}).get("H_per_C", float("nan")))
-        self.hydrogen_excess_action = str(balance.get("hydrogen_excess_action", "raise"))
-        if self.hydrogen_excess_action not in ("raise", "report"):
-            raise ValueError("hydrogen_excess_action must be 'raise' or 'report'.")
+        # Basis species of the lumped residual product.
+        self.lumped_residue_IDs = tuple(balance["lumped_residue"]["species"])
+        self.lumped_residue_H_per_C = float(balance["lumped_residue"]["H_per_C"])
         self.heteroatom_IDs = dict(balance["heteroatom_species"])
 
         self.enforce_full_elemental_balance = bool(
@@ -1215,23 +1165,18 @@ class ATTReactor(bst.Unit, PressureVessel):
 
         # ----------------------------------------------------------
         # 3. Close C with the specified gases, the carbonate and the
-        #    residual product (lumped CH_aO_b, char or extra CO2); water
-        #    closes O (and, for the lumped product, b closes O while water
-        #    closes H). The specified gases are never changed.
+        #    lumped residual product CH_aO_b: b closes O while water
+        #    closes H. The specified gases are never changed.
         # ----------------------------------------------------------
         fixed_atoms = atoms_of(flows_of(residue))
-        char_atoms = chemicals[self.char_ID].atoms
         species_atoms = {ID: chemicals[ID].atoms for ID in measured_gas_kmolph}
         lumped_atoms = {ID: chemicals[ID].atoms for ID in self.lumped_residue_IDs}
-        if self.residual_carbon_fate == "lumped":
-            for ID, a in lumped_atoms.items():
-                if abs(a.get("H", 0.0) / a["C"] - self.lumped_residue_H_per_C) > 1e-12:
-                    raise ValueError(f"{ID} has H/C {a.get('H', 0.0) / a['C']}, not lumped_residue.H_per_C "
-                                     f"{self.lumped_residue_H_per_C} (att.yaml).")
+        for ID, a in lumped_atoms.items():
+            if abs(a.get("H", 0.0) / a["C"] - self.lumped_residue_H_per_C) > 1e-12:
+                raise ValueError(f"{ID} has H/C {a.get('H', 0.0) / a['C']}, not lumped_residue.H_per_C "
+                                 f"{self.lumped_residue_H_per_C} (att.yaml).")
         model_gas_kmolph, residue_kmolph, water_kmolph, scale = close_att_u2_balance(
-            self.gas_closure_method, feed_atoms, fixed_atoms,
-            measured_gas_kmolph, species_atoms, char_atoms,
-            residual_carbon_fate=self.residual_carbon_fate, lumped_atoms=lumped_atoms, char_ID=self.char_ID,
+            feed_atoms, fixed_atoms, measured_gas_kmolph, species_atoms, lumped_atoms,
         )
         gas_atoms = atoms_of(model_gas_kmolph)
 
@@ -1273,19 +1218,15 @@ class ATTReactor(bst.Unit, PressureVessel):
             float(feed.imol[ID]) * chemicals[ID].atoms.get("H", 0.0) for ID in organic_IDs
         )
         # The identified products may hold LESS hydrogen/reducing power than the
-        # feed (the rest is in unidentified products), never more. With
-        # hydrogen_excess_action = 'report' an excess is kept as an explicit,
-        # unresolved residual (warning + FAIL in balance_checks); no product
-        # is added or removed to hide it.
+        # feed (the rest is in unidentified products), never more. An excess
+        # is kept as an explicit, unresolved residual (warning + FAIL in
+        # balance_checks); no product is added or removed to hide it.
         bad = {}
         self._hydrogen_excess_kmolph = 0.0
         for e, v in self._unresolved_element_kmolph.items():
             if e == "H":
                 if v > 0.005 * organic_atoms_feed["H"]:
-                    if self.hydrogen_excess_action == "report":
-                        self._hydrogen_excess_kmolph = v
-                    else:
-                        bad[e] = v
+                    self._hydrogen_excess_kmolph = v
             elif e == "C":
                 if abs(v) > 0.02 * organic_atoms_feed["C"]:
                     bad[e] = v
@@ -1295,8 +1236,7 @@ class ATTReactor(bst.Unit, PressureVessel):
             from warnings import warn
             warn(f"U2: UNRESOLVED balance: the identified products (measured gases, residual product, water) hold "
                  f"{self._hydrogen_excess_kmolph * 1e3 / daf_sargassum_kgph:.2f} mmol H/g daf more hydrogen "
-                 f"than the feed (residual_carbon_fate={self.residual_carbon_fate!r}); reported in "
-                 f"balance_checks(), not corrected.", RuntimeWarning, stacklevel=2)
+                 f"than the feed; reported in balance_checks(), not corrected.", RuntimeWarning, stacklevel=2)
         if bad:
             raise RuntimeError(
                 "The specified gas slate violates the elemental/electron balance of the feed "
@@ -1793,7 +1733,7 @@ def _att_u2_balance_checks(self):
     e_per_C_needed = (e_feed - e_out) / n_char_C if n_char_C > 0.0 else float("nan")
     e_per_C_char = e_char / n_char_C if n_char_C > 0.0 else float("nan")
     char_HHV_kJph = sum(float(residue.imol[ID]) * chemicals[ID].HHV for ID in res_IDs)
-    surrogate = self.residual_carbon_fate in ("lumped", "char")
+    surrogate = True
     ratio_all = ((gas_HHV_kJph + char_HHV_kJph) / (feed_HHV_kJph + max(heat_kJph, 0.0))
                  if feed_HHV_kJph > 0 else float("nan"))
     unresolved = bool(getattr(self, "_hydrogen_excess_kmolph", 0.0))
