@@ -3,6 +3,7 @@ import unittest
 import warnings
 
 from biorefineries.ATT.analyses import inventory as inv
+from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses import tea as tea_mod
 
 
@@ -32,13 +33,18 @@ class TestATTTEA(unittest.TestCase):
         lime = sum(float(s[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime") if ID in s) * self.sys.operating_hours   # C1 + scrubber Ca(OH)2
         high = tea_mod.evaluate_att_tea(self.sys, self.estimates, price_overrides={"CaOH2": 0.35})["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
-        self.assertAlmostEqual(high - self.result["msp"], (0.35 - tea_mod._T["prices"]["CaOH2"]["value"]) * lime / self.h2_yr,
+        self.assertAlmostEqual(high - self.result["msp"], (0.35 - scen.tea_config()["price_overrides"]["CaOH2"]) * lime / self.h2_yr,
                                places=4)
 
-    def test_no_coproduct_revenue_and_capital_items(self):
+    def test_default_is_the_s1_tea(self):
+        # evaluate_att_tea(sys) takes the lime and CaCO3 treatment of scenarios.tea_config(ATT_S1)
+        explicit = tea_mod.evaluate_att_tea(self.sys, self.estimates, **scen.tea_config())["msp"]
+        self.assertEqual(self.result["msp"], explicit)
+        self.assertAlmostEqual(self.result["msp"] / 1.69003955, 1.0, delta=1e-5)         # the pinned S1 MSP
+
+    def test_no_tail_gas_value_and_capital_items(self):
         s = inv._streams(self.sys)
         self.assertEqual(s["u3_tail_gas"].price, 0.0)
-        self.assertEqual(s["caco3_cake"].price, 0.0)
         # the PSA (if any; ATT Scenario 1 has none) and the compressor are costed inside U3P and U3K
         units = inv._units(self.sys)
         if "U3P" in units:
@@ -55,8 +61,8 @@ class TestATTTEA(unittest.TestCase):
         self.result = tea_mod.evaluate_att_tea(self.sys, self.estimates)
         s = inv._streams(self.sys)
         hours = self.sys.operating_hours
-        case_a = tea_mod.evaluate_att_tea(self.sys, self.estimates, caco3=dict(fraction=0.0))["msp"]
-        case_b = tea_mod.evaluate_att_tea(self.sys, self.estimates, caco3=dict(
+        case_a = tea_mod.evaluate_att_tea(self.sys, self.estimates, caco3=dict(fraction=0.0), caco3_sales=None)["msp"]
+        case_b = tea_mod.evaluate_att_tea(self.sys, self.estimates, caco3_sales=None, caco3=dict(
             fraction=0.5, price_usd_per_t=250.0, handling_usd_per_t=0.0))["msp"]
         tea_mod.evaluate_att_tea(self.sys, self.estimates)
         sold = 0.5 * float(s["caco3_cake"].imass["CaCO3"]) * 0.25 * hours          # only CaCO3 content priced
