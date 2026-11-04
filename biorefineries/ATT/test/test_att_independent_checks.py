@@ -102,13 +102,13 @@ class TestH2FromTheExperimentalYield(unittest.TestCase):
 
 
 class TestLinearScaling(unittest.TestCase):
-    """Flows per kg of dry feed do not depend on the plant size (the heat integration is off in both)."""
+    """Flows per kg of dry feed do not depend on the plant size."""
 
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.small = scen.create(scen.ATT_S1, dry_kgph=1.0, hxn=False)
-        cls.large = scen.create(scen.ATT_S1, dry_kgph=scen.ATT_S1["dry_feed_kgph"], hxn=False)
+        cls.small = scen.create(scen.ATT_S1, dry_kgph=1.0)
+        cls.large = scen.create(scen.ATT_S1, dry_kgph=scen.ATT_S1["dry_feed_kgph"])
 
     def test_boundary_flows_per_kg_dry(self):
         scale = scen.ATT_S1["dry_feed_kgph"]

@@ -57,21 +57,14 @@ CASE_LABELS = {k: v["label"] for k, v in ALL_SCENARIOS.items()}
 SHORT_LABELS = {k: v["short"] for k, v in ALL_SCENARIOS.items()}
 
 
-def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, wash_recycle=None,
-           wash_condensate=None, f1_wash=None, f1_wash_ratio=None,
-           f1_wash_condensate=None, caco3_dry=None, ash_salts=None, char_yield=None, ree_recovery=None, ree_grade=None, ree_params=None):
+def create(spec=ATT_S1, dry_kgph=None, ree_recovery=None, ree_grade=None, ree_params=None):
     """Simulated system of a scenario; operating hours are set. ``dry_kgph`` defaults to the scenario capacity."""
-    if washing not in (None, "washing_on", "washing_off"):
-        raise ValueError("washing must be washing_on, washing_off or None (configured default)")
     ref = inv.get_att_reference_scale()
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(att_system.create_att_system(
-        dry_sargassum_kgph=dry_kgph, heat_exchanger_network=hxn,
+        dry_sargassum_kgph=dry_kgph,
         psa=spec["psa"], co2_scrubber=spec["scrubber"],
-        f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio,
-        f2_wash_recycle=wash_recycle, f2_wash_condensate=wash_condensate,
-        f1_wash=f1_wash, f1_wash_ratio=f1_wash_ratio,
-        f1_wash_condensate=f1_wash_condensate, caco3_drying=caco3_dry, ash_salts=ash_salts, char_yield=char_yield, ree_recovery=ree_recovery, ree_grade=ree_grade, ree_params=ree_params), dry_kgph)
+        ree_recovery=ree_recovery, ree_grade=ree_grade, ree_params=ree_params), dry_kgph)
     system.operating_hours = ref["operating_hours_per_year"]
     return system
 

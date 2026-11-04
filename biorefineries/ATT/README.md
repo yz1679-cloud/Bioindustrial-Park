@@ -6,7 +6,7 @@ Baseline: **ATT Scenario 1** (`att_s1`). See `docs/` for the process, TEA, LCA a
 ```python
 from biorefineries.ATT.analyses import scenarios
 sys = scenarios.create(scenarios.ATT_S1)                 # full capacity (5029.17 kg dry/h), HXN on
-sys_1kg = scenarios.create(scenarios.ATT_S1, dry_kgph=1.0, hxn=False)
+sys_1kg = scenarios.create(scenarios.ATT_S1, dry_kgph=1.0)
 
 from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 tables = build_att_breakdown("att_s1")                   # MSP / CAPEX / OPEX / GWP, U2 balance checks
@@ -28,9 +28,9 @@ cake in both. The final F1 product is `ash_residue_cake`. Both CaCO3 cakes are t
 cake in a drum dryer D2 and the scrubber cake in D3, the same dryer type as the feed dryer D0. The sold streams are `caco3_cake`
 and `scrubber_cake` (their undried forms are `caco3_cake_wet` and `scrubber_cake_wet`).
 
-Switches (`scenarios.create(...)`): `washing="washing_on"|"washing_off"` and `wash_ratio=` (F2), `wash_recycle=`,
-`wash_condensate=`, `f1_wash=`, `f1_wash_ratio=`, `f1_wash_condensate=`, `caco3_dry=`. The defaults are in `data/att.yaml`
-(`downstream.f2_washing`, `downstream.f1_washing`, `downstream.caco3_drying`). A ratio of 0 means no washing.
+The washes, the cake drying, the ash split, the char split and the heat exchanger network are always part of the flowsheet; their
+settings are in `data/att.yaml` (`downstream.f2_washing`, `downstream.f1_washing`, `downstream.caco3_drying`,
+`downstream.char`, `feed_preparation.ash_split`, `downstream.salt_crystallizer`, `heat_recovery`).
 
 Waste lime: `downstream.waste_lime` in `data/att.yaml` models the carbide lime of an acetylene plant as a paste (dry
 basis 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals; 40 wt % water). It is free and burden-free; the Ca(OH)2 dose follows

@@ -147,17 +147,16 @@ def s1_heat_sinks(sys, cfg=None):
     """
     cfg = load_whr_config() if cfg is None else cfg
     units = {u.ID: u for u in sys.units}
-    hxn = next((f for f in sys.facilities if isinstance(f, bst.HeatExchangerNetwork)), None)
+    hxn = next(f for f in sys.facilities if isinstance(f, bst.HeatExchangerNetwork))
     residual = {}     # aux exchanger id -> (residual fraction of its duty, T_in K, T_out K, HXN-recovered kJ/h)
-    if hxn is not None:
-        for slc in hxn.stream_life_cycles:
-            orig = hxn.original_heat_exchangers[slc.index]
-            if orig.Q <= 0.0:
-                continue
-            utils = [ls.unit for ls in slc.life_cycle if isinstance(ls.unit, bst.HXutility)]
-            res = sum(u.Q for u in utils)
-            T_in = min(u.ins[0].T for u in utils) if utils else orig.outs[0].T
-            residual[id(orig)] = (res / orig.Q, T_in, orig.outs[0].T, orig.Q - res)
+    for slc in hxn.stream_life_cycles:
+        orig = hxn.original_heat_exchangers[slc.index]
+        if orig.Q <= 0.0:
+            continue
+        utils = [ls.unit for ls in slc.life_cycle if isinstance(ls.unit, bst.HXutility)]
+        res = sum(u.Q for u in utils)
+        T_in = min(u.ins[0].T for u in utils) if utils else orig.outs[0].T
+        residual[id(orig)] = (res / orig.Q, T_in, orig.outs[0].T, orig.Q - res)
     rows = []
     for ID in cfg["sinks"]["steam_units"]:
         u = units.get(ID)

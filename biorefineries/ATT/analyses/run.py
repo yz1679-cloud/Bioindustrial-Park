@@ -20,7 +20,7 @@ STEP is one of:
     lca              GWP100        (read by the cross-checks of consolidated and documentation)
     consolidated     full-scale summary
     documentation    master model documentation
-    diagram          process flow diagrams (--format svg|png|pdf, --dry-feed, --dark, --no-hxn)
+    diagram          process flow diagrams (--format svg|png|pdf, --dry-feed, --dark)
     figures          BioSTEAM flowsheet diagrams of S1 and S2 at their capacity (svg and png; not part of ``all``)
     all              the steps above in this order (diagram as svg and png), then the ATT unit tests (unless
                      --skip-tests) and a tally of every exported QC table, written to
@@ -77,7 +77,7 @@ QC_TABLES = (
 )
 
 
-def export_diagrams(out, format="svg", dry_feed=1.0, dark=False, hxn=True):
+def export_diagrams(out, format="svg", dry_feed=1.0, dark=False):
     """BioSTEAM Graphviz process flow diagrams of the ATT system, one file per diagram kind."""
     import biosteam as bst
     from biorefineries.ATT.system import create_att_system
@@ -86,7 +86,7 @@ def export_diagrams(out, format="svg", dry_feed=1.0, dark=False, hxn=True):
     os.makedirs(out, exist_ok=True)
     bst.preferences.dark_mode() if dark else bst.preferences.light_mode()
     bst.main_flowsheet.clear()
-    sys_ = create_att_system(dry_sargassum_kgph=dry_feed, heat_exchanger_network=hxn)
+    sys_ = create_att_system(dry_sargassum_kgph=dry_feed)
     sys_.simulate()
     for kind in DIAGRAM_KINDS:
         file = os.path.join(out, f"{sys_.ID}_{kind}")
@@ -113,13 +113,13 @@ def export_figures(out, formats=("svg", "png")):
                 print(f"{spec['short']}{' with REE recovery' if ree else ''} diagram written to {file}.{fmt}")
 
 
-def run_step(step, out=None, format="svg", dry_feed=1.0, dark=False, hxn=True):
+def run_step(step, out=None, format="svg", dry_feed=1.0, dark=False):
     """Run one export step; ``out`` defaults to its folder under paths.results_root()."""
     if step == "figures":
         export_figures(out or output_dir("figures"))
         return
     if step == "diagram":
-        export_diagrams(out or output_dir("diagrams"), format, dry_feed, dark, hxn)
+        export_diagrams(out or output_dir("diagrams"), format, dry_feed, dark)
         return
     key, module, function, message = EXPORTS[step]
     out = out or output_dir(key)
@@ -241,11 +241,10 @@ def main(argv=None):
     p.add_argument("--format", default="svg", help="diagram: svg, png or pdf")
     p.add_argument("--dry-feed", type=float, default=1.0, help="diagram: dry Sargassum basis [kg/h]")
     p.add_argument("--dark", action="store_true", help="diagram: use the dark theme instead of light")
-    p.add_argument("--no-hxn", action="store_true", help="diagram: omit the BioSTEAM HeatExchangerNetwork facility")
     args = p.parse_args(argv)
     if args.step == "all":
         return run_all(args.out, args.skip_tests, args.real_system_test)
-    run_step(args.step, args.out, args.format, args.dry_feed, args.dark, not args.no_hxn)
+    run_step(args.step, args.out, args.format, args.dry_feed, args.dark)
     return 0
 
 

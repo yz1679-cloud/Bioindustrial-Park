@@ -238,11 +238,6 @@ def get_att_chemical_ledger(sys):
         ("Na out: liquor purge", na(purge), "Na balance"),
         ("Na out: ash residue cake", na(ash), "Na balance"),
     ]
-    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:      # a recycled wash liquor is not a loss
-        wash = s["f2_wash_liquor"]
-        items += [("NaOH in F2 wash liquid", float(wash.imass["NaOH"]), "loss"),
-                  ("Na2CO3 in F2 wash liquid", float(wash.imass["Na2CO3"]), "loss"),
-                  ("Na out: F2 wash liquid", na(wash), "Na balance")]
     return [dict(item=i, kg_per_h_at_sim_basis=v, kg_per_kg_dry=v / dry, role=r) for i, v, r in items]
 
 
@@ -367,12 +362,10 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
         ("Electricity: total", modeled_power + cw_power + estimated_power, "kWh", ""),
         ("Process water (D1)", float(_streams(sys)["dissolution_water"].F_mass), "kg", "simulated"),
     ]
-    if "f2_wash_water" in _streams(sys):
-        rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
-                     "kg", "fresh water to the independent washing stage"))
-    if "f1_wash_water" in _streams(sys):
-        rows.append(("Process water (F1 washing)", float(_streams(sys)["f1_wash_water"].F_mass),
-                     "kg", "fresh water to the F1 cake washing stage"))
+    rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
+                 "kg", "fresh water to the independent washing stage"))
+    rows.append(("Process water (F1 washing)", float(_streams(sys)["f1_wash_water"].F_mass),
+                 "kg", "fresh water to the F1 cake washing stage"))
     return [dict(item=i, per_kg_dry=v / dry, unit=f"{un}/kg dry", note=n) for i, v, un, n in rows]
 
 
@@ -627,9 +620,6 @@ def get_att_sodium_calcium_ledger(sys):
         ("C1: CaCO3 formed (coproduct)", float(C1_out.imass["CaCO3"])),
         ("Unreacted Ca(OH)2 in CaCO3 cake", float(s["caco3_cake"].imass["CaOH2"])),
     ]
-    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:
-        items += [(f"Loss: {ID} in F2 wash liquid", float(s["f2_wash_liquor"].imass[ID]))
-                  for ID in ("NaOH", "Na2CO3")]
     rows = [dict(item=i, value=v if i.startswith("Effective") else v / dry,
                  unit="-" if i.startswith("Effective") else "kg/kg dry") for i, v in items]
     na_in = sum(float(f.get_atomic_flow("Na")) for f in sys.feeds)

@@ -155,8 +155,7 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
     if "scrubber_makeup_water" in s:
         s["scrubber_makeup_water"].price = p["process_water"]
     for ID in ("f2_wash_water", "f1_wash_water"):
-        if ID in s:
-            s[ID].price = p["process_water"]
+        s[ID].price = p["process_water"]
     for ID in _T["prices"]["wastewater_streams"]:
         if ID in s:
             s[ID].price = float(_PRICE["disposal_wastewater"]["value"])
@@ -320,12 +319,10 @@ def _opex_table(sys, result):
     for ID, label in (("fresh_naoh_solid", "NaOH makeup"), ("lime", "Ca(OH)2"),
                       ("dissolution_water", "Process water"), ("att_sargassum_feed", "Sargassum feedstock")):
         add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
-    if "f2_wash_water" in s:
-        add("Process water (F2 washing)", "materials", s["f2_wash_water"].cost * hours,
-            f"{s['f2_wash_water'].price:.6g} USD/kg fresh wash water")
-    if "f1_wash_water" in s:
-        add("Process water (F1 washing)", "materials", s["f1_wash_water"].cost * hours,
-            f"{s['f1_wash_water'].price:.6g} USD/kg fresh wash water")
+    add("Process water (F2 washing)", "materials", s["f2_wash_water"].cost * hours,
+        f"{s['f2_wash_water'].price:.6g} USD/kg fresh wash water")
+    add("Process water (F1 washing)", "materials", s["f1_wash_water"].cost * hours,
+        f"{s['f1_wash_water'].price:.6g} USD/kg fresh wash water")
     if "scrubber_lime" in s:
         add("Ca(OH)2", "materials", s["scrubber_lime"].cost * hours, f"{s['scrubber_lime'].price:.6g} USD/kg (CO2 scrubber)")
         add("Process water", "materials", s["scrubber_makeup_water"].cost * hours,

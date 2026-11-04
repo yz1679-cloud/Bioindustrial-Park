@@ -502,11 +502,7 @@ def _crystallization_audit(sys):
          "purge is upstream of EC1: dissolved Na2CO3 only, no crystals"),
     ):
         add(S, item, v, "kg/h", basis)
-    if "f2_wash_liquor" in s and s["f2_wash_liquor"] in sys.products:
-        add(S, "Loss: Na2CO3 in F2 wash liquid", float(s["f2_wash_liquor"].imass["Na2CO3"]), "kg/h", "separate wastewater")
-    losses = sum(float(s[ID].imass["Na2CO3"]) for ID in
-                 ("ash_residue_cake", "caco3_cake", "liquor_purge", "f2_wash_liquor")
-                 if ID in s and (ID != "f2_wash_liquor" or s[ID] in sys.products))
+    losses = sum(float(s[ID].imass["Na2CO3"]) for ID in ("ash_residue_cake", "caco3_cake", "liquor_purge"))
     add(S, "Recycled / (recycled + lost)", eo_tot / (eo_tot + losses), "-", "Na2CO3 basis", per_kg_dry=False)
 
     # Verification of the per-1-kg/h-dry values and the method.
@@ -699,10 +695,9 @@ def _opex_detail(sys, result):
         add(name, float(s[ID].F_mass) / dry, "kg", s[ID].price, "USD/kg", s[ID].cost * hours, P[key]["source"],
             P[key].get("year", "not stated"), "purchased")
     for ID, label in (("f2_wash_water", "Process water (F2 washing)"), ("f1_wash_water", "Process water (F1 washing)")):
-        if ID in s:
-            water = s[ID]
-            add(label, float(water.F_mass) / dry, "kg", water.price,
-                "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
+        water = s[ID]
+        add(label, float(water.F_mass) / dry, "kg", water.price,
+            "USD/kg", water.cost * hours, P["process_water"]["source"], "existing ATT price", "purchased")
     add("Sargassum (delivered)", float(s["att_sargassum_feed"].F_mass) / dry, "kg wet", s["att_sargassum_feed"].price,
         "USD/kg wet", s["att_sargassum_feed"].cost * hours, "tea.yaml prices.sargassum.value", "-",
         "purchased (0 in baseline; see collection sensitivity)")

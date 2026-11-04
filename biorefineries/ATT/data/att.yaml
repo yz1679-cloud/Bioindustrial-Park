@@ -130,7 +130,6 @@ att:
     # is NOT measured; chloride is assumed to be the counter-anion) and dissolve with the Na2CO3. S (about 1.5 wt %), P, Si, Al
     # and Fe as soluble species are not modeled. The shares are of the ash mass; the feed atoms follow the species.
     ash_split:
-      enabled: true
       insoluble_share_of_ash: 0.3838
       NaCl_share_of_ash: 0.2377
       KCl_share_of_ash: 0.3785
@@ -375,7 +374,6 @@ att:
     # ASSUMPTION: the dried cake keeps 1 wt % moisture (no filler specification or buyer); same drum dryer, drum
     # temperature and exhaust humidity as the feed dryer D0 (feed_preparation.dryer). No grinding, no purification.
     caco3_drying:
-      enabled: true
       product_moisture_wt_frac: 0.01
     # Insoluble char of the water dissolution (the collaborator's ATT mass balance: 10-20 wt % of the dry seaweed; blank 0.155,
     # low REE soaks 0.126-0.169; user decision 2026-11-03: 0.15). RS1 keeps this mass as Ash minerals + CharN/CharS + an organic
@@ -383,7 +381,6 @@ att:
     # the carbon beyond the carbonate, the measured gas and the char has NO measured sink (the user: the carbon balance need not
     # close, atoms out must not exceed atoms in). That carbon gets no credit and no treatment cost. U2's heat duty is not re-derived.
     char:
-      enabled: true
       yield_g_per_g_dry_feed: 0.15
       species: Char
     # Salt crystallizer on the EC1 concentrate (NaCl, KCl nearly insoluble in 50 wt % NaOH): a vessel and a solids centrifuge
@@ -442,7 +439,6 @@ att:
       roaster_area_m2_per_t_per_day: 3.14
       roaster_refractory_factor: 2.0
     salt_crystallizer:
-      enabled: true
       removal_fraction: 0.99
       cake_liquor_wt_frac: 0.10
       vessel_tau_h: 2.0
@@ -472,19 +468,15 @@ att:
         LimeInerts: 0.04            # SiO2, Al2O3, Fe2O3, MgO, sulfate, unreacted carbon (lumped as an inert mineral)
       moisture_wt_frac: 0.40        # filter-pressed paste: 30-50 wt % water (EIGA Doc 143/25)
       source: "Dry composition: dried acetylene-plant sludge 95 % Ca(OH)2, 2 % CaCO3, 1.3 % SiO2 (carbide sludge vacuum-filtration study); reviews 85-95 % Ca(OH)2, CaCO3 1-10 %, silicates and carbon 1-3 %; XRF SiO2 2-3 %, Al2O3 about 1.3 %; the EIGA slurry table reports 16-22 % CaCO3 on dry matter (an upper bound). Water: EIGA Doc 143/25 sect. 4.5-4.6.2 (settled slurry 25-30 % solids; press-filtered paste 30-50 % water). Trace metals (Cu, Mn, Ni, Ba, Cr), chloride, sulfate and ammonium are not modeled."
-    # Wash of the F1 ash/residue cake (user decision 2026-11-02; scenarios.create(f1_wash=False) switches it off): one
+    # Wash of the F1 ash/residue cake (user decision 2026-11-02): one
     # ideal stage, no dryer; the wash liquor joins the carbonate solution that feeds C1 (its Na2CO3 is causticized, its
     # NaOH recovered).
     f1_washing:
-      enabled: true
       wash_ratio_kg_per_kg_dry_cake: 1.0   # ENG: wash water per kg of the dry solids of the unwashed F1 cake (as the F2 wash)
-      use_excess_condensate: true          # wash water = the condensate left after the dissolver and the F2 wash; fresh for the rest
       contact_time_h: 0.25
       temperature_K: 298.15
-    f2_washing:
-      enabled: true       # the CaCO3 cake is washed and the wash liquor is recycled (recycle_wash_liquor)
-      recycle_wash_liquor: true   # wash liquor to the dissolver D1 (replaces condensate / fresh dissolution water); false: wastewater
-      use_excess_condensate: true # wash water = the condensate the dissolver does not need (clean water); fresh water only for the rest
+    f2_washing:      # the CaCO3 cake is washed with the condensate the dissolver does not need (fresh water for the rest);
+                     # the wash liquor goes to the dissolver D1 (replaces condensate / fresh dissolution water)
       wash_ratio_kg_per_kg_dry_cake: 1.0  # ENG: all non-water mass of the original F2 cake
       contact_time_h: 0.25               # ENG: agitated single-stage contact, not measured kinetics
       temperature_K: 298.15             # fresh ambient water; adiabatic MixTank, no preheating
