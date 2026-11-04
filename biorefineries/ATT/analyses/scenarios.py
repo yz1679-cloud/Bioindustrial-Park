@@ -9,7 +9,7 @@
 """
 The ATT scenarios. One baseline, ATT Scenario 1 (key ``"att_s1"``), defined in data/att.yaml (``att.scenarios``):
 
-    att_s1  presscake feed (no press P1, dryer D0 to 50 wt % moisture), gross NaOH 1 kg/kg DRY Sargassum,
+    att_s1  presscake feed (dryer D0 to 50 wt % moisture), gross NaOH 1 kg/kg DRY Sargassum,
             measured Ni-CatATT 1:1 gas yields (H2 54.15, CH4 0.60, CO 0, CO2 0.77 mmol/g daf), C1 conversion 0.88,
             waste-lime CO2 scrubber, no PSA, waste Ca(OH)2 (free, burden-free; CaCO3 cake disposed),
             capacity fixed at the SaBRe Scenario 5 waste-lime scale (5029.17 kg dry/h).
@@ -36,7 +36,7 @@ _CASE = _ATT["reactor"]["cases"][_ATT["reactor"]["baseline_case"]]
 
 def _spec(key):
     s = _ATT["scenarios"][key]
-    return dict(key=key, label=s["label"], short=s["short"], configuration=s["configuration"],
+    return dict(key=key, label=s["label"], short=s["short"],
                 psa=bool(s["psa"]), scrubber=bool(s["co2_scrubber"]), lime=s["lime"],
                 dry_feed_kgph=float(s["dry_feed_kgph"]), marine=bool(s.get("marine", False)),
                 naoh_kg_per_kg_dry=float(_CASE["naoh_kg_per_kg_dry"]),
@@ -63,11 +63,10 @@ def create(spec=ATT_S1, dry_kgph=None, hxn=True, washing=None, wash_ratio=None, 
     """Simulated system of a scenario; operating hours are set. ``dry_kgph`` defaults to the scenario capacity."""
     if washing not in (None, "washing_on", "washing_off"):
         raise ValueError("washing must be washing_on, washing_off or None (configured default)")
-    configuration = spec["configuration"]
-    ref = inv.get_att_reference_scale(configuration)
+    ref = inv.get_att_reference_scale()
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(att_system.create_att_system(
-        dry_sargassum_kgph=dry_kgph, configuration=configuration, heat_exchanger_network=hxn,
+        dry_sargassum_kgph=dry_kgph, heat_exchanger_network=hxn,
         psa=spec["psa"], co2_scrubber=spec["scrubber"],
         f2_wash_enabled=None if washing is None else washing == "washing_on", f2_wash_ratio=wash_ratio,
         f2_wash_recycle=wash_recycle, f2_wash_condensate=wash_condensate,
@@ -84,7 +83,7 @@ def dry_feed_kgph(spec=ATT_S1):
 
 def scale(spec=ATT_S1):
     """Annual basis of a scenario: the keys of inventory.get_att_reference_scale at the scenario capacity."""
-    ref = inv.get_att_reference_scale(spec["configuration"])
+    ref = inv.get_att_reference_scale()
     dry = dry_feed_kgph(spec)
     wet = dry / (1.0 - ref["moisture_frac"])
     return dict(ref, scenario=spec["key"], wet_feed_kgph=wet, wet_feed_t_per_day=wet * 24.0 / 1e3, dry_feed_kgph=dry,

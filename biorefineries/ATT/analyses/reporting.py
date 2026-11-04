@@ -95,11 +95,11 @@ def _register_rows():
     fs = "feedstock.yaml"
     add("Feedstock", "Feedstock type (fresh-Sargassum)", Y("att.yaml", "att.feed_preparation.feedstock_type"), "-", "feed",
         "NLR preprint fresh Sargassum", SDB, "NLR preprint (Wiatrowski et al.)", "att.yaml:att.feed_preparation.feedstock_type",
-        "fresh-Sargassum case; 3 million wet t/yr of fresh Sargassum (NLR scale)")
+        "Fresh Sargassum of the NLR scale (3 million wet t/yr); its presscake is the ATT feed")
     add("Feedstock", "Feedstock type (presscake)", Y("att.yaml", "att.feed_preparation.presscake_feedstock_type"), "-",
         "feed", "NLR preprint pressed Sargassum", SDB, "NLR preprint (Wiatrowski et al.)",
         "att.yaml:att.feed_preparation.presscake_feedstock_type",
-        "Presscake case: presscake of the biostimulant plant, no P1; also the composition of the press cake leaving P1")
+        "Presscake of the biostimulant plant (the ATT feed)")
     ftype = Y("att.yaml", "att.feed_preparation.feedstock_type")
     add("Feedstock", "Moisture as harvested", Y(fs, f"feedstock_type.{ftype}.moisture_frac"), "kg/kg wet", "feed",
         "Initial wet-basis moisture", SDB, "NLR preprint", f"feedstock.yaml:feedstock_type.{ftype}.moisture_frac",
@@ -118,10 +118,6 @@ def _register_rows():
     add("Scale", "Operating days", Y("tea.yaml", "operating_days"), "d/yr", "plant", "Annual operation", SDB,
         "SaBRe project assumption", "tea.yaml:operating_days", "Project-wide assumption",
         "7920 h/yr", "LCA, TEA")
-    add("Preparation", "P1 press-cake moisture", Y("att.yaml", "att.feed_preparation.press_cake_moisture_wt_frac"),
-        "kg/kg wet", "P1", "Mechanical dewatering outlet moisture", ENG, "NLR preprint, screw press on fresh Sargassum",
-        "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac", "Specified",
-        affects="Process, LCA, TEA", uncertainty="Preprint pilot result")
     add("Preparation", "D0 outlet moisture", Y("att.yaml", "att.feed_preparation.att_sargassum_moisture_wt_frac"),
         "kg/kg wet", "D0", "Thermal drying target before U2", ENG, "Workbook 'assumed (mechanical dewatering)'; "
         "user-confirmed D0 requirement 2026-10-09", "att.yaml:att.feed_preparation.att_sargassum_moisture_wt_frac",
@@ -133,11 +129,6 @@ def _register_rows():
         "att.yaml:att.feed_preparation.dryer.thermal_duty_basis", "Specified",
         "Equipment specific-energy ranges reported, not used", "Process, LCA, TEA",
         uncertainty="Real drum dryers 3.2-6.5 MJ/kg water vs ~3.0 ideal")
-    add("Preparation", "P1 power", Y("att.yaml", "att.feed_preparation.press.power_kWh_per_dry_ton"),
-        "kWh/t dry solids", "P1", "Municipal biosolids screw press (fresh-Sargassum case)", ENG,
-        "HUBER municipal screw press, 5 kWh per dry t", "att.yaml:att.feed_preparation.press.power_kWh_per_dry_ton",
-        "Specified", "BioSTEAM ScrewPress alternative: 37.2 kWh/t total wet feed (see P1 comparison in the TEA tables)",
-        "Process, LCA, TEA", "Baseline")
     add("ATT reaction", "U2 temperature", Y("att.yaml", "att.reactor.target_temperature_K"), "K", "U2",
         "ATT reactor temperature", EXP, "Workbook 'Experimental results' footnote (500 C)",
         "att.yaml:att.reactor.target_temperature_K", "Experimental condition")
@@ -297,7 +288,6 @@ def _register_rows():
 # ---------------------------------------------------------------------------
 
 _UNIT_INFO = {
-    "P1": ("Mechanical dewatering of wet Sargassum (municipal-type screw press; fresh-Sargassum case)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
     "D0": ("Thermal drying to 50 wt% moisture (steam drum dryer)", "att.yaml:att.feed_preparation.*"),
     "M1": ("Mix dried feed with recycled NaOH liquor", "-"),
     "U2": ("Alkaline thermal treatment at 500 C; NG-fired furnace", "att.yaml:att.reactor.*"),
@@ -545,7 +535,7 @@ def _products(sys):
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     rows = []
-    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge", "biostimulant_juice",
+    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge",
                "excess_condensate", "u3_dryer_removed_water", "dryer_exhaust", "scrubber_cake", "f2_wash_liquor"):
         if ID not in s:
             continue
@@ -848,7 +838,6 @@ def _gaps_and_inconsistencies(lca_gaps):
          "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),
         ("att.yaml heat_recovery future_tail_gas_fuel_species / gas_energy_diagnostic_species list CH4, CO",
          "legacy diagnostic keys used only by att.mass_energy diagnostics."),
-        ("P1 power basis", "Municipal press 5 kWh/t dry adopted; BioSTEAM ScrewPress (37.2 kWh/t total wet feed) reported as the alternative."),
         ("feedstock.yaml dry_composition", "no citation in the file."),
     ]
     rows += [dict(type="Inconsistency / traceability", item=a, status="documented, not changed", magnitude=float("nan"),
@@ -877,7 +866,7 @@ def _overview(sys, result, gwp_total, spec=scen.ATT_S1):
     return [
         dict(item="Purpose", value="Research-stage ATT (alkaline thermal treatment) H2 process: mass/energy, GWP100, TEA",
              note="Documentation package; no model changes"),
-        dict(item="Model", value=f"{tea_mod._configuration(sys)} case, U2 with specified gas yields "
+        dict(item="Model", value="Presscake feed, U2 with specified gas yields "
                                  "(experimental team Excel); checks on NaOH capacity, electrons, mass, energy",
              note="biorefineries/ATT/system.py, units/_att.py"),
         dict(item="Scenario", value=spec["label"], note="analyses/scenarios.py (att.yaml att.scenarios)"),
@@ -911,7 +900,6 @@ def build_att_documentation():
     # TEA: the CaCO3-treatment cases, then the ATT S1 TEA (scenarios.tea_config).
     caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
-    p1 = tea_mod.get_att_p1_power_cases(sys, estimates, base)
     offgas = tea_mod.get_att_offgas_cases(sys, estimates, base)
     result = tea_mod.evaluate_att_tea(sys, estimates, **base)
     opex = _opex_detail(sys, result)
@@ -941,9 +929,6 @@ def build_att_documentation():
 
     tea_sens = ([dict(group="One-at-a-time", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta"],
                       note="") for r in sens_tea]
-                + [dict(group="P1 press", case=r["case"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta=r["delta_MSP"],
-                        note=f"P1 {r['P1_GWh_per_yr']:.1f} GWh/yr; {r['P1_installed_MUSD']:.1f} MUSD; "
-                             f"dGWP {r['delta_GWP_kgCO2e_per_kg_H2']:.2f} kg CO2e/kg H2") for r in p1]
                 + [dict(group="Off-gas handling", case=r["item"], MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"],
                         delta=float("nan"), note=f"{r['value']} {r['unit']}") for r in offgas])
 
@@ -1102,7 +1087,7 @@ traceability only: no model, LCA or TEA parameter is changed.
 ## Modeling framework
 
 - **Process model (frozen):** `biorefineries/ATT/system.py` builds the
-  BioSTEAM flowsheet P1-D0-M1-U2-U3HX-U3C-U3D-U3K (no PSA in the baseline; att.yaml gas_treatment.psa_enabled) / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
+  BioSTEAM flowsheet D0-M1-U2-U3HX-U3C-U3D-U3K (no PSA in the baseline; att.yaml gas_treatment.psa_enabled) / RC1-W3-SW-D1-F1-C1-F2-SP1-EC1
   with custom units in `biorefineries/ATT/units/_att.py`. U2 takes the specified gas yields of the experimental team (H2, CH4, CO, CO2), forms Na2CO3 from NaOH and
   closes oxygen with water; balance checks cover NaOH capacity for CO2, electrons, mass and energy. Sources of the data: `data_sources` in `biorefineries/ATT/data/att.yaml`.
 - **Configuration:** `biorefineries/ATT/data/att.yaml` (process),
@@ -1349,7 +1334,6 @@ def build_att_consolidated_results():
     caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
     # ATT S1 TEA (scenarios.tea_config) and LCA (scenarios.lca_overrides) on the same system.
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
-    p1 = tea_mod.get_att_p1_power_cases(sys, estimates, base)
     result = tea_mod.evaluate_att_tea(sys, estimates, **base)
     capex = tea_mod._capex_table(sys, result)
     opex = tea_mod._opex_table(sys, result)
@@ -1378,8 +1362,6 @@ def build_att_consolidated_results():
     consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2) + _process_check_rows(sys)
     sens = ([dict(analysis="TEA (MSP USD/kg H2)", case=r["case"], value=r["MSP_USD_per_kg_H2"], delta=r["delta"])
              for r in sens_tea]
-            + [dict(analysis="TEA/LCA P1 power (pending decision)", case=r["case"], value=r["MSP_USD_per_kg_H2"],
-                    delta=r["delta_GWP_kgCO2e_per_kg_H2"]) for r in p1]
             + [dict(analysis="LCA (kg CO2e/kg H2)", case=r["scenario"], value=r["GWP_kgCO2e_per_kg_H2"],
                     delta=r["delta_per_kg_H2"]) for r in sens_lca])
     assumptions = _assumptions_table()

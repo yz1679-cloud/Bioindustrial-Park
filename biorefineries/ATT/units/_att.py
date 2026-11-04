@@ -18,7 +18,6 @@ from biosteam.units.heat_exchange import compute_furnace_purchase_cost
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = (
-    "ATTPress",
     "ATTReactor",
     "close_att_u2_balance",
     "CausticizationReactor",
@@ -693,71 +692,6 @@ class ATTReeRoaster(bst.Unit):
             ratio = area / 1235.35
             self.baseline_purchase_costs["Rotary kiln"] = 0.52 * 2268000.0 * bst.CE / 525.4 * ratio ** 0.6 * self.refractory_factor
             self.add_power_utility(938.866 * ratio ** 0.6)
-
-
-class ATTPress(bst.Unit):
-    """
-    P1: screw press of the fresh-Sargassum plant, with the cost and power basis of a
-    municipal biosolids screw press (att.yaml feed_preparation.press).
-
-    ins: [0] fresh Sargassum. outs: [0] presscake, [1] press liquid (raw
-    juice for biostimulant production).
-
-    Each component stays in the cake in the fraction ``retention`` (default
-    1); the cake water makes up ``1 - cake_solids_wt_frac`` of the cake, and
-    the rest of the water leaves with the juice. Installed cost = anchor x
-    (dry solids throughput / anchor throughput) ** exponent (single train);
-    electricity = kWh per dry tonne of solids (ash included) fed.
-    """
-
-    _N_ins = 1
-    _N_outs = 2
-    _F_BM_default = {"Press system": 1.0}
-
-    def _init(self, cake_solids_wt_frac, retention=None, power_kWh_per_dry_ton=5.0,
-              capex_installed_ref_usd=3.1e6, ref_capacity_tph_dry=0.953, scale_exponent=0.6):
-        self.cake_solids_wt_frac = float(cake_solids_wt_frac)
-        self.retention = dict(retention or {})
-        self.power_kWh_per_dry_ton = float(power_kWh_per_dry_ton)
-        self.capex_installed_ref_usd = float(capex_installed_ref_usd)
-        self.ref_capacity_tph_dry = float(ref_capacity_tph_dry)
-        self.scale_exponent = float(scale_exponent)
-
-    def _run(self):
-        feed = self.ins[0]
-        cake, juice = self.outs
-        cake.empty()
-        juice.empty()
-        cake.phase = juice.phase = "l"
-        for chemical in feed.chemicals:
-            ID = chemical.ID
-            if ID == "Water":
-                continue
-            mass = float(feed.imass[ID])
-            r = min(max(self.retention.get(ID, 1.0), 0.0), 1.0)
-            cake.imass[ID] = r * mass
-            juice.imass[ID] = (1.0 - r) * mass
-        solids = float(cake.F_mass)
-        f = self.cake_solids_wt_frac
-        water_feed = float(feed.imass["Water"])
-        water_cake = min(solids * (1.0 - f) / f, water_feed)
-        cake.imass["Water"] = water_cake
-        juice.imass["Water"] = water_feed - water_cake
-        cake.T = juice.T = feed.T
-        cake.P = juice.P = feed.P
-
-    def _design(self):
-        feed = self.ins[0]
-        dry_tph = (float(feed.F_mass) - float(feed.imass["Water"])) / 1e3
-        self.design_results["Dry solids throughput (t/h)"] = dry_tph
-        self.power_utility(self.power_kWh_per_dry_ton * dry_tph)
-
-    def _cost(self):
-        dry_tph = self.design_results["Dry solids throughput (t/h)"]
-        capex = (self.capex_installed_ref_usd
-                 * (dry_tph / self.ref_capacity_tph_dry) ** self.scale_exponent) if dry_tph > 0 else 0.0
-        self.design_results["Installed CAPEX ($)"] = capex
-        self.baseline_purchase_costs["Press system"] = capex
 
 
 def close_att_u2_balance(feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, lumped_atoms):

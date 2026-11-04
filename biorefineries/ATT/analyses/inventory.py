@@ -116,24 +116,22 @@ def _dry_feed_kgph(sys):
     return float(feed.F_mass - feed.imass["Water"])
 
 
-def get_att_reference_scale(configuration="presscake"):
+def get_att_reference_scale():
     """
     NLR preprint plant scale: 3 million wet t/yr (att.yaml feed_preparation.scale) of
-    fresh Sargassum. For the presscake configuration the ATT plant receives the
-    presscake of that Sargassum from a biostimulant plant.
+    fresh Sargassum. The ATT plant receives the presscake of that Sargassum from a
+    biostimulant plant.
 
     The ATT scenarios use their own capacity (scenarios.scale). Only the operating-hour keys
     are shared with them.
     """
     from biorefineries.ATT.system import get_att_reference_dry_feed_kgph
 
-    feed_type = _ATT["feed_preparation"]["feedstock_type" if configuration == "fresh_sargassum"
-                                         else "presscake_feedstock_type"]
+    feed_type = _ATT["feed_preparation"]["presscake_feedstock_type"]
     moisture = float(_FEEDSTOCK["feedstock_type"][feed_type]["moisture_frac"])
-    dry_kgph = get_att_reference_dry_feed_kgph(configuration)
+    dry_kgph = get_att_reference_dry_feed_kgph()
     wet_kgph = dry_kgph / (1.0 - moisture)
     return dict(
-        configuration=configuration,
         wet_feed_t_per_day=wet_kgph * 24.0 / 1000.0,
         wet_feed_kgph=wet_kgph,
         moisture_frac=moisture,
@@ -581,8 +579,6 @@ def get_att_water_balance(sys):
         w_out += w
         rows.append(dict(group=f"output ({fates[p.ID][1]})", item=p.ID, kg_per_kg_dry=w / dry))
     rows += [
-        dict(group="internal", item="P1 mechanical dewatering (juice, if present)",
-             kg_per_kg_dry=(float(s["biostimulant_juice"].imass["Water"]) / dry) if "biostimulant_juice" in s else 0.0),
         dict(group="internal", item="D0 thermal drying (evaporated)",
              kg_per_kg_dry=float(s["dryer_exhaust"].imass["Water"] - s["dryer_air"].imass["Water"]) / dry),
         dict(group="internal", item="U3 condensation (U3C + U3D)",
@@ -842,7 +838,7 @@ def get_att_final_assumptions():
     rows = [
         ("NaOH : dry Sargassum (gross)", "1 kg/kg dry", "att.yaml reactor case naoh_kg_per_kg_dry"),
         ("Feedstock", "NLR preprint: fresh Sargassum (14.3 % solids; pressed 23.7 / 27.0 %)", "feedstock.yaml"),
-        ("P1 / D0", "fresh-Sargassum: municipal-type screw press to 76.3 % moisture (juice to biostimulant), thermal drying to 50 % (wet basis); presscake: the presscake from the biostimulant plant, no P1", "att.yaml feed_preparation"),
+        ("D0", "presscake from the biostimulant plant, thermal drying to 50 % moisture (wet basis)", "att.yaml feed_preparation"),
         ("D1 dissolution water", f"{_ATT['downstream']['dissolution_water_kg_per_kg_Na2CO3']} kg/kg Na2CO3 into D1",
          "workbook B18"),
         ("Liquor recycle", f"{_ATT['downstream']['whole_liquor_recycle_fraction']:.0%} whole-liquor; "
@@ -934,8 +930,8 @@ ASSUMPTION_REGISTER = (
      "HIGH (recycle, EC1 duty)"),
     ("1 essential", "Feedstock", "NLR preprint composition (fresh and pressed Sargassum)", "feedstock.yaml",
      "HIGH (daf per kg dry)"),
-    ("1 essential", "Feed preparation", "fresh-Sargassum: P1 municipal-type press to 76.3 % moisture, D0 to 50 % "
-     "(DrumDryer, ideal heat balance); presscake: presscake, no P1", "User-confirmed process design",
+    ("1 essential", "Feed preparation", "presscake from the biostimulant plant, D0 to 50 % "
+     "(DrumDryer, ideal heat balance)", "User-confirmed process design",
      "HIGH (D0 ~6 MJ/kg dry)"),
     ("1 essential", "Recycle", "95 % whole-liquor recycle, 5 % purge; EC1 to 50 % NaOH/(NaOH+H2O) at 90 C",
      "Collaborator '95 % NaOH recycling' read as whole-liquor recycle", "HIGH (NaOH makeup, EC1 duty)"),

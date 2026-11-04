@@ -8,12 +8,8 @@
 
 """
 Breakdown of the ATT H2 minimum selling price (MSP) and GWP100 of the scenarios of ``analyses/scenarios.py``
-at their capacity, with their lime and CaCO3 assumptions (scenarios.tea_config / lca_overrides). Configurations:
-
-* ``fresh_sargassum`` ATT plant fed with wet fresh Sargassum (NLR scale: 3 million wet t/yr): P1 press
-                      (municipal biosolids screw press), D0 dryer and the ATT process; the press liquid is the raw
-                      juice for biostimulant production (transferred at zero price).
-* ``presscake``       ATT plant fed with the presscake of a biostimulant plant (normally a waste), without P1.
+at their capacity, with their lime and CaCO3 assumptions (scenarios.tea_config / lca_overrides). (the ATT plant is
+fed with the presscake of a biostimulant plant, normally a waste).
 
 * MSP by cost type and group: SaBReTEA's cash-flow table levelized at the
   solved MSP (NPV = 0), so the parts add up to the MSP. CAPEX-related =
@@ -38,17 +34,13 @@ from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses import lca
 from biorefineries.ATT.analyses import tea as tea_mod
 
-__all__ = ("build_att_breakdown", "COST_TYPES", "CONFIGURATIONS", "CASES", "FIGURE_CASES", "CASE_LABELS", "LIME_LABELS")
+__all__ = ("build_att_breakdown", "COST_TYPES", "CASES", "FIGURE_CASES", "CASE_LABELS", "LIME_LABELS")
 
 # The scenarios of analyses/scenarios.py (ATT Scenario 1, 'att_s1').
 CASES = scen.SCENARIOS
 FIGURE_CASES = tuple(CASES)
 CASE_LABELS = scen.CASE_LABELS
 LIME_LABELS = scen.SHORT_LABELS
-CONFIGURATIONS = {
-    "fresh_sargassum": "Fresh Sargassum feed (press P1, dryer D0)",
-    "presscake": "Presscake feed (presscake of a biostimulant plant, no P1)",
-}
 
 # Cost group -> cost type.
 COST_TYPES = {
@@ -70,14 +62,13 @@ COST_TYPES = {
     "REE product sales": "Coproduct revenue",
     "Marine WHR: purchased heat displaced": "Utilities",
     "PSA off-gas handling (0; fate unresolved)": "Waste treatment and disposal",
-    "Biostimulant juice transfer (coproduct)": "Waste treatment and disposal",
     "Fixed operating cost (4 % FCI)": "Fixed operating cost",
     "Capital (FCI + WC, net of loan)": "CAPEX-related",
     "Financing (debt service)": "CAPEX-related",
     "Income tax": "CAPEX-related",
 }
 _AREAS = {
-    "P1": "Feed dewatering (P1)", "D0": "Feed drying (D0)", "M1": "Feed mixing (M1)", "U2": "ATT reactor (U2)",
+    "D0": "Feed drying (D0)", "M1": "Feed mixing (M1)", "U2": "ATT reactor (U2)",
     "U3HX": "Gas cooling and drying (U3HX, U3C, U3D)", "U3C": "Gas cooling and drying (U3HX, U3C, U3D)",
     "U3D": "Gas cooling and drying (U3HX, U3C, U3D)", "U3P": "PSA (U3P)", "U3K": "H2 compression (U3K)",
     "RC1": "Residue cooling (RC1)", "D1": "Residue slurry (D1)", "F1": "Residue filtration (F1)",
@@ -95,8 +86,6 @@ def _cost_group(item, category):
     solid = tea_mod._T["prices"]["solid_waste_streams"]
     if category == "FOC":
         return "Fixed operating cost (4 % FCI)"
-    if category == "juice":
-        return "Biostimulant juice transfer (coproduct)"
     for prefix, group in (("NaOH", "NaOH makeup"), ("Ca(OH)2", "Ca(OH)2"), ("Process water", "Process water"),
                           ("Sargassum", "Sargassum feedstock (0 in baseline)"),
                           ("Utility: natural_gas", "Natural gas, U2 furnace"),
@@ -104,7 +93,6 @@ def _cost_group(item, category):
                           ("Utility: low_pressure_steam", "LP steam (agent price)"),
                           ("Utility: cooling_water", "Cooling water (agent price)"),
                           ("Electricity", "Electricity"), ("Purge neutralization", "Neutralization (H2SO4)"),
-                          ("P1 power", "Electricity"),
                           ("CaCO3 sales", "CaCO3 byproduct sales"),
                           ("REE product sales", "REE product sales"),
                           ("HCl", "REE reagents (HCl, oxalic acid)"), ("Oxalic acid", "REE reagents (HCl, oxalic acid)"),
@@ -160,7 +148,7 @@ def _dcf_breakdown(sys, result):
     for r in tea_mod._opex_table(sys, result):
         if r["category"] in ("materials", "utilities", "extra VOC"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_v, "VOC item x PV(VOC profile)")
-        elif r["category"] in ("waste disposal", "CaCO3 cake", "CaCO3 sales", "REE sales", "off-gas", "juice"):
+        elif r["category"] in ("waste disposal", "CaCO3 cake", "CaCO3 sales", "REE sales", "off-gas"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_f,
                 "negative sales x PV(sales profile)")
         elif r["category"] == "FOC":
@@ -187,7 +175,7 @@ def _msp_tables(rows, msp):
         by[r["group"]] = by.get(r["group"], 0.0) + r["USD_per_kg_H2"]
     by_group = pd.DataFrame(
         [dict(group=g, cost_type=COST_TYPES[g], USD_per_kg_H2=v, share_of_MSP=v / msp) for g, v in by.items()
-         if g != "Biostimulant juice transfer (coproduct)" or v != 0.0]
+         ]
     ).sort_values(["cost_type", "USD_per_kg_H2"], ascending=[True, False]).reset_index(drop=True)
     by_type = by_group.groupby("cost_type", as_index=False)[["USD_per_kg_H2", "share_of_MSP"]].sum()
     by_type = by_type.sort_values("USD_per_kg_H2", ascending=False).reset_index(drop=True)
@@ -219,7 +207,6 @@ def _opex_table(sys, result, h2_kg_yr):
             continue
         g = _cost_group(x["item"], x["category"])
         groups[g] = groups.get(g, 0.0) + x["USD_per_yr"]
-    groups = {g: v for g, v in groups.items() if g != "Biostimulant juice transfer (coproduct)" or v != 0.0}
     aoc = sum(groups.values())
     df = pd.DataFrame([dict(group=g, cost_type=COST_TYPES[g], MUSD_per_yr=v / 1e6, USD_per_kg_H2=v / h2_kg_yr,
                             share_of_AOC=v / aoc) for g, v in groups.items()])

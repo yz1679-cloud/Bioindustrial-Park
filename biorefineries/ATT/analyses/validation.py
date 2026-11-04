@@ -151,7 +151,6 @@ def _mass_summary(sys):
     add("daf Sargassum", float(U2._daf_sargassum_kgph))
     add("Ash", float(feed.imass["Ash"]))
     add("Feed moisture", float(feed.imass["Water"]))
-    add("P1 juice (biostimulant coproduct)", float(s["biostimulant_juice"].F_mass) if "biostimulant_juice" in s else 0.0)
     add("D0 water evaporated", float(s["dryer_exhaust"].imass["Water"]))
     add("NaOH gross into U2", float(U2.ins[0].imass["NaOH"]))
     add("Fresh NaOH makeup", float(s["fresh_naoh_solid"].imass["NaOH"]))
@@ -385,7 +384,6 @@ def _limitations():
         "U2 takes the specified gas yields of the experimental team; carbon not otherwise assigned leaves as CO2 and "
         "oxygen closes with water. Unidentified products are not tracked.",
         "Feed composition is the NLR preprint composition, not an analysis of the UCLA sample.",
-        "P1 (fresh-Sargassum case) uses municipal-press cost and power (5 kWh per dry t); the BioSTEAM ScrewPress is the reported alternative.",
         "Cost-estimate equipment (C1 tank, EC1 vacuum) power is included in the utility table only as an estimate.",
     )]
 

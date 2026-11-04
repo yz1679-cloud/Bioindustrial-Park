@@ -13,8 +13,7 @@ Reuses SaBReTEA (tea.yaml financial assumptions; FCI = installed equipment
 cost; FOC = 4 % of FCI) through a thin subclass that adds only what the
 frozen unit models do not carry:
 
-- extra installed capital: only the P1 BioSTEAM-ScrewPress alternative and the
-  PSA cost-factor sensitivity (all equipment is costed inside the units: the
+- extra installed capital: only the PSA cost-factor sensitivity (all equipment is costed inside the units: the
   U2 vessel and furnace, the C1 tank, the EC1 evaporator, condenser and vacuum
   system, the PSA in U3P and the reciprocating compressor U3K);
 - extra annual operating cost: purge-neutralization H2SO4 and the natural-gas cost adjustment that
@@ -46,7 +45,6 @@ __all__ = (
     "get_att_tea_sensitivity",
     "caco3_cake_price",
     "get_att_caco3_cases",
-    "get_att_p1_power_cases",
     "get_att_offgas_cases",
     "get_att_cost_year_comparison",
     "export_att_tea",
@@ -154,8 +152,6 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
         s["leach_water"].price, s["leachate_naoh"].price = p["process_water"], p["NaOH"]
         product = s["ree_product"]
         product.price = p["REO"] * float(product.imass["REO"]) / float(product.F_mass) if float(product.F_mass) > 0.0 else 0.0
-    if "biostimulant_juice" in s:
-        s["biostimulant_juice"].price = float(_T["prices"]["juice"])
     if "scrubber_makeup_water" in s:
         s["scrubber_makeup_water"].price = p["process_water"]
     for ID in ("f2_wash_water", "f1_wash_water"):
@@ -181,23 +177,7 @@ def _ng_usd_per_MJ():
     return agent.regeneration_price / (bst.Chemical("CH4").LHV / 1e3)
 
 
-def _biosteam_screwpress(sys):
-    """BioSTEAM ScrewPress on the P1 feed (alternative to the municipal-press basis); None without P1."""
-    units = inv._units(sys)
-    if "P1" not in units:
-        return None
-    from biorefineries.ATT.system import get_att_press_retention
-
-    P1 = units["P1"]
-    with inv._scratch_flowsheet():
-        unit = bst.ScrewPress("P1_biosteam_screwpress", ins=P1.ins[0].copy(),
-                              split={ID: r for ID, r in get_att_press_retention().items()},
-                              moisture_content=1.0 - P1.cake_solids_wt_frac)
-        unit.simulate()
-    return unit
-
-
-def _capital_items(sys, estimates, psa_factor=1.0, p1_biosteam_screwpress=False):
+def _capital_items(sys, estimates, psa_factor=1.0):
     """Extra installed capital beyond the frozen unit models [USD]."""
     u = inv._units(sys)
     items = [(f"{r['item']} (estimate)", r["installed_cost"], r["method"])
@@ -205,14 +185,10 @@ def _capital_items(sys, estimates, psa_factor=1.0, p1_biosteam_screwpress=False)
     if psa_factor != 1.0 and "U3P" in u:
         items.append((f"PSA capital x{psa_factor} (adjustment of the U3P cost)",
                       (psa_factor - 1.0) * u["U3P"].installed_cost, "tea.yaml sensitivities.PSA_capex_factor"))
-    alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
-    if alt is not None:
-        items.append(("P1: BioSTEAM ScrewPress replaces municipal press (difference)",
-                      alt.installed_cost - u["P1"].installed_cost, "bst.ScrewPress cost correlation (Perry), parallel units"))
     return items
 
 
-def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_biosteam_screwpress=False):
+def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0):
     """Extra annual operating costs beyond material, utility and disposal prices [USD/yr]."""
     hours = sys.operating_hours
     elec = bst.PowerUtility.price
@@ -233,15 +209,11 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0, p1_biosteam_sc
     if elec_factor != 1.0:
         items.append(("Electricity price change (unit power)",
                       (elec_factor - 1.0) * sys.power_utility.rate * elec * hours))
-    alt = _biosteam_screwpress(sys) if p1_biosteam_screwpress else None
-    if alt is not None:
-        items.append(("P1 power: BioSTEAM ScrewPress replaces municipal press (difference)",
-                      (alt.power_utility.rate - inv._units(sys)["P1"].power_utility.rate) * elec * elec_factor * hours))
     return items
 
 
 def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
-                     fci_factor=1.0, p1_biosteam_screwpress=False, caco3=_S1_BASELINE,
+                     fci_factor=1.0, caco3=_S1_BASELINE,
                      offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=_S1_BASELINE,
                      operating_hours=None, extra_capital=(), extra_voc=(), foc_frac_of_fci=None, foc_fixed=0.0):
     """
@@ -275,8 +247,8 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
     sales = {} if caco3_sales is None else caco3_sales_accounting(sys, **caco3_sales)
     for ID, r in sales.items():
         inv._streams(sys)[ID].price = r["price_usd_per_kg"]
-    capital = _capital_items(sys, estimates, psa_factor, p1_biosteam_screwpress)
-    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor, p1_biosteam_screwpress) + list(extra_voc)
+    capital = _capital_items(sys, estimates, psa_factor)
+    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor) + list(extra_voc)
     installed_units = sum(u.installed_cost for u in sys.units)
     if fci_factor != 1.0:      # itemized so that the capital tables sum to the FCI
         capital.append((f"FCI factor x{fci_factor:g}: adjustment of the process installed capital",
@@ -364,9 +336,6 @@ def _opex_table(sys, result):
             add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
         add("REE product sales", "REE sales", -s["ree_product"].cost * hours,
             f"{s['ree_product'].price:.6g} USD/kg product ({_T['prices']['REO']['value']:.6g} USD/kg REO)")
-    if "biostimulant_juice" in s:
-        add("Biostimulant juice transfer (coproduct)", "juice", -s["biostimulant_juice"].cost * hours,
-            f"{s['biostimulant_juice'].price:.6g} USD/kg")
     for agent in ("natural_gas", "low_pressure_steam", "cooling_water"):
         add(f"Utility: {agent}", "utilities",
             sum(hu.cost for hu in sys.heat_utilities if hu.agent.ID == agent) * hours, "BioSTEAM agent price")
@@ -427,8 +396,6 @@ def get_att_tea_sensitivity(sys, estimates, base=None):
         cases.append((f"Electricity price x{f}", dict(elec_factor=f)))
     for f in sens["FCI_factor"]:
         cases.append((f"FCI x{f}", dict(fci_factor=f)))
-    if "P1" in inv._units(sys) and sens.get("P1_biosteam_screwpress"):
-        cases.append(("P1: BioSTEAM ScrewPress (power and CAPEX)", dict(p1_biosteam_screwpress=True)))
     rows = []
     for name, kw in cases:
         msp = evaluate_att_tea(sys, estimates, **_with(base_kw, **kw))["msp"]
@@ -480,39 +447,6 @@ def get_att_caco3_cases(sys, estimates):
         r["CaCO3_equivalent_kg_per_kg_dry"] = caco3_kgph / dry
         r["wet_cake_kg_per_kg_dry"] = float(s["caco3_cake"].F_mass) / dry
         r["basis"] = CASE_BASIS
-    return rows
-
-
-def get_att_p1_power_cases(sys, estimates, base=None):
-    """
-    P1 (fresh-Sargassum case): municipal biosolids press (adopted) vs BioSTEAM
-    ScrewPress, power, installed cost, MSP and GWP deltas. Empty without P1.
-    """
-    from biorefineries.ATT.analyses import lca
-
-    units = inv._units(sys)
-    if "P1" not in units:
-        return []
-    hours = sys.operating_hours
-    dry = inv._dry_feed_kgph(sys)
-    P1 = units["P1"]
-    alt = _biosteam_screwpress(sys)
-    ef = float(lca._EF["electricity"]["value"])
-    h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) / dry
-    base_msp = _msp(sys, estimates, base)
-    wet_t = float(P1.ins[0].F_mass) / 1e3
-    rows = []
-    for name, unit, adopted in (("Municipal biosolids press (HUBER-type; 5 kWh/t dry; 3.1 MUSD per 0.953 dry t/h)", P1, True),
-                                ("BioSTEAM ScrewPress (Perry; 37.2 kWh/t total wet feed)", alt, False)):
-        kW = unit.power_utility.rate
-        msp = base_msp if adopted else _msp(sys, estimates, base, p1_biosteam_screwpress=True)
-        d_kWh_per_kg_dry = (kW - P1.power_utility.rate) / dry
-        rows.append(dict(case=name, P1_kW=kW, P1_kWh_per_t_dry=kW / dry * 1e3, P1_kWh_per_t_wet=kW / wet_t,
-                         P1_GWh_per_yr=kW * hours / 1e6, P1_installed_MUSD=unit.installed_cost / 1e6,
-                         MSP_USD_per_kg_H2=msp, delta_MSP=msp - base_msp,
-                         delta_GWP_kgCO2e_per_kg_H2=d_kWh_per_kg_dry * ef / h2,
-                         status="adopted" if adopted else "alternative, not adopted"))
-    _msp(sys, estimates, base)
     return rows
 
 
@@ -570,14 +504,10 @@ def _same_flows(sys, fingerprint, rtol=1e-8):
     return all(abs(a - b) <= rtol * max(abs(b), 1e-6) for a, b in zip(now, fingerprint))
 
 
-def _configuration(sys):
-    return "fresh_sargassum" if "P1" in inv._units(sys) else "presscake"
-
-
 def _checks(sys, result, fingerprint, scenario="att_s1"):
     """Accounting checks; ``scenario``: the ATT scenario whose capacity is expected (None = the reference scale)."""
     tea = result["tea"]
-    scale = (inv.get_att_reference_scale(_configuration(sys)) if scenario is None
+    scale = (inv.get_att_reference_scale() if scenario is None
              else scen.scale(scen.ALL_SCENARIOS[scenario]))
     s = inv._streams(sys)
     sales = result.get("caco3_sales") or {}
@@ -696,7 +626,6 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
     tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, estimates, base)
     caco3 = get_att_caco3_cases(sys, estimates)
     tables["06_caco3_cases"] = caco3
-    tables["08_P1_electricity_cases"] = get_att_p1_power_cases(sys, estimates, base)
     tables["09_offgas_handling"] = get_att_offgas_cases(sys, estimates, base)
     tables["10_cost_year_comparison"] = get_att_cost_year_comparison(sys, base)
     tables["11_limitations"] = [dict(limitation=x) for x in _T["limitations"]]

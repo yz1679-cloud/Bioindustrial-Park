@@ -17,7 +17,6 @@ from biorefineries.ATT.utils import (
     get_feedstock_type_params,
 )
 from biorefineries.ATT.units._att import (
-    ATTPress,
     ATTReactor,
     CausticizationReactor,
     NaOHEvaporator,
@@ -65,19 +64,16 @@ def get_att_press_retention():
     return {ID: min(1.0, recovery * pressed[ID] / fresh[ID]) for ID in fresh}
 
 
-def get_att_reference_dry_feed_kgph(configuration="presscake"):
+def get_att_reference_dry_feed_kgph():
     """
-    Dry solids fed to the ATT plant at the NLR preprint scale (3 million wet
+    Dry presscake fed to the ATT plant at the NLR preprint scale (3 million wet
     t/yr of fresh Sargassum, att.yaml feed_preparation.scale): the dry
-    presscake that the same Sargassum leaves at a biostimulant plant
-    ('presscake'), or the fresh Sargassum itself ('fresh_sargassum').
+    presscake that the same Sargassum leaves at a biostimulant plant.
     """
     from biorefineries.ATT.utils import OPERATING_DAYS_PER_YEAR
     fresh = _FEEDSTOCK_DATA["feedstock_type"][_ATT_FEED_PREP["feedstock_type"]]
     wet_kgph = float(_ATT_FEED_PREP["scale"]["wet_feed_tonnes_per_year"]) * 1e3 / (OPERATING_DAYS_PER_YEAR * 24.0)
     dry = wet_kgph * (1.0 - float(fresh["moisture_frac"]))
-    if configuration == "fresh_sargassum":
-        return dry
     retention = get_att_press_retention()
     return dry * sum(retention[ID] * x for ID, x in fresh["dry_composition"].items())
 
@@ -98,7 +94,6 @@ def create_att_system(
     ree_grade=None,
     ree_params=None,
     heat_exchanger_network=True,
-    configuration="presscake",
     psa=None,
     co2_scrubber=None,
 ):
@@ -108,16 +103,11 @@ def create_att_system(
     Parameters
     ----------
     dry_sargassum_kgph : float
-        Dry-Sargassum scaling basis [kg dry solids/h]. The actual inlet
+        Dry-presscake scaling basis [kg dry solids/h]: the ATT plant receives the
+        presscake of a biostimulant plant (normally a waste). The actual inlet
         stream is constructed from the feedstock.yaml wet-feed composition
         and therefore has a larger wet mass flow. The gross NaOH is
         naoh_kg_per_kg_dry x the dry Sargassum reaching M1.
-    configuration : str
-        'presscake' (default): ATT plant that receives the presscake of a
-        biostimulant plant (normally a waste), without P1; ``dry_sargassum_kgph``
-        is then the dry presscake. 'fresh_sargassum': ATT plant that starts from
-        fresh wet Sargassum, with the press P1 (its liquid is the raw juice for
-        biostimulant production, a coproduct).
     f2_wash_enabled : bool or None
         Add the W2 F2-cake washer. None uses att.yaml downstream.f2_washing.
     f2_wash_ratio : float or None
@@ -138,16 +128,15 @@ def create_att_system(
         att.yaml downstream.f2_washing.use_excess_condensate.
     caco3_drying : bool or None
         Dry the two CaCO3 cakes (F2 cake in D2, scrubber cake in D3, drum dryers like D0) to the moisture of att.yaml
-        downstream.caco3_drying before they are sold. Not used with the lime recycle (the kiln takes the wet cake).
+        downstream.caco3_drying before they are sold.
         None uses att.yaml downstream.caco3_drying.enabled.
     ash_salts : bool or None
         Split the seaweed ash of the presscake feed into insoluble minerals and soluble NaCl/KCl (att.yaml
         feed_preparation.ash_split) and remove the salts from the NaOH recycle in the crystallizer XL1 (downstream.salt_crystallizer).
-        None uses att.yaml feed_preparation.ash_split.enabled. Presscake configuration only.
+        None uses att.yaml feed_preparation.ash_split.enabled.
     char_yield : float or None
         Insoluble char [g per g of dry feed] after the water dissolution (the collaborator's 0.15): RS1 splits the lumped
         U2 residue into the char and untracked carbon. None uses att.yaml downstream.char; 0 keeps the lumped residue of U2.
-        Presscake configuration only.
     ree_recovery : bool or None
         REE recovery from the char (att.yaml downstream.ree_recovery): the washed char cake is leached with HCl (LC1), the REE
         are precipitated with oxalic acid, the leached char and the oxalate are roasted (RO1) into the REE product (sold on its
@@ -194,8 +183,6 @@ def create_att_system(
         chemicals = None
     if chemicals is None or "ResidueCH" not in chemicals:
         create_chemicals(include_att=True)
-    if configuration not in ("fresh_sargassum", "presscake"):
-        raise ValueError("configuration must be 'fresh_sargassum' or 'presscake'.")
     # All equipment is costed at the cost-year CEPCI of tea.yaml (2020 USD).
     bst.CE = float(_COST_YEAR["reference_CE"])
 
@@ -211,19 +198,13 @@ def create_att_system(
     # dry_sargassum_kgph is retained only as a convenient dry-solids
     # scaling basis.
     # --------------------------------------------------------------
-    feedstock_type = _ATT_FEED_PREP[
-        "feedstock_type" if configuration == "fresh_sargassum" else "presscake_feedstock_type"
-    ]
     feed_params = get_feedstock_type_params(
         _FEEDSTOCK_DATA,
-        feedstock_type,
+        _ATT_FEED_PREP["presscake_feedstock_type"],
     )
 
     raw_moisture_frac = float(
         feed_params["moisture_frac"]
-    )
-    raw_ash_wt_frac_dry = float(
-        feed_params["ash_wt_frac_dry"]
     )
 
     fresh_feed_kgph = (
@@ -234,8 +215,7 @@ def create_att_system(
     raw_feed = make_sargassum_feed(
         fresh_feed_kgph=fresh_feed_kgph,
         moisture_frac=raw_moisture_frac,
-        ash_wt_frac_dry=raw_ash_wt_frac_dry,
-        dry_composition=feed_params.get("dry_composition"),
+        dry_composition=feed_params["dry_composition"],
     )
 
     raw_feed.ID = "att_sargassum_feed"
@@ -243,7 +223,7 @@ def create_att_system(
     # Seaweed ash split (user decision 2026-11-03, collaborator's metal contents): part of the ash is insoluble minerals (Ca, Mg;
     # they stay in the char), the rest is soluble K and Na salts, here all as KCl and NaCl.
     ash_cfg = _ATT_FEED_PREP.get("ash_split", {})
-    use_salts = (bool(ash_cfg.get("enabled", False)) if ash_salts is None else bool(ash_salts)) and configuration != "fresh_sargassum"
+    use_salts = (bool(ash_cfg.get("enabled", False)) if ash_salts is None else bool(ash_salts))
     if use_salts:
         ash_kgph0 = float(raw_feed.imass["Ash"])
         shares = {"Ash": float(ash_cfg["insoluble_share_of_ash"]), "NaCl": float(ash_cfg["NaCl_share_of_ash"]), "KCl": float(ash_cfg["KCl_share_of_ash"])}
@@ -257,7 +237,7 @@ def create_att_system(
         raise ValueError("the soluble ash salts need the salt crystallizer (downstream.salt_crystallizer.enabled)")
     char_cfg = _ATT_DOWNSTREAM.get("char", {})
     char_yield_gg = (float(char_cfg["yield_g_per_g_dry_feed"]) if bool(char_cfg.get("enabled", False)) else 0.0) if char_yield is None else float(char_yield)
-    use_char = char_yield_gg > 0.0 and configuration != "fresh_sargassum"
+    use_char = char_yield_gg > 0.0
     ree_cfg = dict(_ATT_DOWNSTREAM.get("ree_recovery", {}))
     if ree_grade is not None:
         if not 0.0 < float(ree_grade) <= 1.0:
@@ -267,45 +247,13 @@ def create_att_system(
         if k not in ree_cfg:
             raise KeyError(f"unknown ree_recovery parameter {k!r}")
         ree_cfg[k] = v
-    use_ree = (bool(ree_cfg.get("enabled", False)) if ree_recovery is None else bool(ree_recovery)) and configuration != "fresh_sargassum"
+    use_ree = (bool(ree_cfg.get("enabled", False)) if ree_recovery is None else bool(ree_recovery))
     if use_ree and not use_char:
         raise ValueError("the REE recovery needs the char yield (downstream.char)")
     if use_ree:       # the REE of the seaweed, carved out of its insoluble minerals
         reo_kgph = float(ree_cfg["seaweed_TREE_ppm"]) * 1e-6 * float(ree_cfg["REO_per_TREE"]) * dry_sargassum_kgph
         raw_feed.imass["REO"] = reo_kgph
         raw_feed.imass["Ash"] = float(raw_feed.imass["Ash"]) - reo_kgph
-
-    # --------------------------------------------------------------
-    # P1 - Mechanical dewatering before ATT.
-    #
-    # Use BioSTEAM's native ScrewPress so that power/design/cost
-    # correlations remain available for later TEA work.
-    #
-    # The press-cake moisture is a fallback assumption from the
-    # current ATT modeling notes (75 wt% until a stronger literature
-    # basis is identified).
-    # --------------------------------------------------------------
-    press_cfg = _ATT_FEED_PREP["press"]
-    if configuration == "fresh_sargassum":
-        # P1 - screw press; its liquid is the raw juice for biostimulant production (a coproduct).
-        P1 = ATTPress(
-            "P1",
-            ins=raw_feed,
-            outs=(
-                "pressed_sargassum",
-                "biostimulant_juice",
-            ),
-            cake_solids_wt_frac=1.0 - float(_ATT_FEED_PREP["press_cake_moisture_wt_frac"]),
-            retention=get_att_press_retention(),
-            power_kWh_per_dry_ton=press_cfg["power_kWh_per_dry_ton"],
-            capex_installed_ref_usd=press_cfg["capex_installed_ref_usd"],
-            ref_capacity_tph_dry=press_cfg["ref_capacity_tph_dry"],
-            scale_exponent=press_cfg["scale_exponent"],
-        )
-        D0_feed = P1 - 0
-    else:
-        P1 = None
-        D0_feed = raw_feed
 
     # --------------------------------------------------------------
     # D0 - Thermal drying before ATT.
@@ -333,7 +281,7 @@ def create_att_system(
     D0 = ATTDrumDryer(
         "D0",
         ins=(
-            D0_feed,
+            raw_feed,
             dryer_air,
             dryer_backup_fuel,
         ),
@@ -395,17 +343,9 @@ def create_att_system(
     # target. Na2CO3 is initialized at zero and is determined by recycle
     # convergence.
     # --------------------------------------------------------------
-    if configuration == "fresh_sargassum":
-        # dry presscake (the press leaves part of the solids in the juice)
-        _retention = get_att_press_retention()
-        initial_dry_kgph = dry_sargassum_kgph * sum(
-            _retention[ID] * x for ID, x in feed_params["dry_composition"].items()
-        )
-    else:
-        initial_dry_kgph = dry_sargassum_kgph
     initial_naoh_kgph = (
         naoh_kg_per_kg_dry
-        * initial_dry_kgph
+        * dry_sargassum_kgph
     )
     initial_target_naoh_wt_frac = float(
         _ATT_DOWNSTREAM["recycle_naoh_wt_frac"]
@@ -1296,7 +1236,6 @@ def create_att_system(
     # System
     # --------------------------------------------------------------
     path = [
-        *([P1] if P1 is not None else []),
         D0,
         M1,
         U2,
