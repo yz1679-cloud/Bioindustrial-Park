@@ -32,7 +32,7 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 | REE chemicals and product | HCl (31 wt %) 0.20 USD/kg; oxalic acid 0.60 USD/kg; REO 35 USD/kg of contained REO (range 2–151) | [ASSUMPTION] `tea.yaml` |
 | CaCO3 sales | 100 USD/t of CaCO3 component, F2 and F3 cakes (unverified) | [ASSUMPTION] |
 | CaCO3 drying | Cakes dried from 25 to 1 wt % moisture; no grinding, purification or handling cost | [ASSUMPTION] |
-| ATT residue | Net price 0 (`residue_sale`): the leached char is assumed to be taken as a sorbent | [ASSUMPTION] |
+| ATT residue | Net price 0 (`prices.att_char`): the leached char is assumed to be taken as a sorbent | [ASSUMPTION] |
 | Salt cake | Disposed at the solid-waste price (0.04 USD/kg wet) | [ASSUMPTION] |
 | Feedstock | 0 USD/t (collection and transport outside the boundary) | [ASSUMPTION] |
 
@@ -174,7 +174,7 @@ Each 100 USD/t of CaCO3 price moves the S1 MSP by ≈ 1.80 USD/kg H2.
 **ATT residue (leached char).** The cake is 872 kg/h wet at 30 wt % moisture (611 kg/h dry, 4,840 dry t/yr; 466.5 kg/h of
 ash minerals, 78.2 kg/h of organic char, 61.5 kg/h of CharN and CharS, and the 2.4 kg/h of REO that was not recovered).
 Its disposal at 0.04 USD/kg wet would cost 0.28 MUSD/yr (0.09 USD/kg H2). The baseline assumes the residue has a net price of 0, for
-example as a sorbent. The assumption is switched off with `tea.yaml residue_sale.enabled: false`, which gives an S1
+example as a sorbent. Setting `tea.yaml prices.att_char` to -0.04 (the disposal fee) gives an S1
 MSP of 1.784.
 
 **Salt cake.** The crystallizer XL1 (0.24 MUSD installed, 9 kW) removes 99 % of the NaCl and KCl from the EC1 concentrate:

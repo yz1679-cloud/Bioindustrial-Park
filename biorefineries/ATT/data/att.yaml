@@ -388,7 +388,7 @@ att:
     # entrains 10 wt % of liquor (its NaOH is lost) and is disposed at the solid-waste price.
     # REE recovery from the ATT char (user decision 2026-11-03, switch default ON; ree_recovery=False in scenarios.create turns it off):
     # the washed char cake is leached with 0.1 M HCl, the REE are precipitated with oxalic acid, only the oxalate precipitate is roasted
-    # at 900 C and the REE product is sold on its REO content; the leached char is the residue product (net price 0, residue_sale);
+    # at 900 C and the REE product is sold on its REO content; the leached char is the residue product (price tea.yaml prices.att_char, 0);
     # the spent leachate (neutralized by the Na2CO3 of the cake liquor) is recycled to the dissolver D1.
     # ASSUMPTIONS: the seaweed already carries 737 ppm TREE (the AMD-soaked seaweed of the lab; the capture section - soak tank, screen,
     # press - is NOT modeled and not costed). Only the oxalate PRECIPITATE is roasted. Its REO is 60 % of the REE of the initial

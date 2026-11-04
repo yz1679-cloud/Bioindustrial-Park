@@ -148,9 +148,7 @@ def _apply_prices(sys, p, offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
     for ID in _T["prices"]["solid_waste_streams"]:
         if ID in s:
             s[ID].price = float(_PRICE["disposal_solid"]["value"])
-    residue_sale = _T.get("residue_sale", {})
-    if residue_sale.get("enabled", False) and "F1R" in inv._units(sys) and "ash_residue_cake" in s:
-        s["ash_residue_cake"].price = float(residue_sale["net_price_usd_per_kg_wet"])     # the washed residue pays its disposal
+    s["ash_residue_cake"].price = p["att_char"]          # the residue (leached char cake) is sold, not disposed, at this price
     s["caco3_cake"].price = float(_PRICE["disposal_solid"]["value"])      # disposed whole unless caco3_sales sells its CaCO3
     if "u3_tail_gas" in s:
         s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
