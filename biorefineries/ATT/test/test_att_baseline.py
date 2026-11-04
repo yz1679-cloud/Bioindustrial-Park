@@ -43,12 +43,10 @@ S1_GWP_WITHOUT_CREDIT = 24.10658155
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
-# (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
+# (engine sources, MSP, GWP, FCI [USD]); 7920 h underway
 S2_CASES = {
-    ("A", "no WHR"): (1.97845913, 15.82778677, 18481882.5),
-    ("A", "all WHR"): (1.91758880, 14.46578073, 19371656.9),
-    ("B", "no WHR"): (4.25329341, 15.82778677, 18481882.5),
-    ("B", "all WHR"): (4.28238289, 14.46578073, 19371656.9),
+    "no WHR": (1.97845913, 15.82778677, 18481882.5),
+    "all WHR": (1.91758880, 14.46578073, 19371656.9),
 }
 
 
@@ -93,14 +91,13 @@ class TestATTS2(unittest.TestCase):
         close(self, mw.evaluate_whr(self.system)["utilized_kW"], S2_WHR_UTILIZED_KW, "utilized WHR")
 
     def test_s2_cases(self):
-        modes = {m[0][:1]: m for m in mt.operating_modes()}
-        for (mode, name), (msp, gwp, fci) in S2_CASES.items():
-            _, hours, load = modes[mode]
+        _, hours, load = mt.operating_mode()
+        for name, (msp, gwp, fci) in S2_CASES.items():
             sources = ALL_WHR if name == "all WHR" else ()
             row, _ = mt.evaluate_case(self.system, self.ref, f"S2 {name}", sources=sources, hours=hours, load=load)
-            close(self, row["MSP_USD_per_kg_H2"], msp, f"{mode} {name} MSP")
-            close(self, row["GWP_kgCO2e_per_kg_H2"], gwp, f"{mode} {name} GWP")
-            close(self, row["FCI_USD"], fci, f"{mode} {name} FCI")
+            close(self, row["MSP_USD_per_kg_H2"], msp, f"{name} MSP")
+            close(self, row["GWP_kgCO2e_per_kg_H2"], gwp, f"{name} GWP")
+            close(self, row["FCI_USD"], fci, f"{name} FCI")
 
 
 if __name__ == "__main__":

@@ -56,4 +56,4 @@ No value is claimed from a source that was not read.
 | USER-2 | Floating CAPEX = 1.1–1.4 × land process CAPEX; central value 1.25 |
 | USER-3 | ATT processing only while the ship is underway |
 | USER-4 | Other onboard consumers of the ship's heat are ignored. This is an **optimistic availability boundary**: SPAR PYXIS has a composite boiler (R-V2), and jacket water typically feeds a freshwater generator (R-AL2) |
-| USER-5 | Main engine at 75 % MCR underway; shaft efficiency 0.493 (generic proxy); Mode B profile of 8 h transit (75 %), 8 h collection (15 %) and 8 h anchored (0 %) |
+| USER-5 | Main engine at 75 % MCR underway; shaft efficiency 0.493 (generic proxy) |

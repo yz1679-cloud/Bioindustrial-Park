@@ -10,8 +10,8 @@
 att_s2_marine.py
 ----------------
 ATT Scenario 2 (shipboard ATT with marine waste heat recovery): heat source and sink ledgers, allocation, WHR
-equipment, energy performance and load sensitivity, the S1/S2 TEA comparison for Mode A (7920 h underway,
-idealized) and Mode B (8 h/d underway = 2640 h), floating-cost / heat / hours sensitivities, incremental GWP and
+equipment, energy performance and load sensitivity, the S1/S2 TEA comparison for the operating mode of
+marine_whr.yaml (7920 h underway, idealized), floating-cost / heat / hours sensitivities, incremental GWP and
 the accounting checks. One simulation of the (unchanged) ATT S1 process at its capacity.
 
 Outputs: biorefineries/ATT/results/tables/att_s2_*.csv (root: paths.results_root)
@@ -37,17 +37,16 @@ from biorefineries.ATT.analyses.paths import output_dir
 
 OUT = output_dir("tables")
 ALL = ("jacket", "scavenge", "exhaust")
-CASES = (("S2 floating, no WHR", ()), ("S2 floating, exhaust WHR", ("exhaust",)),
-         ("S2 floating, exhaust + scavenge + jacket WHR", ALL))
+CASES = (("S2 floating, no WHR", ()), ("S2 floating, exhaust + scavenge + jacket WHR", ALL))
 
 
 def mode_tea_cases(system, ref, cfg=None):
-    """S2 TEA cases of each operating mode (marine_whr.yaml), each at its own hours AND engine load."""
+    """S2 TEA cases of the operating mode (marine_whr.yaml) at its hours AND engine load."""
+    mode, hours, load = mt.operating_mode(cfg)
     rows = []
-    for mode, hours, load in mt.operating_modes(cfg):
-        for name, src in CASES:
-            row, _ = mt.evaluate_case(system, ref, name, sources=src, hours=hours, load=load)
-            rows.append(dict(row, mode=mode, engine_load=load))
+    for name, src in CASES:
+        row, _ = mt.evaluate_case(system, ref, name, sources=src, hours=hours, load=load)
+        rows.append(dict(row, mode=mode, engine_load=load))
     return rows
 
 
@@ -81,12 +80,12 @@ def run():
                          WHR_pump_kW=w["pump_kW"], U2_fired_duty_kW=U2["purchased_before_hxn_kW"]))
     tables["energy_performance"] = pd.DataFrame(perf)
 
-    # TEA: S1 and S2 cases, Mode A and Mode B
+    # TEA: S1 and S2 cases
     ref = mt.s1_reference(system)
     rows = [dict(ref["row"], mode="S1 reference")] + mode_tea_cases(system, ref, cfg)
     tables["tea_cases"] = pd.DataFrame(rows)
 
-    # Sensitivities (S2 with all sources unless stated; Mode A hours unless stated)
+    # Sensitivities (S2 with all sources unless stated; 7920 h unless stated)
     tc = mt.load_tea_config()
     sens = []
 
@@ -107,7 +106,6 @@ def run():
     lo_imo = cfg["equipment"]["imo_whr_installed_range_usd"][0]
     case(f"WHR CAPEX = IMO lower bound {lo_imo / 1e6:.1f} MUSD (power WHRS, context)", sources=ALL,
          whr_capex_factor=lo_imo / base["capex_usd"])
-    case("scavenge-air recovery disabled (no OEM interface)", sources=("jacket", "exhaust"))
     for T in (220.0, 260.0):
         case(f"exhaust temperature {T:g} C", sources=ALL, whr_overrides={"T_exhaust_C": T})
     for e in (0.85, 0.95):

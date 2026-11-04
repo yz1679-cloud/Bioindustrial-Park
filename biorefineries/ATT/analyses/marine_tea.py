@@ -16,7 +16,7 @@ breakdown.py), with marine WHR (marine_whr.py) and its incremental GWP (marine_l
   maintenance and overhead) + (1 - share) x 4 % x FCI (maintenance/overhead scale with the floating FCI);
 * the recovered heat replaces purchased LP steam (and U2 furnace gas for the feed preheater) at the S1 utility
   prices; the WHR pumps add electricity;
-* operating hours (Mode A 7920 h underway, Mode B 2640 h) scale the annual production and the variable costs.
+* operating hours (marine_whr.yaml operating_modes: 7920 h underway) scale the annual production and the variable costs.
 Everything else (materials, disposal, CaCO3 sales at the configured price, financing) is the S1 TEA.
 """
 from biorefineries.ATT.analyses import marine_lca
@@ -27,7 +27,7 @@ from biorefineries.ATT.utils import load_assumptions
 
 import biosteam as bst
 
-__all__ = ("load_tea_config", "s1_reference", "evaluate_case", "operating_modes")
+__all__ = ("load_tea_config", "s1_reference", "evaluate_case", "operating_mode")
 
 
 def load_tea_config():
@@ -53,15 +53,10 @@ def _summary_row(case, t, labor, whr_capex, hours, extra=None):
     return row
 
 
-def operating_modes(cfg=None):
-    """(label, hours/yr, engine load) of the marine_whr.yaml operating modes (A underway reference, B profile)."""
-    modes = (marine_whr.load_whr_config() if cfg is None else cfg)["operating_modes"]
-    a, b = modes["A_underway_reference"], modes["B_operational_profile"]
-    hours_b = float(b["hours_per_day_underway"]) * float(b["days_per_year"])
-    return ((f"A: {float(a['hours_per_year']):.0f} h underway (idealized)", float(a["hours_per_year"]),
-             float(a["engine_load"])),
-            (f"B: {hours_b:.0f} h ({float(b['hours_per_day_underway']):g} h/d underway)", hours_b,
-             float(b["engine_load"])))
+def operating_mode(cfg=None):
+    """(label, hours/yr, engine load) of the marine_whr.yaml operating mode (underway reference)."""
+    a = (marine_whr.load_whr_config() if cfg is None else cfg)["operating_modes"]["A_underway_reference"]
+    return (f"{float(a['hours_per_year']):.0f} h underway (idealized)", float(a["hours_per_year"]), float(a["engine_load"]))
 
 
 def s1_reference(sys):

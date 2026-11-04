@@ -158,7 +158,6 @@ kg CO2e/kg H2.
 |---|---:|---:|
 | **S1** | **15.828** | 24.107 |
 | **S2 with WHR** (7,920 h) | **14.466** | 22.745 |
-| S2 exhaust WHR only | 15.041 | |
 | S2 without WHR | 15.828 | 24.107 |
 | Storage credit in the result | −8.279 | |
 | S1 without the REE recovery | 15.708 | |

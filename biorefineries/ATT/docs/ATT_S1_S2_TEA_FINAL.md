@@ -232,7 +232,6 @@ mixed concentrate is an assumption, which is why the price is swept.
 |---|---:|---:|---:|---:|---:|
 | S1 | 2,953.56 | 14.786 | 3.075 | **1.690** | 15.83 |
 | S2 floating, no WHR | 2,953.56 | 18.482 | 3.445 | 1.978 | 15.83 |
-| S2 floating, exhaust WHR only | 2,953.56 | 19.064 | 3.274 | 1.946 | 15.04 |
 | **S2 floating, all WHR** | 2,953.56 | 19.372 | 3.150 | **1.918** | 14.47 |
 
 S2 (all WHR) with the other residue assumption (leached char disposed at 0.04 USD/kg wet): MSP ≈ 2.011 [DERIVED:

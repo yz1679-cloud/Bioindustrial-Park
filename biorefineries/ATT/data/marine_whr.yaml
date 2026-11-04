@@ -91,5 +91,4 @@ marine_whr:
 
   operating_modes:
     A_underway_reference: {hours_per_year: 7920.0, engine_load: 0.75, note: "Idealized: all 330 d x 24 h treated as underway at 75 % MCR (USER)."}
-    B_operational_profile: {hours_per_day_underway: 8.0, days_per_year: 330.0, engine_load: 0.75, note: "8 h/d transit at 75 % (ATT runs), 8 h/d collection at 15 % and 8 h/d anchored at 0 % (no qualifying heat; ATT not run) (USER)."}
     hours_sensitivity: [7920.0, 5280.0, 2640.0]
