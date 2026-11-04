@@ -791,8 +791,8 @@ def _gaps_and_inconsistencies(lca_gaps):
     rows += [dict(type="TEA limitation", item=x, status="documented", magnitude=float("nan"), note="", importance="")
              for x in Y("tea.yaml", "limitations")]
     inconsistencies = [
-        ("tea.yaml prices.NaOH.value = 0.35", "SaBRe baseline with no literature source (the high value 0.526 is from "
-         "biorefineries/lactic)."),
+        ("tea.yaml prices.NaOH.value = 0.405", "market estimate (U.S. Gulf export spot, Q3 2025), product form not stated; the "
+         "high value 0.526 is from biorefineries/lactic."),
         ("att.yaml reactor.legacy_heat_duty_kJ_per_kg_dry_sargassum = 10423.77", "not used by any code (legacy)."),
         ("att.yaml heat_recovery.minimum_approach_temperature_K = 5", "used only by legacy diagnostics "
          "(att.mass_energy); the HXN uses a 10 K minimum approach temperature."),

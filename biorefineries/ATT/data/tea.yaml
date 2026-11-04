@@ -52,9 +52,9 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
     source: "ASSUMPTION carried over from the SaBRe tea.yaml (WWT 3-8 USD/m3); 0.004 USD/kg = 4 USD/m3. No adequate source was found (2026-11-04 search): no U.S. municipal industrial-discharge rate is published, and the treatment-cost figures found are non-U.S. and technology-specific (about 0.3 to 4 USD/m3). Not independently verified. The excess condensate is nearly pure water and is charged at this rate too."
 
   NaOH:
-    value: 0.35
+    value: 0.405
     range: [0.35, 0.526]
-    source: "SaBRe tea.yaml baseline (no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py. Cross-check (2026-11-04): U.S. Gulf spot export FOB 405 USD/t in Q3 2025 and 475 USD/t in Q2 2025 (JBI caustic soda table, https://jbi.org.jm/caustic-soda/); an index value of 379 USD/t for the U.S. (IMARC, https://www.imarcgroup.com/news/caustic-soda-price-index). The product form (solution or solid flakes, which cost more) is not stated, so 0.35 USD/kg is at or below the quoted 0.38-0.41 USD/kg and remains an assumption."
+    source: "User decision 2026-11-04: U.S. Gulf spot export FOB 405 USD/t in Q3 2025 (475 USD/t in Q2 2025; JBI caustic soda price table, https://jbi.org.jm/caustic-soda/); an index value of 379 USD/t for the U.S. (IMARC, https://www.imarcgroup.com/news/caustic-soda-price-index). The product form (solution or solid flakes, which cost more) and the delivery basis are not stated, so the value remains a market estimate, not a quote. Previous value 0.35 (SaBRe tea.yaml baseline, no literature source), now the low end of the range; the high value 0.2384 USD/lb is from biorefineries/lactic/_process_settings.py."
   CaOH2:                 # fresh (purchased) lime; ATT S1 uses free waste lime (price 0, scenarios.tea_config)
     value: 0.280
     year: 2025
@@ -164,7 +164,7 @@ stream_prices:
   scrubber_dryer_backup_fuel: "Backup fuel port of the drum dryer: zero flow in the baseline, price 0."
   caco3_dryer_backup_fuel: "Backup fuel port of the drum dryer: zero flow in the baseline, price 0."
   u3_tail_gas: "Port for PSA tail gas burned in U2: zero without a PSA; with a PSA its fuel value is credited as natural gas displaced (voc item), not as a price."
-  fresh_naoh_solid: "prices.NaOH (0.35 USD/kg). SaBRe baseline, no literature source; market cross-check in prices.NaOH.source."
+  fresh_naoh_solid: "prices.NaOH (0.405 USD/kg): U.S. Gulf export spot price of Q3 2025, product form not stated (prices.NaOH.source)."
   lime: "0 for the waste carbide lime (scenario att_s1 lime: waste, a free by-product of an acetylene plant, user decision); a purchased lime would cost prices.CaOH2 (USGS 2026)."
   scrubber_lime: "0 for the waste carbide lime (as lime)."
   dissolution_water: "prices.process_water (Humbird et al. 2011)."
@@ -192,7 +192,7 @@ stream_prices:
   caco3_dryer_emissions: "Dryer emission port to the atmosphere, zero flow in the baseline, no fee."
   roaster_exhaust: "Roaster exhaust to the atmosphere, no fee and no treatment cost."
   leach_co2: "CO2 of the REE leach to the atmosphere, no fee."
-  att_residue_untracked: "OPEN GAP: price 0. The lumped residual carbon of U2 beyond the carbonate, gas and char has no measured sink; it is neither sold nor disposed nor treated, so no cost is booked (see limitations)."
+  att_residue_untracked: "OPEN GAP: price 0 (user decision 2026-11-04, kept as a documented gap). The lumped residual carbon of U2 beyond the carbonate, gas and char has no measured sink; it is neither sold nor disposed nor treated, so no cost is booked (see limitations)."
 
 utility_prices:
   natural_gas: "BioSTEAM default agent price, converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (natural_gas_note above)."

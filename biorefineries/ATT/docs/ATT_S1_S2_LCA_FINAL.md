@@ -25,7 +25,7 @@ Emission factors:
 | NaOH | 1.12 kg CO2e/kg | Collaborators' table |
 | Ca(OH)2, waste lime | 0 (burden-free) | User scenario; fresh limestone lime would be 0.91 (not used) |
 | Natural gas, combustion | 0.056 kg CO2/MJ LHV | IPCC 2006 |
-| Natural gas, upstream | 0.0066 kg CO2e/MJ | GREET |
+| Natural gas, upstream | 0.0098 kg CO2e/MJ | Argonne GREET-based U.S. average |
 | Burner / boiler efficiency | 0.90 / 0.80 | — |
 | Electricity | 0.449 kg CO2e/kWh | GREET 2022 US mix, location placeholder |
 | H2SO4 | 0.0445 kg CO2e/kg | GREET |

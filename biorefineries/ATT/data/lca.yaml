@@ -36,12 +36,12 @@ lca:
       source: "ATT collaborators (IPCC 2006 default 56.1 t CO2/TJ on a net calorific value basis)"
       boundary: onsite combustion, CO2 only
     natural_gas_upstream:
-      value: 0.0066
-      range: [0.0066, 0.0199]
+      value: 0.0098
+      range: [0.0084, 0.0199]
       unit: kg CO2e/MJ fuel
-      source: "GREET, as used in this repository (biorefineries/HP/process_settings.py: 0.33 kg CO2e per kg CH4, North American natural gas from shale and conventional recovery) = 6.6 g CO2e/MJ LHV (CH4 LHV 50.0 MJ/kg). biorefineries/lactic uses 0.40 kg/kg = 8.0 g/MJ. User decision 2026-10-17 (was the NETL value below)."
+      source: "User decision 2026-11-04: Argonne GREET-based U.S. average natural gas supply chain 10.3 kg CO2e/MMBtu (LHV) = 9.8 g CO2e/MJ (https://www.anl.gov/argonne-scientific-publications/pub/198751; the study's GWP basis was not rechecked)."
       boundary: extraction, processing and transmission
-      note: "Previous value 0.0199 (DOE/NETL-2019/2039, high end of the range; NETL 2020 supply-chain update 14.1 (10.0-19.2) g CO2e/MJ; LHV/HHV basis not confirmed). Cross-check (2026-11-04): Argonne GREET-based U.S. average supply chain 10.3 kg CO2e/MMBtu (LHV) = 9.8 g CO2e/MJ (https://www.anl.gov/argonne-scientific-publications/pub/198751); NETL 8.4 g CO2e/MJ with AR6 GWPs. 6.6 g CO2e/MJ is below these values."
+      note: "Previous values: 0.0066 (GREET as used in biorefineries/HP/process_settings.py, 0.33 kg CO2e per kg CH4 = 6.6 g/MJ; biorefineries/lactic uses 0.40 kg/kg = 8.0 g/MJ) and 0.0199 (DOE/NETL-2019/2039, high end; NETL 2020 supply-chain update 14.1 (10.0-19.2) g CO2e/MJ; LHV/HHV basis not confirmed). Range: NETL 8.4 g CO2e/MJ with AR6 GWPs to the NETL-2019 value."
     electricity:
       value: 0.449
       range: [0.30, 0.90]
@@ -180,7 +180,7 @@ lca:
     caco3_dryer_emissions: "Zero flow in the baseline; no factor."
     roaster_exhaust: "No factor: the roaster fuel is the char and the oxalic acid (biogenic CO2 is not counted)."
     leach_co2: "Biogenic CO2 of the REE leach: not counted (as all biogenic CO2)."
-    att_residue_untracked: "OPEN GAP: no factor. The lumped residual carbon of U2 has no sink in the model; if burned or degraded it would emit biogenic CO2 or CH4 (data-gap table)."
+    att_residue_untracked: "OPEN GAP: no factor, counted as 0 (user decision 2026-11-04, kept as a documented gap). The lumped residual carbon of U2 has no sink in the model; if burned or degraded it would emit biogenic CO2 or CH4 (data-gap table)."
 
   utility_factors:
     natural_gas: "emission_factors.natural_gas_combustion + natural_gas_upstream per MJ of fuel (duty / burner efficiency 0.90)."

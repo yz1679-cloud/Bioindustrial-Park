@@ -28,7 +28,7 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 | Financial method | ATTTEA DCF: IRR 10 %, 2026–2046, MACRS-7, 21 % income tax, 40/60 construction, 60 % debt at 8 % over 10 yr, working capital 5 % of FCI, 3-month startup | Inherited SaBRe/BioSTEAM |
 | Capital convention | FCI = installed equipment cost (no separate indirect costs); CEPCI 596.2 (2020 USD) | Inherited SaBRe; ATT cost year |
 | Fixed operating cost | 4 % of FCI per yr (labor, maintenance, overhead) | Inherited SaBRe |
-| Prices | NaOH 0.35 USD/kg; waste Ca(OH)2 0 (fresh lime 0.28 USD/kg, not used); H2SO4 0.0948 USD/kg; process water 0.000441 USD/kg; solid disposal 0.04 USD/kg wet; wastewater 0.004 USD/kg; natural gas 4.36 USD/GJ (LHV); LP steam 0.2378 USD/kmol; electricity 0.0782 USD/kWh | `tea.yaml`, BioSTEAM defaults |
+| Prices | NaOH 0.405 USD/kg; waste Ca(OH)2 0 (fresh lime 0.28 USD/kg, not used); H2SO4 0.0948 USD/kg; process water 0.000441 USD/kg; solid disposal 0.04 USD/kg wet; wastewater 0.004 USD/kg; natural gas 4.36 USD/GJ (LHV); LP steam 0.2378 USD/kmol; electricity 0.0782 USD/kWh | `tea.yaml`, BioSTEAM defaults |
 | REE chemicals and product | HCl (31 wt %) 0.20 USD/kg; oxalic acid 0.60 USD/kg; REO 35 USD/kg of contained REO (range 2–151) | [ASSUMPTION] `tea.yaml` |
 | CaCO3 sales | 100 USD/t of CaCO3 component, F2 and F3 cakes (unverified) | [ASSUMPTION] |
 | CaCO3 drying | Cakes dried from 25 to 1 wt % moisture; no grinding, purification or handling cost | [ASSUMPTION] |
