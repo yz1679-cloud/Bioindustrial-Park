@@ -43,16 +43,18 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
     value: -0.04
     range: [-0.08, 0]
     distribution: "uniform"
+    source: "ASSUMPTION carried over from the SaBRe tea.yaml (standard biosolids 30-80 USD/dry t); 0.04 USD/kg = 40 USD/t wet. Cross-check (2026-11-04): the U.S. average MSW landfill tipping fee was 56.80 USD/t unweighted and 57.63 USD/t ton-weighted in 2023 (EREF, Analysis of MSW Landfill Tipping Fees 2023, https://erefdn.org/analyzing-municipal-solid-waste-landfill-tipping-fees/; Southeast 43.18, Northeast 84.44 USD/t). The value is below the national average and inside the range."
 
   disposal_wastewater:
     value: -0.004
     range: [-0.008, 0]
     distribution: "uniform"
+    source: "ASSUMPTION carried over from the SaBRe tea.yaml (WWT 3-8 USD/m3); 0.004 USD/kg = 4 USD/m3. No adequate source was found (2026-11-04 search): no U.S. municipal industrial-discharge rate is published, and the treatment-cost figures found are non-U.S. and technology-specific (about 0.3 to 4 USD/m3). Not independently verified. The excess condensate is nearly pure water and is charged at this rate too."
 
   NaOH:
     value: 0.35
     range: [0.35, 0.526]
-    source: "SaBRe tea.yaml baseline (no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py."
+    source: "SaBRe tea.yaml baseline (no literature source). High: 0.2384 USD/lb in biorefineries/lactic/_process_settings.py. Cross-check (2026-11-04): U.S. Gulf spot export FOB 405 USD/t in Q3 2025 and 475 USD/t in Q2 2025 (JBI caustic soda table, https://jbi.org.jm/caustic-soda/); an index value of 379 USD/t for the U.S. (IMARC, https://www.imarcgroup.com/news/caustic-soda-price-index). The product form (solution or solid flakes, which cost more) is not stated, so 0.35 USD/kg is at or below the quoted 0.38-0.41 USD/kg and remains an assumption."
   CaOH2:                 # fresh (purchased) lime; ATT S1 uses free waste lime (price 0, scenarios.tea_config)
     value: 0.280
     year: 2025
@@ -62,10 +64,10 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
     source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, lca.yaml endpoint)"
   HCl_31:                # 31 wt % HCl solution, per kg of solution (REE leach; used only with ree_recovery)
     value: 0.20
-    source: "2026 quotes: US 215, global 185-205 USD/t (Expert Market Research, ChemAnalyst); assumption."
+    source: "2026 quotes: US 215, global 185-205 USD/t (Expert Market Research, ChemAnalyst); assumption. Cross-check (2026-11-04): U.S. import price 265 USD/t in September 2025 (Intratec, https://www.intratec.us/chemical-markets/hydrochloric-acid-price) and North America 243 USD/t in October 2025 (ChemAnalyst); grade and delivery basis are not stated and the sources are market-news pages, so 0.20 USD/kg is at the low end."
   oxalic_acid:           # per kg of oxalic acid (REE precipitation; used only with ree_recovery)
     value: 0.60
-    source: "China 2026: 435-710 USD/t (ChemAnalyst, ChemicalBook); assumption."
+    source: "China 2026: 435-710 USD/t (ChemAnalyst, ChemicalBook); assumption. Cross-check (2026-11-04): 2025 prices of 603-684 USD/t for the U.S., 443-503 for China and 543-614 for India (Expert Market Research, https://www.expertmarketresearch.com/price-forecast/oxalic-acid-price-trends); 0.60 USD/kg is inside the U.S. range."
   REO:                   # sale price of the REE product per kg of REO it contains (ree_recovery only)
     value: 35.0
     range: [2.0, 151.0]
@@ -143,9 +145,60 @@ limitations:
   - "PSA capital is a preliminary review-based estimate (+/-50 %), not a correlation or vendor quote."
   - "Equipment at CEPCI 596.2 (2020 USD) while chemical prices are 2024-2025 and utility prices are BioSTEAM defaults (older basis); the MSP is therefore not a single-year number. Only the municipal press anchor (3.1 MUSD, year unrecorded in the source) and the PSA anchor (year unknown) are not escalated."
   - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
+  - "att_residue_untracked (the lumped residual carbon of U2 beyond the carbonate, gas and char, about 1.9 t/h) has no sink in the model: it is not sold, disposed or treated, so no cost is booked for it (stream_prices)."
+  - "The disposal prices (solid 40 USD/t, wastewater 4 USD/m3) are assumptions carried over from SaBRe; the solid fee has a tipping-fee cross-check, the wastewater fee has no adequate source (prices.disposal_*.source)."
   - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
   - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
   - "No lime regeneration (kiln) or alternative lime sourcing in the economics."
+
+# PRICE BASIS OF EVERY BOUNDARY STREAM (system.feeds and system.products of ATT S1 and S2) AND OF EACH UTILITY. The price values are
+# in prices above, caco3_sales and the unit settings; this register says how each one was decided. A test
+# (test_att_stream_register) fails when a boundary stream of the S1 flowsheet has no entry here or in lca.yaml stream_factors.
+stream_prices:
+  att_sargassum_feed: "prices.sargassum (0). Waste biomass assumed delivered free to the plant gate; collection and transport are not costed. Reference costs: beach cleanup 19-85 USD/m3 wet (Rodriguez-Martinez et al. 2023); a Saint-Martin contract of 22.50 EUR/t for collection and transport to a landfill (news report, Daily Herald, secondary source)."
+  dryer_air: "Ambient drying air, price 0."
+  scrubber_dryer_air: "Ambient drying air, price 0."
+  caco3_dryer_air: "Ambient drying air, price 0."
+  roaster_air: "Ambient combustion air of the REE roaster, price 0."
+  dryer_backup_fuel: "Backup fuel port of the drum dryer (steam heated): zero flow in the baseline, price 0."
+  scrubber_dryer_backup_fuel: "Backup fuel port of the drum dryer: zero flow in the baseline, price 0."
+  caco3_dryer_backup_fuel: "Backup fuel port of the drum dryer: zero flow in the baseline, price 0."
+  u3_tail_gas: "Port for PSA tail gas burned in U2: zero without a PSA; with a PSA its fuel value is credited as natural gas displaced (voc item), not as a price."
+  fresh_naoh_solid: "prices.NaOH (0.35 USD/kg). SaBRe baseline, no literature source; market cross-check in prices.NaOH.source."
+  lime: "0 for the waste carbide lime (scenario att_s1 lime: waste, a free by-product of an acetylene plant, user decision); a purchased lime would cost prices.CaOH2 (USGS 2026)."
+  scrubber_lime: "0 for the waste carbide lime (as lime)."
+  dissolution_water: "prices.process_water (Humbird et al. 2011)."
+  f1_wash_water: "prices.process_water (Humbird et al. 2011); zero flow in the baseline because condensate is used."
+  f2_wash_water: "prices.process_water (Humbird et al. 2011); zero flow in the baseline because condensate is used."
+  scrubber_makeup_water: "prices.process_water (Humbird et al. 2011)."
+  leach_water: "prices.process_water (Humbird et al. 2011); zero flow in the baseline because condensate is used."
+  leachate_naoh: "prices.NaOH; zero flow in the baseline."
+  fresh_hcl: "prices.HCl_31 (0.20 USD/kg of 31 wt % solution); assumption with market-news cross-check in its source."
+  fresh_oxalic_acid: "prices.oxalic_acid (0.60 USD/kg); assumption inside the U.S. range of its cross-check."
+  h2_product: "The solved minimum selling price (ATTTEA.solve_price) per kg of product gas, restated per kg of H2."
+  caco3_cake: "Net price from caco3_sales: CaCO3 content sold at price_usd_per_metric_ton, the rest disposed at prices.disposal_solid (assumption, no buyer)."
+  scrubber_cake: "Net price from caco3_sales (as caco3_cake)."
+  ree_product: "prices.REO (35 USD/kg REO, assumption) times the REO mass fraction of the product."
+  att_char: "prices.att_char (0, assumption: taken as a sorbent for free)."
+  liquor_purge: "prices.disposal_wastewater (4 USD/m3, assumption)."
+  excess_condensate: "prices.disposal_wastewater (4 USD/m3, assumption); the condensate is nearly pure water."
+  u3_dryer_removed_water: "prices.disposal_wastewater (4 USD/m3, assumption)."
+  salt_cake: "prices.disposal_solid (40 USD/t wet, assumption with a tipping-fee cross-check)."
+  dryer_exhaust: "Air and water vapor to the atmosphere, no fee."
+  dryer_emissions: "Dryer emission port to the atmosphere, zero flow in the baseline, no fee."
+  scrubber_dryer_exhaust: "Air and water vapor to the atmosphere, no fee."
+  scrubber_dryer_emissions: "Dryer emission port to the atmosphere, zero flow in the baseline, no fee."
+  caco3_dryer_exhaust: "Air and water vapor to the atmosphere, no fee."
+  caco3_dryer_emissions: "Dryer emission port to the atmosphere, zero flow in the baseline, no fee."
+  roaster_exhaust: "Roaster exhaust to the atmosphere, no fee and no treatment cost."
+  leach_co2: "CO2 of the REE leach to the atmosphere, no fee."
+  att_residue_untracked: "OPEN GAP: price 0. The lumped residual carbon of U2 beyond the carbonate, gas and char has no measured sink; it is neither sold nor disposed nor treated, so no cost is booked (see limitations)."
+
+utility_prices:
+  natural_gas: "BioSTEAM default agent price, converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (natural_gas_note above)."
+  low_pressure_steam: "BioSTEAM default agent price (covers generation, so boiler gas is not priced again) (steam_note above)."
+  cooling_water: "BioSTEAM default agent price (covers tower operation) (cooling_note above)."
+  electricity: "BioSTEAM default PowerUtility price on the modeled unit power (electricity_note above); the default is older than the 2020 cost basis."
 
 sensitivities:
   PSA_capex_factor: [0.5, 1.5]

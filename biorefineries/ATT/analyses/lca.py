@@ -491,9 +491,23 @@ def get_att_lca_data_gaps(sys, applied):
     boiler_delta = steam_fuel * ng * (1 / 0.90 - 1 / 0.80)
     cake = s["caco3_cake"]
     cake_landfill = float(cake.F_mass) / dry * f["inert_landfill"]
+    hcl = _LCA["indicative_gwp100"]["HCl_31"]
+    hcl_kg_per_kg_dry = float(s["fresh_hcl"].F_mass) / dry
+    untracked = s["att_residue_untracked"]
+    untracked_CO2_per_kg_dry = float(untracked.get_atomic_flow("C")) * 44.0095 / dry
     rows = [
         ("Sargassum collection and transport", "NOT INCLUDED (no data)", float("nan"),
          "outside the boundary; no collection distance or fuel-use data", "potentially HIGH"),
+        ("REE reagent HCl (31 %)", "NO FACTOR: counted as 0 in the net GWP", hcl_kg_per_kg_dry * hcl["value"],
+         f"indicative: {hcl_kg_per_kg_dry:.4f} kg solution/kg dry x {hcl['value']} (range {hcl['range'][0]}-{hcl['range'][1]}) "
+         "kg CO2e/kg; conflicting database values, no GREET entry found", "LOW-MEDIUM"),
+        ("REE reagent oxalic acid", "NO FACTOR: counted as 0 in the net GWP", float("nan"),
+         "no usable value found (lca.yaml indicative_gwp100.oxalic_acid)", "LOW"),
+        ("REE leach water and leachate NaOH", "NO FACTOR: counted as 0; zero flow in the baseline", float("nan"),
+         "the leach water is condensate and the leachate NaOH is recycled; the water and NaOH factors exist but are not applied to these streams", "LOW"),
+        ("Untracked organic residue (att_residue_untracked)", "NO SINK, no cost and no impact", untracked_CO2_per_kg_dry,
+         "indicative: its carbon as CO2 if fully oxidized (biogenic, not counted); CH4 from degradation, or a landfill storage credit, "
+         "are not quantified", "HIGH"),
         ("Model off-gas CH4 if vented", "NOT IN BASELINE GWP (baseline burns the off-gas in the U2 burner)", ch4_model,
          "indicative: model off-gas CH4 x GWP100 27.0 (AR6 non-fossil); burning gives biogenic CO2 (0)",
          "HIGH if vented instead of burned"),

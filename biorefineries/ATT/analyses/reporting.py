@@ -264,7 +264,7 @@ def _register_rows():
                 f"range {v.get('range', '')}")
     for k in ("disposal_solid", "disposal_wastewater"):
         add("TEA", f"Price {k}", Y("tea.yaml", f"prices.{k}.value"), "USD/kg", "TEA", "negative = cost", SDB,
-            "SaBRe tea.yaml (standard biosolids $30-80/dry t; WWT $3-8/m3)", f"tea.yaml:prices.{k}.value",
+            Y("tea.yaml", f"prices.{k}.source"), f"tea.yaml:prices.{k}.value",
             "Baseline", affects="TEA", uncertainty=f"range {Y('tea.yaml', f'prices.{k}.range')}")
     add("TEA", "Price sargassum (delivered)", Y("tea.yaml", "prices.sargassum.value"), "USD/kg wet", "TEA",
         "Collection/transport cost", SDB, Y("tea.yaml", "prices.sargassum.source"), "tea.yaml:prices.sargassum.value",
