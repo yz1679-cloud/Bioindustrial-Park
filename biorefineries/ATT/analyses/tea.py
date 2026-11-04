@@ -360,6 +360,12 @@ def _opex_table(sys, result):
         add("Ca(OH)2", "materials", s["scrubber_lime"].cost * hours, f"{s['scrubber_lime'].price:.6g} USD/kg (CO2 scrubber)")
         add("Process water", "materials", s["scrubber_makeup_water"].cost * hours,
             f"{s['scrubber_makeup_water'].price:.6g} USD/kg (CO2 scrubber makeup)")
+    if "ree_product" in s:                 # REE recovery (downstream.ree_recovery): reagents and the sale of the roasted product
+        for ID, label in (("fresh_hcl", "HCl (31 %)"), ("fresh_oxalic_acid", "Oxalic acid"),
+                          ("leach_water", "Process water (REE leach)"), ("leachate_naoh", "NaOH (REE leach)")):
+            add(label, "materials", s[ID].cost * hours, f"{s[ID].price:.6g} USD/kg")
+        add("REE product sales", "REE sales", -s["ree_product"].cost * hours,
+            f"{s['ree_product'].price:.6g} USD/kg product ({_T['prices']['REO']['value']:.6g} USD/kg REO)")
     if "biostimulant_juice" in s:
         add("Biostimulant juice transfer (coproduct)", "juice", -s["biostimulant_juice"].cost * hours,
             f"{s['biostimulant_juice'].price:.6g} USD/kg")

@@ -419,9 +419,10 @@ att:
     # Salt crystallizer on the EC1 concentrate (NaCl, KCl nearly insoluble in 50 wt % NaOH): a vessel and a solids centrifuge
     # (BioSTEAM MixTank and SolidsCentrifuge; PRELIMINARY, carbon-steel/stainless defaults, no solubility data). The salt cake
     # entrains 10 wt % of liquor (its NaOH is lost) and is disposed at the solid-waste price.
-    # REE recovery from the ATT char (user decision 2026-11-03, switch default OFF): the washed char cake is leached with 0.1 M HCl,
-    # the REE are precipitated with oxalic acid, the leached char and the oxalate are roasted at 900 C and the REE product is sold on
-    # its REO content; the spent leachate (neutralized by the Na2CO3 of the cake liquor) is recycled to the dissolver D1.
+    # REE recovery from the ATT char (user decision 2026-11-03, switch default ON; ree_recovery=False in scenarios.create turns it off):
+    # the washed char cake is leached with 0.1 M HCl, the REE are precipitated with oxalic acid, only the oxalate precipitate is roasted
+    # at 900 C and the REE product is sold on its REO content; the leached char is the residue product (net price 0, residue_sale);
+    # the spent leachate (neutralized by the Na2CO3 of the cake liquor) is recycled to the dissolver D1.
     # ASSUMPTIONS: the seaweed already carries 737 ppm TREE (the AMD-soaked seaweed of the lab; the capture section - soak tank, screen,
     # press - is NOT modeled and not costed). Only the oxalate PRECIPITATE is roasted. Its REO is 60 % of the REE of the initial
     # wastewater (1.4 mg TREE/L at 2.5 g seaweed/L = 560 ppm of the seaweed; the 60 % overall recovery of the collaborators' 0.01 M
@@ -431,7 +432,7 @@ att:
     # recovered, is the residue product. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic
     # acid); the roaster is PRELIMINARY (kiln correlation of the lime kiln K1; only the precipitate is roasted).
     ree_recovery:
-      enabled: false
+      enabled: true
       seaweed_TREE_ppm: 737.0
       REO_per_TREE: 1.169
       wastewater_TREE_mg_per_L: 1.4

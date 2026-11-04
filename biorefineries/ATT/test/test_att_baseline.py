@@ -4,10 +4,11 @@ Key metrics of the ATT scenarios (S1, S2; add S3 and later ones as new entries b
 Baseline assumptions (data/*.yaml): presscake feed, NaOH 1 kg/kg dry, Ni-CatATT 1:1 gas yields, lumped residue (ATT
 char), 88 % causticization, F2 washing with the excess condensate as wash water and the wash liquor recycled to the
 dissolver, F1 washing of the residue cake (1 kg water/kg dry cake, liquor combined with the carbonate solution; the
-washed residue is assumed to pay for its own disposal), both CaCO3 cakes dried to 1 wt % moisture (D2, D3), free
+washed residue has a net price of 0, assumed to be taken as a sorbent), both CaCO3 cakes dried to 1 wt % moisture (D2, D3), free
 waste carbide lime of an
 acetylene plant (a paste with CaCO3 and inert mineral impurities), waste-lime CO2 scrubber, no PSA, both CaCO3 cakes
-SOLD at 100 USD/t of CaCO3 (assumed; the non-CaCO3 mass is disposed), and the storage credit for the Sargassum carbon
+SOLD at 100 USD/t of CaCO3 (assumed; the non-CaCO3 mass is disposed), the REE recovery (HCl leach, oxalate precipitation,
+roast; the REO is sold at 35 USD/kg, assumed) and the storage credit for the Sargassum carbon
 in the solids (CaCO3 sold or landfilled, the residue); soluble Na2CO3 carbon is not credited.
 
 Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was
@@ -27,27 +28,35 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
+    "MSP_USD_per_kg_H2": 1.69003955,
+    "GWP_kgCO2e_per_kg_H2": 15.82778677,
+    "FCI_MUSD": 14.78550599,
+    "AOC_MUSD_per_yr": 3.07549080,
+    "H2_t_per_yr": 2953.56307,
+    "fresh_NaOH_t_per_yr": 3882.8180,
+    "Ca_OH_2_used_t_per_yr": 47166.4092,
+    "U2_heat_duty_MJ_per_kg_dry": 9.15813820,
+    "dry_feed_t_per_day": 120.7001,
+}
+S1_STORED_CARBON_CREDIT = -8.27879478        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 24.10658155
+# The same S1 with the REE recovery switched off (ree_recovery=False; the default is on, att.yaml downstream.ree_recovery).
+S1_METRICS_NO_REE = {
     "MSP_USD_per_kg_H2": 1.75246213,
     "GWP_kgCO2e_per_kg_H2": 15.70763843,
     "FCI_MUSD": 13.4992164,
     "AOC_MUSD_per_yr": 3.42655826,
-    "H2_t_per_yr": 2953.56307,
     "fresh_NaOH_t_per_yr": 3956.8688,
-    "Ca_OH_2_used_t_per_yr": 47076.9328,
-    "U2_heat_duty_MJ_per_kg_dry": 9.15712330,
-    "dry_feed_t_per_day": 120.7001,
 }
-S1_STORED_CARBON_CREDIT = -8.2281722        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 23.9358106
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
 # (mode key, engine sources, MSP, GWP, FCI [USD]); mode A: 7920 h underway, mode B: 2640 h (8 h/d underway)
 S2_CASES = {
-    ("A", "no WHR"): (2.01579017, 15.70763843, 16874020.5),
-    ("A", "all WHR"): (1.95491984, 14.34563238, 17763795.0),
-    ("B", "no WHR"): (4.09270801, 15.70763843, 16874020.5),
-    ("B", "all WHR"): (4.12181095, 14.34563238, 17763795.0),
+    ("A", "no WHR"): (1.97845913, 15.82778677, 18481882.5),
+    ("A", "all WHR"): (1.91758880, 14.46578073, 19371656.9),
+    ("B", "no WHR"): (4.25329341, 15.82778677, 18481882.5),
+    ("B", "all WHR"): (4.28238289, 14.46578073, 19371656.9),
 }
 
 
@@ -82,6 +91,15 @@ class TestATTS1(unittest.TestCase):
     def test_u2_balance_and_residue(self):
         self.assertEqual(self.s["U2_balance_status"], "PASS")
         self.assertTrue(self.s["U2_residual_product"].startswith("lumped: CH0.5O1.19"), self.s["U2_residual_product"])
+
+
+class TestATTS1NoREE(unittest.TestCase):
+
+    def test_key_metrics(self):
+        warnings.filterwarnings("ignore")
+        s = build_att_breakdown("att_s1", sys=scen.create(ree_recovery=False))["summary"]
+        for key, expected in S1_METRICS_NO_REE.items():
+            close(self, s[key], expected, key)
 
 
 class TestATTS2(unittest.TestCase):

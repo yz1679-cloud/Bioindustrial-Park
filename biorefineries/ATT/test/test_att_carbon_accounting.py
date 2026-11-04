@@ -82,7 +82,7 @@ class TestCarbonateAccounting(unittest.TestCase):
         warnings.filterwarnings("ignore")
         cls._option = sales_option()
         cls._option.__enter__()
-        cls.sys = scen.create(scen.ATT_S1)
+        cls.sys = scen.create(scen.ATT_S1, ree_recovery=False)       # the pinned values are those of the process without REE recovery
         cls.s = inv._streams(cls.sys)
         cls.h2 = float(cls.s["h2_product"].imass["H2"])
         cls.sold = build_att_breakdown("att_s1", sys=cls.sys)["summary"]

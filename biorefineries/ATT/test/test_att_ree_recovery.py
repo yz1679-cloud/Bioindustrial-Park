@@ -1,4 +1,4 @@
-"""REE recovery from the ATT char (att.yaml downstream.ree_recovery, switch default off): HCl leach and oxalate precipitation of the washed
+"""REE recovery from the ATT char (att.yaml downstream.ree_recovery, switch default on): HCl leach and oxalate precipitation of the washed
 char cake (LC1), roast of the oxalate precipitate into the REE product (RO1), spent leachate recycled to the dissolver D1. S2 inherits it from S1."""
 import unittest
 import warnings
@@ -17,8 +17,11 @@ class TestREERecovery(unittest.TestCase):
         cls.u, cls.s = inv._units(cls.sys), inv._streams(cls.sys)
         cls.dry = inv._dry_feed_kgph(cls.sys)
 
-    def test_default_is_off(self):
-        base = scen.create()
+    def test_default_is_on_and_can_be_switched_off(self):
+        default = scen.create()
+        self.assertIn("LC1", [x.ID for x in default.units])
+        self.assertIn("ree_product", inv._streams(default))
+        base = scen.create(ree_recovery=False)
         self.assertNotIn("LC1", [x.ID for x in base.units])
         self.assertNotIn("ree_product", inv._streams(base))
         self.assertEqual(float(inv._streams(base)["att_sargassum_feed"].imass["REO"]), 0.0)

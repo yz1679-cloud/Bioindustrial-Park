@@ -36,7 +36,7 @@ Waste lime: `downstream.waste_lime` in `data/att.yaml` models the carbide lime o
 basis 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals; 40 wt % water). It is free and burden-free; the Ca(OH)2 dose follows
 the stoichiometry. Trace metals and other impurities are not modeled.
 
-REE recovery (switch `ree_recovery=` in `scenarios.create(...)`, default off: `downstream.ree_recovery` in `data/att.yaml`): the washed char cake is
+REE recovery (switch `ree_recovery=` in `scenarios.create(...)`, default ON; `ree_recovery=False` gives the process without it: `downstream.ree_recovery` in `data/att.yaml`): the washed char cake is
 leached with 0.1 M HCl (LC1), the REE are precipitated with oxalic acid (the leached char leaves as the residue product), and only the oxalate precipitate is
 roasted at 900 C (RO1) into the `ree_product` (60 % of the REE of the initial wastewater, 1.31 wt % REO, the rest mineral filler), which is sold on its REO content (`att_tea.yaml prices.REO`, default 35 USD/kg REO, an assumption), and the spent leachate goes
 to the dissolver D1 (the surplus condensate is the leach water). The seaweed is assumed to carry 737 ppm TREE already: the AMD capture

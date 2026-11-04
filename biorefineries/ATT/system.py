@@ -161,7 +161,7 @@ def create_att_system(
         are precipitated with oxalic acid, the leached char and the oxalate are roasted (RO1) into the REE product (sold on its
         REO content) and the spent leachate is recycled to the dissolver D1. The seaweed is assumed to carry the REE already
         (att.yaml seaweed_TREE_ppm); the AMD capture section (soak, screen, press) is NOT modeled. Needs the char yield.
-        None uses att.yaml downstream.ree_recovery.enabled (default false).
+        None uses att.yaml downstream.ree_recovery.enabled (default true).
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None

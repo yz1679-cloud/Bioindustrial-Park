@@ -17,7 +17,7 @@ class TestAshCharSalt(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings("ignore")
-        cls.sys = scen.create()
+        cls.sys = scen.create(ree_recovery=False)
         cls.u, cls.s = inv._units(cls.sys), inv._streams(cls.sys)
         cls.dry = inv._dry_feed_kgph(cls.sys)
 
@@ -70,7 +70,7 @@ class TestAshCharSalt(unittest.TestCase):
         self.assertGreater(float(self.u["XL1"].installed_cost), 0.0)
 
     def test_switches_off_reproduce_the_lumped_flowsheet(self):
-        old = scen.create(ash_salts=False, char_yield=0.0)
+        old = scen.create(ash_salts=False, char_yield=0.0, ree_recovery=False)
         ids = [x.ID for x in old.units]
         self.assertNotIn("RS1", ids)
         self.assertNotIn("XL1", ids)
@@ -80,7 +80,7 @@ class TestAshCharSalt(unittest.TestCase):
         self.assertGreater(float(res.imass["ResidueCH"] + res.imass["ResidueCHO"]), 0.0)   # U2's lumped residue goes to F1 again
 
     def test_s2_inherits_the_crystallizer(self):
-        s2 = scen.create(scen.ATT_S2)
+        s2 = scen.create(scen.ATT_S2, ree_recovery=False)
         self.assertIn("XL1", [x.ID for x in s2.units])
         self.assertIn("RS1", [x.ID for x in s2.units])
         np.testing.assert_allclose(float(inv._units(s2)["XL1"].installed_cost), float(self.u["XL1"].installed_cost), rtol=1e-6)

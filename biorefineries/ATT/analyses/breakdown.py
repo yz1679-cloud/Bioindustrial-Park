@@ -66,6 +66,8 @@ COST_TYPES = {
     "Salt cake disposal": "Waste treatment and disposal",
     "CaCO3 cake disposal": "Waste treatment and disposal",
     "CaCO3 byproduct sales": "Coproduct revenue",
+    "REE reagents (HCl, oxalic acid)": "Materials",
+    "REE product sales": "Coproduct revenue",
     "Marine WHR: purchased heat displaced": "Utilities",
     "PSA off-gas handling (0; fate unresolved)": "Waste treatment and disposal",
     "Biostimulant juice transfer (coproduct)": "Waste treatment and disposal",
@@ -82,7 +84,7 @@ _AREAS = {
     "W2": "F2 washing and refiltration", "F2R": "F2 washing and refiltration",
     "W1": "F1 washing and refiltration", "F1R": "F1 washing and refiltration",
     "C1": "Causticization (C1)", "F2": "CaCO3 filtration (F2)", "SP1": "Liquor split (SP1)",
-    "D2": "CaCO3 cake drying (D2, D3)", "D3": "CaCO3 cake drying (D2, D3)", "RS1": "Residue split (RS1)", "XL1": "Salt crystallizer (XL1)", "HXN": "Heat exchanger network (HXN)",
+    "D2": "CaCO3 cake drying (D2, D3)", "D3": "CaCO3 cake drying (D2, D3)", "RS1": "Residue split (RS1)", "LC1": "REE leach and oxalate precipitation (LC1)", "RO1": "REE oxalate roaster (RO1)", "XL1": "Salt crystallizer (XL1)", "HXN": "Heat exchanger network (HXN)",
     "EC1": "NaOH evaporation (EC1)", "K1": "Lime kiln (K1)", "S1": "Lime slaking (S1)",
     "SCRUB": "CO2 scrubber and filter (SCRUB, F3)", "F3": "CO2 scrubber and filter (SCRUB, F3)",
     "FCI": "Floating process CAPEX adjustment (FCI factor)", "WHR": "Marine waste heat recovery (WHR)",
@@ -104,6 +106,8 @@ def _cost_group(item, category):
                           ("Electricity", "Electricity"), ("Purge neutralization", "Neutralization (H2SO4)"),
                           ("P1 power", "Electricity"),
                           ("CaCO3 sales", "CaCO3 byproduct sales"),
+                          ("REE product sales", "REE product sales"),
+                          ("HCl", "REE reagents (HCl, oxalic acid)"), ("Oxalic acid", "REE reagents (HCl, oxalic acid)"),
                           ("Marine WHR: pump", "Electricity"),
                           ("Marine WHR: ", "Marine WHR: purchased heat displaced"),
                           ("CaCO3 cake", "CaCO3 cake disposal"),
@@ -156,7 +160,7 @@ def _dcf_breakdown(sys, result):
     for r in tea_mod._opex_table(sys, result):
         if r["category"] in ("materials", "utilities", "extra VOC"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_v, "VOC item x PV(VOC profile)")
-        elif r["category"] in ("waste disposal", "CaCO3 cake", "CaCO3 sales", "off-gas", "juice"):
+        elif r["category"] in ("waste disposal", "CaCO3 cake", "CaCO3 sales", "REE sales", "off-gas", "juice"):
             add(r["item"], _cost_group(r["item"], r["category"]), r["USD_per_yr"] * pv_f,
                 "negative sales x PV(sales profile)")
         elif r["category"] == "FOC":

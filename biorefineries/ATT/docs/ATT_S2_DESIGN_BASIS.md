@@ -7,7 +7,7 @@ ENG (preliminary engineering estimate) and MISSING.
 
 ## 1. Scope and boundary
 
-- **Process.** The process is ATT Scenario 1, **unchanged**: the same flowsheet (including the F2 and F1 cake washing with recycled wash liquor, the drying of the two CaCO3 cakes in D2 and D3, and the carbide-lime paste),
+- **Process.** The process is ATT Scenario 1, **unchanged**: the same flowsheet (including the ash split, the char split RS1, the salt crystallizer XL1, the REE recovery LC1/RO1, the F2 and F1 cake washing with recycled wash liquor, the drying of the two CaCO3 cakes in D2 and D3, and the carbide-lime paste),
   chemistry, lumped residue, balances, NaOH 1 kg/kg dry, C1 0.88, presscake feed with D0, 5029.17 kg dry/h, HXN, the
   CaCO3 sales and the washed-residue assumption. S2 is `scenarios.ATT_S2` (key `att_s2`, `marine: true`).
 - **WHR** is an **accounting layer** (`analyses/marine_whr.py`). Ship-side equipment is sized and costed, but
@@ -69,19 +69,19 @@ Charge-air gross is counted to 40 °C (the previous estimate gave 2.02 MW).
 
 The sinks are the **purchased** heating that remains after the S1 heat exchanger network, which already recovers
 the U3 gas-cooler heat into C1, D0, D2 and D3. Those HXN savings are never offered again. The steam sinks add up to
-the system's net purchased LP steam of 16.46 MW (a test checks this).
+the system's net purchased LP steam of 15.13 MW (a test checks this).
 
 | Unit | Purchased before HXN (MW) | Purchased after HXN (MW) | Process T | WHR assigned (MW) | Remaining (MW) |
 |---|---|---|---|---|---|
-| D0 dryer (drum at 70 °C) | 9.29 | 3.10 | 70–74 °C | 1.82 (0.78 charge air + 1.04 steam) | 1.28 |
-| D2 and D3 CaCO3 cake dryers (drum at 70 °C) | 1.99 | 0 (covered by the HXN) | 74 °C | 0 | 0 |
+| D0 dryer (drum at 70 °C) | 9.29 | 3.13 | 70–74 °C | 1.82 (0.78 charge air + 1.04 steam) | 1.31 |
+| D2 and D3 CaCO3 cake dryers (drum at 70 °C) | 2.04 | 0 (covered by the HXN) | 74 °C | 0 | 0 |
 | C1 causticizer | 1.52 | 0 (covered by the HXN) | 90 °C | 0 | 0 |
-| EC1 evaporator | 13.26 | 13.30 | 90–91.5 °C boiling | 0 | 13.30 |
+| EC1 evaporator | 11.90 | 11.93 | 90–91.5 °C boiling | 0 | 11.93 |
 | U3D sieve regeneration | 0.11 | 0.07 (the HXN covers 0.04) | 40 → 127 °C | 0 | 0.07 |
 | U2 feed preheater (S2 boundary, conceptual) | — | 0.29 (fired-equivalent) | 78 → 95 °C | 0 (no source left) | 0.29 |
-| U2 500 °C reaction heat (fired) | 13.54 | 13.24 | 500 °C | **not eligible** | 13.24 |
+| U2 500 °C reaction heat (fired) | 13.43 | 13.14 | 500 °C | **not eligible** | 13.14 |
 
-EC1's purchased duty after the HXN (13.30 MW) is slightly above its unit duty (13.26 MW). BioSTEAM's HXN
+EC1's purchased duty after the HXN (11.93 MW) is slightly above its unit duty (11.90 MW). BioSTEAM's HXN
 recomputes the utility exchanger of that stream; the after-HXN value is used because it is what the system
 actually purchases.
 
@@ -130,7 +130,7 @@ actually purchases.
   It is itemized as an "FCI factor" line.
 - **WHR CAPEX** is added after the multiplier, so there is no double marine factor.
 - **Labor.** S1 has no labor line: its FOC = 4 % of FCI lumps labor, maintenance and overhead. The S1 labor is
-  taken as **50 % of the S1 FOC** (ENG, no staffing basis; sensitivity 25–75 %), which is about 0.33 MUSD/yr.
+  taken as **50 % of the S1 FOC** (ENG, no staffing basis; sensitivity 25–75 %), which is about 0.30 MUSD/yr.
   - S2 FOC = 2.0 × S1 labor (fixed USD/yr, USER-1) + 50 % × 4 % × FCI_S2 for maintenance and overhead.
   - The multiplier therefore applies to labor only, and the CAPEX factor does not scale labor (a test checks
     this).
@@ -156,15 +156,15 @@ actually purchases.
 
 | Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
 |---|---|---|---|---|---|---|---|
-| S1 | 7 920 | 2 954 | 16.47 | 0.33 | 6.07 | 2.03 | 10.64 |
-| S2, no WHR | 7 920 | 2 954 | 20.58 | 0.66 | 6.07 | 2.35 | 10.64 |
-| S2, exhaust | 7 920 | 2 954 | 21.16 | 0.66 | 5.88 | 2.32 | 9.86 |
-| S2, all three | 7 920 | 2 954 | 21.47 | 0.66 | 5.75 | 2.29 | 9.28 |
+| S1 | 7 920 | 2 954 | 14.79 | 0.30 | 5.63 | 1.69 | 15.83 |
+| S2, no WHR | 7 920 | 2 954 | 18.48 | 0.59 | 5.63 | 1.98 | 15.83 |
+| S2, exhaust | 7 920 | 2 954 | 19.06 | 0.59 | 5.45 | 1.95 | 15.04 |
+| S2, all three | 7 920 | 2 954 | 19.37 | 0.59 | 5.32 | 1.92 | 14.47 |
 
 **Energy:**
-- External heating falls from 30.0 to 28.2 MW (−6.1 %).
-- Purchased LP steam falls by 11.0 %.
-- The U2 fired duty (13.5 MW) is unchanged.
+- External heating falls from 28.6 to 26.7 MW (−6.4 %).
+- Purchased LP steam falls by 12.0 %.
+- The U2 fired duty (13.4 MW) is unchanged.
 
 **Engine load:**
 - At 50 % load, WHR utilizes 0.81 MW.
@@ -172,8 +172,8 @@ actually purchases.
 - At 15 % load and at anchor, it utilizes nothing.
 
 **Cost:**
-- The WHR saves 0.31 MUSD/yr of utilities, which recovers about a fifth of the floating cost penalty (+0.32 USD/kg H2
-  without WHR, +0.26 with it).
+- The WHR saves 0.31 MUSD/yr of utilities, which recovers about a fifth of the floating cost penalty (+0.29 USD/kg H2
+  without WHR, +0.23 with it).
 
 ## 10. Main limitations
 
