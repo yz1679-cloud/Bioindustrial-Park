@@ -48,7 +48,6 @@ def _summary_row(case, t, labor, whr_capex, hours, extra=None):
                CaCO3_revenue_USD_per_yr=s.get("CaCO3_sales_revenue_USD_per_yr", 0.0),
                AOC_net_USD_per_yr=s["AOC_MUSD_per_yr"] * 1e6, MSP_USD_per_kg_H2=s["MSP_USD_per_kg_H2"],
                GWP_kgCO2e_per_kg_H2=s["GWP_kgCO2e_per_kg_H2"],
-               GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2=s["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"],
                results_status=s["results_status"])
     row.update(extra or {})
     return row
@@ -65,10 +64,10 @@ def operating_modes(cfg=None):
              float(b["engine_load"])))
 
 
-def s1_reference(sys, f2_sales=True):
+def s1_reference(sys):
     """ATT S1 TEA (the reference); returns its summary row and the S1 labor estimate."""
     cfg = load_tea_config()
-    t = build_att_breakdown("att_s1", sys=sys, f2_sales=f2_sales)
+    t = build_att_breakdown("att_s1", sys=sys)
     foc_s1 = float(tea_mod._FIN["foc_frac_of_fci"]) * t["summary"]["FCI_MUSD"] * 1e6
     labor = float(cfg["s1_labor_share_of_foc"]) * foc_s1
     return dict(row=_summary_row("S1", t, labor, 0.0, sys.operating_hours),
@@ -76,8 +75,7 @@ def s1_reference(sys, f2_sales=True):
 
 
 def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, capex_multiplier=None,
-                  labor_multiplier=None, labor_share=None, whr_capex_factor=1.0, whr_overrides=None, load=None,
-                  f2_sales=True):
+                  labor_multiplier=None, labor_share=None, whr_capex_factor=1.0, whr_overrides=None, load=None):
     """
     One ATT S2 case on the simulated S1 process ``sys`` (``ref`` = s1_reference(sys)). ``sources``: WHR sources
     used (() = floating without WHR). Returns (summary row, whr result or None).
@@ -101,7 +99,7 @@ def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, c
                      ("Marine WHR: pump electricity", whr["pump_kW"] * bst.PowerUtility.price * hours)]
     kwargs = dict(fci_factor=mult, operating_hours=hours, extra_capital=extra_capital, extra_voc=extra_voc,
                   foc_frac_of_fci=foc_rate * (1.0 - share), foc_fixed=lab_mult * labor_s1)
-    t = build_att_breakdown("att_s2", sys=sys, tea_kwargs=kwargs, f2_sales=f2_sales)
+    t = build_att_breakdown("att_s2", sys=sys, tea_kwargs=kwargs)
     whr_capex = sum(v for _, v, _ in extra_capital)
     d_gwp = marine_lca.whr_gwp_change(sys, whr)["delta_kgCO2e_per_kg_H2"] if whr else 0.0
     extra = dict(capex_multiplier=mult, labor_multiplier=lab_mult, labor_share_of_S1_FOC=share,
@@ -110,5 +108,4 @@ def evaluate_case(sys, ref, case, sources=marine_whr.SOURCE_IDS, hours=7920.0, c
                  GWP_WHR_change_kgCO2e_per_kg_H2=d_gwp)
     row = _summary_row(case, t, lab_mult * labor_s1, whr_capex, hours, extra)
     row["GWP_kgCO2e_per_kg_H2"] = t["summary"]["GWP_kgCO2e_per_kg_H2"] + d_gwp     # incremental process GWP
-    row["GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2"] += d_gwp                    # comparison basis
     return row, whr

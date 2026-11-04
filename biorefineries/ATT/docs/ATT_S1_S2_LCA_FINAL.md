@@ -2,8 +2,7 @@
 
 **Model state.** BioSTEAM 2.54.0. The baseline credits the **Sargassum carbon in the solids** as stored carbon: the
 CaCO3 of the cakes (sold or landfilled) and the organic char of the leached-char residue (`att_lca.yaml
-carbon_storage.carbonate_storage_accounting: inherited`, `credit_char_carbon: true`). The soluble Na2CO3 in the cakes
-(`credit_soluble_carbonate: false`) and the CaCO3 of the waste lime are **not** credited. The CaCO3 cakes are dried to
+carbon_storage`). The soluble Na2CO3 in the cakes and the CaCO3 of the waste lime are **not** credited. The CaCO3 cakes are dried to
 1 wt % moisture (steam-heated drum dryers D2 and D3) before they are sold. The baseline includes the ash split, the char
 split (0.15 g per g of dry feed), the salt crystallizer and the REE recovery (HCl leach, oxalate precipitation, roast;
 default on, `ree_recovery=False` turns it off). S2 results are for 7,920 h/yr underway.

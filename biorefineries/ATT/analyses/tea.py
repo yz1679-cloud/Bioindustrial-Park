@@ -35,7 +35,7 @@ import biosteam as bst
 from biorefineries.ATT._tea import SaBReTEA
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.analyses import scenarios as scen
-from biorefineries.ATT.analyses.lca import _h2so4_kgph, caco3_saleable_fraction
+from biorefineries.ATT.analyses.lca import _h2so4_kgph
 from biorefineries.ATT.utils import OPERATING_DAYS_PER_YEAR, load_assumptions
 
 __all__ = (
@@ -105,8 +105,7 @@ def caco3_cake_price(sys, fraction=0.0, price_usd_per_t=0.0, handling_usd_per_t=
 
 
 def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0, streams=("caco3_cake",),
-                           disposal_of_sold_caco3=False, dispose_non_caco3_mass=True,
-                           saleable_fraction_by_stream=None, **_):
+                           disposal_of_sold_caco3=False, dispose_non_caco3_mass=True, **_):
     """
     CaCO3 byproduct sales per cake stream (tea.yaml caco3_sales) [per hour]: the saleable fraction of the
     CaCO3 COMPONENT is sold at the price; the cake mass that is not sold CaCO3 (moisture, excess Ca(OH)2,
@@ -122,8 +121,9 @@ def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0,
             continue
         cake = s[ID]
         caco3 = float(cake.imass["CaCO3"])
-        fraction = caco3_saleable_fraction(ID, dict(streams=streams, saleable_fraction=saleable_fraction,
-                                                    saleable_fraction_by_stream=saleable_fraction_by_stream))
+        fraction = float(saleable_fraction)
+        if not 0.0 <= fraction <= 1.0:
+            raise ValueError("CaCO3 saleable fraction must be between zero and one")
         sold = fraction * caco3
         disposed = ((float(cake.F_mass) - caco3 if dispose_non_caco3_mass else 0.0)   # moisture and impurities
                     + (caco3 - sold)                                                   # unsold CaCO3

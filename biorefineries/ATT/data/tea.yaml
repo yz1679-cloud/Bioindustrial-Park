@@ -101,9 +101,8 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
 # ACCOUNTING APPROXIMATION (finalization 2026-11-01): no unit separates the CaCO3 from the cake. Physically the
 # whole wet cake leaves; the split above is a NET CAKE PRICE = CaCO3 content x price - disposal_solid x the
 # non-CaCO3 mass, i.e. a buyer discount for moisture, Ca(OH)2 and sodium. It is not double counted (one stream
-# price) but it is an UPPER-BOUND case: no buyer or specification exists for this cake. Conservative case: no F2
-# sales (scenarios.tea_config f2_sales=False; whole F2 cake disposed). The LCA credits the Sargassum carbon of the
-# sold CaCO3 like landfilled carbon (att_lca.yaml carbonate_storage_accounting: inherited).
+# price) but it is an UPPER-BOUND case: no buyer or specification exists for this cake. The LCA credits the Sargassum
+# carbon of the sold CaCO3 like landfilled carbon (att_lca.yaml carbon_storage).
 caco3_sales:
   enabled: true
   streams: [caco3_cake, scrubber_cake]   # F2 causticizing cake and F3 CO2-scrubber cake (distinct CaCO3 flows)

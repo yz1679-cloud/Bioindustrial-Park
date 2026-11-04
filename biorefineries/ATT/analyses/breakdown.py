@@ -225,7 +225,7 @@ def _gwp_tables(contributions):
     return by_item, by_stage, total
 
 
-def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None, f2_sales=True):
+def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=None):
     """
     One simulation of a scenario of analyses/scenarios.py; returns a dict of DataFrames and a summary dict.
 
@@ -237,13 +237,13 @@ def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=No
     spec = scen.ALL_SCENARIOS[case]
     if spec.get("marine") and tea_kwargs is None:
         raise ValueError(f"{case} is a marine scenario: use analyses/marine_tea.py (floating TEA and WHR).")
-    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs, f2_sales)
+    return _build(case, spec, scen.create(spec) if sys is None else sys, caco3_price, tea_kwargs)
 
 
-def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
+def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
     estimates = inv.get_att_cost_estimates(sys)
     # Lime price and CaCO3 treatment of the scenario (scenarios.tea_config, the single source).
-    config = scen.tea_config(spec, caco3_price, f2_sales=f2_sales)
+    config = scen.tea_config(spec, caco3_price)
     sales_cfg, sell = config["caco3_sales"], config["caco3_sales"] is not None
     result = tea_mod.evaluate_att_tea(sys, estimates, **config, **(tea_kwargs or {}))
     sales = result["caco3_sales"]
@@ -253,19 +253,17 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
     capex_equipment, capex_area = _capex_tables(sys, result, capital_msp)
     opex = _opex_table(sys, result, h2_kg_yr)
-    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec), caco3_sales=sales_cfg)
+    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec))
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
-    credit = lca.get_att_avoided_emission(sys, sales_cfg)
+    credit = lca.get_att_avoided_emission(sys)
     gwp_item = pd.concat([gwp_item, pd.DataFrame([dict(contributor=lca.AVOIDED_CH4_ITEM, stage="Extra credit (not in net)",
                                                        counted_in_net=False, kgCO2e_per_kg_H2=credit["CH4_extra_kgCO2e_per_kg_H2"],
                                                        share_of_total=credit["CH4_extra_kgCO2e_per_kg_H2"] / gwp_total)])],
                          ignore_index=True)
     t = result["tea"]
     dry = inv._dry_feed_kgph(sys)
-    stored_net = lca.get_att_stored_carbon_credit(sys, caco3_sales=sales_cfg)        # credit in the net GWP
-    stored_with_char = lca.get_att_stored_carbon_credit(sys, include_char=True, caco3_sales=sales_cfg)
-    stored_inherited = lca.get_att_stored_carbon_credit(sys, caco3_sales=sales_cfg, accounting="inherited")
+    stored_net = lca.get_att_stored_carbon_credit(sys)        # credit in the net GWP
     u2_checks = pd.DataFrame(inv.get_att_u2_balance_checks(sys))
     u2_fail = bool(u2_checks["status"].dropna().astype(str).str.startswith("FAIL").any())
     U2 = inv._units(sys)["U2"]
@@ -288,10 +286,6 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None, f2_sales=True):
                    NaOH_recycled_t_per_yr=float(inv._streams(sys)["naoh_recycle"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2=stored_net,
                    GWP_without_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net,
-                   carbonate_storage_accounting=applied["carbonate_storage_accounting"],
-                   GWP_inherited_carbonate_credit_kgCO2e_per_kg_H2=gwp_total - stored_net + stored_inherited,
-                   GWP_inherited_stored_carbon_credit_kgCO2e_per_kg_H2=stored_inherited,
-                   GWP_with_provisional_residue_storage_credit_kgCO2e_per_kg_H2=gwp_total - stored_net + stored_with_char,
                    description=spec["label"],
                    fresh_NaOH_t_per_yr=float(inv._streams(sys)["fresh_naoh_solid"].imass["NaOH"]) * sys.operating_hours / 1e3,
                    Ca_OH_2_used_t_per_yr=sum(float(inv._streams(sys)[ID].imass["CaOH2"]) for ID in ("lime", "scrubber_lime")

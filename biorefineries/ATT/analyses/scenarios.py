@@ -85,19 +85,17 @@ def scale(spec=ATT_S1):
                 status=_ATT["scenarios"][spec["key"]].get("dry_feed_basis", ""))
 
 
-def tea_config(spec=ATT_S1, caco3_price=None, f2_sales=True):
+def tea_config(spec=ATT_S1, caco3_price=None):
     """
     evaluate_att_tea keywords for the lime and CaCO3 assumptions of a scenario. Waste lime: Ca(OH)2 at 0 USD/kg.
     The cakes are products: with tea.yaml caco3_sales enabled their CaCO3 is sold and
-    the rest disposed (counted once, on the cake stream prices), otherwise the whole cake is disposed (Case A).
+    the rest disposed (counted once, on the cake stream prices), otherwise the whole cake is disposed.
     ``caco3_price`` [USD/t] overrides the configured price for this call only.
     """
     from biorefineries.ATT.analyses import tea as tea_mod     # tea imports this module
     sales = dict(tea_mod._T["caco3_sales"])
     if caco3_price is not None:
         sales["price_usd_per_metric_ton"] = float(caco3_price)
-    if not f2_sales:
-        sales["saleable_fraction_by_stream"] = {"caco3_cake": 0.0}
     sell = bool(sales.pop("enabled"))
     return dict(price_overrides={"CaOH2": 0.0} if spec["lime"] == "waste" else None,
                 caco3=dict(fraction=0.0),

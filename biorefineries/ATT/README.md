@@ -44,12 +44,12 @@ section (soak tank, screen, press) is NOT modeled or costed. S2 inherits it beca
 collaborators' 98 wt % case, with the REO mass unchanged) and the REO price for S1 and S2 (`ree_grade=` in `scenarios.create`).
 
 Economics (`data/tea.yaml`): both (dried) CaCO3 cakes are sold at 100 USD/t of CaCO3 (`caco3_sales`, an **optimistic,
-unverified** price; `build_att_breakdown(..., f2_sales=False)` disposes the F2 cake), and the washed ATT residue is
+unverified** price), and the washed ATT residue is
 assumed to pay for its own disposal (`residue_sale`, net cost 0, no buyer or specification). Either assumption can be
 switched off in the file.
 
 Carbon (`data/att_lca.yaml`): the Sargassum carbon of the CaCO3 and of the lumped residue is credited as stored carbon;
-the soluble Na2CO3 (`credit_soluble_carbonate: false`) and the CaCO3 of the lime are not.
+the soluble Na2CO3 and the CaCO3 of the lime are not.
 
 Exports: `python -m biorefineries.ATT.analyses.run figures` saves the
 BioSTEAM flowsheet diagrams of S1 and S2 to `results/figures/`. The DCF methodology is inherited unchanged.
