@@ -301,7 +301,7 @@ _UNIT_INFO = {
     "P1": ("Mechanical dewatering of wet Sargassum (municipal-type screw press; fresh-Sargassum case)", "att.yaml:att.feed_preparation.press_cake_moisture_wt_frac"),
     "D0": ("Thermal drying to 50 wt% moisture (steam drum dryer)", "att.yaml:att.feed_preparation.*"),
     "M1": ("Mix dried feed with recycled NaOH liquor", "-"),
-    "U2": ("Alkaline thermal treatment at 500 C; NG-fired (auxiliary HXutility furnace)", "att.yaml:att.reactor.*"),
+    "U2": ("Alkaline thermal treatment at 500 C; NG-fired furnace", "att.yaml:att.reactor.*"),
     "U3HX": ("Cool U2 gas to 40 C", "att.yaml:att.gas_treatment.condenser_temperature_K"),
     "U3C": ("Separate condensate at 40 C, 1 atm", "att.yaml:att.gas_treatment.condenser_*"),
     "U3D": ("Dry gas (molecular sieve)", "att.yaml:att.gas_treatment.dryer_water_to_dry_gas_fraction"),

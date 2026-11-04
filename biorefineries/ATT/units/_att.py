@@ -13,6 +13,7 @@ import thermosteam as tmo
 from biosteam.units.design_tools import PressureVessel
 from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
 from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
+from biosteam.units.heat_exchange import compute_furnace_purchase_cost
 
 from biorefineries.ATT.utils import load_assumptions
 
@@ -26,7 +27,6 @@ __all__ = (
     "ATTDrumDryer",
     "ATTCompressor",
     "ATTMolecularSieve",
-    "ATTReactorVessel",
     "ATTPSA",
     "ATTLimeKiln",
     "ATTLimeSlaker",
@@ -233,43 +233,6 @@ class ATTMolecularSieve(bst.MolecularSieve):
                 _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
                                      hxn_ok=True)
 
-
-
-class ATTReactorVessel(bst.Unit, PressureVessel):
-    """
-    Vertical vessel of a given volume, costed with BioSTEAM's pressure-vessel
-    correlation (auxiliary unit of the ATT reactor; no mass or energy effect).
-    Material: Inconel-600 (cost factor), assumed for the hot, high-salt caustic feed (user decision
-    2026-11-04); stainless steel may not be sufficient. BioSTEAM has no density for Inconel, so the wall weight
-    is computed with stainless steel 316.
-    """
-    _N_ins = _N_outs = 1
-    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
-    _F_BM_default = {"Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
-
-    def __init__(self, ID="", ins=None, outs=(), thermo=None, *, volume_m3=1.0, length_to_diameter=3.0,
-                 material="Inconel-600"):
-        super().__init__(ID, ins, outs, thermo)
-        self.volume_m3 = float(volume_m3)
-        self.length_to_diameter = float(length_to_diameter)
-        self.vessel_type = "Vertical"
-        # BioSTEAM has no density for most alloys: size the wall with SS316
-        # and apply the material factor of the specified alloy.
-        self.vessel_material = "Stainless steel 316"
-        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[material]
-
-    def _run(self):
-        self.outs[0].copy_like(self.ins[0])
-
-    def _design(self):
-        D_m = (4.0 * self.volume_m3 / (pi * self.length_to_diameter)) ** (1.0 / 3.0)
-        self._design_and_cost_pressure_vessel(
-            101325.0, D_m, self.length_to_diameter * D_m,
-            pressure_units="Pa", length_units="m",
-        )
-
-    def _cost(self):
-        pass
 
 
 class ATTPSA(bst.Splitter):
@@ -990,7 +953,7 @@ def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, 
     return gas, residue_kmolph, water_kmolph, 1.0
 
 
-class ATTReactor(bst.Unit):
+class ATTReactor(bst.Unit, PressureVessel):
     """
     Alkaline thermal treatment (ATT) reactor for Sargassum.
 
@@ -1018,7 +981,11 @@ class ATTReactor(bst.Unit):
 
     Notes
     -----
-    The auxiliary HXutility represents heat supplied to the ATT reactor.
+    The heat supplied to the reactor is a natural-gas furnace (a heat utility of this unit, costed in ``_cost`` with
+    the Seider et al. fired-heater correlation that ``bst.HXutility`` uses) and the hold-up vessel is a vertical
+    pressure vessel (``_design``). Material: Inconel-600 (cost factor), assumed for the hot, high-salt caustic feed
+    (user decision 2026-11-04); stainless steel may not be sufficient. BioSTEAM has no density for Inconel, so the
+    wall weight is computed with stainless steel 316. The vertical vessel is a placeholder reactor type.
     This is a reduced-order, data-reconciled yield model, not a kinetic or
     mechanistic reaction model.
     """
@@ -1026,8 +993,8 @@ class ATTReactor(bst.Unit):
     _N_ins = 2          # [0] feed, [1] PSA tail gas: fuel gas burned in the U2 furnace (empty without a PSA)
     _N_outs = 2
 
-    # Official BioSTEAM auxiliary-unit pattern.
-    auxiliary_unit_names = ("heat_exchanger",)
+    _F_BM_default = {"Furnace": 2.19, "Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
+    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
 
     def _init(
         self,
@@ -1135,27 +1102,14 @@ class ATTReactor(bst.Unit):
                 "naoh_to_na2co3_conversion must be between 0 and 1."
             )
 
-        # Auxiliary HXutility.
-        #
-        # The detailed thermodynamic duty is calculated in _design().
-        # The auxiliary exchanger then carries the utility and equipment-
-        # cost bookkeeping for that calculated duty.
-        self.auxiliary(
-            "heat_exchanger",
-            bst.HXutility,
-            ins=self.ins[0],
-            T=self.target_temperature_K,
-            rigorous=False,
-            heat_only=True,
-            heat_transfer_efficiency=self.heat_transfer_efficiency,
-        )
-
-        # Reactor vessel (hold-up volume): costed with the pressure-vessel
-        # correlation; its volume follows the feed in _design().
+        # Reactor vessel (hold-up volume): costed with the pressure-vessel correlation in _design(); its volume
+        # follows the feed. BioSTEAM has no density for most alloys: the wall is sized with SS316 and the material
+        # factor of the specified alloy is applied.
         cfg = _EQUIPMENT["U2_vessel"]
-        vessel = self.auxiliary("vessel", ATTReactorVessel, ins=bst.Stream(None),
-                                length_to_diameter=cfg["length_to_diameter"], material=cfg["material"])
-        self.register_auxiliary(vessel, "vessel")
+        self.vessel_length_to_diameter = float(cfg["length_to_diameter"])
+        self.vessel_type = "Vertical"
+        self.vessel_material = "Stainless steel 316"
+        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[cfg["material"]]
 
     def _run(self):
         feed = self.ins[0]
@@ -1647,34 +1601,21 @@ class ATTReactor(bst.Unit):
                 "representation would be invalid."
             )
 
-        # Populate the auxiliary HX outlet with a temperature endpoint
-        # for exchanger design/costing. The detailed phase-change duty is
-        # supplied explicitly from the ThermoSteam enthalpy calculation
-        # above, so this auxiliary outlet is only a design representation.
-        hx = self.heat_exchanger
-        hx_out = hx.outs[0]
-        hx_out.copy_like(feed)
-        hx_out.T = self.target_temperature_K
-        hx_out.P = feed.P
+        # Heat supply: the natural-gas furnace of this unit. The detailed phase-change duty is the full Hnet
+        # balance above; the heat-loss allowance enters through the heat-transfer efficiency.
+        T_in = float(feed.T)
+        self.add_heat_utility(heat_duty_kJph, T_in, max(self.target_temperature_K, T_in),
+                              heat_transfer_efficiency=self.heat_transfer_efficiency, hxn_ok=True)
 
-        # Design/cost the auxiliary exchanger at the calculated process
-        # duty. BioSTEAM automatically rolls auxiliary utilities and costs
-        # into the parent ATT reactor.
-        hx.simulate(
-            run=False,
-            design_kwargs={
-                "duty": heat_duty_kJph,
-            },
-        )
         cfg = _EQUIPMENT["U2_vessel"]
-        vessel = self.vessel
-        vessel.ins[0].copy_like(feed)
-        vessel.volume_m3 = float(feed.F_mass) / cfg["density_kg_per_m3"] * cfg["tau_h"] / cfg["fill_fraction"]
-        vessel.simulate(run=False)
+        volume_m3 = float(feed.F_mass) / cfg["density_kg_per_m3"] * cfg["tau_h"] / cfg["fill_fraction"]
+        D_m = (4.0 * volume_m3 / (pi * self.vessel_length_to_diameter)) ** (1.0 / 3.0)
+        self._design_and_cost_pressure_vessel(
+            101325.0, D_m, self.vessel_length_to_diameter * D_m, pressure_units="Pa", length_units="m")
 
         utility_heat_duty_kJph = sum(
             max(float(hu.duty), 0.0)
-            for hu in hx.heat_utilities
+            for hu in self.heat_utilities
         )
 
         # PSA tail gas (ins[1]) is fuel for the furnace: its LHV x the burner efficiency replaces natural gas heat,
@@ -1684,7 +1625,7 @@ class ATTReactor(bst.Unit):
         eta_burner = float(_ATT_DATA["energy_sources"]["natural_gas"]["burner_efficiency"])
         burn = _ATT_DATA["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
         tail_LHV_kJph = float(tail.LHV) if tail.F_mol else 0.0
-        gross_ng_kJph = sum(max(float(hu.duty), 0.0) for hu in hx.heat_utilities
+        gross_ng_kJph = sum(max(float(hu.duty), 0.0) for hu in self.heat_utilities
                             if hu.agent is not None and hu.agent.ID == "natural_gas")
         self.tail_gas_LHV_kJph = tail_LHV_kJph
         self.tail_gas_heat_kJph = min(tail_LHV_kJph * eta_burner, gross_ng_kJph) if burn else 0.0
@@ -1785,6 +1726,17 @@ class ATTReactor(bst.Unit):
         self.design_results[
             "ATT auxiliary utility thermal power"
         ] = self._utility_thermal_power_kW
+
+
+    def _cost(self):
+        # Natural-gas furnace, as bst.HXutility costs a fuel-heated exchanger: Seider et al. fired-heater purchase
+        # cost on the heat absorbed (Btu/h), bare-module factor 2.19 (_F_BM_default).
+        duty = abs(self.net_duty)
+        if duty <= 1e-12:
+            return
+        if not self.heat_utilities[0].agent.isfuel:
+            raise RuntimeError("U2 heat must be supplied by a fuel-fired furnace.")
+        self.baseline_purchase_costs["Furnace"] = compute_furnace_purchase_cost(duty * 0.947817, bst.CE)
 
 
 
