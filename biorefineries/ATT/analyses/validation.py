@@ -26,7 +26,6 @@ import re
 import warnings
 from collections.abc import Mapping
 
-import biosteam as bst
 
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.analyses import reporting as rep

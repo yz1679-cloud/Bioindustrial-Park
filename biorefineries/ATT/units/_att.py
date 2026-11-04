@@ -9,7 +9,6 @@
 from math import ceil, exp, log, pi
 
 import biosteam as bst
-import numpy as np
 import thermosteam as tmo
 from biosteam.units.design_tools import PressureVessel
 from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
@@ -1292,7 +1291,6 @@ class ATTReactor(bst.Unit):
         # Lumped formula CH_aO_b of the residual product (per C), as solved.
         self._residual_product_formula = ({"C": 1.0, "H": residual_H / residual_C, "O": residual_O / residual_C}
                                           if residual_C > 0.0 else {})
-        char_kmolph = residual_C   # residual carbon [kmol C/h], for the reports below
 
         # ----------------------------------------------------------
         # 4. Verification and reporting.
@@ -1314,8 +1312,6 @@ class ATTReactor(bst.Unit):
             e: sum(float(feed.imol[ID]) * chemicals[ID].atoms.get(e, 0.0) for ID in organic_IDs)
             for e in ("C", "O")
         }
-        organic_O_kmolph = organic_atoms_feed["O"]
-        o_residual = self._unresolved_element_kmolph.get("O", 0.0)
         organic_atoms_feed["H"] = sum(
             float(feed.imol[ID]) * chemicals[ID].atoms.get("H", 0.0) for ID in organic_IDs
         )
@@ -2076,10 +2072,6 @@ class CausticizationReactor(bst.Unit):
         self.tank.ins[0].copy_like(self.outs[0])
         self.tank.simulate()
         if abs(heat_duty_kJph) > 1e-12:
-            efficiency = (
-                1.0 / (1.0 + self.heat_loss_fraction)
-                if heat_duty_kJph > 0.0 else 1.0
-            )
             mixed = bst.Stream(None)
             mixed.mix_from(self.ins)
             T_out = float(self.target_temperature_K)

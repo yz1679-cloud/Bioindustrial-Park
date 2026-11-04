@@ -17,7 +17,6 @@ from biorefineries.ATT.analyses import lca
 from biorefineries.ATT.analyses import marine_tea as mt
 from biorefineries.ATT.analyses import marine_whr as mw
 from biorefineries.ATT.analyses import paths
-from biorefineries.ATT.test._options import sales_option
 from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses import tea as tea_mod
 from biorefineries.ATT.analyses.breakdown import build_att_breakdown

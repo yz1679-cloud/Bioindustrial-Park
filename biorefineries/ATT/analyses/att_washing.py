@@ -5,7 +5,7 @@ All files are written under paths.output_dir("tables").
 import json
 import warnings
 import pandas as pd
-from biorefineries.ATT.analyses import scenarios as scen, inventory as inv, lca, tea
+from biorefineries.ATT.analyses import scenarios as scen, inventory as inv, tea
 from biorefineries.ATT.analyses import marine_tea as mt
 from biorefineries.ATT.analyses.breakdown import build_att_breakdown
 from biorefineries.ATT.analyses.paths import output_dir

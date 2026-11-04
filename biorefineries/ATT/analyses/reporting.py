@@ -413,7 +413,6 @@ def _streams_wide(long_rows):
 
 
 def _naoh_extra(sys):
-    s = inv._streams(sys)
     u = inv._units(sys)
     rows = []
     for ID in ("naoh_recycle", "liquor_to_concentrator", "naoh_carbonate_liquor",
@@ -935,7 +934,6 @@ def build_att_documentation():
     sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
     applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
     total = contributions[-1]
-    dry = inv._dry_feed_kgph(sys)
     ct = _collection_transport(sys, estimates, total["GWP_kgCO2e_per_kg_dry"], base)
     consistency = _existing_outputs_check(_consistency(sys, estimates, result, contributions, utilities),
                                               result["msp"], total["GWP_kgCO2e_per_kg_H2"])
@@ -1408,7 +1406,6 @@ def build_att_consolidated_results():
     total = contributions[-1]
     gwp_dry, gwp_h2 = total["GWP_kgCO2e_per_kg_dry"], total["GWP_kgCO2e_per_kg_H2"]
     s = inv._streams(sys)
-    dry = inv._dry_feed_kgph(sys)
     utilities = inv.get_att_purchased_utilities(sys, estimates)
     ct = _collection_transport(sys, estimates, gwp_dry, base)
     gwp_rows = [dict(view="by stage", item=r["stage"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],

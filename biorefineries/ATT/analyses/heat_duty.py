@@ -23,7 +23,7 @@ LOW_GRADE_T_K = 373.15            # <= 100 C = low-grade (waste-heat usable), as
 def _u2_low_share(U2):
     """Share of U2's feed-heating duty that is needed at <= 100 C (liquid heating, vaporization at 100 C, solids to 100 C)."""
     feed = U2.ins[0]
-    T_in, T_out = float(feed.T), float(U2.target_temperature_K)
+    T_in = float(feed.T)
     st = U2._make_thermal_state
     w_low = float(st(feed, ("Water",), "g", LOW_GRADE_T_K).H - st(feed, ("Water",), "l", T_in).H)
     sensible = [(_SARGASSUM_DRY_IDS, "s"), (("NaOH",), "l")]
@@ -54,7 +54,7 @@ def get_heat(sys):
     cake_latent = sum(float(D.design_results["Evaporation"]) * float(water.Hvap(D.T)) / float(water.MW) for D in cake_dryers)
     cake_sensible = sum(unit_heat[D.ID] for D in cake_dryers) - cake_latent
     # U2 breakdown
-    hf, aq = float(U2._feed_Hf_HHV_correction_kJph), float(U2._aqueous_feed_correction_kJph)
+    aq = float(U2._aqueous_feed_correction_kJph)
     u2_rxn_all = float(U2._reaction_and_product_state_kJph)
     naoh_solution = -aq                               # NaOH heat of solution released in M1, not recovered
     reaction = u2_rxn_all - naoh_solution             # reaction + product state (+ feed Hf re-referenced to the HHV)

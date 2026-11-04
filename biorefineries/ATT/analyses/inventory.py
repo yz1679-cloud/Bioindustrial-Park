@@ -33,14 +33,13 @@ Energy accounting (no double counting)
 - Heat recovery: BioSTEAM's HeatExchangerNetwork (HXN) is in the system; U2's fired duty is excluded.
 """
 from contextlib import contextmanager
-from math import ceil, exp, log, pi
 
 import numpy as np
 
 import biosteam as bst
 
 from biorefineries.ATT.utils import (
-    OPERATING_DAYS_PER_YEAR, OPERATING_HOURS_PER_YEAR, get_scale_feed_kgph, load_assumptions,
+    OPERATING_DAYS_PER_YEAR, OPERATING_HOURS_PER_YEAR, load_assumptions,
 )
 
 __all__ = (
@@ -184,7 +183,6 @@ def get_att_u2_balance_checks(sys):
 def get_att_product_scenarios(sys):
     """Specified U2 gas yields, H2 product and off-gas."""
     U2 = _units(sys)["U2"]
-    daf = float(U2._daf_sargassum_kgph)
     dry = _dry_feed_kgph(sys)
     streams = _streams(sys)
     U2_gas = U2.outs[0]

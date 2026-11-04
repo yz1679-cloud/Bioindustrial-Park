@@ -19,7 +19,6 @@ claims).
 """
 import math
 
-import biosteam as bst
 
 from biorefineries.ATT.utils import load_assumptions
 

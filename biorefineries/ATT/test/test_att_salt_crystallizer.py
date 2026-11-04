@@ -9,7 +9,6 @@ import numpy as np
 from biorefineries.ATT.analyses import inventory as inv
 from biorefineries.ATT.analyses import scenarios as scen
 from biorefineries.ATT.analyses import tea as tea_mod
-from biorefineries.ATT.units._att import _SARGASSUM_DRY_IDS
 
 
 class TestAshCharSalt(unittest.TestCase):

@@ -50,8 +50,7 @@ def char_Hf_from_HHV(atoms: dict) -> float:
     return Hf_products + HHV_MJ_per_kg * MW * 1e3
 
 
-def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
-                     include_dilute_acid: bool = False, include_att: bool = False):
+def create_chemicals(set_thermo: bool = True, include_att: bool = False):
     """
     Parameters
     ----------
@@ -60,22 +59,7 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         thermal treatment (ATT) pathway (Char, CharN, CharS, CO, C2H4, C2H6,
         H2, Na2CO3, CaOH2, CaCO3). Kept behind its own flag so the chemical
         sets (and hence the results) of the other SaBRe pathways are unchanged.
-    include_hp3 : bool
-        If True, also construct and include the chemicals used only by
-        the EnzymaticPress/3-HP-from-Sargassum pathway (Glucose,
-        AlginateMonomer, Enzyme, ...).
-    include_dilute_acid : bool
-        If True (requires `include_hp3`), also include the chemicals used
-        only by the 3-HP cake-saccharification configurations' dilute-acid
-        pretreatment (H2SO4, AmmoniumSulfate), and lock Glucose to the
-        liquid phase (needed by the pretreatment flash). Kept behind its own flag,
-        separate from `include_hp3`, so the `enzymatic_press` 3-HP
-        configuration's chemical set (and hence its simulated results)
-        stays exactly as it was.
     """
-    if include_dilute_acid and not include_hp3:
-        raise ValueError("include_dilute_acid=True requires include_hp3=True.")
-
     Water = bst.Chemical("Water")
 
     # Sargassum components
@@ -131,121 +115,6 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         # Hf per gram borrows Glucan's value (the ATT model re-references the
         # feed Hf to the HHV in att.yaml, so it does not enter the U2 duty).
         OtherSolids = _structural_solid("OtherSolids", "CH1.39O0.69N0.009", -1438.3 * 24.62)
-
-    # EnzymaticPress/3-HP-only chemicals.
-    hp3_chemicals = []
-    if include_hp3:
-        Glucose = bst.Chemical("Glucose")
-
-        # Free monomer form of Alginate (mannuronic/guluronic acid, hydrated:
-        # Alginate's C6H8O6 repeat unit + H2O -> C6H10O7), formed by
-        # enzymatic hydrolysis in EnzymaticPress. Liquid density is a rough
-        # concentrated-sugar-acid-solution proxy (1200 kg/m3, vs. Glucan's
-        # solid-phase 1540 kg/m3), and viscosity borrows Water's model for
-        # the same NEGLECT_P-workaround reason as the nutrient salts below.
-        AlginateMonomer = bst.Chemical("AlginateMonomer", search_db=False, default=True,
-                                        phase="l", formula="C6H10O7", Hf=-233200 * _cal2joule)
-        AlginateMonomer.Cn.add_model(_Cp_structural * AlginateMonomer.MW, top_priority=True)
-        AlginateMonomer.V.add_model(tmo.functional.rho_to_V(1200, AlginateMonomer.MW), top_priority=True)
-        AlginateMonomer.copy_models_from(Water, ["mu"])
-
-        # Generic-protein proxy for the hydrolysis enzyme cocktail (cellulase +
-        # alginate lyase, dosed in EnzymaticPress) -- same formula/Hf
-        # convention biorefineries.cellulosic uses for its own 'Enzyme'
-        # chemical (CH1.59O0.42N0.24S0.01, Hf shared with Protein-like
-        # chemicals). Modeled as phase="l" (dosed as a dilute
-        # aqueous enzyme prep), with Water-like density/
-        # viscosity as a dilute-solute proxy (same technique used for
-        # KH2PO4/MagnesiumSulfate below).
-        Enzyme = bst.Chemical("Enzyme", search_db=False, default=True, phase="l",
-                               formula="CH1.59O0.42N0.24S0.01", Hf=-17618 * _cal2joule)
-        Enzyme.Cn.add_model(1.25 * Enzyme.MW, top_priority=True)
-        Enzyme.V.add_model(tmo.functional.rho_to_V(1000, Enzyme.MW), top_priority=True)
-        Enzyme.copy_models_from(Water, ["mu"])
-
-        # Real database chemical: 3-hydroxypropionic acid, the fermentation
-        # product (HPFermentation, sabre/units/_3hp.py).
-        HP = bst.Chemical("HP", search_ID="3-Hydroxypropionic acid")
-
-        # Fermentation neutralization base, forming
-        # Ca3HP2 in situ (HPFermentation). Dosed into a liquid-phase
-        # broth, but its database liquid-volume/viscosity correlations
-        # ('NEGLECT_P') are invalid at process T/P, fixed with a dilute-solute density/viscosity proxy.
-        CalciumDihydroxide = bst.Chemical("CalciumDihydroxide", search_ID="Calcium hydroxide")
-        CalciumDihydroxide.V.l.add_model(
-            tmo.functional.rho_to_V(1e5, CalciumDihydroxide.MW), top_priority=True
-        )
-        CalciumDihydroxide.copy_models_from(Water, ["mu"])
-
-        # Calcium 3-hydroxypropionate, the crystallized final product. 3-HP and lactic acid are
-        # structural isomers (both C3H6O3), properties borrowed
-        # from database's real "Calcium lactate" entry as the best
-        # available proxy.
-        # The database entry has no Hf, so one is estimated assuming the
-        # neutralization reaction (2 HP + Ca(OH)2 -> Ca3HP2 + 2 H2O) is
-        # thermoneutral (no literature heat of reaction found):
-        # Hf(Ca3HP2) = 2*Hf(HP) + Hf(Ca(OH)2) - 2*Hf(Water). The database
-        # entry also has no solid-phase molar volume model, so density
-        # borrows the same generic structural-solid proxy (_rho_solids)
-        # used for Glucan/Alginate/etc. above. Its database liquid-
-        # viscosity correlation ('NEGLECT_P') is invalid outside
-        # atmospheric pressure, fixed assuming water.
-        Ca3HP2 = bst.Chemical("Ca3HP2", search_ID="Calcium lactate", phase="s")
-        Ca3HP2.Hf = 2 * HP.Hf + CalciumDihydroxide.Hf - 2 * Water.Hf
-        Ca3HP2.V.add_model(tmo.functional.rho_to_V(_rho_solids, Ca3HP2.MW), top_priority=True)
-        Ca3HP2.copy_models_from(Water, ["mu"])
-
-        # Combustion product of the sulfur atoms.
-        SO2 = bst.Chemical("SO2", phase="g")
-
-        # Combustion product of phosphorus atoms. The database's real
-        # entry is missing Psat/Tb/Hvap, since
-        # the exact values are irrelevant for a chemical that never flows,
-        # Water's own models are borrowed as a placeholder rather than
-        # sourcing real P4O10 property data.
-        P4O10 = bst.Chemical("P4O10", phase="s")
-        P4O10.copy_models_from(Water, ["Psat", "Hvap", "V", "mu"])
-        P4O10.Tb = Water.Tb
-
-        # BT's flue-gas desulfurization reaction
-        # (SO2 + Ca(OH)2 + 0.5 O2 -> CaSO4 + H2O) needs gypsum (CaSO4) as
-        # a product chemical too; same missing-property gaps as P4O10,
-        # fixed the same way (never flows in bulk, so the borrowed values
-        # are inconsequential).
-        CaSO4 = bst.Chemical("CaSO4", phase="s")
-        CaSO4.copy_models_from(Water, ["Psat", "Hvap", "mu"])
-        CaSO4.Tb = Water.Tb
-
-        hp3_chemicals = [
-            Glucose, AlginateMonomer, Enzyme, HP, CalciumDihydroxide, Ca3HP2,
-            SO2, P4O10, CaSO4,
-        ]
-
-    # Dilute-acid pretreatment chemicals (3-HP cake configurations only).
-    # Same choices biorefineries.cellulosic makes for its own corn stover
-    # dilute-acid pretreatment: H2SO4 as a liquid, and ammonium sulfate as a
-    # single-phase chemical locked to its database phase (solid) that
-    # nonetheless behaves as a dissolved salt downstream.
-    acid_chemicals = []
-    if include_dilute_acid:
-        # Glucose is formed upstream of the pretreatment flash here (it never
-        # enters a flash in the enzymatic_press configuration), and its
-        # database entry has no vapor-phase enthalpy data (missing Hvap at
-        # Tb), so the flash's VLE fails on it. Lock it to the liquid phase,
-        # as biorefineries.cellulosic does for its own Glucose. Only in this
-        # set, so the baseline's Glucose is untouched.
-        Glucose.at_state("l")
-
-        H2SO4 = bst.Chemical("H2SO4")
-        H2SO4.at_state("l")
-
-        AmmoniumSulfate = bst.Chemical("AmmoniumSulfate")
-        AmmoniumSulfate.at_state("s")
-        # Its database liquid-viscosity correlation ('NEGLECT_P') is invalid
-        # at process T/P, same issue and fix as the nutrient salts below.
-        AmmoniumSulfate.copy_models_from(Water, ["mu"])
-
-        acid_chemicals = [H2SO4, AmmoniumSulfate]
 
     # Gases
     CH4 = bst.Chemical("Methane", phase="g")
@@ -362,8 +231,6 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         AceticAcid, PropionicAcid, ButyricAcid, ValericAcid, HexanoicAcid,
         MicrobialOil, CellMass,
         Ammonia, KH2PO4, NaOH, *att_salts, MagnesiumSulfate,
-        *hp3_chemicals,
-        *acid_chemicals,
     ])
     chems.compile()
 
