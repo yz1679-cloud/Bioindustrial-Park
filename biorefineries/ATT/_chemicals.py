@@ -90,6 +90,9 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
     Ash = bst.Chemical("Ash", search_db=False, default=True, phase="s",
                         MW=CaO.MW, HHV=0, LHV=0, Hf=0.0)
     Ash.copy_models_from(CaO, ["Cn", "V", "mu"])
+    # Rare earth oxides of the seaweed (att.yaml downstream.ree_recovery): a lumped inert oxide, Nd2O3 molar mass, no atoms.
+    REO = bst.Chemical("REO", search_db=False, default=True, phase="s", MW=336.48, HHV=0, LHV=0, Hf=0.0)
+    REO.copy_models_from(CaO, ["Cn", "V", "mu"])
 
     # Hf/Cp from biorefineries.cellulosic.chemicals (Humbird et al. 2011 NREL report)
     Glucan = _structural_solid("Glucan", "C6H10O5", -233200)
@@ -342,10 +345,13 @@ def create_chemicals(set_thermo: bool = True, include_hp3: bool = False,
         NaCl = bst.Chemical("NaCl", search_ID="SodiumChloride")
         KCl = bst.Chemical("KCl", search_ID="PotassiumChloride")
         # Dissolved salt in the recycle liquor: same volume treatment as NaOH above.
-        for _salt in (Na2CO3, NaCl, KCl):
+        # Reagents of the REE leach and oxalate precipitation (att.yaml downstream.ree_recovery).
+        HCl = bst.Chemical("HCl", search_ID="HCl")
+        OxalicAcid = bst.Chemical("OxalicAcid", search_ID="OxalicAcid", phase="s")
+        for _salt in (Na2CO3, NaCl, KCl, HCl):
             _salt.V.l.add_model(tmo.functional.rho_to_V(1e5, _salt.MW), top_priority=True)
         att_char, att_gases, att_hydrogen = (Char, CharN, CharS, ResidueCH, ResidueCHO), (CO, C2H4, C2H6), (H2,)
-        att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime, LimeInerts, NaCl, KCl)
+        att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime, LimeInerts, NaCl, KCl, REO, HCl, OxalicAcid)
 
     chems = bst.Chemicals([
         Water,

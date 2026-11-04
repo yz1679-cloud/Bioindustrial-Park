@@ -102,13 +102,15 @@ def export_figures(out, formats=("svg", "png")):
     out = os.fspath(out)
     os.makedirs(out, exist_ok=True)
     bst.preferences.light_mode()
-    for key, spec in (("att_s1", scen.ATT_S1), ("att_s2", scen.ATT_S2)):
-        bst.main_flowsheet.clear()
-        system = scen.create(spec)
-        for fmt in formats:
-            file = os.path.join(out, f"{key}_flowsheet")
-            system.diagram(kind="thorough", file=file, format=fmt, number=True, label=True)
-            print(f"{spec['short']} diagram written to {file}.{fmt}")
+    # the baseline flowsheets and, with the REE recovery switch on (LC1 leach, RO1 roaster, leachate recycle), the *_ree_flowsheet files
+    for suffix, ree in (("", False), ("_ree", True)):
+        for key, spec in (("att_s1", scen.ATT_S1), ("att_s2", scen.ATT_S2)):
+            bst.main_flowsheet.clear()
+            system = scen.create(spec, ree_recovery=ree)
+            for fmt in formats:
+                file = os.path.join(out, f"{key}{suffix}_flowsheet")
+                system.diagram(kind="thorough", file=file, format=fmt, number=True, label=True)
+                print(f"{spec['short']}{' with REE recovery' if ree else ''} diagram written to {file}.{fmt}")
 
 
 def run_step(step, out=None, format="svg", dry_feed=1.0, dark=False, hxn=True):

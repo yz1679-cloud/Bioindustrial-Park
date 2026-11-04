@@ -45,6 +45,7 @@ _SARGASSUM_DRY_IDS = (
     "Ash",
     "NaCl",       # soluble ash salts (att.yaml feed_preparation.ash_split); with Ash they are the inorganic part of the dry feed
     "KCl",
+    "REO",        # rare earth oxides of the seaweed (att.yaml downstream.ree_recovery)
     "Protein",
     "Lignin",
     "Glucan",
@@ -583,6 +584,256 @@ class ATTSaltCrystallizer(bst.Unit):
         self.separator.simulate()
 
 
+class ATTReeLeach(bst.Unit):
+    """
+    LC1: HCl leach of the washed ATT char cake and oxalate precipitation of the rare earths (att.yaml downstream.ree_recovery).
+    PERFORMANCE-SPECIFIED. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic acid). Only the
+    oxalate precipitate is roasted: its REO is ``overall_recovery`` of the REE of the initial wastewater (the wastewater TREE per g
+    of seaweed, ``wastewater_TREE_mg_per_L`` / ``seaweed_dose_g_per_L``), capped by the oxalate stoichiometry (``oxalate_per_REE`` mol of
+    oxalate per mol of REE, REE molar mass ``REE_molar_mass``); the oxalate carries ``product_REO_wt_frac`` of REO after the roast,
+    the rest being mineral filler taken from the char's Ash (the Ca and Mg balance is not tracked: user decision 2026-11-03). The
+    leached char (with the REO that was not recovered) leaves as ``ash_residue_cake``. The HCl is neutralized by the Na2CO3 and
+    NaOH of the cake liquor (CO2 leaves as ``leach_co2``), with fresh NaOH for any acid left. Both cakes keep
+    ``cake_moisture_wt_frac`` of liquor; the rest is the spent leachate (water, NaCl, KCl, Na2CO3), recycled to the dissolver D1.
+    Equipment (BioSTEAM MixTank and PressureFilter) is only for costing.
+    ins: [0] char cake, [1] 31 wt % HCl, [2] oxalic acid, [3] fresh leach water (makeup, set here), [4] NaOH for the acid left,
+    [5] condensate for the leach liquor (from the system; used first).
+    outs: [0] roaster feed (oxalate precipitate), [1] spent leachate, [2] leached char (the residue product), [3] leach CO2.
+    """
+    _N_ins = 6
+    _N_outs = 4
+    _DISSOLVED = ("Water", "Na2CO3", "NaOH", "NaCl", "KCl")
+
+    def _init(self, dry_feed_kgph, hcl_mol_per_kg_char=0.5, leach_liquor_kg_per_kg_char=5.0, oxalic_mol_per_kg_char=0.042,
+              oxalate_solution_kg_per_kg_char=0.42, cake_moisture_wt_frac=0.30, leach_tau_h=1.0, oxalate_tau_h=0.5,
+              wastewater_TREE_mg_per_L=1.4, seaweed_dose_g_per_L=2.5, overall_recovery=0.6, product_REO_wt_frac=0.0131,
+              REO_per_TREE=1.169, REE_molar_mass=149.1, oxalate_per_REE=1.5):
+        self.dry_feed_kgph = dry_feed_kgph                       # callable: dry seaweed feed [kg/h]
+        self.hcl_mol_per_kg_char = float(hcl_mol_per_kg_char)
+        self.leach_liquor_kg_per_kg_char = float(leach_liquor_kg_per_kg_char)
+        self.oxalic_mol_per_kg_char = float(oxalic_mol_per_kg_char)
+        self.oxalate_solution_kg_per_kg_char = float(oxalate_solution_kg_per_kg_char)
+        self.cake_moisture_wt_frac = float(cake_moisture_wt_frac)
+        self.wastewater_TREE_mg_per_L = float(wastewater_TREE_mg_per_L)
+        self.seaweed_dose_g_per_L = float(seaweed_dose_g_per_L)
+        self.overall_recovery = float(overall_recovery)
+        self.product_REO_wt_frac = float(product_REO_wt_frac)
+        self.REO_per_TREE = float(REO_per_TREE)
+        self.REE_molar_mass = float(REE_molar_mass)
+        self.oxalate_per_REE = float(oxalate_per_REE)
+        _att_add_proxy_exchanger(self, "cooler")
+        _att_add_proxy_exchanger(self, "heater")
+        for name, cls, kw in (("leach_tank", bst.MixTank, dict(tau=float(leach_tau_h))), ("oxalate_tank", bst.MixTank, dict(tau=float(oxalate_tau_h)))):
+            aux = self.auxiliary(name, cls, ins=bst.Stream(None), **kw)
+            self.register_auxiliary(aux, name)
+        for name in ("leach_filter", "oxalate_filter"):
+            aux = self.auxiliary(name, bst.PressureFilter, ins=bst.Stream(None), outs=(bst.Stream(None), bst.Stream(None)),
+                                 split={"Ash": 1.0}, moisture_content=self.cake_moisture_wt_frac)
+            self.register_auxiliary(aux, name)
+
+    def water_demand_kgph(self, solids_kgph):
+        """Water of the leach liquor and of the oxalic acid solution [kg/h] (the HCl solution brings its own)."""
+        hcl_solution = self.hcl_mol_per_kg_char * solids_kgph / 1e3 * 36.46094 / 0.31
+        return max(self.leach_liquor_kg_per_kg_char * solids_kgph - hcl_solution, 0.0) + self.oxalate_solution_kg_per_kg_char * solids_kgph
+
+    def _run(self):
+        cake, hcl, ox, water, fresh_naoh, condensate = self.ins
+        roast, leachate, residue, co2 = self.outs
+        chem = cake.chemicals
+        solid_IDs = [c.ID for c in chem if c.ID not in self._DISSOLVED and float(cake.imass[c.ID]) > 0.0]
+        solids_kgph = sum(float(cake.imass[ID]) for ID in solid_IDs)
+        # reagents
+        hcl_kmol = self.hcl_mol_per_kg_char * solids_kgph / 1e3
+        hcl.empty()
+        hcl.phase = "l"
+        hcl.imol["HCl"] = hcl_kmol
+        hcl.imass["Water"] = float(hcl.imass["HCl"]) * (1.0 / 0.31 - 1.0)
+        ox.empty()
+        ox.phase = "s"
+        ox.imol["OxalicAcid"] = self.oxalic_mol_per_kg_char * solids_kgph / 1e3
+        water.empty()
+        water.phase = "l"
+        makeup = self.water_demand_kgph(solids_kgph) - float(condensate.imass["Water"])
+        water.imass["Water"] = makeup if makeup > 1e-6 else 0.0                       # fresh makeup only, no roundoff dust
+        # dissolved pool of the leach slurry (cake liquor + reagent water)
+        pool = {ID: float(cake.imass[ID]) for ID in self._DISSOLVED}
+        pool["Water"] += float(hcl.imass["Water"]) + float(water.imass["Water"]) + float(condensate.imass["Water"])
+        # neutralization of the HCl: Na2CO3 + 2 HCl -> 2 NaCl + H2O + CO2, NaOH + HCl -> NaCl + H2O, then fresh NaOH
+        mw = {ID: chem[ID].MW for ID in ("Na2CO3", "NaOH", "NaCl", "Water")}
+        n_na2co3, n_naoh = pool["Na2CO3"] / mw["Na2CO3"], pool["NaOH"] / mw["NaOH"]
+        by_carbonate = min(n_na2co3, hcl_kmol / 2.0)
+        left = hcl_kmol - 2.0 * by_carbonate
+        by_naoh = min(n_naoh, left)
+        left -= by_naoh
+        fresh_naoh.empty()
+        fresh_naoh.phase = "s"
+        fresh_naoh.imol["NaOH"] = left
+        nacl_kmol = 2.0 * by_carbonate + by_naoh + left
+        pool["Na2CO3"] -= by_carbonate * mw["Na2CO3"]
+        pool["NaOH"] -= by_naoh * mw["NaOH"]
+        pool["NaCl"] += nacl_kmol * mw["NaCl"]
+        pool["Water"] += (by_carbonate + by_naoh + left) * mw["Water"]
+        co2.empty()
+        co2.phase = "g"
+        co2.imol["CO2"] = by_carbonate
+        co2.T, co2.P = cake.T, cake.P
+        # REE: the product REO is overall_recovery of the REO of the initial wastewater, within the oxalate stoichiometry
+        reo_char = float(cake.imass["REO"])
+        reo_water = self.wastewater_TREE_mg_per_L / self.seaweed_dose_g_per_L * 1e-3 * float(self.dry_feed_kgph()) * self.REO_per_TREE
+        n_ree_char = reo_char / self.REO_per_TREE / self.REE_molar_mass                       # kmol REE/h in the char
+        self._stoich_ceiling = min(1.0, float(ox.imol["OxalicAcid"]) / (self.oxalate_per_REE * n_ree_char)) if n_ree_char > 0.0 else 1.0
+        reo_product = min(self.overall_recovery * reo_water, self._stoich_ceiling * reo_char)
+        self._reo_wastewater, self._reo_product = reo_water, reo_product
+        # the oxalate precipitate (REO + oxalic acid + mineral filler from the char's Ash) and its liquor
+        target_kgph = reo_product / self.product_REO_wt_frac                                   # roasted product [kg/h]
+        w = self.cake_moisture_wt_frac
+        salts = 0.0
+        for _ in range(2):                                                                     # the entrained salts stay in the product
+            filler = max(target_kgph - reo_product - salts, 0.0)
+            solids_p = reo_product + filler + float(ox.imass["OxalicAcid"])
+            share_p = min(solids_p * w / (1.0 - w) / pool["Water"], 1.0)
+            salts = share_p * sum(pool[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH"))
+        ash_char = float(cake.imass["Ash"])
+        if filler > ash_char:
+            raise ValueError(f"LC1: the mineral filler of the product ({filler:.1f} kg/h) exceeds the Ash of the char ({ash_char:.1f} kg/h)")
+        residue_solids = {ID: float(cake.imass[ID]) for ID in solid_IDs}
+        residue_solids["Ash"] = ash_char - filler
+        residue_solids["REO"] = reo_char - reo_product
+        solids_r = sum(residue_solids.values())
+        share_r = min(solids_r * w / (1.0 - w) / pool["Water"], 1.0 - share_p)
+        roast.empty()
+        residue.empty()
+        leachate.empty()
+        roast.phase = residue.phase = leachate.phase = "l"
+        roast.imass["REO"], roast.imass["Ash"] = reo_product, filler
+        roast.imol["OxalicAcid"] = float(ox.imol["OxalicAcid"])
+        for ID, kgph in residue_solids.items():
+            residue.imass[ID] = kgph
+        for ID, kgph in pool.items():
+            roast.imass[ID] = share_p * kgph
+            residue.imass[ID] = share_r * kgph
+            leachate.imass[ID] = (1.0 - share_p - share_r) * kgph
+        for s in (roast, leachate, residue):
+            s.T, s.P = cake.T, cake.P
+
+    def _design(self):
+        cake, hcl, ox, water, fresh_naoh, condensate = self.ins
+        roast, leachate, residue, co2 = self.outs
+        # heat of neutralization and dissolution (the unit is isothermal): a heater or cooler of the water proxy
+        duty = float(sum(s.Hnet for s in self.outs) - sum(s.Hnet for s in self.ins))
+        if duty < 0.0:
+            _att_proxy_exchanger(self, "cooler", duty, float(cake.T) + 10.0, float(cake.T), hxn_ok=True)
+        elif duty > 0.0:
+            _att_proxy_exchanger(self, "heater", duty, float(cake.T), float(cake.T) + 10.0, hxn_ok=True)
+        total = self.leach_tank.ins[0]
+        total.mix_from([cake, hcl, ox, water, fresh_naoh, condensate])
+        self.leach_tank.simulate()
+        solids = sum(float(cake.imass[c.ID]) for c in cake.chemicals if c.ID not in self._DISSOLVED)
+        precipitate = float(roast.F_mass - roast.imass["Water"] - sum(roast.imass[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH")))
+        for aux, kgph_solids, liquid in ((self.leach_filter, solids, total), (self.oxalate_filter, precipitate, leachate)):
+            fin = aux.ins[0]
+            fin.empty()
+            fin.phase = "l"
+            fin.T, fin.P = cake.T, cake.P
+            for c in liquid.chemicals:
+                if c.ID in self._DISSOLVED:
+                    fin.imass[c.ID] = float(liquid.imass[c.ID])
+            fin.imass["Ash"] = kgph_solids
+            aux.simulate()
+        ot = self.oxalate_tank.ins[0]
+        ot.copy_like(leachate)
+        ot.imass["Water"] = float(leachate.imass["Water"]) + float(self.oxalate_solution_kg_per_kg_char) * solids
+        self.oxalate_tank.simulate()
+
+
+class ATTReeRoaster(bst.Unit):
+    """
+    RO1: roaster (rotary kiln, 900 C) of the REE oxalate precipitate of LC1 (att.yaml downstream.ree_recovery). The oxalic acid burns
+    in the air (C -> CO2, H -> H2O), the cake water evaporates, the REO, the mineral filler and the salts stay as the roasted
+    ``ree_product`` (``product_REO_wt_frac`` of REO), which is sold on its REO content. The solids leave cooled to
+    363 K and the exhaust at 473 K (the heat of the hot streams is recovered inside the kiln, as in the lime kiln K1); the net
+    heat duty is natural gas through an auxiliary furnace with ``heat_loss_fraction`` on it, or a cooler if the char burns
+    hotter than the kiln needs. The Ca/Mg minerals are inert in this model (no calcination heat or CO2). Shell cost: BioSTEAM
+    drum-dryer correlation on a shell area per t/d of feed solids, times a refractory factor (PRELIMINARY, as K1).
+    ins: [0] roaster feed, [1] air (set here). outs: [0] roasted product, [1] exhaust.
+    """
+    _N_ins = 2
+    _N_outs = 2
+    auxiliary_unit_names = ("heat_exchanger",)
+    _F_BM_default = {"Rotary kiln": 2.06}
+    _units = {"Feed solids": "t/d", "Kiln shell area": "m2"}
+
+    def _init(self, temperature_K=1173.15, excess_air=0.2, heat_loss_fraction=0.45, area_m2_per_t_per_day=3.14,
+              refractory_factor=2.0, solids_outlet_K=363.15, exhaust_K=473.15):
+        self.excess_air = float(excess_air)
+        self.heat_loss_fraction = float(heat_loss_fraction)
+        self.area_m2_per_t_per_day = float(area_m2_per_t_per_day)
+        self.refractory_factor = float(refractory_factor)
+        self.solids_outlet_K = float(solids_outlet_K)
+        self.exhaust_K = float(exhaust_K)
+        _att_add_proxy_exchanger(self, "cooler")
+        self.auxiliary("heat_exchanger", bst.HXutility, ins=bst.Stream(None), T=float(temperature_K), rigorous=False, heat_only=True,
+                       heat_transfer_efficiency=1.0 / (1.0 + self.heat_loss_fraction))
+
+    def _run(self):
+        feed, air = self.ins
+        prod, exhaust = self.outs
+        chem = feed.chemicals
+        prod.copy_like(feed)
+        exhaust.empty()
+        exhaust.phase = "g"
+        c = h = o = 0.0
+        for ID in ("Char", "OxalicAcid"):
+            n = float(feed.imol[ID])
+            atoms = chem[ID].atoms
+            c, h, o = c + n * atoms.get("C", 0.0), h + n * atoms.get("H", 0.0), o + n * atoms.get("O", 0.0)
+            prod.imol[ID] = 0.0
+        n_o2 = c + h / 4.0 - o / 2.0
+        n_nitrogen = float(feed.imol["CharN"])
+        prod.imol["CharN"] = 0.0
+        o2_air = n_o2 * (1.0 + self.excess_air)
+        air.empty()
+        air.phase = "g"
+        air.imol["Oxygen"] = o2_air
+        air.imol["Nitrogen"] = o2_air * 79.0 / 21.0
+        air.T, air.P = 298.15, 101325.0
+        exhaust.imol["CO2"] = c
+        exhaust.imol["Water"] = float(feed.imol["Water"]) + h / 2.0
+        exhaust.imol["Nitrogen"] = float(air.imol["Nitrogen"]) + n_nitrogen / 2.0
+        exhaust.imol["Oxygen"] = o2_air - n_o2
+        prod.imol["Water"] = 0.0
+        prod.phase = "l"
+        prod.T, exhaust.T = self.solids_outlet_K, self.exhaust_K
+        prod.P = exhaust.P = feed.P
+
+    def _design(self):
+        feed, air = self.ins
+        prod, exhaust = self.outs
+        duty = float(prod.Hnet + exhaust.Hnet - feed.Hnet - air.Hnet)       # kJ/h, net of the internal heat recovery
+        hx = self.heat_exchanger
+        if duty > 0.0:
+            hx.ins[0].copy_like(feed)
+            hx.outs[0].copy_like(feed)
+            hx.outs[0].T = hx.T
+            hx.simulate(run=False, design_kwargs={"duty": duty})
+        else:
+            hx.baseline_purchase_costs.clear()
+            if duty < 0.0:
+                _att_proxy_exchanger(self, "cooler", duty, self.exhaust_K + 20.0, self.exhaust_K, hxn_ok=False)
+        solids_tpd = float(feed.F_mass - feed.imass["Water"]) * 24.0 / 1e3
+        self.design_results["Feed solids"] = solids_tpd
+        self.design_results["Kiln shell area"] = self.area_m2_per_t_per_day * solids_tpd
+        self.design_results["Net heat duty"] = duty
+        self._units["Net heat duty"] = "kJ/hr"
+
+    def _cost(self):
+        area = self.design_results["Kiln shell area"]
+        if area > 0.0:
+            ratio = area / 1235.35
+            self.baseline_purchase_costs["Rotary kiln"] = 0.52 * 2268000.0 * bst.CE / 525.4 * ratio ** 0.6 * self.refractory_factor
+            self.add_power_utility(938.866 * ratio ** 0.6)
+
+
 class ATTPress(bst.Unit):
     """
     P1: screw press of the fresh-Sargassum plant, with the cost and power basis of a
@@ -902,7 +1153,7 @@ class ATTReactor(bst.Unit):
         )
 
         ash_kgph = float(
-            feed.imass["Ash"] + feed.imass["NaCl"] + feed.imass["KCl"]
+            feed.imass["Ash"] + feed.imass["NaCl"] + feed.imass["KCl"] + feed.imass["REO"]
         )
 
         daf_sargassum_kgph = max(
@@ -938,7 +1189,7 @@ class ATTReactor(bst.Unit):
         # 1. Fixed (non-gas) outlets: inert ash, Na2CO3/NaOH from the
         #    specified conversion, and feed N/S retained in the char.
         # ----------------------------------------------------------
-        for ID in ("Ash", "NaCl", "KCl"):        # the inorganic part of the seaweed passes through unchanged
+        for ID in ("Ash", "NaCl", "KCl", "REO"):        # the inorganic part of the seaweed passes through unchanged
             residue.imass[ID] = float(feed.imass[ID])
 
         sodium_kmolph = float(feed.imol["NaOH"] + 2.0 * feed.imol["Na2CO3"])    # NaCl is not a NaOH source
@@ -949,7 +1200,7 @@ class ATTReactor(bst.Unit):
         residue.imol["NaOH"] = sodium_kmolph - 2.0 * na2co3_kmolph
 
         chemicals = feed.chemicals
-        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl")
+        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl", "REO")
         organic_IDs = tuple(
             chemical.ID for chemical in chemicals
             if chemical.ID not in inorganic_IDs
@@ -1332,7 +1583,7 @@ class ATTReactor(bst.Unit):
         Hf_products = {"C": -393474.0, "H": -285825.0 / 2.0, "S": -296810.0}
         organic_IDs = [
             chemical.ID for chemical in chemicals
-            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl")
+            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl", "REO")
             and float(feed.imol[chemical.ID]) > 0.0
         ]
         native_Hf_kJph = 0.0

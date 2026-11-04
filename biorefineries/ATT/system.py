@@ -30,6 +30,8 @@ from biorefineries.ATT.units._att import (
     ATTLimeSlaker,
     ATTResidueSplit,
     ATTSaltCrystallizer,
+    ATTReeLeach,
+    ATTReeRoaster,
     aqueous_naoh_enthalpy_correction_kJph,
     _SARGASSUM_DRY_IDS,
 )
@@ -95,6 +97,7 @@ def create_att_system(
     caco3_drying=None,
     ash_salts=None,
     char_yield=None,
+    ree_recovery=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -153,6 +156,12 @@ def create_att_system(
         Insoluble char [g per g of dry feed] after the water dissolution (the collaborator's 0.15): RS1 splits the lumped
         U2 residue into the char and untracked carbon. None uses att.yaml downstream.char; 0 keeps the lumped residue of U2.
         Presscake configuration only.
+    ree_recovery : bool or None
+        REE recovery from the char (att.yaml downstream.ree_recovery): the washed char cake is leached with HCl (LC1), the REE
+        are precipitated with oxalic acid, the leached char and the oxalate are roasted (RO1) into the REE product (sold on its
+        REO content) and the spent leachate is recycled to the dissolver D1. The seaweed is assumed to carry the REE already
+        (att.yaml seaweed_TREE_ppm); the AMD capture section (soak, screen, press) is NOT modeled. Needs the char yield.
+        None uses att.yaml downstream.ree_recovery.enabled (default false).
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None
@@ -274,6 +283,14 @@ def create_att_system(
     char_cfg = _ATT_DOWNSTREAM.get("char", {})
     char_yield_gg = (float(char_cfg["yield_g_per_g_dry_feed"]) if bool(char_cfg.get("enabled", False)) else 0.0) if char_yield is None else float(char_yield)
     use_char = char_yield_gg > 0.0 and configuration != "fresh_sargassum"
+    ree_cfg = _ATT_DOWNSTREAM.get("ree_recovery", {})
+    use_ree = (bool(ree_cfg.get("enabled", False)) if ree_recovery is None else bool(ree_recovery)) and configuration != "fresh_sargassum"
+    if use_ree and not use_char:
+        raise ValueError("the REE recovery needs the char yield (downstream.char)")
+    if use_ree:       # the REE of the seaweed, carved out of its insoluble minerals
+        reo_kgph = float(ree_cfg["seaweed_TREE_ppm"]) * 1e-6 * float(ree_cfg["REO_per_TREE"]) * dry_sargassum_kgph
+        raw_feed.imass["REO"] = reo_kgph
+        raw_feed.imass["Ash"] = float(raw_feed.imass["Ash"]) - reo_kgph
 
     # --------------------------------------------------------------
     # P1 - Mechanical dewatering before ATT.
@@ -791,6 +808,8 @@ def create_att_system(
         )
         if wash_liquor is not None:
             demand_kgph = max(demand_kgph - float(wash_liquor.imass["Water"]), 0.0)
+        if spent_leachate is not None:
+            demand_kgph = max(demand_kgph - float(spent_leachate.imass["Water"]), 0.0)
         pool_kgph = float(SW.ins[0].F_mass)
         SW.split = min(1.0, demand_kgph / pool_kgph) if pool_kgph > 0.0 else 1.0
 
@@ -818,6 +837,22 @@ def create_att_system(
             surplus_kgph = float(SY.ins[0].F_mass)
             SY.split = min(1.0, demand_kgph / surplus_kgph) if surplus_kgph > 0.0 else 0.0
 
+    spent_leachate = bst.Stream("spent_leachate", Water=0.0, units="kg/hr") if use_ree else None
+    condensate_to_leach = bst.Stream("condensate_to_leach", Water=0.0, units="kg/hr") if use_ree else None
+    SZ = None
+    if use_ree:       # the condensate that nothing else needs is the water of the REE leach (clean water at about 52 C)
+        last = SY if SY is not None else (SX if SX is not None else SW)
+        last.outs[1].ID = "condensate_surplus_leach"
+        SZ = bst.Splitter("SZ", ins=last - 1, outs=(condensate_to_leach, "excess_condensate"), split=0.0)
+
+        @SZ.add_specification(run=True)
+        def send_surplus_to_leach():
+            cake = (F1R if F1R is not None else F1).outs[0]          # the cake of the previous iteration (defined below)
+            solids = sum(float(cake.imass[c.ID]) for c in cake.chemicals if c.ID not in ("Water", "Na2CO3", "NaOH", "NaCl", "KCl"))
+            demand_kgph = LC1.water_demand_kgph(solids)
+            surplus_kgph = float(SZ.ins[0].F_mass)
+            SZ.split = min(1.0, demand_kgph / surplus_kgph) if surplus_kgph > 0.0 else 0.0
+
     D1 = bst.Mixer(
         "D1",
         ins=(
@@ -825,6 +860,7 @@ def create_att_system(
             SW - 0,
             dissolution_water,
             *([wash_liquor] if wash_liquor is not None else []),
+            *([spent_leachate] if spent_leachate is not None else []),
         ),
         outs=("dissolved_att_slurry",),
     )
@@ -839,6 +875,8 @@ def create_att_system(
         )
         demand_kgph = dissolution_water_kg_per_kg_Na2CO3 * na2co3_kgph
         recycled_water_kgph = float(wash_liquor.imass["Water"]) if wash_liquor is not None else 0.0
+        if spent_leachate is not None:
+            recycled_water_kgph += float(spent_leachate.imass["Water"])
 
         dissolution_water.empty()
         makeup_kgph = demand_kgph - float(D1.ins[1].F_mass) - recycled_water_kgph
@@ -1032,6 +1070,26 @@ def create_att_system(
         add_mother_liquor_entrainment_spec(F1R, f1_moisture, solids_recovery=1.0)
         MC = bst.Mixer("MC", ins=(F1 - 1, F1R - 1), outs=("carbonate_solution",))
         carbonate_solution = MC - 0
+
+    # LC1 / RO1 - REE recovery from the washed char cake (att.yaml downstream.ree_recovery): HCl leach and oxalate precipitation, then
+    # the roast of the leached char and the oxalate into the REE product; the spent leachate goes to the dissolver D1.
+    LC1 = RO1 = None
+    if use_ree:
+        char_cake = (F1R if F1R is not None else F1).outs[0]
+        char_cake.ID = "char_cake"          # internal; the leached char leaves LC1 as ash_residue_cake (the residue product)
+        keys = ("hcl_mol_per_kg_char", "leach_liquor_kg_per_kg_char", "oxalic_mol_per_kg_char", "oxalate_solution_kg_per_kg_char",
+                "cake_moisture_wt_frac", "leach_tau_h", "oxalate_tau_h", "wastewater_TREE_mg_per_L", "seaweed_dose_g_per_L",
+                "overall_recovery", "product_REO_wt_frac", "REO_per_TREE", "REE_molar_mass", "oxalate_per_REE")
+        LC1 = ATTReeLeach(
+            "LC1", ins=(char_cake, bst.Stream("fresh_hcl"), bst.Stream("fresh_oxalic_acid"), bst.Stream("leach_water"),
+                        bst.Stream("leachate_naoh"), condensate_to_leach),
+            outs=("roaster_feed", spent_leachate, "ash_residue_cake", "leach_co2"),
+            dry_feed_kgph=lambda: sum(float(D0.outs[0].imass[ID]) for ID in _SARGASSUM_DRY_IDS), **{k: float(ree_cfg[k]) for k in keys})
+        RO1 = ATTReeRoaster(
+            "RO1", ins=(LC1 - 0, bst.Stream("roaster_air")), outs=("ree_product", "roaster_exhaust"),
+            temperature_K=float(ree_cfg["roaster_temperature_K"]), excess_air=float(ree_cfg["roaster_excess_air"]),
+            heat_loss_fraction=float(ree_cfg["roaster_heat_loss_fraction"]), area_m2_per_t_per_day=float(ree_cfg["roaster_area_m2_per_t_per_day"]),
+            refractory_factor=float(ree_cfg["roaster_refractory_factor"]))
 
     # --------------------------------------------------------------
     # C1 - Causticization
@@ -1329,9 +1387,11 @@ def create_att_system(
         SW,
         *([SX] if SX is not None else []),
         *([SY] if SY is not None else []),
+        *([SZ] if SZ is not None else []),
         D1,
         F1,
         *([W1, F1R, MC] if W1 is not None else []),
+        *([LC1, RO1] if LC1 is not None else []),
         *([LM] if LM is not None else []),
         C1,
         F2,
@@ -1347,16 +1407,16 @@ def create_att_system(
     if heat_exchanger_network:
         T_min_app = float(_ATT_HEAT_RECOVERY["minimum_approach_temperature_K"]
                           if hxn_T_min_app_K is None else hxn_T_min_app_K)
-        # Not matched: the fired heaters of U2 and the lime kiln (fuel-fired, no process stream pair) and the solids
+        # Not matched: the fired heaters of U2, the lime kiln and the REE roaster (fuel-fired, no process stream pair) and the solids
         # cooler RC1. The HXN flashes every stream it matches and RC1's stream is all solid (no boiling point), so it
         # fails; a water proxy would misstate a 500 -> 90 C sensible duty. Its 1.6 MW is cooled with cooling water.
         HXN = bst.HeatExchangerNetwork("HXN", T_min_app=T_min_app,
-                                       ignored=[U2, RC1, *([K1] if use_lime_recycle else [])])
+                                       ignored=[U2, RC1, *([K1] if use_lime_recycle else []), *([RO1] if RO1 is not None else [])])
 
     sys = bst.System(
         "att_sys",
         path=path,
-        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else []), *([condensate_to_f1_wash] if f1_wash_with_condensate else [])),
+        recycle=(naoh_recycle, ec1_condensate, tail_gas_fuel, *([scrubber_filtrate] if SCRUB is not None else []), *([recycled_lime] if use_lime_recycle else []), *([wash_liquor] if wash_liquor is not None else []), *([condensate_to_wash] if wash_with_condensate else []), *([condensate_to_f1_wash] if f1_wash_with_condensate else []), *([spent_leachate, condensate_to_leach] if spent_leachate is not None else [])),
         # The makeup/concentration specification is nonlinear.
         # Aitken acceleration can overshoot to nonphysical intermediate
         # recycle compositions (e.g., too little water at F1), so use the

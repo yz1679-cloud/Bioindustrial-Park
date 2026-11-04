@@ -144,8 +144,9 @@ att:
       # The press liquid is the raw juice for biostimulant production and is
       # a coproduct of the fresh-Sargassum plant (no wastewater charge; transfer
       # price in att_tea.yaml).
-    # Split of the seaweed ash of the presscake (user decision 2026-11-03). Basis: the collaborator's major-element contents of
-    # the seaweed (median of 14 samples, mg/kg dw: K 70,446; Na 33,166; Ca 40,690; Mg 8,610; P 748; S about 15,000), scaled to the
+    # Split of the seaweed ash of the presscake (user decision 2026-11-03). Basis: ILLUSTRATIVE typical major-element contents of
+    # seaweed that the user shared (median of 14 samples, mg/kg dw: K 70,446; Na 33,166; Ca 40,690; Mg 8,610; P 748; S about 15,000;
+    # NOT the collaborators' own sample, so the split is an expectation, not a measurement), scaled to the
     # ash of the presscake (nlr_pressed, 32.07 wt % dry). Insoluble: Ca as CaCO3, Mg as Mg(OH)2 and traces of Al, Fe, Si, Ti
     # (619 kg/h at 5,029 kg dry/h); they stay in the char. Soluble: all K and Na as KCl and NaCl (the Cl content of the seaweed
     # is NOT measured; chloride is assumed to be the counter-anion) and dissolve with the Na2CO3. S (about 1.5 wt %), P, Si, Al
@@ -418,6 +419,39 @@ att:
     # Salt crystallizer on the EC1 concentrate (NaCl, KCl nearly insoluble in 50 wt % NaOH): a vessel and a solids centrifuge
     # (BioSTEAM MixTank and SolidsCentrifuge; PRELIMINARY, carbon-steel/stainless defaults, no solubility data). The salt cake
     # entrains 10 wt % of liquor (its NaOH is lost) and is disposed at the solid-waste price.
+    # REE recovery from the ATT char (user decision 2026-11-03, switch default OFF): the washed char cake is leached with 0.1 M HCl,
+    # the REE are precipitated with oxalic acid, the leached char and the oxalate are roasted at 900 C and the REE product is sold on
+    # its REO content; the spent leachate (neutralized by the Na2CO3 of the cake liquor) is recycled to the dissolver D1.
+    # ASSUMPTIONS: the seaweed already carries 737 ppm TREE (the AMD-soaked seaweed of the lab; the capture section - soak tank, screen,
+    # press - is NOT modeled and not costed). Only the oxalate PRECIPITATE is roasted. Its REO is 60 % of the REE of the initial
+    # wastewater (1.4 mg TREE/L at 2.5 g seaweed/L = 560 ppm of the seaweed; the 60 % overall recovery of the collaborators' 0.01 M
+    # Nd run, applied here to the dilute run), capped by the oxalate stoichiometry (1.5 mol per mol REE, 149.1 g/mol REE: the lab dose
+    # can precipitate 85 % of the REE of the 4,913 ppm char). The product is 1.31 wt % REO (the slide table sums to 13,096 ppm as
+    # oxides); the rest is mineral filler from the char's Ash (the Ca and Mg balance is not tracked). The leached char, with the REO not
+    # recovered, is the residue product. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic
+    # acid); the roaster is PRELIMINARY (kiln correlation of the lime kiln K1; only the precipitate is roasted).
+    ree_recovery:
+      enabled: false
+      seaweed_TREE_ppm: 737.0
+      REO_per_TREE: 1.169
+      wastewater_TREE_mg_per_L: 1.4
+      seaweed_dose_g_per_L: 2.5
+      overall_recovery: 0.6
+      product_REO_wt_frac: 0.0131
+      REE_molar_mass: 149.1
+      oxalate_per_REE: 1.5
+      hcl_mol_per_kg_char: 0.5
+      leach_liquor_kg_per_kg_char: 5.0
+      oxalic_mol_per_kg_char: 0.042
+      oxalate_solution_kg_per_kg_char: 0.42
+      cake_moisture_wt_frac: 0.30
+      leach_tau_h: 1.0
+      oxalate_tau_h: 0.5
+      roaster_temperature_K: 1173.15
+      roaster_excess_air: 0.2
+      roaster_heat_loss_fraction: 0.45
+      roaster_area_m2_per_t_per_day: 3.14
+      roaster_refractory_factor: 2.0
     salt_crystallizer:
       enabled: true
       removal_fraction: 0.99
@@ -658,6 +692,19 @@ att:
       ec1_condensate: [output, wastewater, "EC1 evaporator condensate."]
       dryer_exhaust: [output, air_emission, "Drying air and water vapor; no GHG."]
       dryer_emissions: [output, air_emission, "Zero flow in the baseline."]
+      fresh_hcl: [input, reagent, "31 wt % HCl of the REE leach."]
+      fresh_oxalic_acid: [input, reagent, "Oxalic acid of the REE precipitation."]
+      leach_water: [input, process_water, "Fresh makeup water of the REE leach (the condensate left over is used first; normally zero)."]
+      condensate_to_leach: [internal, recycle, "Surplus condensate used as the leach water."]
+      condensate_surplus_leach: [internal, process, "Surplus condensate before the leach water takeoff."]
+      leachate_naoh: [input, reagent, "NaOH for the HCl left after the Na2CO3 and NaOH of the cake liquor (normally zero)."]
+      roaster_air: [input, ambient_air, "Roaster combustion air; no burden."]
+      ree_product: [output, coproduct, "Roasted REE oxalate with mineral filler (1.31 wt % REO), sold on its REO content (att_tea.yaml prices.REO)."]
+      char_cake: [internal, process, "Washed char cake to the REE leach LC1 (the leached char leaves as ash_residue_cake)."]
+      leach_co2: [output, air_emission, "CO2 of the carbonate that neutralizes the HCl (biogenic)."]
+      roaster_exhaust: [output, air_emission, "Roaster exhaust: CO2 (biogenic char carbon and fossil oxalate), water vapor, N2 and O2."]
+      roaster_feed: [internal, process, "Leached char and REE oxalate to the roaster RO1."]
+      spent_leachate: [internal, recycle, "Spent leachate, recycled to the dissolver D1."]
       salt_cake: [output, solid_waste, "Salt cake of the crystallizer XL1: NaCl and KCl of the seaweed ash with 10 wt % entrained liquor; disposal."]
       untracked_organics: [output, untracked_carbon, "Lumped residual carbon of U2 beyond the carbonate, the measured gas and the char (RS1): no measured sink; no credit, no cost."]
       ec1_concentrate: [internal, process, "EC1 concentrate before the salt crystallizer."]

@@ -21,6 +21,16 @@ tea:
     H2SO4:
       value: 0.0948
       source: "0.0430 USD/lb, biorefineries/lactic/_process_settings.py (purge neutralization, att_lca.yaml endpoint)"
+    HCl_31:                # 31 wt % HCl solution, per kg of solution (REE leach; used only with ree_recovery)
+      value: 0.20
+      source: "2026 quotes: US 215, global 185-205 USD/t (Expert Market Research, ChemAnalyst); assumption."
+    oxalic_acid:           # per kg of oxalic acid (REE precipitation; used only with ree_recovery)
+      value: 0.60
+      source: "China 2026: 435-710 USD/t (ChemAnalyst, ChemicalBook); assumption."
+    REO:                   # sale price of the REE product per kg of REO it contains (ree_recovery only)
+      value: 35.0
+      range: [2.0, 151.0]
+      source: "ASSUMPTION: 35 USD/kg REO (mixed concentrate, >= 92 % TREO, Apr 2026); 2 = light mixed carbonate, 65 = heavy-REE clay basket, 97 = NdPr oxide, 151 = equal-mass 14-REE oxides. A 1.3 wt % TREO solid would not fetch these without a buyer."
     process_water:
       value: 0.000441
       source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"

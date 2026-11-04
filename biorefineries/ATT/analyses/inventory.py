@@ -578,6 +578,11 @@ def get_att_water_balance(sys):
         rows.append(dict(group="reaction", item="Lime kiln water formation (Ca(OH)2 dehydration)", kg_per_kg_dry=kiln / dry))
         rows.append(dict(group="reaction", item="Slaker water consumption (CaO hydration)", kg_per_kg_dry=slaker / dry))
         formation += kiln + slaker
+    for ID, label in (("LC1", "LC1 water formation (HCl neutralization)"), ("RO1", "RO1 water formation (combustion of the char and the oxalic acid)")):
+        if ID in u:         # REE recovery (downstream.ree_recovery)
+            made = float(sum(x.imass["Water"] for x in u[ID].outs) - sum(x.imass["Water"] for x in u[ID].ins))
+            rows.append(dict(group="reaction", item=label, kg_per_kg_dry=made / dry))
+            formation += made
     w_out = 0.0
     for p in sys.products:
         w = float(p.imass["Water"])

@@ -153,6 +153,11 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
             fraction = float(s[ID].imass["CaOH2"]) / float(s[ID].F_mass) if float(s[ID].F_mass) > 0.0 else 1.0
             s[ID].price = p["CaOH2"] * fraction
     s["dissolution_water"].price = p["process_water"]
+    if "ree_product" in s:                                      # REE recovery: reagents and the sale of the roasted product
+        s["fresh_hcl"].price, s["fresh_oxalic_acid"].price = p["HCl_31"], p["oxalic_acid"]
+        s["leach_water"].price, s["leachate_naoh"].price = p["process_water"], p["NaOH"]
+        product = s["ree_product"]
+        product.price = p["REO"] * float(product.imass["REO"]) / float(product.F_mass) if float(product.F_mass) > 0.0 else 0.0
     if "biostimulant_juice" in s:
         s["biostimulant_juice"].price = float(_T["prices"]["juice"])
     if "slaking_water" in s:
