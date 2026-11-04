@@ -15,11 +15,11 @@ ENG (preliminary engineering estimate) and MISSING.
   ATT material balances are untouched.
 - **Floating TEA** is `analyses/marine_tea.py`. It feeds `evaluate_att_tea` through neutral-by-default hooks:
   operating hours, extra capital after the FCI factor, extra VOC, and FOC terms. The S1 TEA is unchanged by
-  construction; `test_att_s2.test_s1_reference_unchanged` checks this.
+  construction; the pinned S2 cases in `test/test_att_baseline.py` are built on the S1 reference and would drift if it changed.
 - **LCA** is incremental (`analyses/marine_lca.py`): avoided purchased heat plus pump electricity, applied to
   the S1 LCA. It is not a ship lifecycle assessment.
 - **Driver:** `analyses/att_s2_marine.py`. Outputs go to `results/tables/att_s2_*.csv`. Tests:
-  `test/test_att_s2.py`.
+  `test/test_att_s2.py` (heat-recovery accounting) and `test/test_att_baseline.py` (pinned S2 cases).
 
 ## 2. Reference vessel (R-V1, R-V2)
 

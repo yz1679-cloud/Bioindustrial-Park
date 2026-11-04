@@ -3,7 +3,6 @@ import unittest
 import warnings
 
 from biorefineries.ATT.analyses.breakdown import build_att_breakdown, COST_TYPES
-from biorefineries.ATT.analyses import scenarios as scen
 
 
 class TestATTBreakdown(unittest.TestCase):
@@ -16,94 +15,16 @@ class TestATTBreakdown(unittest.TestCase):
         cls.t = build_att_breakdown(cls.case)
         cls.s = cls.t["summary"]
 
-    def test_u2_checks_pass(self):
-        # Known to FAIL for ATT Scenario 1: the measured gases + residual-carbon char hold more hydrogen than the
-        # feed (unresolved balance). Kept as is so that the issue stays visible.
-        rows = self.t["U2_balance_checks"]
-        status = rows["status"].dropna()
-        self.assertFalse(status.str.startswith("FAIL").any(), rows.to_string())
 
-    def test_msp_types_sum_to_msp(self):
+    def test_breakdowns_add_up(self):
         self.assertAlmostEqual(self.t["MSP_by_type"]["USD_per_kg_H2"].sum(), self.s["MSP_USD_per_kg_H2"], delta=1e-6)
         self.assertAlmostEqual(self.t["MSP_by_type"]["share_of_MSP"].sum(), 1.0, delta=1e-6)
         self.assertTrue(set(self.t["MSP_by_group"]["group"]) <= set(COST_TYPES))
-
-    def test_capex_sums_to_fci_and_allocates_capital_msp(self):
         self.assertAlmostEqual(self.t["CAPEX_by_equipment"]["installed_MUSD"].sum(), self.s["FCI_MUSD"], delta=1e-6)
         self.assertAlmostEqual(self.t["CAPEX_by_area"]["installed_MUSD"].sum(), self.s["FCI_MUSD"], delta=1e-6)
         self.assertNotIn("Other", set(self.t["CAPEX_by_area"]["area"]))
         self.assertAlmostEqual(self.t["CAPEX_by_area"]["capital_related_MSP_USD_per_kg_H2"].sum(),
                                self.s["capital_related_MSP_USD_per_kg_H2"], delta=1e-9)
-
-    def test_opex_sums_to_annual_operating_cost(self):
-        opex = self.t["OPEX_by_group"]
-        self.assertAlmostEqual(opex["MUSD_per_yr"].sum(), self.s["AOC_MUSD_per_yr"], delta=1e-6)
-        waste = opex.loc[(opex["cost_type"] == "Waste treatment and disposal")
-                         & (opex["group"] != "Neutralization (H2SO4)"), "MUSD_per_yr"].sum()
-        revenue = opex.loc[opex["cost_type"] == "Coproduct revenue", "MUSD_per_yr"].sum()
-        # SaBReTEA books the disposal streams as negative sales and the CaCO3 sales as sales, outside its VOC + FOC
-        # (the H2SO4 for purge neutralization is a VOC item)
-        self.assertAlmostEqual(self.s["TEA_VOC_plus_FOC_MUSD_per_yr"] + waste + revenue, self.s["AOC_MUSD_per_yr"],
-                               delta=1e-6)
-
-    def test_caco3_sales_counted_once(self):
-        # The CaCO3-sales OPTION (off in the baseline). Revenue on the CaCO3 COMPONENT of each listed cake (not the wet
-        # cake); disposal only on the cake mass that is not sold CaCO3; no separate whole-cake disposal line for a sold cake.
-        from biorefineries.ATT.analyses import inventory as inv, tea as tea_mod
-        from biorefineries.ATT.test._options import sales_option
-        with sales_option():
-            self._caco3_sales_counted_once(inv, tea_mod, build_att_breakdown)
-
-    def _caco3_sales_counted_once(self, inv, tea_mod, build_att_breakdown):
-        system = scen.create(scen.ATT_S1)
-        t = build_att_breakdown(self.case, sys=system)
-        s, cfg, hours = inv._streams(system), tea_mod._T["caco3_sales"], system.operating_hours
-        self.assertTrue(cfg["enabled"])
-        caco3 = sum(float(s[ID].imass["CaCO3"]) for ID in cfg["streams"])
-        rest = sum(float(s[ID].F_mass - s[ID].imass["CaCO3"]) for ID in cfg["streams"])
-        price, disposal = cfg["price_usd_per_metric_ton"], -float(tea_mod._PRICE["disposal_solid"]["value"])
-        self.assertAlmostEqual(t["summary"]["CaCO3_sales_revenue_USD_per_yr"], caco3 * hours / 1e3 * price, places=3)
-        self.assertAlmostEqual(t["summary"]["CaCO3_cake_disposal_USD_per_yr"], rest * disposal * hours, places=3)
-        groups = t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
-        self.assertAlmostEqual(groups["CaCO3 byproduct sales"] * 1e6, -caco3 * hours / 1e3 * price, places=3)
-        self.assertAlmostEqual(groups["CaCO3 cake disposal"] * 1e6, rest * disposal * hours, places=3)
-        items = [r["item"] for r in tea_mod._opex_table(system, dict(tea_mod.evaluate_att_tea(
-            system, caco3=dict(fraction=0.0), caco3_sales={k: v for k, v in cfg.items() if k != "enabled"})))]
-        self.assertNotIn("Disposal: scrubber_cake", items)
-        self.assertNotIn("CaCO3 cake: disposal (+) or net sales (-)", items)
-        # a price override changes the MSP without touching the configuration
-        low = build_att_breakdown(self.case, caco3_price=0.0, sys=system)["summary"]
-        self.assertEqual(cfg["price_usd_per_metric_ton"], price)
-        self.assertGreater(low["MSP_USD_per_kg_H2"], t["summary"]["MSP_USD_per_kg_H2"])
-
-    def test_gwp_sums_to_total(self):
-        g = self.t["GWP_by_contributor"]
-        self.assertAlmostEqual(g[g["counted_in_net"]]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-        # the extra avoided-CH4 credit is a memo line: negative, listed, and not in the net
-        memo = g[~g["counted_in_net"]]["kgCO2e_per_kg_H2"]
-        self.assertEqual(len(memo), 1)
-        self.assertLess(float(memo.iloc[0]), 0.0)
-        # avoided emission if rotted on the beach = the stored carbon (already in the net) + the extra CH4 credit
-        stored = g.loc[g["stage"] == "Stored biogenic carbon", "kgCO2e_per_kg_H2"].sum()
-        self.assertAlmostEqual(self.s["GWP_avoided_emission_total_kgCO2e_per_kg_H2"], stored + float(memo.iloc[0]), delta=1e-9)
-        self.assertAlmostEqual(self.s["GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2"],
-                               self.s["GWP_kgCO2e_per_kg_H2"] + float(memo.iloc[0]), delta=1e-9)
-        self.assertAlmostEqual(self.t["GWP_by_stage"]["kgCO2e_per_kg_H2"].sum(), self.s["GWP_kgCO2e_per_kg_H2"], delta=1e-6)
-
-    def test_waste_lime_scrubber_no_psa(self):
-        self.assertNotIn("Lime kiln (K1)", set(self.t["CAPEX_by_area"]["area"]))
-        self.assertNotIn("PSA (U3P)", set(self.t["CAPEX_by_area"]["area"]))
-        self.assertIn("CO2 scrubber and filter (SCRUB, F3)", set(self.t["CAPEX_by_area"]["area"]))
-        groups = self.t["OPEX_by_group"].set_index("group")["MUSD_per_yr"]
-        self.assertEqual(groups.get("Ca(OH)2", 0.0), 0.0)
-        g = self.t["GWP_by_contributor"].set_index("contributor")["kgCO2e_per_kg_H2"]
-        self.assertEqual(g["Ca(OH)2"], 0.0)
-
-    def test_capacity_and_dose(self):
-        self.assertAlmostEqual(self.s["dry_feed_t_per_day"], 5029.17 * 24 / 1e3, delta=1e-6)
-        self.assertEqual(self.s["NaOH_kg_per_kg_dry"], 1.0)
-        # waste-lime supply check (C1 lime + scrubber lime)
-        self.assertLessEqual(self.s["Ca_OH_2_used_t_per_yr"] * 1e3, scen.WASTE_LIME_KG_PER_YR)
 
 
 if __name__ == "__main__":

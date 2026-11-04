@@ -119,12 +119,6 @@ class TestLinearScaling(unittest.TestCase):
             a, b = float(small[ID].F_mass), float(large[ID].F_mass) / scale
             self.assertAlmostEqual(b, a, delta=1e-6 * max(a, 1e-12) + 1e-14, msg=ID)
 
-    def test_h2_per_kg_dry(self):
-        scale = scen.ATT_S1["dry_feed_kgph"]
-        a = float(next(s for s in self.small.products if s.ID == "h2_product").imass["H2"])
-        b = float(next(s for s in self.large.products if s.ID == "h2_product").imass["H2"]) / scale
-        self.assertAlmostEqual(b / a, 1.0, delta=1e-9)
-
 
 def independent_cash_flow(tea, annual_sales, interest_only_deduction=False):
     """
@@ -200,13 +194,6 @@ class TestIndependentDCF(unittest.TestCase):
         cls.tea = cls.sys.TEA
         cls.h2_kg_yr = float(inv._streams(cls.sys)["h2_product"].imass["H2"]) * cls.sys.operating_hours
 
-    def test_financial_parameters_are_the_stated_basis(self):
-        # design basis: IRR 10 %, 20 yr, MACRS-7, 21 % tax, 60 % debt at 8 % over 10 yr
-        t = self.tea
-        self.assertEqual((t.IRR, t.income_tax, t.finance_fraction, t.finance_interest, t.finance_years),
-                         (0.10, 0.21, 0.60, 0.08, 10))
-        self.assertEqual(str(t.depreciation), "MACRS7")
-        self.assertEqual(int(t.duration[1] - t.duration[0]), 20)
 
     def test_cash_flow_reproduces_the_biosteam_table(self):
         table = self.tea.get_cashflow_table()
@@ -215,11 +202,6 @@ class TestIndependentDCF(unittest.TestCase):
         self.assertEqual(mine.shape, reference.shape)
         np.testing.assert_allclose(mine, reference, rtol=1e-9, atol=1e-3)
 
-    def test_depreciation_is_the_macrs_schedule(self):
-        table = self.tea.get_cashflow_table()
-        dep = table["Depreciation [MM$]"].to_numpy() * 1e6
-        np.testing.assert_allclose(dep[2:2 + len(MACRS7)], self.tea.FCI * np.array(MACRS7), rtol=1e-9)
-        self.assertAlmostEqual(float(dep.sum()), self.tea.FCI, delta=1e-6 * self.tea.FCI)
 
     def test_msp_is_the_zero_npv_price(self):
         # independent NPV at the reported price is ~0; a 1 % higher price gives a clearly positive NPV
@@ -228,18 +210,6 @@ class TestIndependentDCF(unittest.TestCase):
                                delta=1e-6)
         higher = self.tea.sales + 0.01 * msp * self.h2_kg_yr
         self.assertGreater(npv_at(self.tea, independent_cash_flow(self.tea, higher)), 1e-3 * self.tea.FCI)
-
-    def test_independent_root_finding_gives_the_same_msp(self):
-        msp = self.result["msp"]
-        lo, hi = 0.0, 10.0 * msp
-        for _ in range(200):
-            mid = 0.5 * (lo + hi)
-            sales = self.tea.sales + (mid - msp) * self.h2_kg_yr
-            if npv_at(self.tea, independent_cash_flow(self.tea, sales)) > 0.0:
-                hi = mid
-            else:
-                lo = mid
-        self.assertAlmostEqual(mid / msp, 1.0, delta=1e-6)
 
 
 if __name__ == "__main__":

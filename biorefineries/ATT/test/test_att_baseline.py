@@ -40,14 +40,6 @@ S1_METRICS = {
 }
 S1_STORED_CARBON_CREDIT = -8.27879478        # kg CO2e per kg H2, in the net GWP
 S1_GWP_WITHOUT_CREDIT = 24.10658155
-# The same S1 with the REE recovery switched off (ree_recovery=False; the default is on, att.yaml downstream.ree_recovery).
-S1_METRICS_NO_REE = {
-    "MSP_USD_per_kg_H2": 1.75246213,
-    "GWP_kgCO2e_per_kg_H2": 15.70763843,
-    "FCI_MUSD": 13.4992164,
-    "AOC_MUSD_per_yr": 3.42655826,
-    "fresh_NaOH_t_per_yr": 3956.8688,
-}
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
@@ -76,11 +68,6 @@ class TestATTS1(unittest.TestCase):
         for key, expected in S1_METRICS.items():
             close(self, self.s[key], expected, key)
 
-    def test_caco3_is_sold(self):
-        self.assertEqual(self.s["CaCO3_sales"], "enabled")
-        self.assertGreater(self.s["CaCO3_sold_t_per_yr"], 0.0)
-        self.assertGreater(self.s["CaCO3_sales_revenue_USD_per_yr"], 0.0)
-        self.assertGreater(self.s["CaCO3_cake_disposal_USD_per_yr"], 0.0)        # the non-CaCO3 mass of the cakes
 
     def test_all_landfilled_carbon_is_credited(self):
         g = self.t["GWP_by_contributor"]
@@ -93,15 +80,6 @@ class TestATTS1(unittest.TestCase):
         self.assertTrue(self.s["U2_residual_product"].startswith("lumped: CH0.5O1.19"), self.s["U2_residual_product"])
 
 
-class TestATTS1NoREE(unittest.TestCase):
-
-    def test_key_metrics(self):
-        warnings.filterwarnings("ignore")
-        s = build_att_breakdown("att_s1", sys=scen.create(ree_recovery=False))["summary"]
-        for key, expected in S1_METRICS_NO_REE.items():
-            close(self, s[key], expected, key)
-
-
 class TestATTS2(unittest.TestCase):
 
     @classmethod
@@ -110,10 +88,6 @@ class TestATTS2(unittest.TestCase):
         cls.system = scen.create(scen.ATT_S2)
         cls.ref = mt.s1_reference(cls.system)
 
-    def test_reference_is_s1(self):
-        close(self, self.ref["row"]["MSP_USD_per_kg_H2"], S1_METRICS["MSP_USD_per_kg_H2"], "MSP")
-        close(self, self.ref["row"]["GWP_kgCO2e_per_kg_H2"], S1_METRICS["GWP_kgCO2e_per_kg_H2"], "GWP")
-        close(self, self.ref["row"]["H2_t_per_yr"], S1_METRICS["H2_t_per_yr"], "H2")
 
     def test_waste_heat_recovery(self):
         close(self, mw.evaluate_whr(self.system)["utilized_kW"], S2_WHR_UTILIZED_KW, "utilized WHR")

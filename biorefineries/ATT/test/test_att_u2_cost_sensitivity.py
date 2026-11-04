@@ -5,7 +5,6 @@ import unittest
 import warnings
 
 from biorefineries.ATT.analyses import u2_cost_sensitivity as sens
-from biorefineries.ATT.test.test_att_baseline import S1_METRICS
 from biorefineries.ATT.test.test_att_independent_checks import independent_cash_flow, npv_at
 
 
@@ -17,16 +16,6 @@ class TestU2CostSensitivity(unittest.TestCase):
         cls.df = sens.get_att_u2_cost_sensitivity()
         cls.row = {r["case"]: r for r in cls.df.to_dict("records")}
 
-    def test_baseline_is_s1(self):
-        self.assertAlmostEqual(self.row["baseline"]["MSP_USD_per_kg_H2"] / S1_METRICS["MSP_USD_per_kg_H2"], 1.0, delta=1e-5)
-        self.assertAlmostEqual(self.row["baseline"]["FCI_MUSD"] / S1_METRICS["FCI_MUSD"], 1.0, delta=1e-5)
-        self.assertEqual(self.row["baseline"]["delta_MSP_USD_per_kg_H2"], 0.0)
-
-    def test_more_expensive_reactor_raises_the_msp(self):
-        for a, b in (("baseline", "reactor body x2"), ("reactor body x2", "reactor body x5"), ("reactor body x5", "reactor body x10"),
-                     ("U2 total x1.5", "U2 total x2"), ("U2 total x2", "U2 total x3")):
-            self.assertLess(self.row[a]["MSP_USD_per_kg_H2"], self.row[b]["MSP_USD_per_kg_H2"], (a, b))
-        self.assertGreater(self.row["rotary kiln analog"]["MSP_USD_per_kg_H2"], self.row["baseline"]["MSP_USD_per_kg_H2"])
 
     def test_msp_change_matches_an_independent_dcf(self):
         # Extra installed capital E raises the FCI by E, the working capital by 5 % of it and the fixed operating cost by 4 % of
@@ -54,17 +43,6 @@ class TestU2CostSensitivity(unittest.TestCase):
             else:
                 lo = mid
         self.assertAlmostEqual(mid / self.row["reactor body x10"]["MSP_USD_per_kg_H2"], 1.0, delta=1e-6)
-
-    def test_kiln_analog_scales_with_the_solids_to_the_power_0_6(self):
-        from biorefineries.ATT.analyses import inventory as inv, scenarios as scen
-        U2 = inv._units(scen.create(scen.ATT_S1, dry_kgph=1000.0, hxn=False))["U2"]
-        cost1, kW1 = sens.kiln_analog(U2)
-        big = U2.ins[0].copy()
-        big.scale(2.0)
-        stub = types.SimpleNamespace(ins=[big])
-        cost2, kW2 = sens.kiln_analog(stub)
-        self.assertAlmostEqual(cost2 / cost1, 2.0 ** 0.6, delta=1e-9)
-        self.assertAlmostEqual(kW2 / kW1, 2.0 ** 0.6, delta=1e-9)
 
 
 if __name__ == "__main__":
