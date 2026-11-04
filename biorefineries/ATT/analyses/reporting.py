@@ -734,7 +734,7 @@ def _opex_detail(sys, result):
         add(f"CaCO3 cake, net (CaCO3 sales - disposal of the rest): {ID}" if sold else f"Disposal: {ID}",
             float(s[ID].F_mass) / dry, "kg", -s[ID].price, "USD/kg (cost)",
             -s[ID].price * float(s[ID].F_mass) * hours, "tea.yaml caco3_sales" if sold else
-            "tea.yaml disposal price" if ID != "caco3_cake" else "reference: 0; Case A: tea.yaml disposal_solid",
+            "tea.yaml disposal price",
             "-", "coproduct sale and service" if sold else "service")
     tea = result["tea"]
     add("Fixed operating cost (labor, maintenance, overhead)", float("nan"), "-", tea_mod._FIN["foc_frac_of_fci"],
@@ -795,28 +795,6 @@ def _financial(result):
              source="biorefineries/ATT/analyses/tea.py"),
         dict(parameter="MSP solver", value="bst.TEA.solve_price (DCF, NPV = 0 at IRR)", source="BioSTEAM"),
     ]
-    return rows
-
-
-def _caco3_detail(sys, caco3):
-    s = inv._streams(sys)
-    hours = sys.operating_hours
-    cake_t = float(s["caco3_cake"].F_mass) * hours / 1e3
-    caco3_t = float(s["caco3_cake"].imass["CaCO3"]) * hours / 1e3
-    disposal = -float(tea_mod._PRICE["disposal_solid"]["value"]) * 1e3
-    rows = []
-    for r in caco3:
-        f = r["marketable_fraction"] if r["marketable_fraction"] == r["marketable_fraction"] else 0.0
-        price = r["CaCO3_price_usd_per_t"] if r["CaCO3_price_usd_per_t"] == r["CaCO3_price_usd_per_t"] else 0.0
-        handling = r["handling_usd_per_t"] if r["handling_usd_per_t"] == r["handling_usd_per_t"] else 0.0
-        rows.append(dict(case=r["case"], CaCO3_equivalent_t_per_yr=caco3_t,
-                         wet_cake_t_per_yr=cake_t, marketable_fraction=f, CaCO3_price_USD_per_t=price,
-                         handling_USD_per_t=handling, CaCO3_sold_t_per_yr=f * caco3_t,
-                         revenue_MUSD_per_yr=f * caco3_t * price / 1e6,
-                         handling_cost_MUSD_per_yr=f * caco3_t * handling / 1e6,
-                         cake_disposal_cost_MUSD_per_yr=(1 - f) * cake_t * disposal / 1e6,
-                         MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"], delta_vs_case_A=r["delta_vs_case_A"],
-                         price_status="ILLUSTRATIVE (not a demonstrated selling price)" if price else "-"))
     return rows
 
 
@@ -893,7 +871,6 @@ def build_att_documentation():
     base, lca_overrides = scen.tea_config(spec), scen.lca_overrides(spec)
 
     # TEA: the CaCO3-treatment cases, then the ATT S1 TEA (scenarios.tea_config).
-    caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
     offgas = tea_mod.get_att_offgas_cases(sys, estimates, base)
     result = tea_mod.evaluate_att_tea(sys, estimates, **base)
@@ -978,9 +955,8 @@ def build_att_documentation():
         "18_TEA_CAPEX": capex,
         "19_TEA_OPEX_ATT_S1": opex,
         "20_Financial_Assumptions": _financial(result),
-        "21_MSP_and_CaCO3_Cases": [dict(case=f"{spec['short']} (waste lime, CaCO3 cakes disposed)",
+        "21_MSP_and_CaCO3_Cases": [dict(case=f"{spec['short']} (waste lime, CaCO3 sold as in tea.yaml caco3_sales)",
                                         MSP_USD_per_kg_H2=result["msp"])],
-        "21b_CaCO3_Case_Detail": _caco3_detail(sys, caco3),
         "21c_MSP_Breakdown": tea_mod._opex_table(sys, result),
         "22_TEA_Sensitivities": tea_sens,
         "23_Master_Assumptions": master,
@@ -1005,7 +981,7 @@ def build_att_documentation():
              "10_Unit_Energy_Balance", "11_Energy_Accounts", "12_Utilities_Energy_Totals",
              "13_Heat_Exchanger_Network", "14_LCA_EF_Register", "15_LCA_Contributions", "16_LCA_by_Unit_and_Stage",
              "17_LCA_Scenarios", "18_TEA_CAPEX", "19_TEA_OPEX_ATT_S1",
-             "20_Financial_Assumptions", "21_MSP_and_CaCO3_Cases", "21b_CaCO3_Case_Detail", "21c_MSP_Breakdown",
+             "20_Financial_Assumptions", "21_MSP_and_CaCO3_Cases", "21c_MSP_Breakdown",
              "22_TEA_Sensitivities", "22b_Cost_Year", "23_Master_Assumptions", "24_Limitations_Gaps",
              "25_YAML_Config_Register", "26_QC_Checks"]
     return {k: tables[k] for k in order}
@@ -1260,11 +1236,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
              TEA_or_model=float("nan"), LCA_or_reference=float("nan"), status="BY DESIGN (no double count)"),
         dict(check="Cooling: TEA cooling-water price; LCA cooling-tower electricity",
              TEA_or_model=float("nan"), LCA_or_reference=float("nan"), status="BY DESIGN (no double count)"),
-        dict(check="CaCO3: TEA Case B revenue does not imply an LCA credit; LCA baseline has no CaCO3 credit",
+        dict(check="CaCO3: TEA sales revenue does not imply an LCA substitution credit; the LCA baseline has none",
              TEA_or_model=float("nan"), LCA_or_reference=float("nan"), status="BY DESIGN"),
-        dict(check="CaCO3 cake: TEA Case A disposes the cake; LCA baseline treats it as a coproduct without "
-                   "burden. Case-A-consistent LCA adds cake landfill (see GWP sheet)",
-             TEA_or_model=float("nan"), LCA_or_reference=float("nan"), status="FLAGGED, quantified"),
         dict(check="tea.yaml sargassum scenarios mid_cost_collect = high_cost_collect = 0.05 USD/kg while the "
                    "range reaches 0.10 (existing SaBRe data; not changed)",
              TEA_or_model=float("nan"), LCA_or_reference=float("nan"), status="FLAGGED"),
@@ -1326,7 +1299,6 @@ def build_att_consolidated_results():
     sys = tea_mod.create_att_tea_system()
     estimates = inv.get_att_cost_estimates(sys)
     # CaCO3-treatment cases (Case A/B) at the S1 capacity and basis.
-    caco3 = tea_mod.get_att_caco3_cases(sys, estimates)
     # ATT S1 TEA (scenarios.tea_config) and LCA (scenarios.lca_overrides) on the same system.
     sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
     result = tea_mod.evaluate_att_tea(sys, estimates, **base)
@@ -1348,11 +1320,6 @@ def build_att_consolidated_results():
     label = f"{spec['short']}: {spec['lime']} lime, " + (f"CaCO3 sold at {price:g} USD/t" if base["caco3_sales"]
                                                           else "CaCO3 cakes disposed")
     msp_rows = [dict(case=label, lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=result["msp"])]
-    msp_rows += [dict(case=r["case"] if r["case"].startswith("Case A") else
-                      f"{r['case']} | {r['CaCO3_price_usd_per_t']} USD/t, handling "
-                      f"{r['handling_usd_per_t']} USD/t, marketable {r['marketable_fraction']}",
-                      lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=r["MSP_USD_per_kg_H2"])
-                 for r in caco3]
     consistency = _consistency(sys, estimates, result, contributions, utilities)
     consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2) + _process_check_rows(sys)
     sens = ([dict(analysis="TEA (MSP USD/kg H2)", case=r["case"], value=r["MSP_USD_per_kg_H2"], delta=r["delta"])
@@ -1388,8 +1355,8 @@ def _assumptions_table():
         ("ENGINEERING", "Filter cakes, recycle, C1", "F1 30 %, F2 25 % moisture; 95 % recycle; C1 88 %, lime 1.1x",
          "att.yaml"),
         ("ENGINEERING", "Heat supply", "U2 burner 0.90; steam boiler 0.80; 5 % heat loss", "workbook / BioSTEAM"),
-        ("ENGINEERING", "Cake disposal (Case A)", "0.04 USD/kg wet", "tea.yaml disposal_solid (assumed)"),
-        ("ILLUSTRATIVE", "CaCO3 price", "250 USD/t (optimistic) / 50 USD/t (low)", "not a demonstrated price"),
+        ("ENGINEERING", "Cake disposal (non-CaCO3 mass of the sold cakes)", "0.04 USD/kg wet", "tea.yaml disposal_solid (assumed)"),
+        ("ILLUSTRATIVE", "CaCO3 price", "100 USD/t (baseline assumption)", "not a demonstrated price"),
         ("FINANCIAL", "SaBReTEA", "IRR 10 %, 20 yr, MACRS7, 21 % tax, FOC 4 % FCI, FCI = installed cost",
          "tea.yaml"),
         ("COST YEAR", "Equipment / prices", "CEPCI 567.5 (2017) / 2024-2025 prices", "see att_tea 10_cost_year"),

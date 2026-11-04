@@ -98,7 +98,6 @@ def tea_config(spec=ATT_S1, caco3_price=None):
         sales["price_usd_per_metric_ton"] = float(caco3_price)
     sell = bool(sales.pop("enabled"))
     return dict(price_overrides={"CaOH2": 0.0} if spec["lime"] == "waste" else None,
-                caco3=dict(fraction=0.0),
                 caco3_sales=sales if sell else None)
 
 

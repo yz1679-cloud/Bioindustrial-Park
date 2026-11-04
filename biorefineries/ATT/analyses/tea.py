@@ -43,8 +43,6 @@ __all__ = (
     "create_att_tea_system",
     "evaluate_att_tea",
     "get_att_tea_sensitivity",
-    "caco3_cake_price",
-    "get_att_caco3_cases",
     "get_att_offgas_cases",
     "get_att_cost_year_comparison",
     "export_att_tea",
@@ -92,18 +90,6 @@ def _prices(overrides=None):
     return p
 
 
-def caco3_cake_price(sys, fraction=0.0, price_usd_per_t=0.0, handling_usd_per_t=0.0, dispose_unsold=True):
-    """
-    Effective price of the wet CaCO3 cake [USD/kg wet cake]: the sold share
-    earns (price - handling) on its CaCO3 content only; the unsold share is
-    disposed at tea.yaml disposal_solid (dispose_unsold) or carries no cost.
-    """
-    cake = inv._streams(sys)["caco3_cake"]
-    w = float(cake.imass["CaCO3"]) / float(cake.F_mass)
-    disposal = float(_PRICE["disposal_solid"]["value"]) if dispose_unsold else 0.0
-    return fraction * w * (price_usd_per_t - handling_usd_per_t) / 1e3 + (1.0 - fraction) * disposal
-
-
 def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0, streams=("caco3_cake",),
                            disposal_of_sold_caco3=False, dispose_non_caco3_mass=True, **_):
     """
@@ -136,7 +122,7 @@ def caco3_sales_accounting(sys, price_usd_per_metric_ton, saleable_fraction=1.0,
     return out
 
 
-def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
+def _apply_prices(sys, p, offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None):
     s = inv._streams(sys)
     s["att_sargassum_feed"].price = (float(_PRICE["sargassum"]["value"]) if feedstock_usd_per_wet_t is None
                                      else float(feedstock_usd_per_wet_t) / 1e3)
@@ -165,7 +151,7 @@ def _apply_prices(sys, p, cake_price=None, offgas_usd_per_t=0.0, feedstock_usd_p
     residue_sale = _T.get("residue_sale", {})
     if residue_sale.get("enabled", False) and "F1R" in inv._units(sys) and "ash_residue_cake" in s:
         s["ash_residue_cake"].price = float(residue_sale["net_price_usd_per_kg_wet"])     # the washed residue pays its disposal
-    s["caco3_cake"].price = float(_T["prices"]["CaCO3_cake"]) if cake_price is None else float(cake_price)
+    s["caco3_cake"].price = float(_PRICE["disposal_solid"]["value"])      # disposed whole unless caco3_sales sells its CaCO3
     if "u3_tail_gas" in s:
         s["u3_tail_gas"].price = float(_T["prices"]["offgas"]) - float(offgas_usd_per_t) / 1e3
     s[_T["product"]].price = 0.0
@@ -212,18 +198,17 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0):
 
 
 def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
-                     fci_factor=1.0, caco3=_S1_BASELINE,
+                     fci_factor=1.0,
                      offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=_S1_BASELINE,
                      operating_hours=None, extra_capital=(), extra_voc=(), foc_frac_of_fci=None, foc_fixed=0.0):
     """
     Build the TEA for one case and solve the H2 MSP with SaBReTEA's DCF.
 
-    price_overrides, caco3, caco3_sales: left out, they take the ATT S1 treatment of ``scenarios.tea_config``
+    price_overrides, caco3_sales: left out, they take the ATT S1 treatment of ``scenarios.tea_config``
     (waste lime at 0 USD/kg, the CaCO3 cakes sold, the rest disposed). price_overrides: prices [USD/kg] that replace
-    those of tea.yaml (None: none). caco3: None keeps the cake neither sold nor costed; otherwise keyword arguments
-    of caco3_cake_price (Case A: fraction 0). caco3_sales: None, or the keyword arguments of caco3_sales_accounting
-    (tea.yaml caco3_sales): CaCO3 component sold, the rest of each listed cake disposed; it sets the price of those
-    streams (after ``caco3``).
+    those of tea.yaml (None: none). caco3_sales: None (the whole cake is disposed), or the keyword arguments of
+    caco3_sales_accounting (tea.yaml caco3_sales): CaCO3 component sold, the rest of each listed cake disposed; it sets
+    the price of those streams.
     feedstock_usd_per_wet_t: delivered Sargassum cost (collection and
     transport); None uses tea.yaml prices.sargassum.value (0).
     ATT S2 (marine) hooks, all neutral by default: operating_hours (None:
@@ -231,18 +216,16 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
     AFTER fci_factor (not multiplied); extra_voc [(name, USD/yr)];
     foc_frac_of_fci (None: tea.yaml) and foc_fixed [USD/yr] for FOC.
     """
-    if _S1_BASELINE in (price_overrides, caco3, caco3_sales):
+    if _S1_BASELINE in (price_overrides, caco3_sales):
         s1 = scen.tea_config(scen.ATT_S1)
         price_overrides = s1["price_overrides"] if price_overrides is _S1_BASELINE else price_overrides
-        caco3 = s1["caco3"] if caco3 is _S1_BASELINE else caco3
         caco3_sales = s1["caco3_sales"] if caco3_sales is _S1_BASELINE else caco3_sales
     if estimates is None:
         estimates = inv.get_att_cost_estimates(sys)
     hours = OPERATING_DAYS_PER_YEAR * 24.0 if operating_hours is None else float(operating_hours)
     sys.operating_hours = hours
     p = _prices(price_overrides)
-    cake_price = None if caco3 is None else caco3_cake_price(sys, **caco3)
-    _apply_prices(sys, p, cake_price, offgas_usd_per_t, feedstock_usd_per_wet_t)
+    _apply_prices(sys, p, offgas_usd_per_t, feedstock_usd_per_wet_t)
     sales = {} if caco3_sales is None else caco3_sales_accounting(sys, **caco3_sales)
     for ID, r in sales.items():
         inv._streams(sys)[ID].price = r["price_usd_per_kg"]
@@ -272,7 +255,7 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
     msp = gas_msp * float(product.F_mass) / float(product.imass["H2"])
     product.price = gas_msp
     return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates,
-                caco3=caco3, caco3_sales=sales)
+                caco3_sales=sales)
 
 
 # ---------------------------------------------------------------------------
@@ -405,48 +388,6 @@ def _msp(sys, estimates, base=None, **kw):
     return evaluate_att_tea(sys, estimates, **_with(base, **kw))["msp"]
 
 
-CASE_BASIS = ("waste lime (ATT S1), F2 cake only, single-stream CaCO3 treatment (evaluate_att_tea caco3=); "
-              "not the tea.yaml caco3_sales option")
-
-
-def get_att_caco3_cases(sys, estimates):
-    """
-    Case A (no CaCO3 sales, whole F2 cake disposed) and Case B (marketable fraction x price x handling) on the ATT S1
-    basis (waste lime). The ATT S1 TEA is applied again at the end.
-    """
-    c = _T["caco3_coproduct"]
-    s = inv._streams(sys)
-    dry = inv._dry_feed_kgph(sys)
-    hours = sys.operating_hours
-    caco3_kgph = float(s["caco3_cake"].imass["CaCO3"])
-    po = {"CaOH2": 0.0}                     # waste lime (scenarios.tea_config)
-    rows = []
-    case_a = _msp(sys, estimates, price_overrides=po, caco3=dict(fraction=0.0), caco3_sales=None)
-    rows.append(dict(case="Case A: no CaCO3 sales, whole cake disposed",
-                     CaCO3_price_usd_per_t=float("nan"), handling_usd_per_t=float("nan"),
-                     marketable_fraction=0.0, CaCO3_sold_t_per_yr=0.0, MSP_USD_per_kg_H2=case_a,
-                     delta_vs_case_A=0.0))
-    for price in c["price_usd_per_t_CaCO3"]:
-        for handling in c["handling_usd_per_t_CaCO3"]:
-            for f in c["marketable_fractions"]:
-                if f == 0.0:
-                    continue
-                msp = _msp(sys, estimates, price_overrides=po, caco3_sales=None,
-                           caco3=dict(fraction=f, price_usd_per_t=price, handling_usd_per_t=handling))
-                label = ("Case B optimistic potential" if (price == max(c["price_usd_per_t_CaCO3"])
-                                                           and handling == 0.0 and f == 1.0) else "Case B")
-                rows.append(dict(case=label, CaCO3_price_usd_per_t=price,
-                                 handling_usd_per_t=handling, marketable_fraction=f,
-                                 CaCO3_sold_t_per_yr=f * caco3_kgph * hours / 1e3,
-                                 MSP_USD_per_kg_H2=msp, delta_vs_case_A=msp - case_a))
-    _msp(sys, estimates)  # restore the ATT S1 prices
-    for r in rows:
-        r["CaCO3_equivalent_kg_per_kg_dry"] = caco3_kgph / dry
-        r["wet_cake_kg_per_kg_dry"] = float(s["caco3_cake"].F_mass) / dry
-        r["basis"] = CASE_BASIS
-    return rows
-
-
 def get_att_offgas_cases(sys, estimates, base=None):
     tail = inv._tail_gas(sys)
     dry = inv._dry_feed_kgph(sys)
@@ -513,8 +454,7 @@ def _checks(sys, result, fingerprint, scenario="att_s1"):
         cake_expected = sum(r["revenue_usd_ph"] - r["disposal_usd_ph"] for r in sales.values())
     else:
         cake_value = s["caco3_cake"].price
-        cake_expected = (float(_T["prices"]["CaCO3_cake"]) if result.get("caco3") is None
-                         else caco3_cake_price(sys, **result["caco3"]))
+        cake_expected = float(_PRICE["disposal_solid"]["value"])
     hours = sys.operating_hours
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     fuel = sum(hu.duty for hu in gas) / 1e3 / _BURNER_EFFICIENCY * hours
@@ -621,20 +561,9 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
                     float(sum(ID in s and s[ID] in sys.products for ID in (base["caco3_sales"] or {}).get("streams", ())))),
                )]
     tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, estimates, base)
-    caco3 = get_att_caco3_cases(sys, estimates)
-    tables["06_caco3_cases"] = caco3
     tables["09_offgas_handling"] = get_att_offgas_cases(sys, estimates, base)
     tables["10_cost_year_comparison"] = get_att_cost_year_comparison(sys, base)
     tables["11_limitations"] = [dict(limitation=x) for x in _T["limitations"]]
-    # CaCO3-treatment headline cases (waste lime, single-stream mechanism), after the scenario rows.
-    pick = {(r["case"], r["CaCO3_price_usd_per_t"], r["handling_usd_per_t"],
-             r["marketable_fraction"]): r["MSP_USD_per_kg_H2"] for r in caco3}
-    cases = [("MSP Case A (waste lime, no CaCO3 sales, F2 cake disposed at tea.yaml price)",
-              next(r["MSP_USD_per_kg_H2"] for r in caco3 if r["case"].startswith("Case A")))]
-    for f in _T["caco3_coproduct"]["marketable_fractions"][1:]:
-        cases.append((f"MSP Case B: {f:.0%} marketable, 250 USD/t, no handling cost",
-                      pick[("Case B optimistic potential" if f == 1.0 else "Case B", 250.0, 0.0, f)]))
-    tables["00_summary"] += [dict(item=a, value=b, unit=f"USD/kg H2 ({CASE_BASIS})") for a, b in cases]
     _msp(sys, estimates, base)  # leave the scenario TEA applied
     same = _same_flows(sys, fingerprint)
     checks.append(dict(check="Frozen model flows unchanged after all cases (rel. 1e-8)", value=float(same),
