@@ -211,7 +211,7 @@ def get_att_chemical_ledger(sys):
     u = _units(sys)
     recycle = u["EC1"].outs[0]
     to_U2 = u["U2"].ins[0]
-    cake, purge, ash = s["caco3_cake"], s["liquor_purge"], s["ash_residue_cake"]
+    cake, purge, ash = s["caco3_cake"], s["liquor_purge"], s["att_char"]
 
     def na(stream):
         return sum(_NA_FRACTION[k] * float(stream.imass[k]) for k in _NA_FRACTION)
@@ -615,7 +615,7 @@ def get_att_sodium_calcium_ledger(sys):
         ("Loss: Na2CO3 in CaCO3 cake", float(s["caco3_cake"].imass["Na2CO3"])),
         ("Loss: NaOH in liquor purge", float(s["liquor_purge"].imass["NaOH"])),
         ("Loss: Na2CO3 in liquor purge", float(s["liquor_purge"].imass["Na2CO3"])),
-        ("Loss: Na2CO3 in ash/char cake", float(s["ash_residue_cake"].imass["Na2CO3"])),
+        ("Loss: Na2CO3 in ash/char cake", float(s["att_char"].imass["Na2CO3"])),
         ("Ca(OH)2 input", float(s["lime"].imass["CaOH2"])),
         ("C1: CaCO3 formed (coproduct)", float(C1_out.imass["CaCO3"])),
         ("Unreacted Ca(OH)2 in CaCO3 cake", float(s["caco3_cake"].imass["CaOH2"])),

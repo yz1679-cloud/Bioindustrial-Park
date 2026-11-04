@@ -590,7 +590,7 @@ def create_att_system(
     # RS1 - the insoluble char of the water dissolution is att.yaml downstream.char.yield_g_per_g_dry_feed g/g of the dry feed; the rest of the lumped residual carbon of U2
     # is not tracked (att.yaml downstream.char).
     RS1 = ATTResidueSplit(
-        "RS1", ins=RC1 - 0, outs=("char_residue", "untracked_organics"),
+        "RS1", ins=RC1 - 0, outs=("att_residue_to_D1", "untracked_organics"),
         char_yield=float(char_cfg["yield_g_per_g_dry_feed"]),
         dry_feed_kgph=lambda: sum(float(D0.outs[0].imass[ID]) for ID in _SARGASSUM_DRY_IDS),
         char_species=char_cfg["species"])
@@ -855,7 +855,7 @@ def create_att_system(
         "F1",
         ins=D1 - 0,
         outs=(
-            "ash_residue_cake",
+            "att_char",
             "carbonate_solution",
         ),
         split=make_initial_filter_split(
@@ -879,7 +879,7 @@ def create_att_system(
     # combined with the F1 filtrate in MC, so it is causticized and its sodium is recovered. The cake is not dried.
     # --------------------------------------------------------------
     f1_moisture = float(_ATT_DOWNSTREAM["f1_cake_moisture_wt_frac"])
-    F1.outs[0].ID = "f1_unwashed_cake"
+    F1.outs[0].ID = "att_char_unwashed"
     F1.outs[1].ID = "f1_filtrate"
     f1_wash_water = bst.Stream("f1_wash_water", Water=0.0, phase="l", T=float(f1_cfg["temperature_K"]))
     W1 = bst.MixTank("W1", ins=(F1 - 0, f1_wash_water, condensate_to_f1_wash),
@@ -897,7 +897,7 @@ def create_att_system(
         f1_wash_water.T = float(f1_cfg["temperature_K"])
 
     F1R = bst.PressureFilter(
-        "F1R", ins=W1 - 0, outs=("ash_residue_cake", "f1_wash_liquor"),
+        "F1R", ins=W1 - 0, outs=("att_char", "f1_wash_liquor"),
         split={ID: 0.0 if ID in mother_liquor_IDs else 1.0 for ID in F1.outs[0].chemicals.IDs},
         moisture_content=f1_moisture)
     add_mother_liquor_entrainment_spec(F1R, f1_moisture, solids_recovery=1.0)
@@ -908,16 +908,16 @@ def create_att_system(
     # the roast of the leached char and the oxalate into the REE product; the spent leachate goes to the dissolver D1.
     LC1 = RO1 = None
     if use_ree:
-        char_cake = F1R.outs[0]
-        char_cake.ID = "char_cake"          # internal; the leached char leaves LC1 as ash_residue_cake (the residue product)
+        att_char_unleached = F1R.outs[0]
+        att_char_unleached.ID = "att_char_unleached"          # internal; the leached char leaves LC1 as att_char (the residue product)
         keys = ("hcl_mol_per_kg_char", "leach_liquor_kg_per_kg_char", "oxalic_mol_per_kg_char", "oxalate_solution_kg_per_kg_char",
                 "cake_moisture_wt_frac", "leach_tau_h", "oxalate_tau_h", "wastewater_TREE_mg_per_L", "seaweed_dose_g_per_L",
                 "overall_recovery", "product_REO_wt_frac", "REO_per_TREE", "REE_molar_mass", "oxalate_per_REE",
                 "scale_reagents_with_REE", "hcl_mol_per_mol_REE", "reagent_excess", "precipitate_wash_efficiency")
         LC1 = ATTReeLeach(
-            "LC1", ins=(char_cake, bst.Stream("fresh_hcl"), bst.Stream("fresh_oxalic_acid"), bst.Stream("leach_water"),
+            "LC1", ins=(att_char_unleached, bst.Stream("fresh_hcl"), bst.Stream("fresh_oxalic_acid"), bst.Stream("leach_water"),
                         bst.Stream("leachate_naoh"), condensate_to_leach),
-            outs=("roaster_feed", spent_leachate, "ash_residue_cake", "leach_co2"),
+            outs=("roaster_feed", spent_leachate, "att_char", "leach_co2"),
             dry_feed_kgph=lambda: sum(float(D0.outs[0].imass[ID]) for ID in _SARGASSUM_DRY_IDS), **{k: float(ree_cfg[k]) for k in keys})
         RO1 = ATTReeRoaster(
             "RO1", ins=(LC1 - 0, bst.Stream("roaster_air")), outs=("ree_product", "roaster_exhaust"),

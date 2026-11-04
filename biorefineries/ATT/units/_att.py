@@ -437,7 +437,7 @@ class ATTReeLeach(bst.Unit):
     of seaweed, ``wastewater_TREE_mg_per_L`` / ``seaweed_dose_g_per_L``), capped by the oxalate stoichiometry (``oxalate_per_REE`` mol of
     oxalate per mol of REE, REE molar mass ``REE_molar_mass``); the oxalate carries ``product_REO_wt_frac`` of REO after the roast,
     the rest being mineral filler taken from the char's Ash (the Ca and Mg balance is not tracked: user decision 2026-11-03). The
-    leached char (with the REO that was not recovered) leaves as ``ash_residue_cake``. The HCl is neutralized by the Na2CO3 and
+    leached char (with the REO that was not recovered) leaves as ``att_char``. The HCl is neutralized by the Na2CO3 and
     NaOH of the cake liquor (CO2 leaves as ``leach_co2``), with fresh NaOH for any acid left. Both cakes keep
     ``cake_moisture_wt_frac`` of liquor; the rest is the spent leachate (water, NaCl, KCl, Na2CO3), recycled to the dissolver D1.
     Equipment (BioSTEAM MixTank and PressureFilter) is only for costing.

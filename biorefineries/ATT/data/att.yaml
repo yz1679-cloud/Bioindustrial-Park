@@ -206,7 +206,7 @@ att:
       # solved by U2 from its own C/H/O balance (product water closes H, b
       # closes O), so C, H, O, mass and electrons all close. ATT S1:
       # b ~ 1.195 (CH0.5O1.195, 2.11 available e-/C). Routed with the solids
-      # (U2 residue -> RC1 -> D1 -> F1 -> ash_residue_cake): an assumption,
+      # (U2 residue -> RC1 -> D1 -> F1 -> att_char): an assumption,
       # since part of such oxidized carbon could be soluble. No revenue, no
       # heating-value credit, no carbon-storage credit (att_lca.yaml).
       lumped_residue:
@@ -633,7 +633,7 @@ att:
       h2_product: [output, main_product, "PSA H2 at the PSA feed pressure (2 MPa; the dried gas is compressed in U3K before the PSA)."]
       u3_tail_gas: [output, coproduct_offgas, "PSA off-gas (mainly CH4 and unrecovered H2), assumed collected (100 %) and burned in the U2 burner (natural gas offset, no burner modeled). Earlier note: final fate UNRESOLVED (combustion, utilization or venting not modeled). Not purified; no combustion heat credit; value to be set in TEA."]
       caco3_cake: [output, coproduct, "CaCO3 cake with excess Ca(OH)2 and entrained liquor. Physically accounted; no revenue or displacement credit in the baseline."]
-      ash_residue_cake: [output, solid_waste, "Ash, char and entrained liquor from F1; disposal."]
+      att_char: [output, solid_waste, "ATT char: the insoluble part of the ATT residue (ash minerals, char, CharN/CharS, entrained liquor) after dissolution in D1 and filtration in F1 (and the REE leach); sold at tea.yaml prices.att_char."]
       f2_wash_water: [input, process_water, "Fresh F2 cake wash water; engineering ratio on original dry cake."]
       f1_wash_water: [input, process_water, "Fresh F1 cake wash water (optional F1 wash variant)."]
       f2_wash_liquor: [output, liquid_waste, "F2 wash filtrate: water and dissolved sodium; neutralization and wastewater treatment, no recycle."]
@@ -660,7 +660,7 @@ att:
       leachate_naoh: [input, reagent, "NaOH for the HCl left after the Na2CO3 and NaOH of the cake liquor (normally zero)."]
       roaster_air: [input, ambient_air, "Roaster combustion air; no burden."]
       ree_product: [output, coproduct, "Roasted REE oxalate with mineral filler (1.31 wt % REO), sold on its REO content (tea.yaml prices.REO)."]
-      char_cake: [internal, process, "Washed char cake to the REE leach LC1 (the leached char leaves as ash_residue_cake)."]
+      att_char_unleached: [internal, process, "Washed char cake to the REE leach LC1 (the leached char leaves as att_char)."]
       leach_co2: [output, air_emission, "CO2 of the carbonate that neutralizes the HCl (biogenic)."]
       roaster_exhaust: [output, air_emission, "Roaster exhaust: CO2 (biogenic char carbon and fossil oxalate), water vapor, N2 and O2."]
       roaster_feed: [internal, process, "Leached char and REE oxalate to the roaster RO1."]

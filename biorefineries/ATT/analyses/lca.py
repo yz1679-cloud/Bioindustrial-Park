@@ -430,7 +430,7 @@ def get_att_gwp_summary(sys, applied):
         ("Biogenic C retained in CaCO3 cake", carbon.get("caco3_cake", 0.0), "kg C/kg dry",
          "carbon of the F2 cake (CaCO3, incl. the waste lime's, and Na2CO3); the Sargassum part of the CaCO3 is credited "
          "as stored carbon, sold or landfilled (inherited accounting)"),
-        ("Biogenic C in ash/char cake (landfilled)", carbon.get("ash_residue_cake", 0.0), "kg C/kg dry",
+        ("Biogenic C in ash/char cake (landfilled)", carbon.get("att_char", 0.0), "kg C/kg dry",
          "carbon of the cake (residue and Na2CO3); the residue (provisional U2 residual product: lumped residue; not "
          "measured) is credited, the soluble Na2CO3 is not"),
         ("Stored-carbon credit in the net GWP", get_att_stored_carbon_credit(sys), "kg CO2e/kg H2", _CREDIT_SCOPE),

@@ -171,7 +171,7 @@ def _mass_summary(sys):
     add("Na2CO3 converted in C1", float(C1.ins[0].imass["Na2CO3"] - C1.outs[0].imass["Na2CO3"]))
     add("Ca(OH)2 requirement", float(s["lime"].F_mass))
     add("CaCO3 generated", float(C1.outs[0].imass["CaCO3"]))
-    add("Ash/char filter cake (F1)", float(s["ash_residue_cake"].F_mass))
+    add("Ash/char filter cake (F1)", float(s["att_char"].F_mass))
     add("CaCO3 filter cake (F2)", float(s["caco3_cake"].F_mass))
     for ID in _LCA["waste_management"]["wastewater_streams"]:
         if ID in s:

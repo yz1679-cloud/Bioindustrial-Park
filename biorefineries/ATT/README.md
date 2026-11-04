@@ -24,7 +24,7 @@ The baseline washes two cakes. F2 (CaCO3): the cake goes to a native MixTank W2 
 wash liquor is recycled to the dissolver D1. F1 (ATT residue): the cake goes to a MixTank W1 and a PressureFilter F1R
 (30 wt % moisture, no dryer), and the wash liquor is combined with the carbonate solution that feeds C1. The wash
 water is the condensate that the dissolver does not need (fresh water only as a top-up); the ratio is 1 kg water/kg dry
-cake in both. The final F1 product is `ash_residue_cake`. Both CaCO3 cakes are then dried to 1 wt % moisture before sale (`downstream.caco3_drying`): the F2
+cake in both. The final F1 product is `att_char`. Both CaCO3 cakes are then dried to 1 wt % moisture before sale (`downstream.caco3_drying`): the F2
 cake in a drum dryer D2 and the scrubber cake in D3, the same dryer type as the feed dryer D0. The sold streams are `caco3_cake`
 and `scrubber_cake` (their undried forms are `caco3_cake_wet` and `scrubber_cake_wet`).
 

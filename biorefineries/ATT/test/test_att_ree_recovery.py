@@ -18,7 +18,7 @@ class TestREERecovery(unittest.TestCase):
 
 
     def test_product_is_60_percent_of_the_wastewater_ree_at_the_target_grade(self):
-        product, residue = self.s["ree_product"], self.s["ash_residue_cake"]
+        product, residue = self.s["ree_product"], self.s["att_char"]
         reo_water = 1.4 / 2.5 * 1e-3 * self.dry * 1.169                                  # 1.4 mg TREE/L at 2.5 g seaweed/L, as REO
         self.assertAlmostEqual(float(product.imass["REO"]), 0.6 * reo_water, places=9)
         self.assertAlmostEqual(float(product.imass["REO"] / product.F_mass), 0.0131, places=6)

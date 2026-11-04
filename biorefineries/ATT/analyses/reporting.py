@@ -496,13 +496,13 @@ def _crystallization_audit(sys):
         ("  of which dissolved", eo_dis, ""),
         ("Na2CO3 in the U2 feed", u2_in, "M1 outlet (M1 merges phases; Na2CO3 mass unchanged)"),
         ("Na2CO3 formed in U2 (NaOH + CO2)", float(U2.outs[1].imass["Na2CO3"]) - u2_in, "U2 residue - U2 feed"),
-        ("Loss: Na2CO3 in ash/char cake (F1)", float(s["ash_residue_cake"].imass["Na2CO3"]), "entrained liquor"),
+        ("Loss: Na2CO3 in ash/char cake (F1)", float(s["att_char"].imass["Na2CO3"]), "entrained liquor"),
         ("Loss: Na2CO3 in CaCO3 cake (F2)", float(s["caco3_cake"].imass["Na2CO3"]), "entrained liquor"),
         ("Loss: Na2CO3 in liquor purge (SP1)", float(s["liquor_purge"].imass["Na2CO3"]),
          "purge is upstream of EC1: dissolved Na2CO3 only, no crystals"),
     ):
         add(S, item, v, "kg/h", basis)
-    losses = sum(float(s[ID].imass["Na2CO3"]) for ID in ("ash_residue_cake", "caco3_cake", "liquor_purge"))
+    losses = sum(float(s[ID].imass["Na2CO3"]) for ID in ("att_char", "caco3_cake", "liquor_purge"))
     add(S, "Recycled / (recycled + lost)", eo_tot / (eo_tot + losses), "-", "Na2CO3 basis", per_kg_dry=False)
 
     # Verification of the per-1-kg/h-dry values and the method.
@@ -531,7 +531,7 @@ def _products(sys):
     s = inv._streams(sys)
     dry = inv._dry_feed_kgph(sys)
     rows = []
-    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "ash_residue_cake", "liquor_purge",
+    for ID in ("h2_product", "u3_tail_gas", "caco3_cake", "att_char", "liquor_purge",
                "excess_condensate", "u3_dryer_removed_water", "dryer_exhaust", "scrubber_cake", "f2_wash_liquor"):
         if ID not in s:
             continue
@@ -1178,7 +1178,7 @@ def _process_and_materials(sys, utilities):
     _row(rows, M, "CaCO3 equivalent in cake", float(cake.imass["CaCO3"]) / dry, "kg/kg dry", f"model (C1 {inv._units(sys)['C1'].conversion:.0%})")
     _row(rows, M, "CaCO3 wet filter cake (impure)", float(cake.F_mass) / dry, "kg/kg dry",
          "incl. Ca(OH)2, NaOH, Na2CO3, 25 % water")
-    _row(rows, M, "Ash/char cake to disposal", float(s["ash_residue_cake"].F_mass) / dry, "kg/kg dry", "")
+    _row(rows, M, "Ash/char cake to disposal", float(s["att_char"].F_mass) / dry, "kg/kg dry", "")
     ww = sum(float(s[ID].F_mass) for ID in lca._LCA["waste_management"]["wastewater_streams"]
              if ID in s and s[ID] in sys.products) / dry
     _row(rows, M, "Wastewater incl. alkaline purge", ww, "kg/kg dry", "")

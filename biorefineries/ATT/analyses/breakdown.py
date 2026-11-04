@@ -54,7 +54,7 @@ COST_TYPES = {
     "Electricity": "Utilities",
     "Neutralization (H2SO4)": "Waste treatment and disposal",
     "Wastewater treatment": "Waste treatment and disposal",
-    "Ash/char cake disposal": "Waste treatment and disposal",
+    "ATT char disposal": "Waste treatment and disposal",
     "Salt cake disposal": "Waste treatment and disposal",
     "CaCO3 cake disposal": "Waste treatment and disposal",
     "CaCO3 byproduct sales": "Coproduct revenue",
@@ -107,7 +107,7 @@ def _cost_group(item, category):
     if item == "Disposal: salt_cake":
         return "Salt cake disposal"
     if item.startswith("Disposal: "):
-        return "Ash/char cake disposal" if item.split(": ")[1] in solid else "Wastewater treatment"
+        return "ATT char disposal" if item.split(": ")[1] in solid else "Wastewater treatment"
     raise KeyError(item)
 
 

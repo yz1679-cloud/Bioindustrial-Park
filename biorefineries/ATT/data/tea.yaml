@@ -70,14 +70,14 @@ prices:   # USD per kg of stream unless noted (per wet kg for the Sargassum feed
     value: 35.0
     range: [2.0, 151.0]
     source: "ASSUMPTION: 35 USD/kg REO (mixed concentrate, >= 92 % TREO, Apr 2026); 2 = light mixed carbonate, 65 = heavy-REE clay basket, 97 = NdPr oxide, 151 = equal-mass 14-REE oxides. A 1.3 wt % TREO solid would not fetch these without a buyer."
-  att_char:              # selling price of the ATT residue (stream ash_residue_cake: the leached char cake, 30 wt % moisture) per kg of WET cake
+  att_char:              # selling price of the ATT residue (stream att_char: the insoluble part of the ATT residue, the leached char cake, 30 wt % moisture) per kg of WET cake
     value: 0.0
     source: "ASSUMPTION (user decision 2026-11-04): the char, after some processing (drying, activation, etc.), is used as a sorbent like biochar, so buyers take it for free (net price 0). No buyer or specification. Positive = revenue; without a buyer the cake would be disposed at disposal_solid (-0.04 USD/kg wet, about +0.094 USD/kg H2 on the S1 MSP). The LCA is unchanged (landfill factor 0; the carbon of the residue stays credited)."
   process_water:
     value: 0.000441
     source: "0.0002 USD/lb (Humbird et al. 2011), biorefineries/lactic and HP process settings"
   wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge, f2_wash_liquor]
-  solid_waste_streams: [ash_residue_cake, scrubber_cake, salt_cake]
+  solid_waste_streams: [att_char, scrubber_cake, salt_cake]
   # Streams priced at disposal_wastewater / disposal_solid above (negative = cost).
   offgas: 0.0              # no sale price; its fuel value is credited as natural gas displaced in the U2 burner (voc item)
   natural_gas_note: "BioSTEAM default natural_gas agent price (USD/kmol CH4) converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (same basis as the LCA)."
