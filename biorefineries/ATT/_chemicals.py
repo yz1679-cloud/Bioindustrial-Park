@@ -119,58 +119,13 @@ def create_chemicals(set_thermo: bool = True, include_att: bool = False):
     # Gases
     CH4 = bst.Chemical("Methane", phase="g")
     CO2 = bst.Chemical("CarbonDioxide", phase="g")
-    H2S = bst.Chemical("HydrogenSulfide", phase="g")
     Oxygen = bst.Chemical("Oxygen", phase="g")
     Nitrogen = bst.Chemical("Nitrogen", phase="g")
 
-    # VFAs
-    AceticAcid = bst.Chemical("AceticAcid", phase="l")
-    PropionicAcid = bst.Chemical("PropionicAcid", phase="l")
-    ButyricAcid = bst.Chemical("ButyricAcid", phase="l")
-    ValericAcid = bst.Chemical("ValericAcid", phase="l")
-    HexanoicAcid = bst.Chemical("HexanoicAcid", phase="l")
-
-    # VFA fermentation / microbial oil pathway.
-    # MicrobialOil: real properties of triolein (TAG), the standard
-    # microbial/single-cell-oil proxy used across biorefineries.cane,
-    # biorefineries.HP, and biorefineries.OHFA (oleaginous-yeast fermentation
-    # yields are tracked directly as TAG in those biorefineries).
-    MicrobialOil = bst.Chemical("MicrobialOil", search_ID="Triolein")
-    MicrobialOil.Hf = -1776e3
-
-    # CellMass: matches biorefineries.actag's 'Cells' chemical (chemicals.yaml).
-    # Its formula is the generic-yeast composition also used for
-    # biorefineries.cane's 'Yeast' chemical, while its Hf is the same
-    # Humbird et al. 2011 value used for Z_mobilis (-31169.39 cal/mol).
-    CellMass = bst.Chemical("CellMass", search_db=False, default=True, phase="s",
-                             formula="CH1.61O0.56N0.16", Hf=-31169.39 * _cal2joule)
-    CellMass.V.add_model(tmo.functional.rho_to_V(_rho_solids, CellMass.MW), top_priority=True)
-
-    # Conditioner / nutrient additions. Ammonia's
-    # natural phase_ref is gas; forced to liquid since it's dosed as an
-    # aqueous nutrient stream (matches the NH3 handling in
-    # biorefineries.cornstover/cellulosic).
-    Ammonia = bst.Chemical("Ammonia")
-    Ammonia.at_state("l")
-    KH2PO4 = bst.Chemical("KH2PO4")
+    # NaOH is dosed as a dilute solute, so its own volume is treated as negligible (rho = 1e5 kg/m3 proxy),
+    # as biorefineries.cane does for HCl/NaOH.
     NaOH = bst.Chemical("NaOH")
-    MagnesiumSulfate = bst.Chemical("MagnesiumSulfate")
-
-    # These are dosed as dilute solutes in aqueous nutrient streams, so their
-    # own volume is treated as negligible (rho=1e5 kg/m3 proxy), matching
-    # biorefineries.cane's treatment of HCl/NaOH. This also works around
-    # KH2PO4 and MagnesiumSulfate's database liquid-volume correlations
-    # ('NEGLECT_P') raising at ambient T/P.
-    for _nutrient in (NaOH, KH2PO4, MagnesiumSulfate):
-        _nutrient.V.l.add_model(tmo.functional.rho_to_V(1e5, _nutrient.MW), top_priority=True)
-
-    # KH2PO4 and MagnesiumSulfate's database liquid-viscosity correlations
-    # ('NEGLECT_P') are likewise invalid at process T/P.
-    # As dilute solutes, approximate their
-    # solution viscosity contribution with Water's (NaOH's own liquid mu
-    # model is valid, so it's left alone).
-    for _nutrient in (KH2PO4, MagnesiumSulfate):
-        _nutrient.copy_models_from(Water, ["mu"])
+    NaOH.V.l.add_model(tmo.functional.rho_to_V(1e5, NaOH.MW), top_priority=True)
 
     # ATT-only chemicals (include_att), listed below at the same positions
     # as in the ATT model.
@@ -198,8 +153,6 @@ def create_chemicals(set_thermo: bool = True, include_att: bool = False):
         ResidueCHO = _structural_solid("ResidueCHO", "CH0.5O2",
                                        char_Hf_from_HHV({"C": 1, "H": 0.5, "O": 2}) / _cal2joule, Cp=1.0, rho=1500)
         CO = bst.Chemical("CO", search_ID="CarbonMonoxide", phase="g")
-        C2H4 = bst.Chemical("C2H4", search_ID="Ethylene", phase="g")
-        C2H6 = bst.Chemical("C2H6", search_ID="Ethane", phase="g")
         H2 = bst.Chemical("H2", search_ID="Hydrogen", phase="g")
         Na2CO3 = bst.Chemical("Na2CO3", search_ID="SodiumCarbonate")
         CaOH2 = bst.Chemical("CaOH2", search_ID="CalciumHydroxide", phase="s")
@@ -219,7 +172,7 @@ def create_chemicals(set_thermo: bool = True, include_att: bool = False):
         OxalicAcid = bst.Chemical("OxalicAcid", search_ID="OxalicAcid", phase="s")
         for _salt in (Na2CO3, NaCl, KCl, HCl):
             _salt.V.l.add_model(tmo.functional.rho_to_V(1e5, _salt.MW), top_priority=True)
-        att_char, att_gases, att_hydrogen = (Char, CharN, CharS, ResidueCH, ResidueCHO), (CO, C2H4, C2H6), (H2,)
+        att_char, att_gases, att_hydrogen = (Char, CharN, CharS, ResidueCH, ResidueCHO), (CO,), (H2,)
         att_salts = (Na2CO3, CaOH2, CaCO3, BurntLime, LimeInerts, NaCl, KCl, REO, HCl, OxalicAcid)
 
     chems = bst.Chemicals([
@@ -227,10 +180,8 @@ def create_chemicals(set_thermo: bool = True, include_att: bool = False):
         Ash, Protein, Lignin, Glucan, Xylan, Mannan, Galactan, Arabinan,
         Alginate, Fucoidan, Mannitol, OtherSolids,
         *att_char,
-        CH4, CO2, *att_gases, H2S, *att_hydrogen, Oxygen, Nitrogen,
-        AceticAcid, PropionicAcid, ButyricAcid, ValericAcid, HexanoicAcid,
-        MicrobialOil, CellMass,
-        Ammonia, KH2PO4, NaOH, *att_salts, MagnesiumSulfate,
+        CH4, CO2, *att_gases, *att_hydrogen, Oxygen, Nitrogen,
+        NaOH, *att_salts,
     ])
     chems.compile()
 
