@@ -607,7 +607,8 @@ class ATTReeLeach(bst.Unit):
     def _init(self, dry_feed_kgph, hcl_mol_per_kg_char=0.5, leach_liquor_kg_per_kg_char=5.0, oxalic_mol_per_kg_char=0.042,
               oxalate_solution_kg_per_kg_char=0.42, cake_moisture_wt_frac=0.30, leach_tau_h=1.0, oxalate_tau_h=0.5,
               wastewater_TREE_mg_per_L=1.4, seaweed_dose_g_per_L=2.5, overall_recovery=0.6, product_REO_wt_frac=0.0131,
-              REO_per_TREE=1.169, REE_molar_mass=149.1, oxalate_per_REE=1.5):
+              REO_per_TREE=1.169, REE_molar_mass=149.1, oxalate_per_REE=1.5, scale_reagents_with_REE=False, hcl_mol_per_mol_REE=3.0,
+              reagent_excess=1.2, precipitate_wash_efficiency=0.0):
         self.dry_feed_kgph = dry_feed_kgph                       # callable: dry seaweed feed [kg/h]
         self.hcl_mol_per_kg_char = float(hcl_mol_per_kg_char)
         self.leach_liquor_kg_per_kg_char = float(leach_liquor_kg_per_kg_char)
@@ -621,6 +622,12 @@ class ATTReeLeach(bst.Unit):
         self.REO_per_TREE = float(REO_per_TREE)
         self.REE_molar_mass = float(REE_molar_mass)
         self.oxalate_per_REE = float(oxalate_per_REE)
+        self.scale_reagents_with_REE = bool(scale_reagents_with_REE)
+        self.hcl_mol_per_mol_REE = float(hcl_mol_per_mol_REE)
+        self.reagent_excess = float(reagent_excess)
+        self.precipitate_wash_efficiency = float(precipitate_wash_efficiency)   # share of the entrained salts washed out of the oxalate cake
+        self._hcl_mol_per_kg_eff = self.hcl_mol_per_kg_char               # doses actually used (per kg of char solids), set in _run
+        self._oxalic_mol_per_kg_eff = self.oxalic_mol_per_kg_char
         _att_add_proxy_exchanger(self, "cooler")
         _att_add_proxy_exchanger(self, "heater")
         for name, cls, kw in (("leach_tank", bst.MixTank, dict(tau=float(leach_tau_h))), ("oxalate_tank", bst.MixTank, dict(tau=float(oxalate_tau_h)))):
@@ -633,7 +640,7 @@ class ATTReeLeach(bst.Unit):
 
     def water_demand_kgph(self, solids_kgph):
         """Water of the leach liquor and of the oxalic acid solution [kg/h] (the HCl solution brings its own)."""
-        hcl_solution = self.hcl_mol_per_kg_char * solids_kgph / 1e3 * 36.46094 / 0.31
+        hcl_solution = self._hcl_mol_per_kg_eff * solids_kgph / 1e3 * 36.46094 / 0.31
         return max(self.leach_liquor_kg_per_kg_char * solids_kgph - hcl_solution, 0.0) + self.oxalate_solution_kg_per_kg_char * solids_kgph
 
     def _run(self):
@@ -642,15 +649,23 @@ class ATTReeLeach(bst.Unit):
         chem = cake.chemicals
         solid_IDs = [c.ID for c in chem if c.ID not in self._DISSOLVED and float(cake.imass[c.ID]) > 0.0]
         solids_kgph = sum(float(cake.imass[ID]) for ID in solid_IDs)
-        # reagents
+        # reagents: the lab doses per kg of char; with scale_reagents_with_REE the stoichiometry of the REE of the char (3 mol HCl per mol REE,
+        # oxalate_per_REE mol oxalate per mol REE, times reagent_excess) is used when it needs more (a char with far more REE than the lab's)
+        n_ree_char = float(cake.imass["REO"]) / self.REO_per_TREE / self.REE_molar_mass         # kmol REE/h in the char
         hcl_kmol = self.hcl_mol_per_kg_char * solids_kgph / 1e3
+        oxalic_kmol = self.oxalic_mol_per_kg_char * solids_kgph / 1e3
+        if self.scale_reagents_with_REE:
+            hcl_kmol = max(hcl_kmol, self.hcl_mol_per_mol_REE * n_ree_char * self.reagent_excess)
+            oxalic_kmol = max(oxalic_kmol, self.oxalate_per_REE * n_ree_char * self.reagent_excess)
+        self._hcl_mol_per_kg_eff = hcl_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.hcl_mol_per_kg_char
+        self._oxalic_mol_per_kg_eff = oxalic_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.oxalic_mol_per_kg_char
         hcl.empty()
         hcl.phase = "l"
         hcl.imol["HCl"] = hcl_kmol
         hcl.imass["Water"] = float(hcl.imass["HCl"]) * (1.0 / 0.31 - 1.0)
         ox.empty()
         ox.phase = "s"
-        ox.imol["OxalicAcid"] = self.oxalic_mol_per_kg_char * solids_kgph / 1e3
+        ox.imol["OxalicAcid"] = oxalic_kmol
         water.empty()
         water.phase = "l"
         makeup = self.water_demand_kgph(solids_kgph) - float(condensate.imass["Water"])
@@ -692,7 +707,7 @@ class ATTReeLeach(bst.Unit):
             filler = max(target_kgph - reo_product - salts, 0.0)
             solids_p = reo_product + filler + float(ox.imass["OxalicAcid"])
             share_p = min(solids_p * w / (1.0 - w) / pool["Water"], 1.0)
-            salts = share_p * sum(pool[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH"))
+            salts = share_p * sum(pool[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH")) * (1.0 - self.precipitate_wash_efficiency)
         ash_char = float(cake.imass["Ash"])
         if filler > ash_char:
             raise ValueError(f"LC1: the mineral filler of the product ({filler:.1f} kg/h) exceeds the Ash of the char ({ash_char:.1f} kg/h)")
@@ -709,10 +724,10 @@ class ATTReeLeach(bst.Unit):
         roast.imol["OxalicAcid"] = float(ox.imol["OxalicAcid"])
         for ID, kgph in residue_solids.items():
             residue.imass[ID] = kgph
-        for ID, kgph in pool.items():
-            roast.imass[ID] = share_p * kgph
+        for ID, kgph in pool.items():       # the washed-out salts of the oxalate cake go to the spent leachate (wash water is not modeled)
+            roast.imass[ID] = share_p * kgph * ((1.0 - self.precipitate_wash_efficiency) if ID in ("NaCl", "KCl", "Na2CO3", "NaOH") else 1.0)
             residue.imass[ID] = share_r * kgph
-            leachate.imass[ID] = (1.0 - share_p - share_r) * kgph
+            leachate.imass[ID] = kgph - float(roast.imass[ID]) - float(residue.imass[ID])
         for s in (roast, leachate, residue):
             s.T, s.P = cake.T, cake.P
 

@@ -98,6 +98,8 @@ def create_att_system(
     ash_salts=None,
     char_yield=None,
     ree_recovery=None,
+    ree_grade=None,
+    ree_params=None,
     liquor_recycle_fraction=None,
     ec1_temperature_K=None,
     heat_exchanger_network=True,
@@ -162,6 +164,12 @@ def create_att_system(
         REO content) and the spent leachate is recycled to the dissolver D1. The seaweed is assumed to carry the REE already
         (att.yaml seaweed_TREE_ppm); the AMD capture section (soak, screen, press) is NOT modeled. Needs the char yield.
         None uses att.yaml downstream.ree_recovery.enabled (default true).
+    ree_grade : float or None
+        REO weight fraction of the roasted REE product (0 < x <= 1); None uses att.yaml downstream.ree_recovery.product_REO_wt_frac.
+        The REO mass of the product does not change, only the mineral filler that dilutes it (sensitivity: analyses/ree_sensitivity.py).
+    ree_params : dict or None
+        Overrides of other att.yaml downstream.ree_recovery keys (e.g. a seaweed soaked in a concentrated REE solution:
+        ``analyses.ree_sensitivity.concentrated_soak_params``). Unknown keys raise.
     liquor_recycle_fraction : float or None
         SP1 whole-liquor recycle fraction. None uses att.yaml.
     ec1_temperature_K : float or None
@@ -283,7 +291,15 @@ def create_att_system(
     char_cfg = _ATT_DOWNSTREAM.get("char", {})
     char_yield_gg = (float(char_cfg["yield_g_per_g_dry_feed"]) if bool(char_cfg.get("enabled", False)) else 0.0) if char_yield is None else float(char_yield)
     use_char = char_yield_gg > 0.0 and configuration != "fresh_sargassum"
-    ree_cfg = _ATT_DOWNSTREAM.get("ree_recovery", {})
+    ree_cfg = dict(_ATT_DOWNSTREAM.get("ree_recovery", {}))
+    if ree_grade is not None:
+        if not 0.0 < float(ree_grade) <= 1.0:
+            raise ValueError("ree_grade must be in (0, 1]")
+        ree_cfg["product_REO_wt_frac"] = float(ree_grade)
+    for k, v in (ree_params or {}).items():
+        if k not in ree_cfg:
+            raise KeyError(f"unknown ree_recovery parameter {k!r}")
+        ree_cfg[k] = v
     use_ree = (bool(ree_cfg.get("enabled", False)) if ree_recovery is None else bool(ree_recovery)) and configuration != "fresh_sargassum"
     if use_ree and not use_char:
         raise ValueError("the REE recovery needs the char yield (downstream.char)")
@@ -1079,7 +1095,8 @@ def create_att_system(
         char_cake.ID = "char_cake"          # internal; the leached char leaves LC1 as ash_residue_cake (the residue product)
         keys = ("hcl_mol_per_kg_char", "leach_liquor_kg_per_kg_char", "oxalic_mol_per_kg_char", "oxalate_solution_kg_per_kg_char",
                 "cake_moisture_wt_frac", "leach_tau_h", "oxalate_tau_h", "wastewater_TREE_mg_per_L", "seaweed_dose_g_per_L",
-                "overall_recovery", "product_REO_wt_frac", "REO_per_TREE", "REE_molar_mass", "oxalate_per_REE")
+                "overall_recovery", "product_REO_wt_frac", "REO_per_TREE", "REE_molar_mass", "oxalate_per_REE",
+                "scale_reagents_with_REE", "hcl_mol_per_mol_REE", "reagent_excess", "precipitate_wash_efficiency")
         LC1 = ATTReeLeach(
             "LC1", ins=(char_cake, bst.Stream("fresh_hcl"), bst.Stream("fresh_oxalic_acid"), bst.Stream("leach_water"),
                         bst.Stream("leachate_naoh"), condensate_to_leach),

@@ -205,6 +205,27 @@ The MSP falls by 0.0053 USD/kg H2 per USD/kg REO. REE recovery is better than no
 (S1) and **27.9 USD/kg REO** (S2 Mode A, all WHR; the 1.25 capex factor makes the added equipment dearer). A 1.3 wt % REO
 solid would not fetch these prices without a buyer and a grade that suits a refiner.
 
+**REO grade sensitivity (the collaborators' 98 wt % case).** If the seaweed is soaked in a concentrated REE solution, the
+product can reach 98 wt % REO (their 0.01 M Nd run gave 98.8 % Nd2O3). The sensitivity (`analyses/ree_sensitivity.py`,
+`results/tables/att_ree_grade_sensitivity.csv`) changes **only the grade**: the REO mass of the product stays at 1.98 kg/h
+(60 % of the REE of the dilute wastewater) and the mineral filler that dilutes it shrinks. A larger REE loading of the
+seaweed (more REO per kg of char) is **not** modeled.
+
+| REO grade (wt %) | 1.31 (baseline) | 5 | 20 | 50 | 98 |
+|---|---:|---:|---:|---:|---:|
+| Product (kg/h) | 150.8 | 39.5 | 9.9 | 4.0 | 2.0 |
+| RO1 roaster (MUSD) | 0.367 | 0.166 | 0.078 | 0.053 | 0.042 |
+| LC1 (MUSD) | 0.908 | 0.793 | 0.750 | 0.739 | 0.735 |
+| S1 MSP at 35 USD/kg REO | 1.690 | 1.661 | 1.650 | 1.647 | 1.646 |
+| S2 MSP at 35 USD/kg REO (all WHR) | 1.918 | 1.883 | 1.869 | 1.865 | 1.864 |
+| S1 break-even REO price (USD/kg) | 23.2 | 17.8 | 15.7 | 15.1 | 14.8 |
+| S2 break-even REO price (USD/kg) | 27.9 | 21.4 | 18.8 | 18.0 | 17.8 |
+
+At 98 % the S1 MSP is 0.044 USD/kg H2 below the baseline grade at the same price (the roaster and the oxalate filter shrink; the
+revenue is the same because the product is sold on its REO content). The MSP at 98 % for 65 / 97 / 151 USD/kg REO is
+1.487 / 1.317 / 1.031 (S1) and 1.705 / 1.535 / 1.249 (S2). Whether a 98 % product would fetch more than the 35 USD/kg of the
+mixed concentrate is an assumption, which is why the price is swept.
+
 ## 6. Final MSP comparison (USD/kg H2, 7,920 h/yr)
 
 | Case | H2 (t/yr) | FCI (MUSD) | AOC (MUSD/yr) | MSP | Net GWP (kg CO2e/kg H2) |

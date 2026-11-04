@@ -441,6 +441,24 @@ att:
       product_REO_wt_frac: 0.0131
       REE_molar_mass: 149.1
       oxalate_per_REE: 1.5
+      # Reagent doses of a char far richer in REE than the lab's (a seaweed soaked in a concentrated REE solution): with the switch on, the
+      # HCl (3 mol per mol REE: RE2O3 + 6 HCl) and the oxalic acid (oxalate_per_REE mol per mol REE) follow the REE of the char times
+      # reagent_excess (ASSUMPTION) when that is more than the lab doses per kg of char. Off: the lab doses (baseline).
+      scale_reagents_with_REE: false
+      hcl_mol_per_mol_REE: 3.0
+      reagent_excess: 1.2
+      # Share of the salts entrained in the oxalate cake that a wash removes (the wash water is NOT modeled); 0 in the baseline.
+      precipitate_wash_efficiency: 0.0
+      # COLLABORATORS' DATA (Nd-soaked Sargassum, feedwater DI water + Nd; spreadsheet "Metal Composition of REE and CaCO3"): Nd content of the
+      # seaweed after ATT [wt % of the ATT residue; raw seaweed 0], and the product of the 0.01 M case refined by the oxalic process
+      # (Nd 84.73 wt %, Ca 0.62, K 0.05; purity 98.82 % as Nd2O3; Nd recovery 60.3 % from the feedwater). The basis of the wt % is NOT stated:
+      # the loading per g of dry seaweed assumes the residue is residue_g_per_g_dry_seaweed (ASSUMPTION: the 0.15 g/g char yield; the Ca of
+      # the residue, 20 wt % x 0.15 = 3.0 wt % of the seaweed, matches the raw seaweed's 3.6 % at low Nd). Used by analyses/ree_sensitivity.py.
+      nd_soak_data:
+        Nd_wt_pct_of_ATT_residue: {"100 ppb": 0.045, "0.001 M": 1.002, "0.01 M": 9.986, "0.1 M": 59.746}
+        residue_g_per_g_dry_seaweed: 0.15
+        product_Nd2O3_purity: 0.9882
+        overall_Nd_recovery: 0.603
       hcl_mol_per_kg_char: 0.5
       leach_liquor_kg_per_kg_char: 5.0
       oxalic_mol_per_kg_char: 0.042

@@ -40,7 +40,8 @@ REE recovery (switch `ree_recovery=` in `scenarios.create(...)`, default ON; `re
 leached with 0.1 M HCl (LC1), the REE are precipitated with oxalic acid (the leached char leaves as the residue product), and only the oxalate precipitate is
 roasted at 900 C (RO1) into the `ree_product` (60 % of the REE of the initial wastewater, 1.31 wt % REO, the rest mineral filler), which is sold on its REO content (`att_tea.yaml prices.REO`, default 35 USD/kg REO, an assumption), and the spent leachate goes
 to the dissolver D1 (the surplus condensate is the leach water). The seaweed is assumed to carry 737 ppm TREE already: the AMD capture
-section (soak tank, screen, press) is NOT modeled or costed. S2 inherits it because it is the S1 process.
+section (soak tank, screen, press) is NOT modeled or costed. S2 inherits it because it is the S1 process. `python -m biorefineries.ATT.analyses.ree_sensitivity` sweeps the REO grade of the product (up to the
+collaborators' 98 wt % case, with the REO mass unchanged) and the REO price for S1 and S2 (`ree_grade=` in `scenarios.create`).
 
 Economics (`data/att_tea.yaml`): both (dried) CaCO3 cakes are sold at 100 USD/t of CaCO3 (`caco3_sales`, an **optimistic,
 unverified** price; `build_att_breakdown(..., f2_sales=False)` disposes the F2 cake), and the washed ATT residue is

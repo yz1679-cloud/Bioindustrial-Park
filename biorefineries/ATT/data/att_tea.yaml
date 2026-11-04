@@ -76,13 +76,21 @@ tea:
     sensitivity_prices_usd_per_metric_ton: [0.0, 100.0, 315.0]   # 315: approximate public US industrial reference
     price_note: "100 USD/t baseline assumption; 315 USD/t approximate public US industrial-market reference (not verified for this product); 0 = no-revenue outlet with the same routing (sold CaCO3 taken away at no cost, non-CaCO3 mass still disposed)."
 
-  # ATT RESIDUE (washed F1 cake, 30 wt % moisture): ASSUMED to pay for its own disposal, so its net cost is
+  # ATT RESIDUE (washed F1 cake, or the leached char with REE recovery; 30 wt % moisture): ASSUMED to be taken as a sorbent, so its net cost is
   # net_price_usd_per_kg_wet (user decision 2026-11-02; no buyer or specification: the value to a buyer would have to
   # equal the disposal fee of tea.yaml disposal_solid, 0.04 USD/kg wet). Applies only when the F1 wash is in the flowsheet.
   # The LCA is unchanged (landfill factor 0; the carbon of the residue stays credited).
   residue_sale:
     enabled: true
     net_price_usd_per_kg_wet: 0.0
+
+  # REE PRODUCT GRADE sensitivity (analyses/ree_sensitivity.py). The collaborators' case of a seaweed soaked in a concentrated REE
+  # solution gives a 98 wt % REO product (their 0.01 M Nd run: 98.8 % Nd2O3). ONLY THE GRADE changes: the REO mass of the product
+  # stays at overall_recovery of the REE of the dilute wastewater and the mineral filler shrinks; a larger REE loading of the seaweed
+  # is NOT modeled. The REO price is swept because a 98 % product may sell above the 35 USD/kg of the mixed concentrate.
+  ree_grade_sensitivity:
+    grades_REO_wt_frac: [0.0131, 0.05, 0.20, 0.50, 0.98]
+    prices_usd_per_kg_REO: [65.0, 97.0, 151.0]
 
   # CaCO3-treatment sensitivity table (tea.get_att_caco3_cases; F2 cake only, single-stream mechanism), not the
   # caco3_sales option above. Case B: potential CaCO3 sales (Case A: none). Sold basis is the CaCO3
