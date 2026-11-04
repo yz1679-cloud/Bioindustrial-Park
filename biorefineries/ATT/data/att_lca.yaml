@@ -88,6 +88,8 @@ lca:
     landfill_streams: [att_char, caco3_cake, scrubber_cake, salt_cake]
 
   coproduct:
+    # TODO (user, 2026-11-04): kept on purpose for a possible CaCO3 substitution credit (avoided CaCO3 production for the
+    # sold F2 cake); needs a sourced CaCO3_substitution_CF, and it would overlap the stored-carbon credit of carbon_storage.
     CaCO3_treatment: none            # none | substitution
     CaCO3_substitution_CF: null      # kg CO2e avoided per kg CaCO3 (required for 'substitution')
 

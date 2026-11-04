@@ -50,7 +50,6 @@ __all__ = (
     "get_att_chemical_ledger",
     "get_att_carbon_fate",
     "get_att_unit_energy",
-    "get_att_cost_estimates",
     "get_att_purchased_utilities",
     "get_att_equipment_inventory",
     "get_att_tea_inputs",
@@ -293,15 +292,6 @@ def _scratch_flowsheet():
         bst.main_flowsheet.set_flowsheet(previous)
 
 
-def get_att_cost_estimates(sys):
-    """
-    Equipment costed outside the unit models (TEA only). None remains: the reactor vessel, the C1 tank,
-    the EC1 evaporator, condenser and vacuum system, the PSA (U3P) and the compressor (U3K) are costed
-    inside their units. Kept (empty) for the reports and the TEA that take an ``estimates`` argument.
-    """
-    return []
-
-
 def get_att_tail_gas_offset(sys):
     """
     Natural gas replaced by the PSA tail gas, which is fed to the U2 furnace as fuel (U2 ``ins[1]``; att.yaml
@@ -318,7 +308,7 @@ def get_att_tail_gas_offset(sys):
                 offset_MJph=offset, displaced_fraction=offset / u2_fuel if u2_fuel else 0.0)
 
 
-def get_att_purchased_utilities(sys, cost_estimates=None):
+def get_att_purchased_utilities(sys):
     """Purchased utilities and their primary-energy basis."""
     dry = _dry_feed_kgph(sys)
     hus = [(unit, hu) for unit in sys.units for hu in unit.heat_utilities if abs(hu.duty) > 1e-12]
@@ -337,9 +327,6 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
     offset = get_att_tail_gas_offset(sys)
     modeled_power = sum(unit.power_utility.rate for unit in sys.units)
     cw_power = cw_kmolph * sum(_LCA["cooling_water_kW_per_kmolph"])
-    # Equipment-based estimates exist only where costs were estimated.
-    estimated_power = (sum(r["power_kW"] for r in cost_estimates if r["power_kW"] == r["power_kW"])
-                       if cost_estimates is not None else float("nan"))
     rows = [
         ("U2 natural gas: process heat", sum(hu.unit_duty for hu in ng) / 1e3, "MJ", "simulated"),
         ("U2 natural gas: heat delivered incl. 5 % reactor loss", ng_heat / 1e3, "MJ", "simulated"),
@@ -358,8 +345,7 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
         ("Cooling water: circulation", sum(hu.flow * hu.agent.MW for hu in cw), "kg", "simulated"),
         ("Electricity: modeled units", modeled_power, "kWh", "simulated"),
         ("Electricity: cooling tower and CW pumps (estimate)", cw_power, "kWh", "BioSTEAM CoolingTower correlation"),
-        ("Electricity: agitators and EC1 vacuum (estimate)", estimated_power, "kWh", "cost-estimate units"),
-        ("Electricity: total", modeled_power + cw_power + estimated_power, "kWh", ""),
+        ("Electricity: total", modeled_power + cw_power, "kWh", ""),
         ("Process water (D1)", float(_streams(sys)["dissolution_water"].F_mass), "kg", "simulated"),
     ]
     rows.append(("Process water (F2 washing)", float(_streams(sys)["f2_wash_water"].F_mass),
@@ -376,29 +362,21 @@ def get_att_purchased_utilities(sys, cost_estimates=None):
 _NO_EQUIPMENT = ("Mixer", "Splitter")
 
 
-def get_att_equipment_inventory(sys, cost_estimates):
+def get_att_equipment_inventory(sys):
     rows = []
-    estimated = {r["unit"] for r in cost_estimates}
     for unit in sys.units:
         kind = type(unit).__name__
         if unit.purchase_cost > 0.0:
             status = "BioSTEAM correlation"
             if unit.ID == "U2":
                 status += " (furnace only; vessel estimated separately)"
-        elif kind in _NO_EQUIPMENT and unit.ID not in estimated:
+        elif kind in _NO_EQUIPMENT:
             status = "stream junction, no equipment"
-        elif unit.ID in estimated:
-            status = "no model cost; see estimate rows"
         else:
             status = "MISSING"
         rows.append(dict(unit=unit.ID, item=kind, purchase_cost=unit.purchase_cost,
                          installed_cost=unit.installed_cost, power_kW=unit.power_utility.rate,
                          source=status, method="", note=""))
-    for r in cost_estimates:
-        rows.append(dict(unit=r["unit"], item=r["item"], purchase_cost=r["purchase_cost"],
-                         installed_cost=r["installed_cost"], power_kW=r["power_kW"],
-                         source="ENGINEERING ESTIMATE" if r["method"] != "none" else "MISSING",
-                         method=r["method"], note=f"{r['size']}; {r['note']}"))
     for item, note in (
         ("Feed receiving, conveyors, solids handling", "Not modeled; TEA factor or estimate needed"),
         ("Storage (NaOH, Ca(OH)2, H2 product, off-gas)", "Not modeled"),
@@ -1007,13 +985,12 @@ def build_att_inventory_tables():
 
     scale = scen.scale(scen.ATT_S1)
     ref = scen.create(scen.ATT_S1)
-    estimates = get_att_cost_estimates(ref)
     flows = get_att_external_flows(ref)
     products = get_att_product_scenarios(ref)
     chem = get_att_chemical_ledger(ref)
     carbon = get_att_carbon_fate(ref)
     energy = get_att_unit_energy(ref)
-    utilities = get_att_purchased_utilities(ref, estimates)
+    utilities = get_att_purchased_utilities(ref)
     check = check_att_inventory(ref, flows, utilities)
     dry_t = scale["dry_feed_t_per_year"]
 
@@ -1055,7 +1032,7 @@ def build_att_inventory_tables():
         "05_carbon_fate": carbon,
         "06_unit_energy": energy,
         "07_purchased_utilities": utilities,
-        "10_equipment_inventory": get_att_equipment_inventory(ref, estimates),
+        "10_equipment_inventory": get_att_equipment_inventory(ref),
         "11_tea_inputs": get_att_tea_inputs(scale),
         "12_checks": checks,
         "13_scale_invariance": compare_scale_invariance(small, ref),

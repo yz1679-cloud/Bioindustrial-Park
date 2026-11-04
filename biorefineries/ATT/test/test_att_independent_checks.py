@@ -189,8 +189,7 @@ class TestIndependentDCF(unittest.TestCase):
         warnings.filterwarnings("ignore")
         spec = scen.ALL_SCENARIOS["att_s1"]
         cls.sys = scen.create(spec)
-        cls.estimates = inv.get_att_cost_estimates(cls.sys)
-        cls.result = tea_mod.evaluate_att_tea(cls.sys, cls.estimates, **scen.tea_config(spec, None))
+        cls.result = tea_mod.evaluate_att_tea(cls.sys, **scen.tea_config(spec, None))
         cls.tea = cls.sys.TEA
         cls.h2_kg_yr = float(inv._streams(cls.sys)["h2_product"].imass["H2"]) * cls.sys.operating_hours
 

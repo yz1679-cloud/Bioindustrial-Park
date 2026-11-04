@@ -23,9 +23,8 @@ class TestU2CostSensitivity(unittest.TestCase):
         from biorefineries.ATT.analyses import inventory as inv, scenarios as scen, tea as tea_mod
         spec = scen.ALL_SCENARIOS["att_s1"]
         sys = scen.create(spec)
-        estimates = inv.get_att_cost_estimates(sys)
         config = scen.tea_config(spec, None)
-        base = tea_mod.evaluate_att_tea(sys, estimates, **config)
+        base = tea_mod.evaluate_att_tea(sys, **config)
         tea, msp = base["tea"], base["msp"]
         h2 = float(inv._streams(sys)["h2_product"].imass["H2"]) * sys.operating_hours
         extra = self.row["reactor body x10"]["FCI_MUSD"] * 1e6 - tea.FCI

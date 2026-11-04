@@ -160,28 +160,25 @@ def _ng_usd_per_MJ():
     return agent.regeneration_price / (bst.Chemical("CH4").LHV / 1e3)
 
 
-def _capital_items(sys, estimates, psa_factor=1.0):
+def _capital_items(sys, psa_factor=1.0):
     """Extra installed capital beyond the frozen unit models [USD]."""
     u = inv._units(sys)
-    items = [(f"{r['item']} (estimate)", r["installed_cost"], r["method"])
-             for r in estimates if r["installed_cost"] == r["installed_cost"]]
+    items = []
     if psa_factor != 1.0 and "U3P" in u:
         items.append((f"PSA capital x{psa_factor} (adjustment of the U3P cost)",
                       (psa_factor - 1.0) * u["U3P"].installed_cost, "tea.yaml sensitivities.PSA_capex_factor"))
     return items
 
 
-def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0):
+def _voc_items(sys, p, ng_factor=1.0, elec_factor=1.0):
     """Extra annual operating costs beyond material, utility and disposal prices [USD/yr]."""
     hours = sys.operating_hours
     elec = bst.PowerUtility.price
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     fuel_MJph = sum(hu.duty for hu in gas) / 1e3 / _BURNER_EFFICIENCY
     biosteam_gas_cost = sum(hu.cost for hu in gas)
-    aux_kW = sum(r["power_kW"] for r in estimates if r["power_kW"] == r["power_kW"])
     items = [
         ("Purge neutralization H2SO4", _h2so4_kgph(sys) * p["H2SO4"] * hours),
-        ("Electricity: agitators and EC1 vacuum (estimate)", aux_kW * elec * elec_factor * hours),
         ("Natural gas: price fuel = duty / 0.90 (adjustment to BioSTEAM agent cost)",
          (fuel_MJph * _ng_usd_per_MJ() * ng_factor - biosteam_gas_cost) * hours),
     ]
@@ -195,7 +192,7 @@ def _voc_items(sys, estimates, p, ng_factor=1.0, elec_factor=1.0):
     return items
 
 
-def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
+def evaluate_att_tea(sys, price_overrides=_S1_BASELINE, psa_factor=1.0, ng_factor=1.0, elec_factor=1.0,
                      fci_factor=1.0,
                      offgas_usd_per_t=0.0, feedstock_usd_per_wet_t=None, caco3_sales=_S1_BASELINE,
                      operating_hours=None, extra_capital=(), extra_voc=(), foc_frac_of_fci=None, foc_fixed=0.0):
@@ -218,8 +215,6 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
         s1 = scen.tea_config(scen.ATT_S1)
         price_overrides = s1["price_overrides"] if price_overrides is _S1_BASELINE else price_overrides
         caco3_sales = s1["caco3_sales"] if caco3_sales is _S1_BASELINE else caco3_sales
-    if estimates is None:
-        estimates = inv.get_att_cost_estimates(sys)
     hours = OPERATING_DAYS_PER_YEAR * 24.0 if operating_hours is None else float(operating_hours)
     sys.operating_hours = hours
     p = _prices(price_overrides)
@@ -227,8 +222,8 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
     sales = {} if caco3_sales is None else caco3_sales_accounting(sys, **caco3_sales)
     for ID, r in sales.items():
         inv._streams(sys)[ID].price = r["price_usd_per_kg"]
-    capital = _capital_items(sys, estimates, psa_factor)
-    voc = _voc_items(sys, estimates, p, ng_factor, elec_factor) + list(extra_voc)
+    capital = _capital_items(sys, psa_factor)
+    voc = _voc_items(sys, p, ng_factor, elec_factor) + list(extra_voc)
     installed_units = sum(u.installed_cost for u in sys.units)
     if fci_factor != 1.0:      # itemized so that the capital tables sum to the FCI
         capital.append((f"FCI factor x{fci_factor:g}: adjustment of the process installed capital",
@@ -252,7 +247,7 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
     gas_msp = tea.solve_price(product)
     msp = gas_msp * float(product.F_mass) / float(product.imass["H2"])
     product.price = gas_msp
-    return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p, estimates=estimates,
+    return dict(tea=tea, msp=msp, capital_items=capital, voc_items=voc, prices=p,
                 caco3_sales=sales)
 
 
@@ -263,9 +258,8 @@ def evaluate_att_tea(sys, estimates=None, price_overrides=_S1_BASELINE, psa_fact
 def _capex_table(sys, result):
     tea = result["tea"]
     rows = []
-    estimated = {r["unit"] for r in result["estimates"]}
     for u in sys.units:
-        if u.installed_cost > 0.0 or u.ID in estimated:
+        if u.installed_cost > 0.0:
             warn = ""
             rows.append(dict(item=f"{u.ID} {type(u).__name__}", purchase_cost=u.purchase_cost,
                              installed_cost=u.installed_cost,
@@ -356,11 +350,11 @@ def _with(base, **kw):
     return out
 
 
-def get_att_tea_sensitivity(sys, estimates, base=None):
+def get_att_tea_sensitivity(sys, base=None):
     """One-at-a-time MSP sensitivity (tea.yaml) around ``base`` (scenarios.tea_config; None = the ATT S1 TEA)."""
     sens = _T["sensitivities"]
     base_kw = base
-    base = evaluate_att_tea(sys, estimates, **_with(base_kw))["msp"]
+    base = evaluate_att_tea(sys, **_with(base_kw))["msp"]
     cases = [("Baseline", {})]
     for f in (sens["PSA_capex_factor"] if "U3P" in inv._units(sys) else ()):      # only with a PSA
         cases.append((f"PSA CAPEX x{f}", dict(psa_factor=f)))
@@ -376,23 +370,23 @@ def get_att_tea_sensitivity(sys, estimates, base=None):
         cases.append((f"FCI x{f}", dict(fci_factor=f)))
     rows = []
     for name, kw in cases:
-        msp = evaluate_att_tea(sys, estimates, **_with(base_kw, **kw))["msp"]
+        msp = evaluate_att_tea(sys, **_with(base_kw, **kw))["msp"]
         rows.append(dict(case=name, MSP_USD_per_kg_H2=msp, delta=msp - base))
-    evaluate_att_tea(sys, estimates, **_with(base_kw))  # restore baseline prices
+    evaluate_att_tea(sys, **_with(base_kw))  # restore baseline prices
     return rows
 
 
-def _msp(sys, estimates, base=None, **kw):
-    return evaluate_att_tea(sys, estimates, **_with(base, **kw))["msp"]
+def _msp(sys, base=None, **kw):
+    return evaluate_att_tea(sys, **_with(base, **kw))["msp"]
 
 
-def get_att_offgas_cases(sys, estimates, base=None):
+def get_att_offgas_cases(sys, base=None):
     tail = inv._tail_gas(sys)
     dry = inv._dry_feed_kgph(sys)
     hours = sys.operating_hours
     if not tail.F_mass:      # no PSA, no off-gas
         return [dict(item="Off-gas flow", value=0.0, unit="kg/kg dry (no PSA)",
-                     MSP_USD_per_kg_H2=_msp(sys, estimates, base))]
+                     MSP_USD_per_kg_H2=_msp(sys, base))]
     mol = {ID: float(tail.imol[ID]) for ID in ("H2", "CO2", "CH4", "CO") if tail.imol[ID] > 0}
     total_mol = sum(mol.values())
     rows = [dict(item="Off-gas flow", value=float(tail.F_mass) / dry, unit="kg/kg dry", MSP_USD_per_kg_H2=float("nan")),
@@ -402,14 +396,14 @@ def get_att_offgas_cases(sys, estimates, base=None):
                          MSP_USD_per_kg_H2=float("nan")))
         rows.append(dict(item=f"{ID} in off-gas", value=float(tail.imass[ID]) / float(tail.F_mass),
                          unit="mass fraction", MSP_USD_per_kg_H2=float("nan")))
-    base_msp = _msp(sys, estimates, base)
+    base_msp = _msp(sys, base)
     for cost in _T["offgas_handling_usd_per_t"]:
-        msp = _msp(sys, estimates, base, offgas_usd_per_t=cost)
+        msp = _msp(sys, base, offgas_usd_per_t=cost)
         rows.append(dict(item=f"Handling cost {cost} USD/t off-gas" + (" (reference)" if cost == 0 else " (placeholder)"),
                          value=cost * float(tail.F_mass) / 1e3 * hours / 1e6, unit="MUSD/yr",
                          MSP_USD_per_kg_H2=msp))
     rows.append(dict(item="Note", value=float("nan"), unit=_T["offgas_note"], MSP_USD_per_kg_H2=base_msp))
-    _msp(sys, estimates, base)
+    _msp(sys, base)
     return rows
 
 
@@ -423,8 +417,7 @@ def get_att_cost_year_comparison(sys, base=None):
                           (f"CEPCI {cy['comparison_CE']} (~2024, approximate)", cy["comparison_CE"])):
             bst.CE = CE
             sys.simulate()  # re-costs at this CEPCI (flows reconverge to the same state)
-            est = inv.get_att_cost_estimates(sys)
-            r = evaluate_att_tea(sys, est, **_with(base))
+            r = evaluate_att_tea(sys, **_with(base))
             rows.append(dict(case=label, CE=CE, FCI_MUSD=r["tea"].FCI / 1e6, TCI_MUSD=r["tea"].TCI / 1e6,
                              FOC_MUSD_per_yr=r["tea"].FOC / 1e6, MSP_USD_per_kg_H2=r["msp"],
                              note=cy["reference_note"] if CE == cy["reference_CE"] else cy["comparison_note"]))
@@ -502,8 +495,7 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
     base = scen.tea_config(spec)
     sys = create_att_tea_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
-    estimates = inv.get_att_cost_estimates(sys)
-    result = evaluate_att_tea(sys, estimates, **base)
+    result = evaluate_att_tea(sys, **base)
     scale = scen.scale(spec)
     hours = sys.operating_hours
     h2_yr = float(inv._streams(sys)["h2_product"].imass["H2"]) * hours
@@ -558,11 +550,11 @@ def export_att_tea(out_dir=None, scenario="att_s1"):
                    ("CaCO3 sales streams = tea.yaml caco3_sales (system products)", float(len(sales)),
                     float(sum(ID in s and s[ID] in sys.products for ID in (base["caco3_sales"] or {}).get("streams", ())))),
                )]
-    tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, estimates, base)
-    tables["09_offgas_handling"] = get_att_offgas_cases(sys, estimates, base)
+    tables["04_msp_sensitivity"] = get_att_tea_sensitivity(sys, base)
+    tables["09_offgas_handling"] = get_att_offgas_cases(sys, base)
     tables["10_cost_year_comparison"] = get_att_cost_year_comparison(sys, base)
     tables["11_limitations"] = [dict(limitation=x) for x in _T["limitations"]]
-    _msp(sys, estimates, base)  # leave the scenario TEA applied
+    _msp(sys, base)  # leave the scenario TEA applied
     same = _same_flows(sys, fingerprint)
     checks.append(dict(check="Frozen model flows unchanged after all cases (rel. 1e-8)", value=float(same),
                        expected=1.0, status="PASS" if same else "FAIL"))

@@ -217,8 +217,8 @@ def _energy(sys):
     return rows
 
 
-def _utilities(sys, estimates):
-    rows = inv.get_att_purchased_utilities(sys, estimates)
+def _utilities(sys):
+    rows = inv.get_att_purchased_utilities(sys)
     out = []
     for r in rows:
         unit = r["unit"].replace("/kg dry", "/h")
@@ -395,18 +395,13 @@ def _limitations():
 def build_att_1kgph_audit():
     small, warns = simulate_att_1kgph(1.0)
     fingerprint = [float(x) for st in (*small.feeds, *small.products) for x in st.mass]
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        estimates = inv.get_att_cost_estimates(small)
-    warns += sorted({_clean(f"{w.category.__name__} (cost estimates): {w.message}") for w in caught
-                     if "replaced in registry" not in str(w.message)})
     streams, components = _stream_inventory(small)
     params = [dict(Parameter=r["parameter"], Value=r["value"], Unit=r["unit"], Process_unit=r["process_unit"],
                    Description=r["description"], Source_category=r["source_category"],
                    Source=f"{r['exact_source']} | {r['file_key']}", Status=r["assumption_status"], Notes=r["notes"])
               for r in rep._register_rows()
               if r["section"] in ("Feedstock", "Preparation", "ATT reaction", "Gas treatment", "Downstream", "Energy")]
-    units = rep._units_table(small, [])
+    units = rep._units_table(small)
     for r in units:
         r["note_1kgph"] = "1 kg/h sizes/costs are BioSTEAM minimum-size artifacts; not for TEA"
     tables = {
@@ -429,7 +424,7 @@ def build_att_1kgph_audit():
                              for r in inv.get_att_water_balance(small)],
         "09_Unit_Energy_Balance": _energy(small),
         "09b_Energy_Accounts": _energy_detail(small),
-        "10_Utilities_Fuel": _utilities(small, estimates),
+        "10_Utilities_Fuel": _utilities(small),
         "11_Products_Residues": [dict(r, kg_per_h=r.pop("kg_per_kg_dry")) for r in rep._products(small)],
         "13_Sources": _sources(),
     }
@@ -437,13 +432,6 @@ def build_att_1kgph_audit():
     from biorefineries.ATT.analyses import scenarios as scen
     ref = scen.create(scen.ATT_S1)
     tables["12_Compare_Full_Scale"] = _comparison(small, ref)
-    aux = lambda est, sys: sum(r["power_kW"] for r in est if r["power_kW"] == r["power_kW"]) / inv._dry_feed_kgph(sys)
-    a, b = aux(estimates, small), aux(inv.get_att_cost_estimates(ref), ref)
-    b = b if b else float("nan")   # agitator and vacuum power are inside the unit models now (no TEA estimate)
-    tables["12_Compare_Full_Scale"].insert(-1, dict(
-        parameter="Electricity, agitators + EC1 vacuum (TEA estimates) [kWh/kg dry]", actual_1kgph_simulation=a,
-        full_scale_normalized_per_kg_dry=b, relative_difference=(a - b) / b,
-        explanation="Vacuum-system and tank correlations have minimum sizes (estimate, not a model unit)"))
     checks = _checks(small, warns)
     unchanged = _same_flows(small, fingerprint)
     checks.append(dict(check="1 kg/h flows unchanged after full-scale run", value=str(unchanged),

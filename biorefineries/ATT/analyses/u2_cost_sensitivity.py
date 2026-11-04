@@ -70,7 +70,6 @@ def get_att_u2_cost_sensitivity(case="att_s1"):
     """One row per case: U2 installed cost, FCI, S1 MSP and the change from the baseline MSP."""
     spec = scen.ALL_SCENARIOS[case]
     sys = scen.create(spec)
-    estimates = inv.get_att_cost_estimates(sys)
     config = scen.tea_config(spec, None)
     U2 = inv._units(sys)["U2"]
     furnace = float(U2.installed_costs["Furnace"])
@@ -81,7 +80,7 @@ def get_att_u2_cost_sensitivity(case="att_s1"):
         hours = float(sys.operating_hours)
         capital = [(f"U2 sensitivity: {name}", extra_capital, "u2_sensitivity")] if extra_capital else []
         voc = [(f"U2 sensitivity: {name}, electricity", extra_power_kW * bst.PowerUtility.price * hours)] if extra_power_kW else []
-        result = tea_mod.evaluate_att_tea(sys, estimates, **config, extra_capital=capital, extra_voc=voc)
+        result = tea_mod.evaluate_att_tea(sys, **config, extra_capital=capital, extra_voc=voc)
         rows.append(dict(case=name, U2_installed_MUSD=(furnace + body + extra_capital) / 1e6, extra_power_kW=extra_power_kW, FCI_MUSD=result["tea"].FCI / 1e6,
                          MSP_USD_per_kg_H2=result["msp"], note=note))
 
@@ -96,7 +95,7 @@ def get_att_u2_cost_sensitivity(case="att_s1"):
     base = float(df.loc[df["case"] == "baseline", "MSP_USD_per_kg_H2"].iloc[0])
     df["delta_MSP_USD_per_kg_H2"] = df["MSP_USD_per_kg_H2"] - base
     df["delta_MSP_pct"] = 100.0 * df["delta_MSP_USD_per_kg_H2"] / base
-    tea_mod.evaluate_att_tea(sys, estimates, **config)     # leave the simulated system at its baseline TEA state
+    tea_mod.evaluate_att_tea(sys, **config)     # leave the simulated system at its baseline TEA state
     return df
 
 

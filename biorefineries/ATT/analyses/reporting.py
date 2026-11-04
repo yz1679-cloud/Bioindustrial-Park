@@ -309,7 +309,7 @@ _ATTRS = ("T", "P", "moisture_content", "conversion", "lime_equiv", "target_temp
           "naoh_to_na2co3_conversion", "feed_HHV_MJ_per_kg_daf", "vessel_material", "tau", "V")
 
 
-def _units_table(sys, estimates):
+def _units_table(sys):
     rows = []
     for u in sys.units:
         attrs = {}
@@ -333,18 +333,11 @@ def _units_table(sys, estimates):
             design_results=str(design), parallel_units=str(getattr(u, "parallel", {}) or ""),
             purchase_cost_USD=u.purchase_cost, installed_cost_USD=u.installed_cost,
             cost_correlation=cost_spec or ("BioSTEAM unit _cost" if u.purchase_cost > 0 else
-                                           "no model cost (see TEA-only estimates)"),
+                                           "no model cost"),
             sizing_costing_source="native BioSTEAM" if u.purchase_cost > 0 else
             ("custom estimate (att.yaml inventory.cost_estimates)" if u.ID in ("C1", "EC1") else
              ("preliminary PSA estimate (tea.yaml)" if u.ID == "U3P" else "no equipment (junction)")),
             configuration=cfg, data_origin=ORIGIN_SYS))
-    for r in estimates:
-        rows.append(dict(unit_ID=r["unit"], BioSTEAM_class="TEA-only estimate", function=r["item"],
-                         inlet_streams="", outlet_streams="", outlet0_T_C=float("nan"), outlet0_P_kPa=float("nan"),
-                         key_settings=r["method"], design_results=r["size"], parallel_units="",
-                         purchase_cost_USD=r["purchase_cost"], installed_cost_USD=r["installed_cost"],
-                         cost_correlation=r["method"], sizing_costing_source="custom estimate",
-                         configuration="att.yaml:att.inventory.cost_estimates", data_origin="att.inventory.get_att_cost_estimates"))
     for item, note in (("Pumps and conveyors", "Not modeled as units (not costed separately)"),
                        ("Steam boiler, cooling tower (utility facilities)", "Purchased utilities; no capital in baseline"),
                        ):
@@ -650,7 +643,6 @@ def _lca_register(contributions, applied):
              "Natural gas U2: upstream supply": "2019 report (2016 data)",
              "Natural gas boiler (LP steam): upstream supply": "2019 report (2016 data)",
              "Electricity: process units": "GREET 2022", "Electricity: cooling tower and CW pumps": "Humbird 2011 x GREET 2022",
-             "Electricity: outside unit models (agitators, EC1 vacuum)": "GREET 2022",
              "Process water (D1)": "Zib et al. 2021", "Wastewater treatment": "Zib et al. 2021",
              "Purge neutralization (H2SO4)": "GREET (version not stated in repository)",
              "Landfill: solid residues": "EPA WARM v15, 2019"}
@@ -719,9 +711,8 @@ def _opex_detail(sys, result):
         add(label, kg / dry, "kg", a.regeneration_price / a.MW, "USD/kg", sum(hu.cost for hu in hus) * hours,
             f"BioSTEAM default {agent} price", NV + " (BioSTEAM default)",
             "purchased; includes generation (boiler fuel / tower power not priced again)")
-    aux = next(v for n, v in result["voc_items"] if n.startswith("Electricity: agitators"))
-    add("Electricity (units + auxiliaries)", (sys.power_utility.rate + aux / bst.PowerUtility.price / hours) / dry,
-        "kWh", bst.PowerUtility.price, "USD/kWh", sys.power_utility.cost * hours + aux, "BioSTEAM default PowerUtility.price",
+    add("Electricity (units)", sys.power_utility.rate / dry,
+        "kWh", bst.PowerUtility.price, "USD/kWh", sys.power_utility.cost * hours, "BioSTEAM default PowerUtility.price",
         NV + " (BioSTEAM default)", "purchased")
     h2so4 = lca._h2so4_kgph(sys)
     add("H2SO4 (purge neutralization)", h2so4 / dry, "kg", P["H2SO4"]["value"], "USD/kg",
@@ -760,12 +751,8 @@ def _capex_detail(sys, result):
                                           if ci else "BioSTEAM unit _cost method"),
                              cost_year=f"CEPCI {bst.CE} (BioSTEAM)", source="native BioSTEAM"))
     for name, value, source in result["capital_items"]:
-        purchase = float("nan")
-        est = next((r for r in result["estimates"] if name.startswith(r["item"])), None)
-        if est:
-            purchase = est["purchase_cost"]
-        rows.append(dict(item=name, class_="TEA-only estimate", sizing_basis=est["size"] if est else "",
-                         parallel_units="", purchase_cost_USD=purchase, installed_cost_USD=value, F_BM=float("nan"),
+        rows.append(dict(item=name, class_="TEA-only estimate", sizing_basis="",
+                         parallel_units="", purchase_cost_USD=float("nan"), installed_cost_USD=value, F_BM=float("nan"),
                          F_M=float("nan"), correlation=source, cost_year=f"CEPCI {bst.CE}" if "PSA" not in name
                          else "not verified (anchor)", source="custom estimate"))
     tea = result["tea"]
@@ -864,32 +851,31 @@ def _overview(sys, result, gwp_total, spec=scen.ATT_S1):
 def build_att_documentation():
     sys = tea_mod.create_att_tea_system()
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
-    estimates = inv.get_att_cost_estimates(sys)
-    utilities = inv.get_att_purchased_utilities(sys, estimates)
+    utilities = inv.get_att_purchased_utilities(sys)
     small_checks = inv.check_att_inventory(sys, None, utilities)
     spec = scen.ATT_S1
     base, lca_overrides = scen.tea_config(spec), scen.lca_overrides(spec)
 
     # TEA: the CaCO3-treatment cases, then the ATT S1 TEA (scenarios.tea_config).
-    sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
-    offgas = tea_mod.get_att_offgas_cases(sys, estimates, base)
-    result = tea_mod.evaluate_att_tea(sys, estimates, **base)
+    sens_tea = tea_mod.get_att_tea_sensitivity(sys, base)
+    offgas = tea_mod.get_att_offgas_cases(sys, base)
+    result = tea_mod.evaluate_att_tea(sys, **base)
     opex = _opex_detail(sys, result)
     capex = _capex_detail(sys, result)
     tea_checks = tea_mod._checks(sys, result, fingerprint)
 
     # LCA (existing module on the same system; ATT S1 lime burden).
-    applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
+    applied = lca.apply_att_gwp(sys, overrides=lca_overrides)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     lca_checks = lca.check_att_lca(sys, applied, contributions, utilities)
     stage = lca.get_att_gwp_by_stage(contributions)
     by_unit = lca.get_att_gwp_by_unit(sys, applied)
     summary_lca = lca.get_att_gwp_summary(sys, applied)
     gaps = lca.get_att_lca_data_gaps(sys, applied)
-    sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
-    applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
+    sens_lca = lca.get_att_gwp_sensitivity(sys, lca_overrides)
+    applied = lca.apply_att_gwp(sys, overrides=lca_overrides)
     total = contributions[-1]
-    consistency = _existing_outputs_check(_consistency(sys, estimates, result, contributions, utilities),
+    consistency = _existing_outputs_check(_consistency(sys, result, contributions, utilities),
                                               result["msp"], total["GWP_kgCO2e_per_kg_H2"])
 
     lca_scen = [dict(scenario=r["scenario"], parameter=r["parameter"], value=r["value"],
@@ -929,7 +915,7 @@ def build_att_documentation():
         "00_Overview": _overview(sys, result, total["GWP_kgCO2e_per_kg_H2"], spec),
         "01_Process_Assumptions": process,
         "02_Feedstock_Composition": _feedstock(sys),
-        "03_Equipment_Operating": _units_table(sys, estimates),
+        "03_Equipment_Operating": _units_table(sys),
         "04_Connectivity": _connectivity(sys),
         "05_Stream_Inventory_Long": _streams(sys),
         "06_Mass_Element_Balance": _mass_balance(sys),
@@ -1191,7 +1177,7 @@ def _process_and_materials(sys, utilities):
     return rows
 
 
-def _consistency(sys, estimates, tea_result, contributions, utilities):
+def _consistency(sys, tea_result, contributions, utilities):
     """TEA and LCA use the same activity data (same system, same streams)."""
     s = inv._streams(sys)
     hours = sys.operating_hours
@@ -1202,8 +1188,7 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
     gas = [hu for hu in sys.heat_utilities if hu.agent.ID == "natural_gas"]
     ng_tea_MJ = (sum(hu.cost for hu in gas) * hours
                  + next(v for n, v in tea_result["voc_items"] if n.startswith("Natural"))) / tea_mod._ng_usd_per_MJ()
-    aux = next(v for n, v in tea_result["voc_items"] if n.startswith("Electricity: agitators"))
-    elec_tea_kWh = (sys.power_utility.rate * hours + aux / tea_mod.bst.PowerUtility.price)
+    elec_tea_kWh = sys.power_utility.rate * hours
     checks = [
         ("Operating hours (TEA = LCA)", tea.operating_days * 24, sys.operating_hours),
         ("H2 product for MSP = LCA functional-unit basis [kg/yr]", float(s["h2_product"].imass["H2"]) * hours,
@@ -1217,9 +1202,8 @@ def _consistency(sys, estimates, tea_result, contributions, utilities):
         ("U2 natural gas: TEA priced fuel = LCA fuel + tail gas burned [MJ/kg dry]", ng_tea_MJ / hours / dry,
          c["Natural gas U2: combustion"]["activity_per_kg_dry"] + inv.get_att_tail_gas_offset(sys)["offset_MJph"] / dry),
         ("U2 natural gas = inventory fuel [MJ/kg dry]", ng_tea_MJ / hours / dry, u["U2 natural gas: fuel input (LHV)"]),
-        ("Electricity priced in TEA = LCA unit + auxiliary [kWh/kg dry]", elec_tea_kWh / hours / dry,
-         c["Electricity: process units"]["activity_per_kg_dry"]
-         + c["Electricity: outside unit models (agitators, EC1 vacuum)"]["activity_per_kg_dry"]),
+        ("Electricity priced in TEA = LCA unit electricity [kWh/kg dry]", elec_tea_kWh / hours / dry,
+         c["Electricity: process units"]["activity_per_kg_dry"]),
         ("Wastewater: TEA disposal volume = LCA treatment volume [m3/kg dry]",
          sum(float(s[ID].F_mass) for ID in tea_mod._T["prices"]["wastewater_streams"]
              if ID in s and s[ID] in sys.products) / 1e3 / dry,
@@ -1297,21 +1281,20 @@ def build_att_consolidated_results():
     spec = scen.ATT_S1
     base, lca_overrides = scen.tea_config(spec), scen.lca_overrides(spec)
     sys = tea_mod.create_att_tea_system()
-    estimates = inv.get_att_cost_estimates(sys)
     # CaCO3-treatment cases (Case A/B) at the S1 capacity and basis.
     # ATT S1 TEA (scenarios.tea_config) and LCA (scenarios.lca_overrides) on the same system.
-    sens_tea = tea_mod.get_att_tea_sensitivity(sys, estimates, base)
-    result = tea_mod.evaluate_att_tea(sys, estimates, **base)
+    sens_tea = tea_mod.get_att_tea_sensitivity(sys, base)
+    result = tea_mod.evaluate_att_tea(sys, **base)
     capex = tea_mod._capex_table(sys, result)
     opex = tea_mod._opex_table(sys, result)
-    applied = lca.apply_att_gwp(sys, overrides=lca_overrides, estimates=estimates)
+    applied = lca.apply_att_gwp(sys, overrides=lca_overrides)
     contributions = lca.get_att_gwp_contributions(sys, applied)
     stage = lca.get_att_gwp_by_stage(contributions)
-    sens_lca = lca.get_att_gwp_sensitivity(sys, estimates, lca_overrides)
+    sens_lca = lca.get_att_gwp_sensitivity(sys, lca_overrides)
     total = contributions[-1]
     gwp_h2 = total["GWP_kgCO2e_per_kg_H2"]
     s = inv._streams(sys)
-    utilities = inv.get_att_purchased_utilities(sys, estimates)
+    utilities = inv.get_att_purchased_utilities(sys)
     gwp_rows = [dict(view="by stage", item=r["stage"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
                      GWP_kgCO2e_per_kg_H2=r["GWP_kgCO2e_per_kg_H2"], share=r["share"]) for r in stage]
     gwp_rows += [dict(view="by input", item=r["item"], GWP_kgCO2e_per_kg_dry=r["GWP_kgCO2e_per_kg_dry"],
@@ -1320,7 +1303,7 @@ def build_att_consolidated_results():
     label = f"{spec['short']}: {spec['lime']} lime, " + (f"CaCO3 sold at {price:g} USD/t" if base["caco3_sales"]
                                                           else "CaCO3 cakes disposed")
     msp_rows = [dict(case=label, lime_USD_per_kg=s["lime"].price, MSP_USD_per_kg_H2=result["msp"])]
-    consistency = _consistency(sys, estimates, result, contributions, utilities)
+    consistency = _consistency(sys, result, contributions, utilities)
     consistency = _existing_outputs_check(consistency, result["msp"], gwp_h2) + _process_check_rows(sys)
     sens = ([dict(analysis="TEA (MSP USD/kg H2)", case=r["case"], value=r["MSP_USD_per_kg_H2"], delta=r["delta"])
              for r in sens_tea]

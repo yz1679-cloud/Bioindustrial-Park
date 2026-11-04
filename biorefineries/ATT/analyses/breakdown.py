@@ -241,11 +241,10 @@ def build_att_breakdown(case="att_s1", caco3_price=None, sys=None, tea_kwargs=No
 
 
 def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
-    estimates = inv.get_att_cost_estimates(sys)
     # Lime price and CaCO3 treatment of the scenario (scenarios.tea_config, the single source).
     config = scen.tea_config(spec, caco3_price)
     sales_cfg, sell = config["caco3_sales"], config["caco3_sales"] is not None
-    result = tea_mod.evaluate_att_tea(sys, estimates, **config, **(tea_kwargs or {}))
+    result = tea_mod.evaluate_att_tea(sys, **config, **(tea_kwargs or {}))
     sales = result["caco3_sales"]
     hours_yr = sys.operating_hours
     dcf, h2_kg_yr = _dcf_breakdown(sys, result)
@@ -253,7 +252,7 @@ def _build(case, spec, sys, caco3_price=None, tea_kwargs=None):
     capital_msp = float(msp_group.loc[msp_group["cost_type"] == "CAPEX-related", "USD_per_kg_H2"].sum())
     capex_equipment, capex_area = _capex_tables(sys, result, capital_msp)
     opex = _opex_table(sys, result, h2_kg_yr)
-    applied = lca.apply_att_gwp(sys, estimates=estimates, overrides=scen.lca_overrides(spec))
+    applied = lca.apply_att_gwp(sys, overrides=scen.lca_overrides(spec))
     contributions = lca.get_att_gwp_contributions(sys, applied)
     gwp_item, gwp_stage, gwp_total = _gwp_tables(contributions)
     credit = lca.get_att_avoided_emission(sys)

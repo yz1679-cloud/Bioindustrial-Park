@@ -69,7 +69,6 @@ _STAGES = {
     "Natural gas boiler (LP steam): upstream supply": "Natural gas supply chain",
     "Electricity: process units": "Purchased electricity",
     "Electricity: cooling tower and CW pumps": "Purchased electricity",
-    "Electricity: outside unit models (agitators, EC1 vacuum)": "Purchased electricity",
     "Wastewater treatment": "Waste management",
     "Landfill: solid residues": "Waste management",
     "Biogenic carbon stored in landfilled solids (credit)": "Stored biogenic carbon",
@@ -146,15 +145,11 @@ def _cooling_water_kWh_per_kg():
     return sum(att["inventory"]["lca"]["cooling_water_kW_per_kmolph"]) / _MW["H2O"]
 
 
-def _auxiliary_power_kW(estimates):
-    return sum(r["power_kW"] for r in estimates if r["power_kW"] == r["power_kW"])
-
-
 # ---------------------------------------------------------------------------
 # Factors -> BioSTEAM
 # ---------------------------------------------------------------------------
 
-def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
+def apply_att_gwp(sys, lime_source=None, overrides=None):
     """
     Set all GWP100 characterization factors on the frozen system.
     """
@@ -205,9 +200,6 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
     items.pop(KEY, None)
     sys.process_impact_items = items
     hours = sys.operating_hours
-    if estimates is None:
-        estimates = inv.get_att_cost_estimates(sys)
-    aux_kW = _auxiliary_power_kW(estimates)
     sys.define_process_impact(KEY, "Wastewater treatment", "m3",
                               lambda: _wastewater_m3ph(sys) * hours, f["wastewater_treatment"])
     sys.define_process_impact(KEY, "Purge neutralization (H2SO4)", "kg",
@@ -218,8 +210,6 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
     sys.define_process_impact(KEY, "Biogenic carbon stored in landfilled solids (credit)", "kg CO2",
                               lambda: -stored * _stored_carbon_kgph(sys)
                               * 44.0095 / 12.011 * hours, 1.0)
-    sys.define_process_impact(KEY, "Electricity: outside unit models (agitators, EC1 vacuum)", "kWh",
-                              lambda: aux_kW * hours, f["electricity"])
     # Natural gas displaced by the PSA tail gas burned in the U2 burner (fuel basis, MJ).
     sys.define_process_impact(KEY, "Natural gas displaced by PSA tail gas (burned in U2)", "MJ fuel",
                               lambda: -inv.get_att_tail_gas_offset(sys)["offset_MJph"] * hours, ng)
@@ -234,7 +224,7 @@ def apply_att_gwp(sys, lime_source=None, overrides=None, estimates=None):
         cake.set_CF(KEY, float(CF) * float(cake.imass["CaCO3"]) / float(cake.F_mass))
     elif treatment != "none":
         raise ValueError(f"Unknown CaCO3 treatment '{treatment}'")
-    return dict(factors=f, lime_source=lime_key, auxiliary_power_kW=aux_kW)
+    return dict(factors=f, lime_source=lime_key)
 
 
 # ---------------------------------------------------------------------------
@@ -376,8 +366,6 @@ def get_att_gwp_by_unit(sys, applied):
     totals["C1"] += s["lime"].get_impact(KEY) * hours
     totals["D1"] += s["dissolution_water"].get_impact(KEY) * hours
     items = {item.name: item.impact() for item in sys.process_impact_items[KEY]}
-    totals["C1 + EC1 (auxiliary electricity)"] = items.pop(
-        "Electricity: outside unit models (agitators, EC1 vacuum)")
     totals["Waste management (off-flowsheet)"] = sum(items.values())
     total_yr = sys.get_net_impact(KEY)
     return [dict(unit=k, GWP_kgCO2e_per_kg_dry=v / dry_yr, GWP_kgCO2e_per_kg_H2=v / h2_yr,
@@ -449,18 +437,18 @@ def _total_per_kg(sys, **kw):
     return total / dry_yr, total / h2_yr, applied
 
 
-def get_att_gwp_sensitivity(sys, estimates, overrides=None):
+def get_att_gwp_sensitivity(sys, overrides=None):
     """Baseline and one-at-a-time factor ranges around ``overrides`` (scenarios.lca_overrides)."""
     rows = []
-    base_dry, base_h2, _ = _total_per_kg(sys, overrides=overrides, estimates=estimates)
+    base_dry, base_h2, _ = _total_per_kg(sys, overrides=overrides)
     rows.append(dict(scenario="Baseline", parameter="", value=float("nan"),
                      GWP_kgCO2e_per_kg_dry=base_dry, GWP_kgCO2e_per_kg_H2=base_h2, delta_per_kg_H2=0.0))
     for name in _LCA["sensitivity_factors"]:
         for bound, value in zip(("low", "high"), _EF[name]["range"]):
-            d, h, _ = _total_per_kg(sys, overrides={**(overrides or {}), name: float(value)}, estimates=estimates)
+            d, h, _ = _total_per_kg(sys, overrides={**(overrides or {}), name: float(value)})
             rows.append(dict(scenario=f"S2 {name} {bound}", parameter=name, value=float(value),
                              GWP_kgCO2e_per_kg_dry=d, GWP_kgCO2e_per_kg_H2=h, delta_per_kg_H2=h - base_h2))
-    apply_att_gwp(sys, overrides=overrides, estimates=estimates)  # restore baseline factors
+    apply_att_gwp(sys, overrides=overrides)  # restore baseline factors
     return rows
 
 
@@ -553,9 +541,8 @@ def check_att_lca(sys, applied, contributions, utilities):
           - u["U2 natural gas displaced by PSA tail gas (offset)"]) * ng),
         ("Cooling GWP = inventory CW electricity x EF", c["Electricity: cooling tower and CW pumps"],
          cw_kWh * f["electricity"]),
-        ("Unit + CW + auxiliary electricity = inventory total",
-         (c["Electricity: process units"] + c["Electricity: cooling tower and CW pumps"]
-          + c["Electricity: outside unit models (agitators, EC1 vacuum)"]) / f["electricity"],
+        ("Unit + CW electricity = inventory total",
+         (c["Electricity: process units"] + c["Electricity: cooling tower and CW pumps"]) / f["electricity"],
          u["Electricity: total"]),
         ("Water m3 = kg / 1000", s["dissolution_water"].get_impact(KEY) / f["water_supply"],
          float(s["dissolution_water"].F_mass) / 1000.0),
@@ -584,10 +571,9 @@ def export_att_lca(out_dir=None, scenario="att_s1"):
     overrides = scen.lca_overrides(spec)
     sys = create_att_lca_system(scenario)
     fingerprint = [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
-    estimates = inv.get_att_cost_estimates(sys)
-    applied = apply_att_gwp(sys, overrides=overrides, estimates=estimates)
+    applied = apply_att_gwp(sys, overrides=overrides)
     contributions = get_att_gwp_contributions(sys, applied)
-    utilities = inv.get_att_purchased_utilities(sys, estimates)
+    utilities = inv.get_att_purchased_utilities(sys)
     summary = get_att_gwp_summary(sys, applied)
     summary += [dict(item="Scenario", value=float("nan"), unit="", note=spec["label"]),
                 dict(item="Lime burden", value=applied["factors"][applied["lime_source"]], unit="kg CO2e/kg Ca(OH)2",
@@ -603,7 +589,7 @@ def export_att_lca(out_dir=None, scenario="att_s1"):
         "05_activity_inventory_per_kg_dry": utilities,
     }
     checks = check_att_lca(sys, applied, contributions, utilities)
-    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, estimates, overrides)
+    tables["06_scenarios_and_sensitivity"] = get_att_gwp_sensitivity(sys, overrides)
     tables["07_data_gaps"] = get_att_lca_data_gaps(sys, applied)
     unchanged = fingerprint == [float(x) for st in (*sys.feeds, *sys.products) for x in st.mass]
     checks.append(dict(check="Frozen model flows unchanged by LCA", value=float(unchanged), expected=1.0,
