@@ -1,0 +1,17 @@
+# ATT Scenario 2 floating-facility TEA assumptions (read by analyses/marine_tea.py).
+# Classes as in marine_whr.yaml; design basis: docs/ATT_S2_DESIGN_BASIS.md.
+marine_tea:
+  # USER-supplied scenario assumptions (NOT literature-verified):
+  capex_multiplier: 1.25                    # floating process CAPEX = S1 process installed capital x this (USER)
+  capex_multiplier_sensitivity: [1.10, 1.25, 1.40]   # USER range 1.1-1.4
+  labor_multiplier: 2.0                     # floating labor OPEX = 2.0 x land labor OPEX (USER)
+  labor_multiplier_sensitivity: [1.0, 2.0]
+  # S1 has no explicit labor: its FOC = 4 % of FCI lumps labor, maintenance and overhead (tea.yaml limitations).
+  # The labor-only component is therefore an ASSUMED share of the S1 FOC (ENG, no staffing basis); the rest
+  # (maintenance, overhead, insurance) stays proportional to FCI. S2 FOC = labor_multiplier x S1 labor (fixed
+  # USD/yr) + (1 - share) x 4 % x FCI_S2, so the CAPEX multiplier does not scale labor and labor is not doubled.
+  s1_labor_share_of_foc: 0.5
+  s1_labor_share_sensitivity: [0.25, 0.75]
+  # Included / excluded (USER: make explicit):
+  included: "ATT process equipment x capex_multiplier (marine integration of the process plant); incremental WHR equipment (itemized, marine_whr.yaml); S1 materials, utilities, disposal and CaCO3 sales at S1 prices; labor x labor_multiplier."
+  excluded: "Ship acquisition, charter or retrofit of the vessel; hull/deck/stability works; onboard feedstock and product storage; mooring and offloading; marine crew other than the ATT labor; port, insurance and classification costs of the vessel; feedstock collection (as in S1)."

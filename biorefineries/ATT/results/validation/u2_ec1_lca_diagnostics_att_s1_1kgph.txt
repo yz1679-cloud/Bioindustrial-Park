@@ -1,0 +1,41 @@
+== U2 feed by species [mmol atom / g daf]
+  Water        C=   0.000 H= 326.857 O= 163.428 N=   0.000 S=   0.000 Na=   0.000
+  Ash          C=   0.000 H=   0.000 O=   0.000 N=   0.000 S=   0.000 Na=   0.000
+  Protein      C=   3.680 H=   5.778 O=   1.141 N=   1.067 S=   0.026 Na=   0.000
+  Glucan       C=   5.170 H=   8.616 O=   4.308 N=   0.000 S=   0.000 Na=   0.000
+  Alginate     C=   8.897 H=  11.862 O=   8.897 N=   0.000 S=   0.000 Na=   0.000
+  Fucoidan     C=   1.747 H=   2.911 O=   1.164 N=   0.000 S=   0.000 Na=   0.000
+  Mannitol     C=   1.217 H=   2.840 O=   1.217 N=   0.000 S=   0.000 Na=   0.000
+  OtherSolids  C=  17.723 H=  24.636 O=  12.229 N=   0.160 S=   0.000 Na=   0.000
+  NaOH         C=   0.000 H=  36.805 O=  36.805 N=   0.000 S=   0.000 Na=  36.805
+  Na2CO3       C=   1.920 H=   0.000 O=   5.761 N=   0.000 S=   0.000 Na=   3.840
+== U2 products by species [mmol atom / g daf]
+  att_gas    Water      C=   0.000 H= 341.152 O= 170.576 N=   0.000 S=   0.000 Na=   0.000
+  att_gas    Methane    C=   0.600 H=   2.400 O=   0.000 N=   0.000 S=   0.000 Na=   0.000
+  att_gas    CarbonDioxide C=   0.770 H=   0.000 O=   1.540 N=   0.000 S=   0.000 Na=   0.000
+  att_gas    H2         C=   0.000 H= 108.300 O=   0.000 N=   0.000 S=   0.000 Na=   0.000
+  att_residu Ash        C=   0.000 H=   0.000 O=   0.000 N=   0.000 S=   0.000 Na=   0.000
+  att_residu Char       C=  18.661 H=   9.331 O=   1.866 N=   0.000 S=   0.000 Na=   0.000
+  att_residu CharN      C=   0.000 H=   0.000 O=   0.000 N=   1.227 S=   0.000 Na=   0.000
+  att_residu CharS      C=   0.000 H=   0.000 O=   0.000 N=   0.000 S=   0.026 Na=   0.000
+  att_residu Na2CO3     C=  20.323 H=   0.000 O=  60.969 N=   0.000 S=   0.000 Na=  40.646
+== residual (out - in) [mmol/g daf]: {'C': 0.0, 'H': 40.8774, 'O': 0.0, 'N': 0.0, 'S': 0.0, 'Na': 0.0}
+== mass in 4.138251 out 4.166240 kg/h; residual +0.027989 (+0.6763%); H residual mass +0.027990 kg/h
+== feed organics per g daf: C 38.434 H 56.643 O 28.956 N 1.227
+   organics mass fraction C,H,N of daf: 0.4616 0.0571 0.0172
+   (nlr_pressed CHN 31.36/3.88/1.16 % dry -> daf: 0.4617 0.0571 0.0171)
+== Char atoms {'C': 1, 'H': 0.5, 'O': 0.1} MW 14.1146 (expected 14.1149); Hf -2782.9 J/mol; HHV 462147.36399999994 J/mol; Cn(298) 14.115 J/mol/K
+== electrons per g daf: feed 152.47; gases 113.10; char 80.24; excess 40.88
+   residual C 18.661 mmol/g daf; e- available for it 2.109 per C (char CH0.5O0.1 = 4.3)
+   carbonate formed 18.403; recycled Na2CO3 in feed 1.920; NaOH in feed 36.805 mmol/g daf; water in 163.43, out 170.58
+== U2 duty 8.1577 MJ/h per kg/h dry; gas HHV 16.012 kJ/g daf
+== EC1 feed NaOH/(NaOH+H2O) 0.1813 (valid <= ~0.20); outlet 0.4335 (valid 0.40-0.46); Na2CO3 per kg outlet water 0.1383 (baseline 0.18)
+   recycle liquor NaOH 0.7652 Na2CO3 0.1383 water 1.0000 kg/h
+== stored carbon [kg C/h per kg/h dry] by landfilled stream:
+  ash_residue_cake: total 0.16192 {'Char': 0.15226, 'Na2CO3': 0.00967}
+  caco3_cake: total 0.13966 {'Na2CO3': 0.00225, 'CaCO3': 0.13741}
+  scrubber_cake: total 0.00622 {'CaCO3': 0.00622}
+  _stored_carbon_kgph = 0.15554 kg C/h; x 44.0095/12.011 = 0.56993 kg CO2/h
+  feed carbon 0.31358 kg C/h; H2 product 0.074152 kg/h
+  carbon to every boundary product: {'scrubber_cake': 0.00622, 'h2_product': 0.00496, 'ash_residue_cake': 0.16192, 'caco3_cake': 0.13966, 'liquor_purge': 0.00082}
+  carbon in feeds: {'att_sargassum_feed': 0.31358}

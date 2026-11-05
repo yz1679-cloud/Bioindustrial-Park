@@ -1,0 +1,39 @@
+U2 inlets: feed F_mass 4.134122 kg/h; tail-gas fuel inlet F_mass 0 kg/h (furnace side, not a reactant)
+U2 outlets: gas 1.941055, residue 2.193067 kg/h
+
+| Element | Inlet [mmol/g daf] | Outlet [mmol/g daf] | Residual | Relative error | Standard | Status |
+| C | 40.297 | 40.297 | +0.0000 | +0.000e+00 | |res| <= 2 % organic C | PASS |
+| H | 420.305 | 420.305 | +0.0000 | +1.944e-16 | res <= +0.5 % organic H | PASS |
+| O | 234.778 | 234.778 | +0.0000 | +0.000e+00 | |res| <= round-off | PASS |
+| N | 1.227 | 1.227 | +0.0000 | +0.000e+00 | |res| <= round-off | PASS |
+| S | 0.026 | 0.026 | +0.0000 | +0.000e+00 | |res| <= round-off | PASS |
+| Na | 40.531 | 40.531 | +0.0000 | +0.000e+00 | |res| <= round-off | PASS |
+
+Total mass: in 4.134122 out 4.134122 kg/h, residual +0.000000 (+0.0000%), standard |err| <= 0.5 %: PASS
+  H residual mass +0.000000 kg/h; sum of all element residual masses +0.000000 kg/h
+
+Electrons, C/H/O (balance_checks convention) [mmol e-/g daf]: all inlet species 111.934, all outlet species 111.934, residual +0.000
+
+Electrons, C/H/O/N, NH3 reference [mmol e-/g daf]: all inlet species 108.254, all outlet species 108.254, residual +0.000
+  electron value of Water: +0.0 per mol (Na redox-inert)
+  electron value of NaOH: -1.0 per mol (Na redox-inert)
+  electron value of Na2CO3: -2.0 per mol (Na redox-inert)
+  2 NaOH -> Na2CO3 is electron-neutral: 2 x (-1) = -2; water (steam) is electron-neutral, so neither the feed moisture nor steam can supply reducing power.
+
+Feed organics 152.47; measured gases 113.10 (74.2% of feed); left for the residual carbon 39.37; residual C 18.661 mmol/g daf -> 2.109 e-/C needed vs CH0.5O0.1 4.30
+  e.g. if the rest were fully oxidized carbon (0 e-/C): char-like share 49.1%, oxidized share 50.9% (9.51 mmol C/g daf), not in the measured gas CO2 (0.77)
+U2 heat duty 9.0659 MJ/kg dry
+  [INSUFFICIENT (CO2 remains in the gas)] CO2 captured as Na2CO3 / CO2 generated: 0.959839
+  [PASS] Electrons: identified gases [mmol/g daf]: 113.1
+  [PROVISIONAL] Residual carbon fate (closure): nan
+  [ASSUMED] Residual product formula per C (assumed surrogate, not measured): 1.19526
+  [PASS] Electrons: identified gases + residual product [mmol/g daf]: 152.465
+  [PASS] H residual, identified products - feed (+ = excess, unresolved) [mmol H/g daf]: 0
+  [PASS] Elemental residual C, products - feed [mmol C/g daf]: 0
+  [PASS] Elemental residual O, products - feed [mmol O/g daf]: 0
+  [PASS] Electron residual, gases + residual product - feed organics [mmol e-/g daf]: 8.17182e-14
+  [PASS] Available electrons per residual-C atom needed for closure (residual product value in unit): 2.10949
+  [PASS] Mass balance error / inlet: 3.02383e-09
+  [PASS] Product gas HHV / (feed HHV + process heat): 0.529387
+  [PASS] Product gas + residual product HHV / (feed HHV + process heat): 0.702733
+  [PROVISIONAL (assumed residual-product composition and thermo)] U2 process heat duty [MJ/kg dry]: 9.06587

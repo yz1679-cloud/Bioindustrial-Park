@@ -1,0 +1,199 @@
+# Model Assumptions: ATT GWP100 life-cycle assessment (research stage)
+#
+# Read by biorefineries/ATT/analyses/lca.py. All activity data come
+# from the frozen ATT process model (commit cc2bc316, H2-priority U2 closure,
+# SaBRe reference scale). Editing this file never changes the process model.
+
+lca:
+  impact_key: GWP100
+  impact_units: kg*CO2e
+  method: "IPCC GWP100 as embodied in the source factors (no re-characterization)"
+  functional_unit: "1 kg H2 in the compressed product gas at the plant gate (20 bar, no PSA; the gas also holds CH4 and CO, not credited); H2 yield of the active U2 closure (att.yaml; baseline s x measured)"
+  secondary_unit: "1 kg dry Sargassum processed"
+  boundary: "Cradle-to-plant-gate. Sargassum is waste biomass with zero production burden; its collection and transport are not included."
+  allocation: "None. All burdens assigned to H2; no CaCO3 or CH4 credits; the only credit is the storage of biogenic carbon in landfilled solids (carbon_storage). With psa_enabled the PSA off-gas is burned in the U2 burner and its LHV displaces natural gas (offset, not an allocation); the baseline has no PSA."
+  energy_basis: LHV
+  water_density_kg_per_m3: 1000.0   # wastewater volume = mass / 1000 kg/m3
+
+  emission_factors:
+    NaOH:
+      value: 1.12
+      range: [0.63, 2.16]
+      unit: kg CO2e/kg NaOH (100 %)
+      source: "ATT collaborators' emission-factor table (workbook 'Assumptions for energy analysis')"
+      boundary: cradle-to-gate
+      note: "Cross-check (2026-11-04): membrane-cell chlor-alkali about 0.78 kg CO2e/kg NaOH (1.31 kWh/kg at 0.386 kg CO2e/kWh, European grid; RSC Green Chem. supplementary information, https://www.rsc.org/suppdata/d4/gc/d4gc05568c/d4gc05568c1.pdf) and 1.05 kg CO2e/kg (DEISO illustrative case study, https://dei.so/case-study/lca-sodium-hydroxide-production-chemical-industry/). 1.12 is the collaborators' value, inside the stated range; the grid and allocation behind it are not known."
+    CaOH2_limestone:
+      value: 0.91
+      range: [0.59, 1.00]
+      unit: kg CO2e/kg Ca(OH)2
+      source: "ATT collaborators' emission-factor table"
+      boundary: cradle-to-gate (limestone calcination and hydration)
+      note: "No public cradle-to-gate value was found (2026-11-04 search): the National Lime Association has no published EPD or inventory newer than 2001 and the ecoinvent hydrated-lime value is not public. The value is the collaborators' as provided, unverified. It applies only to a purchased lime; the waste lime of S1 and S2 is burden-free."
+    natural_gas_combustion:
+      value: 0.056
+      unit: kg CO2/MJ fuel (LHV)
+      source: "ATT collaborators (IPCC 2006 default 56.1 t CO2/TJ on a net calorific value basis)"
+      boundary: onsite combustion, CO2 only
+    natural_gas_upstream:
+      value: 0.0098
+      range: [0.0084, 0.0199]
+      unit: kg CO2e/MJ fuel
+      source: "User decision 2026-11-04: Argonne GREET-based U.S. average natural gas supply chain 10.3 kg CO2e/MMBtu (LHV) = 9.8 g CO2e/MJ (https://www.anl.gov/argonne-scientific-publications/pub/198751; the study's GWP basis was not rechecked)."
+      boundary: extraction, processing and transmission
+      note: "Previous values: 0.0066 (GREET as used in biorefineries/HP/process_settings.py, 0.33 kg CO2e per kg CH4 = 6.6 g/MJ; biorefineries/lactic uses 0.40 kg/kg = 8.0 g/MJ) and 0.0199 (DOE/NETL-2019/2039, high end; NETL 2020 supply-chain update 14.1 (10.0-19.2) g CO2e/MJ; LHV/HHV basis not confirmed). Range: NETL 8.4 g CO2e/MJ with AR6 GWPs to the NETL-2019 value."
+    electricity:
+      value: 0.449
+      range: [0.30, 0.90]
+      unit: kg CO2e/kWh
+      source: "GREET 2022 US mix, as used in biorefineries/HP/process_settings.py (SaBRe/BioSTEAM project)"
+      boundary: grid consumption mix
+      note: "Location-dependent; range indicative (gas- to oil-dominated grids) until the plant location is fixed. Cross-check (2026-11-04): EPA eGRID2022 U.S. total output rate 827.5 lb CO2e/MWh = 0.375 kg CO2e/kWh (generation, https://www.epa.gov/system/files/documents/2024-01/egrid2022_summary_tables.pdf); whether 0.449 also counts upstream emissions was not rechecked."
+    water_supply:
+      value: 0.46
+      unit: kg CO2e/m3
+      source: "Zib et al. 2021, J. Clean. Prod. 321, 128815 (https://doi.org/10.1016/j.jclepro.2021.128815); value as provided (paywalled, not rechecked)"
+      boundary: operational energy of US drinking-water supply
+    wastewater_treatment:
+      value: 0.38
+      unit: kg CO2e/m3
+      source: "Zib et al. 2021 (as above); value as provided"
+      boundary: operational energy of US wastewater treatment (process CH4/N2O not included)
+    H2SO4:
+      value: 0.04447
+      unit: kg CO2e/kg H2SO4 (100 %)
+      source: "GREET, as used in biorefineries/lactic/_process_settings.py (project)"
+      boundary: cradle-to-gate
+      note: "Taken from the lactic project; not independently verified."
+    inert_landfill:
+      # NOT COUNTED (user decision 2026-10-17): landfill of the solid residues is excluded from the GWP, so the
+      # factor is 0. The earlier screening proxy was 0.02205 kg CO2e/kg waste (EPA WARM, below).
+      value: 0.0
+      unit: kg CO2e/kg waste
+      source: "EPA WARM v15 (May 2019), Fly Ash chapter, Exhibit 8-4: landfilling 0.02 MTCO2E/short ton (https://www.epa.gov/sites/default/files/2019-06/documents/warm_v15_construction_materials.pdf)"
+      boundary: "transport to landfill and landfill machinery; inert, no landfill CH4"
+      note: "Screening proxy for mineral waste only; char degradation in the ash/char cake not covered."
+
+  natural_gas:
+    burner_efficiency: 0.90       # U2 direct firing (att.yaml energy_sources)
+    boiler_efficiency: 0.80       # LP steam (att.yaml inventory.lca)
+    note: "Fuel (LHV) = delivered heat / efficiency, applied once to the BioSTEAM heat-utility duty (which already includes the 5 % process heat loss)."
+
+  # Alkaline purge neutralization (no flowsheet change).
+  neutralization:
+    streams: [liquor_purge, f2_wash_liquor]
+    reagent: H2SO4
+    endpoint: "pH ~8.3: OH- -> H2O and CO3-- -> HCO3- (1 H+ each); no CO2 released"
+    H_plus_per_mol: {NaOH: 1, Na2CO3: 1}
+
+  waste_management:
+    wastewater_streams: [excess_condensate, u3_dryer_removed_water, liquor_purge, f2_wash_liquor]
+    landfill_streams: [att_char, caco3_cake, scrubber_cake, salt_cake]
+
+  coproduct:
+    # TODO (user, 2026-11-04): kept on purpose for a possible CaCO3 substitution credit (avoided CaCO3 production for the
+    # sold F2 cake); needs a sourced CaCO3_substitution_CF, and it would overlap the stored-carbon credit of carbon_storage.
+    CaCO3_treatment: none            # none | substitution
+    CaCO3_substitution_CF: null      # kg CO2e avoided per kg CaCO3 (required for 'substitution')
+
+  offgas:
+    treatment: "BURNED: assumed collected and burned in the U2 burner; its LHV displaces natural gas (up to U2's fuel demand, att.yaml gas_treatment.tail_gas_combustion); no CH4 emission; biogenic combustion CO2 not counted"
+
+  # CARBON STORAGE CREDIT (user decision 2026-10-17, in the net GWP): the biogenic carbon that leaves in landfilled
+  # solids (CaCO3 cake, ash/char cake, lime purge; waste_management.landfill_streams that are system products) is
+  # stored instead of being released as CO2 when the Sargassum decomposes, so it earns -44.01/12.011 kg CO2e per kg C.
+  # Permanence is assumed (carbonate and char in a landfill). Carbon released as CO2 anywhere (PSA tail gas, product
+  # gas) is not credited. The avoided CH4 of the beach-rot counterfactual below is added to it only
+  # in the note, never in the net.
+  carbon_storage:
+    credit_stored_carbon: true
+    # The credited carbonate carbon is biogenic (U2 converts Sargassum carbon to CO2/Na2CO3; C1 and the scrubber fix it as
+    # CaCO3; lime and NaOH carry no carbon). User decision 2026-11-01: the Sargassum carbon of landfill_streams is credited,
+    # whether the TEA sells the CaCO3 or not (the CaCO3 of the cakes and the residue below). The CaCO3 of the waste lime is not
+    # Sargassum carbon and is never credited. Soluble Na2CO3 in the wet cakes (mostly the ash cake moisture) is leachable
+    # with no permanence basis, so it is NOT credited (user decision 2026-11-02; about 0.7 kg CO2e/kg H2). The Na2CO3 of the
+    # purge and the wash liquor is wastewater: never credited.
+    # ATT Scenario 1: the U2 residual product (lumped residue = ATT char) is a bookkeeping sink of the organic carbon that is
+    # not in the measured gases or the carbonate; its composition is an assumed surrogate and its permanence in a landfill is
+    # not measured. By user decision (2026-11-01) its carbon is carbon in a landfilled solid and IS credited in the net GWP
+    # (about half of the stored-carbon credit).
+    note: "Net GWP counts the biogenic carbon stored in landfilled solids (carbonates and char) as a negative emission."
+
+  # AVOIDED EMISSION IF THE SARGASSUM WOULD ROT ON THE BEACH (user request 2026-10-17). Reported as a note, not in the
+  # net. Total avoided = (a) the carbon the plant stores, already credited in the net as CO2 (carbon_storage above),
+  # plus (b) the extra warming of the CH4 that rotting would form. The CH4 carbon is already counted as CO2 in (a)
+  # (a kg CH4 stands for 44.01/16.04 = 2.74 kg CO2 of the carbon), so (b) = CH4 x (GWP_CH4 - 44.01/16.04); on the CO2
+  # mass of that carbon this is (27 x 16.04/44.01 - 1) = 8.84, the "minus 1" being the biogenic CO2 already counted.
+  # CH4 formed = C_feed x DOCf x MCF x F x (1 - R) x (1 - OX) x 16.04/12.011  (IPCC 2006 Vol. 5 Ch. 3, long-term potential).
+  beach_rot_counterfactual:
+    status: "note only; not counted in the net GWP"
+    carbon_basis: "total carbon of the feed stream (CHN carbon of the feedstock, taken as degradable; inorganic carbon in the ash is not separated, so this is an upper bound)"
+    dissimilated_fraction_DOCf: 0.5       # IPCC 2006 default
+    methane_correction_factor_MCF: 0.4    # share of the decomposition that is anaerobic: IPCC 2006 unmanaged shallow site (< 5 m) 0.4; deep (>= 5 m) or high water table 0.8; managed anaerobic 1.0. Measured beach CH4 fluxes of stranded Sargassum are weak against CO2 (Westphalen 2022, Nova Southeastern thesis), so 0.4 is not a low estimate.
+    methane_fraction_F: 0.5               # CH4 in the gas formed (IPCC 2006 default)
+    gas_capture_fraction_R: 0.0           # no gas recovery
+    oxidation_OX: 0.0                     # IPCC 2006 default for unmanaged sites (no cover)
+    CH4_GWP100: 27.0                      # non-fossil CH4, IPCC AR6 WG1 Table 7.15
+    note: "Biogenic CO2 from the rotting is not counted (as for all biogenic CO2 here); only its carbon stored by the plant is credited. The beach-rot fractions are typical defaults, not measured for Sargassum piles."
+
+  scenarios:
+    baseline: {lime_source: CaOH2_limestone}
+
+  # EMISSION BASIS OF EVERY BOUNDARY STREAM (system.feeds and system.products of ATT S1 and S2) AND OF EACH UTILITY. The factors are in
+  # emission_factors above, the process impacts and the unit settings; this register says how each one was decided. A test
+  # (test_att_stream_register) fails when a boundary stream of the S1 flowsheet has no entry here or in tea.yaml stream_prices.
+  stream_factors:
+    att_sargassum_feed: "No factor (zero burden): waste biomass, collection and transport not included (boundary above); the biogenic carbon it carries is handled by the carbon storage credit."
+    dryer_air: "Ambient air, no factor."
+    scrubber_dryer_air: "Ambient air, no factor."
+    caco3_dryer_air: "Ambient air, no factor."
+    roaster_air: "Ambient air, no factor."
+    dryer_backup_fuel: "Zero flow in the baseline; no factor."
+    scrubber_dryer_backup_fuel: "Zero flow in the baseline; no factor."
+    caco3_dryer_backup_fuel: "Zero flow in the baseline; no factor."
+    u3_tail_gas: "Zero without a PSA; with a PSA the natural gas it displaces is credited (process impact)."
+    fresh_naoh_solid: "emission_factors.NaOH (collaborators; cross-check in its note)."
+    lime: "0 kg CO2e/kg: waste carbide lime is burden-free (scenario att_s1, scenarios.lca_overrides); a purchased lime would use emission_factors.CaOH2_limestone."
+    scrubber_lime: "0 kg CO2e/kg: waste carbide lime is burden-free (as lime)."
+    dissolution_water: "emission_factors.water_supply (Zib et al. 2021)."
+    f1_wash_water: "emission_factors.water_supply (Zib et al. 2021); zero flow in the baseline."
+    f2_wash_water: "emission_factors.water_supply (Zib et al. 2021); zero flow in the baseline."
+    scrubber_makeup_water: "emission_factors.water_supply (Zib et al. 2021)."
+    leach_water: "OPEN GAP: no factor (counts as 0); zero flow in the baseline because condensate is used."
+    leachate_naoh: "OPEN GAP: no factor (counts as 0) although emission_factors.NaOH exists; zero flow in the baseline."
+    fresh_hcl: "OPEN GAP: no factor (counts as 0); about 45 kg/h at S1; indicative_gwp100.HCl_31 sizes it (data-gap table)."
+    fresh_oxalic_acid: "OPEN GAP: no factor (counts as 0); about 3 kg/h at S1; no usable value found (indicative_gwp100.oxalic_acid)."
+    h2_product: "Functional unit (1 kg H2); the product gas also holds CH4, CO and CO2, which are not credited."
+    caco3_cake: "No substitution credit (coproduct.CaCO3_treatment: none); stored-carbon credit and landfill factor 0 (carbon_storage, inert_landfill)."
+    scrubber_cake: "As caco3_cake."
+    ree_product: "No credit and no burden: the REE product is sold, with no avoided-product credit."
+    att_char: "emission_factors.inert_landfill (0, user decision 2026-10-17: landfill burden not counted) and the stored-carbon credit."
+    liquor_purge: "emission_factors.wastewater_treatment (Zib et al. 2021) and H2SO4 neutralization."
+    excess_condensate: "emission_factors.wastewater_treatment (nearly pure water, charged as wastewater)."
+    u3_dryer_removed_water: "emission_factors.wastewater_treatment."
+    salt_cake: "emission_factors.inert_landfill (0, user decision 2026-10-17) and the stored-carbon credit; its carbon is small."
+    dryer_exhaust: "Air and water vapor: no factor. The dryers are steam heated, so their fuel is counted through the boiler natural gas."
+    dryer_emissions: "Zero flow in the baseline; no factor."
+    scrubber_dryer_exhaust: "As dryer_exhaust."
+    scrubber_dryer_emissions: "Zero flow in the baseline; no factor."
+    caco3_dryer_exhaust: "As dryer_exhaust."
+    caco3_dryer_emissions: "Zero flow in the baseline; no factor."
+    roaster_exhaust: "No factor: the roaster fuel is the char and the oxalic acid (biogenic CO2 is not counted)."
+    leach_co2: "Biogenic CO2 of the REE leach: not counted (as all biogenic CO2)."
+    att_residue_untracked: "OPEN GAP: no factor, counted as 0 (user decision 2026-11-04, kept as a documented gap). The lumped residual carbon of U2 has no sink in the model; if burned or degraded it would emit biogenic CO2 or CH4 (data-gap table)."
+
+  utility_factors:
+    natural_gas: "emission_factors.natural_gas_combustion + natural_gas_upstream per MJ of fuel (duty / burner efficiency 0.90)."
+    low_pressure_steam: "Boiler natural gas = heat / natural_gas.boiler_efficiency (0.80, assumption) x the natural gas factors."
+    cooling_water: "Cooling-tower and pump electricity (Humbird et al. 2011 correlation, att.yaml inventory.lca) x emission_factors.electricity."
+    electricity: "emission_factors.electricity (GREET 2022 U.S. mix as used in the HP project; cross-check in its note)."
+
+  sensitivity_factors: [NaOH, natural_gas_upstream, electricity]
+
+  # Indicative magnitudes for the data-gap table only (not used in results).
+  indicative_gwp100:
+    CH4_non_fossil: {value: 27.0, source: "IPCC AR6 WG1 Table 7.15"}
+    # REE leach reagents: NOT in the net GWP (no characterization factor on their streams). Values found by a 2026-11-04 search
+    # are database entries with conflicting basis, listed only to size the gap.
+    HCl_31: {value: 0.51, range: [0.07, 1.2], unit: "kg CO2e/kg HCl solution", source: "BAFA CO2-Faktoren v3.3 0.51 kg CO2e/kg (cradle-to-gate) and ADEME Base Carbone 1.199 kg CO2e/kg (both via Climatiq); an EPD Norge Borregaard EPD gives 0.07 kg CO2e/kg for a 34-36 % product. The concentration basis differs and no GREET value was found: UNVERIFIED."}
+    oxalic_acid: {value: null, source: "No usable value found: the ecoinvent dataset 'oxalic acid, production' exists but its value is not public; literature gives only CO2-based or bio-based routes."}
