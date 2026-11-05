@@ -30,7 +30,7 @@ ENG (preliminary engineering estimate) and MISSING.
 - The ship already has a composite exhaust boiler, and jacket water usually feeds a freshwater generator (R-AL2).
   These existing users are **ignored (USER-4)**, so the available heat is an **optimistic** boundary.
 
-## 3. Engine heat sources at 75 % MCR (Mode A)
+## 3. Engine heat sources at 75 % MCR
 
 | Item | Value | Class / source |
 |---|---|---|
@@ -94,7 +94,7 @@ actually purchases.
 - External heating after = before − assigned (≥ 0).
 - Heat delivered but not utilized: 0.17 MW of jacket water (all of it), for which no remaining sink is cold enough.
 
-## 5. Added WHR equipment (installed USD, Mode A)
+## 5. Added WHR equipment (installed USD)
 
 | Item | Installed USD | Basis |
 |---|---|---|
@@ -115,11 +115,10 @@ actually purchases.
 
 ## 6. Operating modes and feed logistics
 
-- **Mode A**: 7 920 h/yr underway at 75 % MCR (idealized, USER-3). Same hourly capacity as S1, so 2 954 t H2/yr. The
-  results of this document are for this mode. A reduced-hours operating mode (collection at 15 % and anchored at 0 %
-  give no heat and no processing) is defined in `marine_whr.yaml` and is not reported here.
+- **Operating mode**: 7 920 h/yr underway at 75 % MCR (idealized, USER-3). Same hourly capacity as S1, so 2 954 t H2/yr. The
+  results of this document are for this mode. Fewer hours are covered by the operating-hours sensitivity.
 - **Feed.** S1's 120.7 t dry/d of presscake (76.3 % moisture, about 509 t wet/d) is far above one 200 t/d
-  fresh-seaweed collector, which gives about 30 t dry/d at 85 %. Mode A would need the equivalent of about 4 such
+  fresh-seaweed collector, which gives about 30 t dry/d at 85 %. The 7 920 h mode would need the equivalent of about 4 such
   collectors. Feed supply and onboard storage are **unresolved feasibility limits**.
 - The presscake feed itself presumes a biostimulant press upstream (S1 configuration). Its availability at sea is
   not examined.
@@ -156,10 +155,9 @@ actually purchases.
 
 | Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
 |---|---|---|---|---|---|---|---|
-| S1 | 7 920 | 2 954 | 14.79 | 0.30 | 5.63 | 1.69 | 15.83 |
-| S2, no WHR | 7 920 | 2 954 | 18.48 | 0.59 | 5.63 | 1.98 | 15.83 |
-| S2, exhaust | 7 920 | 2 954 | 19.06 | 0.59 | 5.45 | 1.95 | 15.04 |
-| S2, all three | 7 920 | 2 954 | 19.37 | 0.59 | 5.32 | 1.92 | 14.47 |
+| S1 | 7 920 | 2 954 | 14.79 | 0.30 | 5.63 | 1.76 | 16.88 |
+| S2, no WHR | 7 920 | 2 954 | 18.48 | 0.59 | 5.63 | 2.05 | 16.88 |
+| S2, all three | 7 920 | 2 954 | 19.37 | 0.59 | 5.32 | 1.99 | 15.44 |
 
 **Energy:**
 - External heating falls from 28.6 to 26.7 MW (−6.4 %).

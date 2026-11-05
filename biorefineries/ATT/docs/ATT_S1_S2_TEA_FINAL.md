@@ -69,7 +69,7 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 |---|---:|
 | LP steam | 2.65 |
 | U2 natural gas | 1.86 |
-| NaOH makeup | 1.36 |
+| NaOH makeup | 1.57 |
 | Electricity | 0.98 |
 | Fixed operating cost | 0.59 |
 | CaCO3-cake disposal (non-CaCO3 mass, F2 + F3) | 0.54 |
@@ -83,37 +83,29 @@ a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA
 | ATT residue disposal (net) | 0 |
 | **REE product sales** | **−0.55** |
 | **CaCO3 sales** | **−5.33** |
-| **Net** | **3.075** |
+| **Net** | **3.289** |
 
 **S1 MSP breakdown (USD/kg H2, levelized at NPV = 0):**
 
 | Component | USD/kg H2 | Share |
 |---|---:|---:|
-| Utilities (LP steam 0.90, natural gas 0.63, electricity 0.33, cooling water 0.05) | 1.91 | 113 % |
-| Capital-related (capital, debt service, tax) | 0.65 | 38 % |
-| Waste treatment and disposal (CaCO3 cakes 0.18, salt cake 0.11, H2SO4 0.08, wastewater 0.06) | 0.44 | 26 % |
-| Materials (NaOH 0.46, REE reagents 0.03) | 0.49 | 29 % |
+| Utilities (LP steam 0.90, natural gas 0.63, electricity 0.33, cooling water 0.05) | 1.91 | 108 % |
+| Capital-related (capital, debt service, tax) | 0.65 | 37 % |
+| Waste treatment and disposal (CaCO3 cakes 0.18, salt cake 0.11, H2SO4 0.08, wastewater 0.06) | 0.44 | 25 % |
+| Materials (NaOH 0.53, REE reagents 0.03) | 0.56 | 32 % |
 | Fixed operating cost | 0.20 | 12 % |
-| **REE product sales** | **−0.19** | −11 % |
-| **CaCO3 sales** | **−1.80** | −107 % |
-| **MSP** | **1.690** | |
+| **REE product sales** | **−0.19** | −10 % |
+| **CaCO3 sales** | **−1.80** | −102 % |
+| **MSP** | **1.762** | |
 
 The process is dominated by operating costs, and mainly by heat: steam and natural gas are 1.53 USD/kg. The CaCO3
 revenue offsets most of the costs, so the MSP depends on its price (section 4).
 
 ## 3. F2 and F1 washing (S1)
 
-These rows are the process **without** REE recovery (`ree_recovery=False`), so that the washing steps can be compared
-alone; the last row adds the REE recovery (baseline). All rows include the cake dryers, the ash split, the char split
-and the salt crystallizer.
-
-| Configuration | MSP (USD/kg H2) | Net GWP (kg CO2e/kg H2) | FCI (MUSD) | AOC (MUSD/yr) | Fresh NaOH (t/yr) |
-|---|---:|---:|---:|---:|---:|
-| No washing, residue disposed | 2.260 | 16.52 | 12.11 | 5.11 | 7,734 |
-| F2 wash, wash liquor recycled | 1.879 | 15.39 | 12.73 | 3.90 | 4,555 |
-| + F1 wash, residue disposed | 1.874 | 15.71 | 13.50 | 3.79 | 3,957 |
-| + residue net price 0 | 1.752 | 15.71 | 13.50 | 3.43 | 3,957 |
-| **+ REE recovery (baseline)** | **1.690** | 15.83 | 14.79 | 3.08 | 3,883 |
+Both washes, the cake dryers, the ash split, the char split and the salt crystallizer are part of the flowsheet (the
+switches that turned them off were removed). The washes recover sodium: the fresh NaOH is 3,883 t/yr, a 9.7 % makeup of the
+gross dose.
 
 | Item | Value |
 |---|---|
@@ -124,14 +116,10 @@ and the salt crystallizer.
 | F1 equipment | W1 MixTank installed 0.016 MUSD; F1R pressure filter installed 0.645 MUSD, 51.9 kW |
 
 **Interpretation.**
-- The F2 wash and the recycle of its liquor lower the MSP by 0.38 USD/kg H2: the recovered sodium cuts the fresh NaOH
-  from 7,734 to 4,555 t/yr.
-- The F1 wash recovers more sodium (fresh NaOH 3,957 t/yr), but it adds 0.76 MUSD of FCI and its wash water must be
-  evaporated in EC1. With the residue still disposed it lowers the MSP by only 0.005 USD/kg and raises the GWP by
-  0.32 kg CO2e/kg H2.
-- The step to a net price of 0 for the residue (−0.12 USD/kg H2) comes from the **assumption**: without it, the
-  1,144 kg/h of wet char cake × 0.04 USD/kg × 7,920 h would cost 0.36 MUSD/yr. There is no buyer or specification.
-- The REE recovery lowers the MSP by 0.062 USD/kg H2 at 35 USD/kg REO (section 5).
+- The F1 wash adds 0.66 MUSD of FCI (W1 + F1R) and its wash water is evaporated again in EC1.
+- A net price of 0 for the residue is an **assumption** (`prices.att_char`): at the disposal fee, the 872 kg/h of wet
+  char cake × 0.04 USD/kg × 7,920 h would cost 0.28 MUSD/yr (section 4). There is no buyer or specification.
+- The REE recovery lowers the MSP by 0.064 USD/kg H2 at 35 USD/kg REO (section 5).
 
 ## 4. CaCO3 cakes and the ATT residue
 
@@ -150,9 +138,8 @@ carbide lime. The plant makes 18.0 kg of CaCO3 per kg of H2.
 D0 type: D2 evaporates 2,598 kg/h (1.96 MW of steam duty, 0.82 MUSD installed, 123 kW) and D3 evaporates 96 kg/h
 (0.08 MW, 0.22 MUSD, 14 kW). The target moisture is an assumption; there is no filler specification, grinding or
 purification. The HXN covers all of the dryer steam duty. The dryers add 1.03 MUSD to the FCI and 0.09 MUSD/yr of electricity.
-The S1 MSP nevertheless falls from 1.768 (no dryers) to 1.690, because the disposal charge (0.04 USD/kg wet) is applied
-to all non-CaCO3 mass of the sold cakes, including their water. Drying removes 2.7 t/h of it, which is worth
-0.85 MUSD/yr (0.29 USD/kg H2). Without that charge the dryers would raise the MSP by about 0.2 USD/kg H2 [DERIVED].
+The disposal charge (0.04 USD/kg wet) is applied to all non-CaCO3 mass of the sold cakes, including their water.
+Drying removes 2.7 t/h of it, which is worth 0.85 MUSD/yr (0.29 USD/kg H2) [DERIVED].
 
 **Accounting interpretation.** No unit separates CaCO3 from the cake. The revenue/disposal split is a **net cake
 price**: the CaCO3 content × 100 USD/t, minus 0.04 USD/kg × the non-CaCO3 mass (moisture, unreacted Ca(OH)2, inert
@@ -164,10 +151,10 @@ was measured on a different, clean system. The sales case is therefore an upper 
 
 | CaCO3 price | MSP (USD/kg H2) |
 |---|---:|
-| No sales; both cakes disposed | 4.215 |
-| 0 USD/t (taken away, non-CaCO3 mass disposed) | 3.494 |
-| 100 USD/t (baseline) | 1.690 |
-| 315 USD/t (approximate public industrial reference, unverified for this product) | −2.188 |
+| No sales; both cakes disposed | 4.287 |
+| 0 USD/t (taken away, non-CaCO3 mass disposed) | 3.566 |
+| 100 USD/t (baseline) | 1.762 |
+| 315 USD/t (approximate public industrial reference, unverified for this product) | −2.115 |
 
 Each 100 USD/t of CaCO3 price moves the S1 MSP by ≈ 1.80 USD/kg H2.
 
@@ -175,7 +162,7 @@ Each 100 USD/t of CaCO3 price moves the S1 MSP by ≈ 1.80 USD/kg H2.
 ash minerals, 78.2 kg/h of organic char, 61.5 kg/h of CharN and CharS, and the 2.4 kg/h of REO that was not recovered).
 Its disposal at 0.04 USD/kg wet would cost 0.28 MUSD/yr (0.09 USD/kg H2). The baseline assumes the residue has a net price of 0, for
 example as a sorbent. Setting `tea.yaml prices.att_char` to -0.04 (the disposal fee) gives an S1
-MSP of 1.784.
+MSP of 1.856.
 
 **Salt cake.** The crystallizer XL1 (0.24 MUSD installed, 9 kW) removes 99 % of the NaCl and KCl from the EC1 concentrate:
 1,040 kg/h of salt cake (373 NaCl, 564 KCl, 46 NaOH, 8 Na2CO3, 50 water), disposed at 0.04 USD/kg (0.33 MUSD/yr,
@@ -193,16 +180,16 @@ capture section (soak tank, screen, press) is **not modeled or costed**.
 | Product | 150.8 kg/h of roasted oxalate precipitate with mineral filler from the char Ash, 1.31 wt % REO (1,194 t/yr); 15.6 t/yr of REO |
 | Equipment | LC1 0.91 MUSD (leach and oxalate tanks, filters), 60 kW; RO1 0.37 MUSD (roaster, only the precipitate), 57 kW and 70 kW of natural gas |
 | Revenue at 35 USD/kg REO | 0.55 MUSD/yr (0.185 USD/kg H2) |
-| MSP effect | 1.752 (off) → 1.690 (on): −0.062 USD/kg H2; GWP +0.12 kg CO2e/kg H2; FCI +1.29 MUSD |
+| MSP effect | 1.826 (off) → 1.762 (on): −0.064 USD/kg H2; GWP +0.12 kg CO2e/kg H2; FCI +1.29 MUSD |
 
 **S1 MSP by REO price (USD/kg H2):**
 
 | REO price (USD/kg) | 2 | 35 (baseline) | 65 | 97 | 151 |
 |---|---:|---:|---:|---:|---:|
-| MSP | 1.865 | 1.690 | 1.531 | 1.362 | 1.076 |
+| MSP | 1.937 | 1.762 | 1.603 | 1.434 | 1.148 |
 
-The MSP falls by 0.0053 USD/kg H2 per USD/kg REO. REE recovery is better than not recovering above **23.2 USD/kg REO**
-(S1) and **27.9 USD/kg REO** (S2 Mode A, all WHR; the 1.25 capex factor makes the added equipment dearer). A 1.3 wt % REO
+The MSP falls by 0.0053 USD/kg H2 per USD/kg REO. REE recovery is better than not recovering above **23.0 USD/kg REO**
+(S1) and **27.7 USD/kg REO** (S2, all WHR; the 1.25 capex factor makes the added equipment dearer). A 1.3 wt % REO
 solid would not fetch these prices without a buyer and a grade that suits a refiner.
 
 **REO grade sensitivity (the collaborators' 98 wt % case).** If the seaweed is soaked in a concentrated REE solution, the
@@ -216,28 +203,28 @@ seaweed (more REO per kg of char) is **not** modeled.
 | Product (kg/h) | 150.8 | 39.5 | 9.9 | 4.0 | 2.0 |
 | RO1 roaster (MUSD) | 0.367 | 0.166 | 0.078 | 0.053 | 0.042 |
 | LC1 (MUSD) | 0.908 | 0.793 | 0.750 | 0.739 | 0.735 |
-| S1 MSP at 35 USD/kg REO | 1.690 | 1.661 | 1.650 | 1.647 | 1.646 |
-| S2 MSP at 35 USD/kg REO (all WHR) | 1.918 | 1.883 | 1.869 | 1.865 | 1.864 |
-| S1 break-even REO price (USD/kg) | 23.2 | 17.8 | 15.7 | 15.1 | 14.8 |
-| S2 break-even REO price (USD/kg) | 27.9 | 21.4 | 18.8 | 18.0 | 17.8 |
+| S1 MSP at 35 USD/kg REO | 1.762 | 1.734 | 1.722 | 1.719 | 1.718 |
+| S2 MSP at 35 USD/kg REO (all WHR) | 1.990 | 1.955 | 1.941 | 1.937 | 1.936 |
+| S1 break-even REO price (USD/kg) | 23.0 | 17.6 | 15.4 | 14.8 | 14.6 |
+| S2 break-even REO price (USD/kg) | 27.7 | 21.1 | 18.5 | 17.8 | 17.5 |
 
 At 98 % the S1 MSP is 0.044 USD/kg H2 below the baseline grade at the same price (the roaster and the oxalate filter shrink; the
 revenue is the same because the product is sold on its REO content). The MSP at 98 % for 65 / 97 / 151 USD/kg REO is
-1.487 / 1.317 / 1.031 (S1) and 1.705 / 1.535 / 1.249 (S2). Whether a 98 % product would fetch more than the 35 USD/kg of the
+1.559 / 1.390 / 1.104 (S1) and 1.777 / 1.608 / 1.321 (S2). Whether a 98 % product would fetch more than the 35 USD/kg of the
 mixed concentrate is an assumption, which is why the price is swept.
 
 ## 6. Final MSP comparison (USD/kg H2, 7,920 h/yr)
 
 | Case | H2 (t/yr) | FCI (MUSD) | AOC (MUSD/yr) | MSP | Net GWP (kg CO2e/kg H2) |
 |---|---:|---:|---:|---:|---:|
-| S1 | 2,953.56 | 14.786 | 3.075 | **1.690** | 15.83 |
-| S2 floating, no WHR | 2,953.56 | 18.482 | 3.445 | 1.978 | 15.83 |
-| **S2 floating, all WHR** | 2,953.56 | 19.372 | 3.150 | **1.918** | 14.47 |
+| S1 | 2,953.56 | 14.786 | 3.289 | **1.762** | 16.88 |
+| S2 floating, no WHR | 2,953.56 | 18.482 | 3.659 | 2.051 | 16.88 |
+| **S2 floating, all WHR** | 2,953.56 | 19.372 | 3.364 | **1.990** | 15.44 |
 
-S2 (all WHR) with the other residue assumption (leached char disposed at 0.04 USD/kg wet): MSP ≈ 2.011 [DERIVED:
+S2 (all WHR) with the other residue assumption (leached char disposed at 0.04 USD/kg wet): MSP ≈ 2.083 [DERIVED:
 the same +0.094 USD/kg H2 as in S1].
 
-S1 and S2 **without REE recovery** (the previous baseline): S1 1.752; S2 no WHR 2.016; S2 all WHR 1.955.
+S1 and S2 **without REE recovery** (`ree_recovery=False`): S1 1.826; S2 no WHR 2.089; S2 all WHR 2.029.
 
 **S2 cost structure (all WHR):**
 - Process CAPEX = 1.25 × S1 FCI = 18.482 MUSD; WHR equipment adds 0.890 MUSD after the multiplier.
@@ -258,34 +245,32 @@ The jacket-water loop (80/70 °C) finds no sink that is cold enough, so its exch
 
 ## 7. Interpretation
 
-1. **S1 vs S2.** Floating operation adds +0.228 USD/kg with all WHR (1.690 → 1.918; +0.289 without WHR). The 1.25 CAPEX
+1. **S1 vs S2.** Floating operation adds +0.228 USD/kg with all WHR (1.762 → 1.990; +0.289 without WHR). The 1.25 CAPEX
    factor (+3.70 MUSD) accounts for about 0.19 of the +0.289 and the doubled labor (+0.30 MUSD/yr) for about 0.10. The WHR
    (exhaust and scavenge air; the jacket-water loop finds no sink) recovers 0.061 USD/kg. S2 stays ≈ 13 % above S1.
-   With the S1 capital and labor (multipliers 1.0, WHR equipment still added) S2 would be 1.629, 0.061 below S1.
+   With the S1 capital and labor (multipliers 1.0, WHR equipment still added) S2 would be 1.701, 0.061 below S1.
 2. **WHR.** The 0.89 MUSD of WHR equipment is repaid by 0.31 MUSD/yr of avoided steam. Each MUSD of WHR equipment lowers
-   the MSP by about 0.055 USD/kg for the exhaust-only set (0.58 MUSD) and 0.068 USD/kg for the full set. The operating hours matter: the S2
+   the MSP by about 0.068 USD/kg (the full set, 0.89 MUSD). The operating hours matter: the S2
    results are at 7,920 h/yr underway, and fewer hours spread the fixed costs over less H2.
 3. **CaCO3 sales.** The revenue is −1.80 USD/kg H2 of the MSP, the largest single item and an unverified one. Without
-   sales the S1 MSP is 4.22. Unless a buyer and specification for the cake are confirmed, quote the no-sales value beside it.
+   sales the S1 MSP is 4.29. Unless a buyer and specification for the cake are confirmed, quote the no-sales value beside it.
 4. **ATT residue.** Assuming that the leached char has a net price of 0 lowers the MSP by 0.09 USD/kg. Without it, S1
-   is 1.78 (S2 all WHR ≈ 2.01).
+   is 1.86 (S2 all WHR ≈ 2.08).
 5. **REE recovery.** It lowers the MSP only above 23 USD/kg REO (S1) and 28 USD/kg REO (S2). At 2 USD/kg REO the S1 MSP
-   is 1.865, 0.11 higher than without the recovery. The price, the 60 % recovery, the 1.31 wt % grade and the buyer are assumptions.
+   is 1.937, 0.11 higher than without the recovery. The price, the 60 % recovery, the 1.31 wt % grade and the buyer are assumptions.
 6. **Other drivers:**
-   - NaOH makeup is 0.46 USD/kg H2, from a 9.7 % makeup rate (3,883 of 39,831 t/yr of gross NaOH).
+   - NaOH makeup is 0.53 USD/kg H2, from a 9.7 % makeup rate (3,883 of 39,831 t/yr of gross NaOH).
    - Fuel and steam together are 1.53 USD/kg.
-   - CaCO3 drying lowers the S1 MSP by 0.08 USD/kg only through the disposal charge on the cake water (section 4).
 
 **S2 floating-factor sensitivity (all WHR; MSP in USD/kg H2):**
 
 | Parameter | Low | High |
 |---|---:|---:|
-| CAPEX multiplier 1.10 / 1.40 | 1.806 | 2.030 |
-| Labor multiplier 1 / 2 | 1.816 | 1.918 |
-| WHR CAPEX × 0.5 / × 2 | 1.895 | 1.963 |
-| WHR CAPEX at the IMO lower bound for power WHRS (5.2 MUSD) | — | 2.136 |
-| No scavenge-air recovery | — | 1.946 |
-| Engine load 0.5 / 1.0 | 1.967 | 1.841 |
+| CAPEX multiplier 1.10 / 1.40 | 1.878 | 2.102 |
+| Labor multiplier 1 / 2 | 1.888 | 1.990 |
+| WHR CAPEX × 0.5 / × 2 | 1.967 | 2.035 |
+| WHR CAPEX at the IMO lower bound for power WHRS (5.2 MUSD) | — | 2.208 |
+| Engine load 0.5 / 1.0 | 2.039 | 1.913 |
 
 Boundary reminders:
 - No vessel acquisition, harvesting, collection or transport cost.
