@@ -1,0 +1,56 @@
+"""REE economics: independent DCF root, real revenue credit and annual ledgers."""
+import unittest
+import warnings
+
+
+class REETeaVerificationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        warnings.filterwarnings('ignore')
+        from biorefineries.ATT.analyses.ree_tea_verification import collect_ree_tea
+        cls.data = collect_ree_tea()
+
+    def test_six_case_dcf_and_annual_cost_reconciliation(self):
+        expected = {'S1': (1.84222142, 1.85420646),
+                    'S2': (2.04398179, 2.08109738),
+                    'S3': (1.48445443, 1.49643947)}
+        self.assertEqual(len(self.data['cases']), 6)
+        for row in self.data['cases']:
+            msp = expected[row['scenario']][int(row['ree_enabled'])]
+            self.assertAlmostEqual(row['dcf_msp_usd_per_kg_H2'], msp, places=6)
+            self.assertAlmostEqual(row['independent_msp_usd_per_kg_H2'], msp, places=6)
+            self.assertLess(abs(row['discounted_cashflow_residual_usd']), 1.)
+            self.assertAlmostEqual(sum(row[k] for k in ('materials_usd_per_year', 'utilities_usd_per_year',
+                'waste_usd_per_year', 'fixed_usd_per_year')), row['gross_opex_usd_per_year'], places=5)
+            self.assertAlmostEqual(row['gross_opex_usd_per_year']-row['coproduct_revenue_usd_per_year'],
+                                   row['net_opex_usd_per_year'], places=5)
+            self.assertAlmostEqual(row['net_opex_usd_per_year']+row['screening_capital_usd_per_year'],
+                                   row['net_treatment_cost_usd_per_year'], places=5)
+            parts = [x['usd_per_kg_H2'] for x in self.data['dcf_components']
+                     if x['scenario']==row['scenario'] and x['ree_enabled']==row['ree_enabled']]
+            self.assertAlmostEqual(sum(parts), row['dcf_msp_usd_per_kg_H2'], places=7)
+
+    def test_coproduct_revenues_are_credited_once_in_dcf(self):
+        for row in self.data['cases']:
+            for product in ('reo', 'caco3'):
+                self.assertAlmostEqual(row[f'msp_without_{product}_revenue']-row['dcf_msp_usd_per_kg_H2'],
+                    row[f'{product}_revenue_usd_per_year']/row['h2_kg_per_year'], places=7)
+            self.assertAlmostEqual(row['FCI_usd'], row['installed_capital_sum_usd'], places=5)
+            self.assertAlmostEqual(row['HCl_usd_per_year'], row['HCl_feed_cost_usd_per_year'], places=5)
+            self.assertAlmostEqual(row['oxalic_usd_per_year'], row['oxalic_feed_cost_usd_per_year'], places=5)
+
+    def test_ree_increment_reconciles_without_changing_production(self):
+        self.assertEqual(len(self.data['increments']),3)
+        for row in self.data['increments']:
+            self.assertEqual(row['delta_h2_kg_per_year'],0.)
+            self.assertEqual(row['delta_operating_hours'],0.)
+            self.assertGreater(row['delta_msp_usd_per_kg_H2'],0.)
+            self.assertAlmostEqual(row['delta_gross_opex_usd_per_year']+row['delta_screening_capital_usd_per_year']
+                -row['delta_coproduct_revenue_usd_per_year'],row['delta_net_treatment_cost_usd_per_year'], places=5)
+            if row['scenario']=='S1':
+                self.assertAlmostEqual(row['delta_FCI_usd']/1e6,1.28826,places=4)
+                self.assertAlmostEqual(row['delta_gross_opex_usd_per_year'],415505.,delta=2.)
+                self.assertAlmostEqual(row['delta_coproduct_revenue_usd_per_year'],547064.,delta=2.)
+
+
+if __name__=='__main__': unittest.main()
