@@ -1,0 +1,704 @@
+{
+  "status": "PASS",
+  "pdf": "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\ATT_Advisor_Meeting_Figures_Revised_10p.pdf",
+  "pages": 10,
+  "checks": [
+    {
+      "check": "H1 + H3 aggregated before rounding",
+      "status": "PASS",
+      "actual": 8.52515146710228,
+      "expected": 8.52515146710228,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Other demand preserves minor components",
+      "status": "PASS",
+      "actual": 1.4474733697319493,
+      "expected": 1.4474733697319493,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Demand grouping preserves S3",
+      "status": "PASS",
+      "actual": 27.44614175323037,
+      "expected": 27.446141753230375,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Supply grouping preserves S3",
+      "status": "PASS",
+      "actual": 27.446141753230375,
+      "expected": 27.446141753230375,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "demand dry-feed total",
+      "status": "PASS",
+      "actual": 27.44614175323037,
+      "expected": 27.45,
+      "tolerance": 0.005
+    },
+    {
+      "check": "demand hydrogen total",
+      "status": "PASS",
+      "actual": 370.13192877120906,
+      "expected": 370.13,
+      "tolerance": 0.005
+    },
+    {
+      "check": "supply dry-feed total",
+      "status": "PASS",
+      "actual": 27.446141753230375,
+      "expected": 27.45,
+      "tolerance": 0.005
+    },
+    {
+      "check": "supply hydrogen total",
+      "status": "PASS",
+      "actual": 370.1319287712091,
+      "expected": 370.13,
+      "tolerance": 0.005
+    },
+    {
+      "check": "Other costs from full-precision components",
+      "status": "PASS",
+      "actual": 0.08449509104019856,
+      "expected": 0.084495,
+      "tolerance": 5e-07
+    },
+    {
+      "check": "Other emissions from full-precision components",
+      "status": "PASS",
+      "actual": 0.20542625763177708,
+      "expected": 0.205426,
+      "tolerance": 5e-07
+    },
+    {
+      "check": "Net natural gas displayed contribution",
+      "status": "PASS",
+      "actual": 8.565448959976393,
+      "expected": 8.565449,
+      "tolerance": 5e-07
+    },
+    {
+      "check": "MSP grouping preserves original sum",
+      "status": "PASS",
+      "actual": 1.4964394518892792,
+      "expected": 1.4964394518892792,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "MSP unchanged within original solver residual",
+      "status": "PASS",
+      "actual": 1.4964394518892792,
+      "expected": 1.496439469814429,
+      "tolerance": 5e-08
+    },
+    {
+      "check": "Net MSP at requested display precision",
+      "status": "PASS",
+      "actual": 1.496439469814429,
+      "expected": 1.496439,
+      "tolerance": 5e-07
+    },
+    {
+      "check": "GWP grouping and once-only WHR adjustment",
+      "status": "PASS",
+      "actual": 7.35581761358569,
+      "expected": 7.35581761358569,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "GWP unchanged",
+      "status": "PASS",
+      "actual": 7.35581761358569,
+      "expected": 7.355817613585682,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Net GWP at requested display precision",
+      "status": "PASS",
+      "actual": 7.35581761358569,
+      "expected": 7.355818,
+      "tolerance": 5e-07
+    },
+    {
+      "check": "Upstream natural gas untouched",
+      "status": "PASS",
+      "actual": 3.2408715490200284,
+      "expected": 3.2408715490200284,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Storage credit untouched",
+      "status": "PASS",
+      "actual": -8.263668184281746,
+      "expected": -8.263668184281746,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Zero host heat contribution retained in boundary",
+      "status": "PASS",
+      "actual": 0.0,
+      "expected": 0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Exactly ten pages",
+      "status": "PASS",
+      "pages": 10
+    },
+    {
+      "check": "Page 1 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 1 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 1 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 1 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 1 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 3 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 3 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 3 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 3 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 3 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 6 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 6 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 6 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 6 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 6 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 7 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 7 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 7 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 7 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 7 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 8 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 8 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 8 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 8 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 8 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 9 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 9 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 9 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 9 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 9 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 10 width",
+      "status": "PASS",
+      "actual": 936.0,
+      "expected": 936.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 10 height",
+      "status": "PASS",
+      "actual": 612.0,
+      "expected": 612.0,
+      "tolerance": 1e-12
+    },
+    {
+      "check": "Page 10 original content stream unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 10 text unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 10 pixels unchanged at 144 dpi",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 2 original dimensions",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 2 text inside page",
+      "status": "PASS",
+      "outside": []
+    },
+    {
+      "check": "Page 2 no footer intrusion",
+      "status": "PASS",
+      "intrusion": []
+    },
+    {
+      "check": "Page 2 no review annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 4 original dimensions",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 4 text inside page",
+      "status": "PASS",
+      "outside": []
+    },
+    {
+      "check": "Page 4 no footer intrusion",
+      "status": "PASS",
+      "intrusion": []
+    },
+    {
+      "check": "Page 4 no review annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 5 original dimensions",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 5 text inside page",
+      "status": "PASS",
+      "outside": []
+    },
+    {
+      "check": "Page 5 no footer intrusion",
+      "status": "PASS",
+      "intrusion": []
+    },
+    {
+      "check": "Page 5 no review annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 2 has S3 bars only",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 2 consolidated WHR legend",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 5 no standalone avoided-emissions category",
+      "status": "PASS"
+    },
+    {
+      "check": "Page 5 net natural gas and unchanged net visible",
+      "status": "PASS"
+    },
+    {
+      "check": "No protected files changed, including pre-existing user edits",
+      "status": "PASS",
+      "protected_file_count": 86
+    },
+    {
+      "check": "No BioSTEAM import or model execution",
+      "status": "PASS"
+    }
+  ],
+  "energy": {
+    "demand": [
+      [
+        "Drying D0/D2/D3",
+        7.7043077047240125,
+        "#0072B2"
+      ],
+      [
+        "ATT reactor U2",
+        9.154292103759193,
+        "#D55E00"
+      ],
+      [
+        "NaOH evaporation EC1",
+        8.106737293145734,
+        "#7B3294"
+      ],
+      [
+        "Causticization C1",
+        1.0333312818694835,
+        "#E6AB02"
+      ],
+      [
+        "Other demand (heat + electricity)",
+        1.4474733697319493,
+        "#717B83"
+      ]
+    ],
+    "supply": [
+      [
+        "Fired heat to process",
+        9.188551724895811,
+        "#D55E00"
+      ],
+      [
+        "Boiler steam to process",
+        1.9530115277461775,
+        "#CC79A7"
+      ],
+      [
+        "Internal HXN heat",
+        6.442575379553595,
+        "#0072B2"
+      ],
+      [
+        "Waste Heat Recovery",
+        8.52515146710228,
+        "#009E73"
+      ],
+      [
+        "Purchased electricity (incl. WHR auxiliary)",
+        1.3368516539325104,
+        "#E6AB02"
+      ]
+    ],
+    "hydrogen_factor": 13.485754467753015,
+    "other_demand_components": {
+      "Other unit power": 0.5624859712845633,
+      "Gas processing heat": 0.07636209466282119,
+      "Gas processing power": 0.48675479319203113,
+      "REE processing": 0.11793255868184857,
+      "Cooling-system power": 0.11419951541487156,
+      "WHR auxiliary power": 0.08973843649581345
+    }
+  },
+  "dcf": [
+    [
+      "Raw materials / chemicals",
+      0.6301298880538252,
+      "#0072B2"
+    ],
+    [
+      "Heating / natural gas",
+      1.5451789788834398,
+      "#D55E00"
+    ],
+    [
+      "Electricity / cooling",
+      0.37781729042617407,
+      "#E6AB02"
+    ],
+    [
+      "Waste treatment / disposal",
+      0.4394082101116408,
+      "#8C564B"
+    ],
+    [
+      "Fixed operating costs",
+      0.28852356069868246,
+      "#CC79A7"
+    ],
+    [
+      "Capital / net financing",
+      0.8602545223888844,
+      "#5E3C99"
+    ],
+    [
+      "Other costs",
+      0.08449509104019856,
+      "#717B83"
+    ],
+    [
+      "CaCO3 revenue",
+      -1.7999930169807106,
+      "#00875A"
+    ],
+    [
+      "REE revenue",
+      -0.18539460040016648,
+      "#A4AD39"
+    ],
+    [
+      "WHR heat savings",
+      -0.743980472332689,
+      "#56B4E9"
+    ]
+  ],
+  "lca": [
+    [
+      "Natural gas combustion\n(net WHR adjustment)",
+      8.565448959976393,
+      "#D55E00"
+    ],
+    [
+      "Upstream natural gas",
+      3.2408715490200284,
+      "#7B3294"
+    ],
+    [
+      "Purchased electricity",
+      2.097611090856807,
+      "#E6AB02"
+    ],
+    [
+      "NaOH input",
+      1.5101279403824304,
+      "#0072B2"
+    ],
+    [
+      "Other emissions",
+      0.20542625763177708,
+      "#717B83"
+    ],
+    [
+      "Biogenic carbon storage",
+      -8.263668184281746,
+      "#00875A"
+    ]
+  ],
+  "aggregation_sources": {
+    "original_dcf": {
+      "Raw materials / chemicals": 0.6301298880538252,
+      "Heating / natural gas": 1.5451789788834398,
+      "Electricity / cooling": 0.37781729042617407,
+      "Waste treatment / disposal": 0.4394082101116408,
+      "Fixed operating costs": 0.28852356069868246,
+      "Capital / net financing": 0.8602545223888844,
+      "Taxes / working capital": 0.05820706361392571,
+      "WHR auxiliary / heat purchase": 0.026288027426272852,
+      "CaCO3 revenue": -1.7999930169807106,
+      "REE revenue": -0.18539460040016648,
+      "WHR heat savings": -0.743980472332689
+    },
+    "original_lca": {
+      "Direct natural gas combustion": 18.519265994400165,
+      "Upstream natural gas": 3.2408715490200284,
+      "Purchased electricity": 2.097611090856807,
+      "NaOH input": 1.5101279403824304,
+      "HCl input (provisional)": 0.007082240645857754,
+      "Oxalic acid (provisional)": 0.004054380627783889,
+      "Other chemicals / water": 0.03739967591494271,
+      "Waste treatment": 0.005952309363953493,
+      "WHR auxiliary electricity": 0.15093765107923923,
+      "WHR host heat burden": 0.0,
+      "Biogenic carbon storage": -8.263668184281746,
+      "Industrial WHR avoided emissions": -9.953817034423771
+    },
+    "other_emissions_members": [
+      "HCl input (provisional)",
+      "Oxalic acid (provisional)",
+      "Other chemicals / water",
+      "Waste treatment",
+      "WHR auxiliary electricity"
+    ]
+  },
+  "msp": 1.496439469814429,
+  "gwp": 7.355817613585682,
+  "msp_component_sum": 1.4964394518892792,
+  "gwp_component_sum": 7.35581761358569,
+  "protected_file_sha256": {
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\README.md": "eb9af103944322c4342088e2faa56ca0e96c8cb4b10db529bb25997fe96856b2",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\system.py": "dcb6a62e8755db354fefd8b4b11ef9541e07fefea31cd1d2d3b80bdd8cd30ab3",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\utils.py": "f2f9e4e0d81290a80e0ed5810fb7be2a03d38779c19e828b4a6fd9965951f065",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\_chemicals.py": "b1c55ac758b551d3e32ae7c7f0a9320bdd0c029e2581b6354e533ed58fc1c691",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\__init__.py": "17256ce8a817d9720a3ab90fadf36664e021b42f890a80b8b55cf6d488547152",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_comprehensive_report.py": "7a679baf7eec4274ff29310425cfb1cffb701cb2ca0b0e4dd5dd6b7a0d2821df",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_comprehensive_template.html": "879c27e2b44f7fa29edf14e10834008b7f9fb5ae59519c484a6f91bb4514e5ae",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_s2_marine.py": "3ddc109cc343b1f54af46a2719486893c84a9024ff5c4f7969c8e4bc68637296",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_s3_industrial.py": "8c872e98c9270aa0453563499b6ae214266b696cc2a888ca615d4caff375abee",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_s3_results.py": "110461df4134190913ba5bf72f952a8a59a81a3eb1e38109b015fa2b45cff468",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\att_targeted_review.py": "d67f9b6e3e32a488aa12bb7d93804d7366730214356142f1081472e035318fef",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\breakdown.py": "ac4a5e546c490e2c0076611357fc1e66f303367a11ee573ee85ed3420fa7c068",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\functional_unit.py": "54ecdb1b2744bd4c267a9fbc1983f86435282eb7f71659be47d67b5bd2548c1f",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\heat_duty.py": "11c897841aa2aa22ba362283ec901fed2ec3ede147bdaebd0ec48b7f0459a9e0",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\industrial_whr.py": "704571d4027af4e539491ed578e52dc3d012716e61146fc0a3e7f71fe8463f45",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\inventory.py": "8a036b2f677a7c26aae64298658cd36411395aa34c2451f0697a072eaddb4c2a",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\lca.py": "b95155e3a912975128a0f440d055aea54b8f2a79d731f746149ab9576e712ab7",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\marine_lca.py": "b360db982fbf78140ea475543a019ba9f07765c8a0b3dfbb08a2ca7cb2e63b4d",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\marine_tea.py": "5b9267772c2c02d28171ddeb1e2e3a8f031d7402d11d980bc8dcd26a3a1524b3",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\marine_whr.py": "3f9ddad93088a9a00d3e5023de991b59f0b8e06dfc2c6eb9130ea2d652676882",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\mass_energy.py": "525bc60c10b6aae37a6ac049a35bdb8032f2d3ba3d4d8a3599b5560be6e32518",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\paths.py": "a8a4811a096bff4dc41514a0cfc6c196247a66af4ec0827b33d55a887dafb2e5",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\ree_sensitivity.py": "dd5866579f654cd4898a882abeaaa34cb271b3c62ca1073442ea505050beffc4",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\ree_tea_verification.py": "54af2eedf8cf7d8890287cfb6c1d27a2824d682963d511ca6369a2fe9a5beb19",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\reporting.py": "e525c3f55b296028d81042344f66d3596a52db62638ef9bb2c27013561017496",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\run.py": "531f57a3611f867147da8337acd729a48320eccddf352bd82b819ff6d438ba40",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\scenarios.py": "1dae31e88630354753a44e390fb781d0ffb70d5de66835c4d2eb46dccad4aedb",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\tea.py": "96aae8c77ae1f084402ba429981e1876c678836f73e6573fd560fcad4e361e77",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\thermodynamics.py": "8e23c6290b28b2ffa8ded7f67a90ed3b415c9b18722308767368d6a63fdb4599",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\treatment_report.py": "23b70fd9d539a18250cfde678854edb73593be56d534d1b9c987fe99429fce98",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\u2_cost_sensitivity.py": "a3633bdf90ca1a29c77165419d31e28c2ba6f5d99eaff6faaf2941d2e6ebe07f",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\validation.py": "4fb28110ca46970fd9000ea6d2e3cae96c69afdafae97681ee5a25b856d23dca",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\analyses\\__init__.py": "894b87c92af1bbacf03626dfd18e9a3be74f578e0d700cbc05fa449d69405045",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\att.yaml": "a7aa37e8875404b7bf87cbe8b6be1b08abc3063a7a8e95d238d0f468f24631ae",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\feedstock.yaml": "6d3918b4bbc9cca838b04938b69abbe8263ee379f49dde607e63d4b65058a7a8",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\lca.yaml": "ec635b68da72fca209a447006273c93f2fca9aef9b902413196cb42ccc29ad03",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\marine_tea.yaml": "52c5c04fa702ee0b9fba426c84a7d63a383618784eae134706498c9dcf7ee99d",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\marine_whr.yaml": "af23e3b1d440e4e728b7ffd5110e5b54cf5d2b1246fa77197924af7939cde035",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\data\\tea.yaml": "6d97ad8fd06f33c9211c0a286c06eec7a3dc012d89d1df1e062db011aa0d4bb3",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md": "48047b37ea657837e88f4fb90b557e156215bb9e3c713b92d7a018408442325d",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S1_S2_LCA_FINAL.md": "bd4b18b9733e8b901527ffc08a962ef8871001d6246ec1d8e1859f6dc11e1941",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S1_S2_PROCESS_AND_ENERGY.md": "39bd4b44dcf6af62a115e49b8c57f001f54a8d4ee15f2a21f70258674282dd85",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S1_S2_S3_SCIENTIFIC_REVIEW.md": "703030c1f48234e0732759ea52746a67e5a4131c9100a30728162be3949eb608",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S1_S2_TEA_FINAL.md": "ef3bc682b67b21ef3055962c036c916b9d13aa97a8a06d1f86869b80840d17b5",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S2_DESIGN_BASIS.md": "443519949b26d441ca836bd270e1dd1437cddd4780443dabdba701766221b18e",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S2_REFERENCES.md": "8a95e67d658e1e3a0a76d16c7d68e236bf23e54ea37f501cb3a1944aa8adf252",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_S3_DESIGN_BASIS.md": "af083dcafa7c8454468d2884864385e84dfa7959a0111d7623296dec49e471a0",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\docs\\ATT_TARGETED_TEA_LCA_WHR_REVIEW.md": "c53f79c3104c6a4551357bc116a4c46054e35e5ed2eecdd727201e668a7e678f",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\reference_data\\ATT Inputs and Assumptions_261023.xlsx": "db8ff0f4cfb4dbbcad8f7c87e8c3b576a5bdabcf9e2bc502ecacc1365040f949",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_baseline.py": "bd18ce8fba46e609ff6567671d5fa7e740ef4f447795b325f8f15620cc30476a",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_breakdown.py": "6e5eeb0eff3befe441c59ed77cbf4c48ee49a5fb44c42607bd9f50afdfac4504",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_c1_aqueous_reference.py": "fd8e70ec29f6e76b27f2dd21a49c9734f90e21ab4e7fe2cdf0c939816643aa9a",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_comprehensive_report.py": "aef8225badd444f8d905711bea5a4a2d4497110fe49dd50d5cf32dd8f7e05d91",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_ec1_naoh_evaporator.py": "d347a15225721d1eaf188f7427ae9e978403ecd1d9fe7593910db3524e6252e2",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_functional_unit.py": "d29fffecd3e7d38698a286a88be875e49f7d3e0111fc3dde52ab7c8f3b9150ae",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_independent_checks.py": "9e95298c062bf4fdd4e5e550a1865110880c7c1eb07b7b3375acce14317bcc7b",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_lca.py": "a4bfdb47462d98386098ac793fab2035e0c8adf3dba1638a6decf3ea2fc0c0d3",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_ree_grade.py": "70b592d6257afd2a368200d068aa635ce21d26771430e0817a502a51b12a7b0a",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_ree_recovery.py": "bc90595c0553000fc0778b0c0b69b12f9b2da150adb35d82b3dae8c3651dfd60",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_ree_tea.py": "0e05a036fc9e341e7a74c91337e59a3d9f909bedcc3dab399f1149870513ec6f",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_s1_parameters.py": "92c8881894e5554ccc79c2899bc35440890b4e0953b43ef27ad77d4d2f0f865c",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_s2.py": "7cc9de29be3fb1b3f9b25b54476070bb446183419bd6fa3e20087647db797766",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_s3.py": "e5b02f9d752fa2f26771e2780e7551ed277fb76c9230cea93fef7bab2882e8bd",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_stream_register.py": "008f7012a64816176063e321596fb906867004cf209e5a405156a836774760ff",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_targeted_review.py": "dd57c5f1a22e99e00ce872f82f82e1ea7af55ae2342bea55931bfd91d4a1ec97",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_u2_cost_sensitivity.py": "b1130435444665bce4b62058b44d1f91fd7f29fa0255c72b1b6fe112aec322d3",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\test_att_washing_integration.py": "db29b0a6f60047a5b6759f3e50b3e37c1031e5bd0a4da25bc15385999eb5096d",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\test\\__init__.py": "eeca353f9ce4a76eb8910bef8809cbbf00baaff416d2c700b847f4c1b552b647",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\units\\_att.py": "28d9dbb47e28ba768127e553eef12427fca539e96aaaa7381a72840cb905f80b",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\units\\__init__.py": "30670202e1e2b4a2492c5348afd427860048b48aecea5206bca0944060ffe7d5",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\tables\\att_u2_cost_sensitivity.csv": "3838b6b0a71fb82a37b59f2b9938f11c93cada2c1d24aa6a7602ff16d4b1f55f",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\validation\\u2_ec1_lca_diagnostics_att_s1_1kgph.txt": "3d700fb54d04cd6f4d370891f8c5b0112873571ab825fe4adcce9872797e8f83",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\validation\\u2_element_balance_att_s1_1kgph.txt": "f4583de8e5e0e081f1365dc602a77c21eda3751c16587e375cbcf076ac306890",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\validation\\u2_element_balance_att_s1_1kgph_lumped.txt": "be34ff7c9be99067a319f1a751f8d94862642dc5d5286a90a39e7980ebdeb495",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\heat_allocations.csv": "5fc6358605c978cc0cd1a2caa1242c75a7b7d9591c54b374ecee92e1b5024a54",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\heat_sources.csv": "3fcae8c952e41b9a965e36d9cef2e59193647ef2067b9557608db2cef6cc0350",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\process_products.csv": "11351a7d0a83118cfdc5bbf3efa527844007a816864ac55bf3b54620b99d56e8",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\results.json": "76edb1f4eecb90fc3335c7ea584d3b54fc91d178eb739e406afce9c40c0c4e3d",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\scenario_comparison.csv": "fc31475cfeb2d0befd10e3a4ff877cfd33c1b6ea9572026798a7b28c84e6e4b7",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\results\\att_s3\\20261105T215337547771Z\\summary.csv": "573edc172bb9b47e50ee7de2bc3257a3213bcc42dbafc6602b2432f533b14541",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\ATT_Advisor_Meeting_Figures.pdf": "050f9580c1b157f53ac7598e451c6fe0ed2156357955c8d055271eb1ece3ec7e",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\collect_meeting_data.py": "30baae3f37b8bf847271af72178e0512af1c6301450823c7702a704070be07c6",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\controlled_results.json": "4c995a70d8193279105a643cc1960c3666d0fc5debec75c5ac7a09755be478d8",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\figure_data_and_validation.json": "2cd9411c31fcee9779971c049945ab50c8ecc5accfac8755ac9e4dca9bc80877",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\generate_figures.py": "ce8cf3c4aeaa42632caf35c5731a5b9799422a34f2b50c08087983b6618981af",
+    "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\meeting_20261112\\verify_pdf.py": "5ae0889e676d7cb1c107d70801a2a36a1bcb0a1344e66bef7d52a0003b131a32"
+  },
+  "pdf_sha256": "4ad1ab0c1c4c081aa73c824ef747982a9311630aaf32f42200886ba3df453ee6",
+  "visual_inspection": {
+    "status": "PASS",
+    "pages": [
+      2,
+      4,
+      5
+    ],
+    "preview_pixels": [
+      1872,
+      1224
+    ],
+    "review": "Inspected all three presentation-resolution previews: no visible text clipping, overlap, or legend overflow; colors and table entries match charts."
+  }
+}

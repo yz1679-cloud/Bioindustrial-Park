@@ -1,0 +1,958 @@
+{
+  "stages": {
+    "P1": {
+      "msp": 1.8422214203308893,
+      "gwp": 16.9868884612131
+    },
+    "P0": {
+      "msp": 4.484404399614144,
+      "gwp": 16.9868884612131,
+      "cake_disposal_kgph": 8404.083542266439,
+      "cake_disposal_usd_per_year": 2662413.6661900072,
+      "char_disposal_kgph": 1136.9593256279366,
+      "char_disposal_usd_per_year": 360188.7143589303,
+      "untracked_price": 0.0,
+      "full_cake_prices": {
+        "caco3_cake": -0.04,
+        "scrubber_cake": -0.04
+      },
+      "char_price": -0.04,
+      "delta_msp_from_P1": 2.6421829792832545
+    },
+    "P2": {
+      "msp": 1.854206458588746,
+      "gwp": 17.15869699693022
+    },
+    "P3": {
+      "msp": 1.496439469814429,
+      "gwp": 7.355817613585682
+    }
+  },
+  "industrial": {
+    "ree_enabled": true,
+    "sources": [
+      {
+        "source": "H1",
+        "available_kW": 10922.5042696,
+        "T_in_C": 1664.4,
+        "T_out_C": 800.0
+      },
+      {
+        "source": "H3",
+        "available_kW": 3565.2360282,
+        "T_in_C": 800.0,
+        "T_out_C": 40.0
+      }
+    ],
+    "sinks": [
+      {
+        "unit": "D0",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 9294.011513129175,
+        "hxn_recovered_kW": 5806.788414815645,
+        "purchased_kW": 3487.2230983135296,
+        "T_in_C": 69.99999999842709,
+        "T_out_C": 73.77280074993143,
+        "usd_per_kWh": 0.022131471484342184,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "D2",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 1957.4387610363203,
+        "hxn_recovered_kW": 1957.4387610363203,
+        "purchased_kW": 0.0,
+        "T_in_C": 73.77280074993183,
+        "T_out_C": 73.77280074993183,
+        "usd_per_kWh": 0.022131471484342188,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "D3",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 77.86936892422823,
+        "hxn_recovered_kW": 77.86936892422823,
+        "purchased_kW": 0.0,
+        "T_in_C": 73.7728007499316,
+        "T_out_C": 73.7728007499316,
+        "usd_per_kWh": 0.022131471484342188,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "C1",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 1515.7329491615353,
+        "hxn_recovered_kW": 1515.7329491615353,
+        "purchased_kW": 0.0,
+        "T_in_C": 90.00000000000028,
+        "T_out_C": 90.00000000000028,
+        "usd_per_kWh": 0.022131471484342184,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "EC1",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 11891.296664499501,
+        "hxn_recovered_kW": -29.802748532580154,
+        "purchased_kW": 11921.099413032081,
+        "T_in_C": 89.99999996541936,
+        "T_out_C": 91.51288302140784,
+        "usd_per_kWh": 0.022131471484342188,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "U3D",
+        "utility": "low_pressure_steam",
+        "eligible": true,
+        "purchased_before_hxn_kW": 112.29179988754981,
+        "hxn_recovered_kW": 112.29179988754927,
+        "purchased_kW": 5.446330845704553e-13,
+        "T_in_C": 126.85000000000014,
+        "T_out_C": 126.84999999999991,
+        "usd_per_kWh": 0.022131471484342188,
+        "note": "HXN residual from signed utility agents; cooling is not purchased steam"
+      },
+      {
+        "unit": "U2 feed preheat (S2 boundary)",
+        "utility": "natural_gas (U2 furnace)",
+        "eligible": false,
+        "purchased_before_hxn_kW": 0.0,
+        "hxn_recovered_kW": 0.0,
+        "purchased_kW": 0.0,
+        "T_in_C": 78.45998210313297,
+        "T_out_C": 95.0,
+        "usd_per_kWh": 0.017427678761497256,
+        "note": "sensible feed preheat to target; reduces the U2 fired duty (x (1 + heat loss)); conceptual preheater"
+      },
+      {
+        "unit": "U2 (500 C reaction heat, fired)",
+        "utility": "natural_gas",
+        "eligible": false,
+        "purchased_before_hxn_kW": 13427.893272343259,
+        "hxn_recovered_kW": 0.0,
+        "purchased_kW": 13427.893272343259,
+        "T_in_C": NaN,
+        "T_out_C": 500.0,
+        "usd_per_kWh": 0.017427678761497256,
+        "note": "not eligible: high-temperature reaction heat stays on the U2 furnace"
+      },
+      {
+        "unit": "RO1",
+        "utility": "natural_gas",
+        "eligible": false,
+        "purchased_before_hxn_kW": 69.39758758496735,
+        "hxn_recovered_kW": 0.0,
+        "purchased_kW": 69.39758758496735,
+        "T_in_C": NaN,
+        "T_out_C": NaN,
+        "usd_per_kWh": 0.017663940285612637,
+        "note": "not configured as a sink"
+      }
+    ],
+    "allocations": [
+      {
+        "source": "H3",
+        "unit": "D0",
+        "sink_index": 0,
+        "feasible_kW": 3006.8121708830267,
+        "extracted_kW": 3006.8121708830267,
+        "used_kW": 2706.130953794724,
+        "interval_bottom_C": 159.03900000000004,
+        "sink_temperature_C": 139.03900000000004
+      },
+      {
+        "source": "H1",
+        "unit": "D0",
+        "sink_index": 0,
+        "feasible_kW": 867.8801605764505,
+        "extracted_kW": 867.8801605764505,
+        "used_kW": 781.0921445188055,
+        "interval_bottom_C": 800.0,
+        "sink_temperature_C": 139.03900000000004
+      },
+      {
+        "source": "H1",
+        "unit": "EC1",
+        "sink_index": 4,
+        "feasible_kW": 10054.624109023549,
+        "extracted_kW": 10054.624109023549,
+        "used_kW": 9049.161698121194,
+        "interval_bottom_C": 800.0,
+        "sink_temperature_C": 139.03900000000004
+      }
+    ],
+    "operating_hours_per_year": 7920.0,
+    "product_flows": {
+      "dryer_exhaust": {
+        "mass_kg_per_h": 65847.7844893561,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "dryer_emissions": {
+        "mass_kg_per_h": 0.0,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "scrubber_cake": {
+        "mass_kg_per_h": 301.4185377927688,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 269.8803650422103,
+        "REO_kg_per_h": 0.0
+      },
+      "scrubber_dryer_exhaust": {
+        "mass_kg_per_h": 569.0198147794654,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "scrubber_dryer_emissions": {
+        "mass_kg_per_h": 0.0,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "u3_dryer_removed_water": {
+        "mass_kg_per_h": 268.6237579935091,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "h2_product": {
+        "mass_kg_per_h": 406.96598762900163,
+        "H2_kg_per_h": 372.92463035907224,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "att_residue_untracked": {
+        "mass_kg_per_h": 1938.8302081328804,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "excess_condensate": {
+        "mass_kg_per_h": 4035.8500882013896,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "att_char": {
+        "mass_kg_per_h": 873.7156085416732,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 2.3575189917299997
+      },
+      "leach_co2": {
+        "mass_kg_per_h": 14.390931634958626,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "ree_product": {
+        "mass_kg_per_h": 150.792176280916,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 1.9753775092799999
+      },
+      "roaster_exhaust": {
+        "mass_kg_per_h": 70.93400280087928,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "caco3_cake": {
+        "mass_kg_per_h": 8103.539488389025,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 6442.736940022217,
+        "REO_kg_per_h": 0.0
+      },
+      "caco3_dryer_exhaust": {
+        "mass_kg_per_h": 15297.912903788992,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "caco3_dryer_emissions": {
+        "mass_kg_per_h": 0.0,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "liquor_purge": {
+        "mass_kg_per_h": 1537.0071257398397,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      },
+      "salt_cake": {
+        "mass_kg_per_h": 1076.8545370426575,
+        "H2_kg_per_h": 0.0,
+        "CaCO3_kg_per_h": 0.0,
+        "REO_kg_per_h": 0.0
+      }
+    },
+    "boundary_flows_unchanged": true,
+    "configuration": {
+      "reference_hours": 7920.0,
+      "host_hours": 7920.0,
+      "utilization": 1.0,
+      "approach_C": 20.0,
+      "effectiveness": 0.9,
+      "installed_cost_usd_per_kW": 500.0,
+      "auxiliary_kW_per_kW": 0.01,
+      "heat_price_usd_per_MWh": 0.0,
+      "heat_burden_kg_per_MWh": 0.0
+    },
+    "overlap_fraction": 1.0,
+    "available_kW": 14487.7402978,
+    "feasible_overlap_kW": 13929.316440483028,
+    "source_details": [
+      {
+        "source": "H3",
+        "available_kW": 3565.2360282,
+        "temperature_feasible_kW": 3006.8121708830267,
+        "extracted_kW": 3006.8121708830267,
+        "loss_kW": 300.6812170883026,
+        "steam_kW": 2706.130953794724,
+        "unused_kW": 558.4238573169732
+      },
+      {
+        "source": "H1",
+        "available_kW": 10922.5042696,
+        "temperature_feasible_kW": 10922.5042696,
+        "extracted_kW": 10922.5042696,
+        "loss_kW": 1092.2504269599997,
+        "steam_kW": 9830.25384264,
+        "unused_kW": 0.0
+      }
+    ],
+    "source_extracted_overlap_kW": 13929.316440483028,
+    "transfer_loss_overlap_kW": 1392.9316440483024,
+    "useful_steam_overlap_kW": 12536.384796434724,
+    "steam_agent": {
+      "temperature_C": 139.03900000000004,
+      "pressure_Pa": 344738.0,
+      "phase": "g",
+      "latent_heat_kJ_per_kg": 2147.153257356548,
+      "utility_to_process_ratio": 0.9500000000000002,
+      "return_assumption": "saturated liquid condensate at the steam-agent temperature"
+    },
+    "steam_generated_average_kg_per_h": 21018.98647082495,
+    "process_heat_equivalent_average_kW": 11909.565556612992,
+    "baseline_steam_kW": 15408.32251134561,
+    "remaining_steam_average_kW": 2871.937714910886,
+    "remaining_fired_heating_kW": 13497.290859928224,
+    "avoided_boiler_fuel_average_kW": 15670.480995543405,
+    "used_average_kW": 12536.384796434724,
+    "unused_overlap_kW": 558.4238573169732,
+    "heating_before_kW": 28905.613371273834,
+    "heating_after_average_kW": 16369.22857483911,
+    "recovered_MWh_per_year": 99288.16758776302,
+    "recovered_GJ_per_year": 357437.4033159468,
+    "auxiliary_average_kW": 125.36384796434724,
+    "incremental_capex_usd": 6268192.398217362,
+    "incremental_foc_usd_per_year": 250727.6959286945,
+    "auxiliary_electricity_cost_usd_per_year": 77643.34705363068,
+    "heat_purchase_cost_usd_per_year": 0.0,
+    "avoided_cost_usd_per_year": 2197393.249701165,
+    "extra_voc_usd_per_year": -2119749.9026475344,
+    "s1": {
+      "scenario": "ATT Scenario 1: presscake, NaOH 1 kg/kg dry, Ni-CatATT 1:1 yields, waste-lime CO2 scrubber, no PSA",
+      "lime": "waste",
+      "PSA": false,
+      "NaOH_kg_per_kg_dry": 1.0,
+      "U2_balance_status": "PASS",
+      "results_status": "PROVISIONAL (assumed U2 residual-product composition and thermo)",
+      "U2_residual_product": "lumped: CH0.5O1.195",
+      "U2_heat_duty_MJ_per_kg_dry": 9.154292103759193,
+      "CaCO3_sales": "enabled",
+      "CaCO3_price_USD_per_t": 100.0,
+      "CaCO3_recovered_t_per_yr": 53163.92905611026,
+      "CaCO3_sold_t_per_yr": 53163.92905611026,
+      "CaCO3_sales_revenue_USD_per_yr": 5316392.905611026,
+      "CaCO3_cake_disposal_USD_per_yr": 536133.5404499817,
+      "NaOH_recycled_t_per_yr": 35848.65307956513,
+      "GWP_stored_carbon_credit_in_net_kgCO2e_per_kg_H2": -8.263668184281746,
+      "GWP_without_storage_credit_kgCO2e_per_kg_H2": 25.42236518121196,
+      "description": "ATT Scenario 1: presscake, NaOH 1 kg/kg dry, Ni-CatATT 1:1 yields, waste-lime CO2 scrubber, no PSA",
+      "fresh_NaOH_t_per_yr": 3982.373320874319,
+      "Ca_OH_2_used_t_per_yr": 47072.38783830126,
+      "dry_feed_t_per_day": 120.70007999999996,
+      "MSP_USD_per_kg_H2": 1.8542064585887466,
+      "GWP_kgCO2e_per_kg_H2": 17.158696996930214,
+      "GWP_avoided_CH4_extra_credit_kgCO2e_per_kg_H2": -13.70099055777518,
+      "GWP_avoided_emission_total_kgCO2e_per_kg_H2": -21.964658742056926,
+      "GWP_with_avoided_CH4_credit_kgCO2e_per_kg_H2": 3.457706439155034,
+      "H2_t_per_yr": 2953.563072443852,
+      "FCI_MUSD": 14.751757705963355,
+      "working_capital_MUSD": 0.7375878852981678,
+      "TCI_MUSD": 15.489345591261523,
+      "AOC_MUSD_per_yr": 3.5647417578486094,
+      "capital_related_MSP_USD_per_kg_H2": 0.6445744506278954,
+      "TEA_VOC_plus_FOC_MUSD_per_yr": 8.366370134056062
+    },
+    "mass_audit": {
+      "mass_in_kgph": 100493.63965788127,
+      "mass_out_kgph": 100493.63965810406,
+      "mass_relative_error": 2.2169544550755466e-12,
+      "element_relative_error": {
+        "C": -2.1345873548347618e-13,
+        "H": -1.6085531360118102e-11,
+        "O": -9.186963089886771e-12,
+        "N": 0.0,
+        "Na": -8.539622379093328e-11,
+        "Ca": 0.0
+      },
+      "utility_heat_ge_process_heat": true,
+      "ng_fuel_ge_delivered_heat": true,
+      "ng_fuel_vs_biosteam_agent": -0.013375357949314215
+    },
+    "hxn_enthalpy_audit": {
+      "lifecycle_count": 12,
+      "exchanger_count": 8,
+      "max_lifecycle_error_kW": 1.034802860683865e-11,
+      "max_exchanger_error_kW": 1.697723443309466e-12
+    },
+    "hxn_energy_balance_percent_error": 0.0704897872025656,
+    "s3_FCI_usd": 21019950.104180716,
+    "s3_AOC_usd_per_year": 6497347.927337222,
+    "s3_net_AOC_usd_per_year": 1695719.5511297695,
+    "s3_MSP_usd_per_kg_H2": 1.496439469814429,
+    "MSP_change_usd_per_kg_H2": -0.35776698877431756,
+    "s3_GWP_kg_per_kg_H2": 7.355817613585682,
+    "GWP_change_kg_per_kg_H2": -9.802879383344532,
+    "avoided_emissions_kg_per_hour": 3712.023538224322,
+    "auxiliary_emissions_kg_per_hour": 56.28836773599191,
+    "heat_burden_kg_per_hour": 0.0,
+    "h2_kg_per_hour": 372.92463035907224,
+    "net_operating_benefit_usd_per_year": 1869022.20671884
+  },
+  "boundary": [
+    {
+      "stream": "att_sargassum_feed",
+      "direction": "input",
+      "kgph": 21220.12658227848,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 16190.956582278483,
+        "Ash": 614.6807830311899,
+        "Protein": 287.16560699999997,
+        "Glucan": 477.268233,
+        "Alginate": 892.174758,
+        "Fucoidan": 145.34301299999998,
+        "Mannitol": 126.232167,
+        "OtherSolids": 1488.131403,
+        "NaCl": 383.3755904763,
+        "KCl": 610.4655489915,
+        "REO": 4.33289650101
+      },
+      "atomic_C_kmolph": 131.30177520322275
+    },
+    {
+      "stream": "dryer_air",
+      "direction": "input",
+      "kgph": 54685.99790707761,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Oxygen": 12737.326544090925,
+        "Nitrogen": 41948.671362986686
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "dryer_backup_fuel",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "fresh_naoh_solid",
+      "direction": "input",
+      "kgph": 502.82491425180797,
+      "price": 0.405,
+      "CF": 1.12,
+      "components": {
+        "NaOH": 502.82491425180797
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "u3_tail_gas",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "scrubber_lime",
+      "direction": "input",
+      "kgph": 384.5145356604641,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 153.80581426418567,
+        "CaOH2": 212.2520236845762,
+        "CaCO3": 9.228348855851138,
+        "LimeInerts": 9.228348855851138
+      },
+      "atomic_C_kmolph": 0.09220336383533848
+    },
+    {
+      "stream": "scrubber_makeup_water",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.000441,
+      "CF": 0.00046,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "scrubber_dryer_air",
+      "direction": "input",
+      "kgph": 472.5658826857794,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Oxygen": 110.06886939492625,
+        "Nitrogen": 362.49701329085315
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "scrubber_dryer_backup_fuel",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "dissolution_water",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.000441,
+      "CF": 0.00046,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "f1_wash_water",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.000441,
+      "CF": 0.00046,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "fresh_hcl",
+      "direction": "input",
+      "kgph": 121.53798605542774,
+      "price": 0.2,
+      "CF": 0.021731,
+      "components": {
+        "Water": 83.86121037824515,
+        "HCl": 37.6767756771826
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "fresh_oxalic_acid",
+      "direction": "input",
+      "kgph": 2.869029216226356,
+      "price": 0.6,
+      "CF": 0.527,
+      "components": {
+        "OxalicAcid": 2.869029216226356
+      },
+      "atomic_C_kmolph": 0.06373150530608485
+    },
+    {
+      "stream": "leach_water",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.000441,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "leachate_naoh",
+      "direction": "input",
+      "kgph": 13.130495229315352,
+      "price": 0.405,
+      "CF": 0.0,
+      "components": {
+        "NaOH": 13.130495229315352
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "roaster_air",
+      "direction": "input",
+      "kgph": 2.6266788777190286,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Oxygen": 0.6117995075965043,
+        "Nitrogen": 2.0148793701225243
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "lime",
+      "direction": "input",
+      "kgph": 10382.665379043932,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 4153.066151617573,
+        "CaOH2": 5731.231289232251,
+        "CaCO3": 249.18396909705436,
+        "LimeInerts": 249.1839690970544
+      },
+      "atomic_C_kmolph": 2.4896761623854307
+    },
+    {
+      "stream": "f2_wash_water",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.000441,
+      "CF": 0.00046,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "caco3_dryer_air",
+      "direction": "input",
+      "kgph": 12704.780267504504,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Oxygen": 2959.1658035225114,
+        "Nitrogen": 9745.614463981992
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "caco3_dryer_backup_fuel",
+      "direction": "input",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "dryer_exhaust",
+      "direction": "output",
+      "kgph": 65847.7844893561,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 11161.786582278482,
+        "Oxygen": 12737.326544090925,
+        "Nitrogen": 41948.671362986686
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "dryer_emissions",
+      "direction": "output",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "scrubber_cake",
+      "direction": "output",
+      "kgph": 301.4185377927688,
+      "price": 0.08535145111707156,
+      "CF": 0.0,
+      "components": {
+        "Water": 3.014185377927688,
+        "CaOH2": 19.29563851677967,
+        "CaCO3": 269.8803650422103,
+        "LimeInerts": 9.228348855851138
+      },
+      "atomic_C_kmolph": 2.6964604263116385
+    },
+    {
+      "stream": "scrubber_dryer_exhaust",
+      "direction": "output",
+      "kgph": 569.0198147794654,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 96.45393209368602,
+        "Oxygen": 110.06886939492625,
+        "Nitrogen": 362.49701329085315
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "scrubber_dryer_emissions",
+      "direction": "output",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "u3_dryer_removed_water",
+      "direction": "output",
+      "kgph": 268.6237579935091,
+      "price": -0.004,
+      "CF": 0.0,
+      "components": {
+        "Water": 268.6237579935091
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "h2_product",
+      "direction": "output",
+      "kgph": 406.96598762900163,
+      "price": 1.371267263356686,
+      "CF": 0.0,
+      "components": {
+        "Methane": 32.883659783151145,
+        "CarbonDioxide": 1.157697486778284,
+        "H2": 372.92463035907224
+      },
+      "atomic_C_kmolph": 2.0760947354936996
+    },
+    {
+      "stream": "att_residue_untracked",
+      "direction": "output",
+      "kgph": 1938.8302081328804,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "ResidueCH": 255.1854721398176,
+        "ResidueCHO": 1683.6447359930628
+      },
+      "atomic_C_kmolph": 58.21417119653312
+    },
+    {
+      "stream": "excess_condensate",
+      "direction": "output",
+      "kgph": 4035.8500882013896,
+      "price": -0.004,
+      "CF": 0.0,
+      "components": {
+        "Water": 4035.8500882013896
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "att_char",
+      "direction": "output",
+      "kgph": 873.7156085416732,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 260.9520306004531,
+        "Ash": 466.8358354405172,
+        "Char": 78.16788648509907,
+        "CharN": 58.704697723194805,
+        "CharS": 2.822132760516138,
+        "NaCl": 3.6916631575990877,
+        "KCl": 0.18384338256379074,
+        "REO": 2.3575189917299997
+      },
+      "atomic_C_kmolph": 5.538083339539603
+    },
+    {
+      "stream": "leach_co2",
+      "direction": "output",
+      "kgph": 14.390931634958626,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "CarbonDioxide": 14.390931634958626
+      },
+      "atomic_C_kmolph": 0.3269960266523961
+    },
+    {
+      "stream": "ree_product",
+      "direction": "output",
+      "kgph": 150.792176280916,
+      "price": 0.4585,
+      "CF": 0.0,
+      "components": {
+        "Ash": 147.8449475906727,
+        "NaCl": 0.9257492310361802,
+        "KCl": 0.04610194992714512,
+        "REO": 1.9753775092799999
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "roaster_exhaust",
+      "direction": "output",
+      "kgph": 70.93400280087928,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 66.01236516338919,
+        "CarbonDioxide": 2.8047916827681414,
+        "Oxygen": 0.10196658459941735,
+        "Nitrogen": 2.0148793701225243
+      },
+      "atomic_C_kmolph": 0.06373150530608485
+    },
+    {
+      "stream": "caco3_cake",
+      "direction": "output",
+      "kgph": 8103.539488389025,
+      "price": 0.07130730872546455,
+      "CF": 0.0,
+      "components": {
+        "Water": 81.03539488389026,
+        "NaOH": 133.57900448397285,
+        "Na2CO3": 22.167388328985375,
+        "CaOH2": 1146.246257846451,
+        "CaCO3": 6442.736940022217,
+        "LimeInerts": 249.1839690970544,
+        "NaCl": 11.964648098208864,
+        "KCl": 16.625885628245392
+      },
+      "atomic_C_kmolph": 64.58057974306311
+    },
+    {
+      "stream": "caco3_dryer_exhaust",
+      "direction": "output",
+      "kgph": 15297.912903788992,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {
+        "Water": 2593.1326362844884,
+        "Oxygen": 2959.1658035225114,
+        "Nitrogen": 9745.614463981992
+      },
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "caco3_dryer_emissions",
+      "direction": "output",
+      "kgph": 0.0,
+      "price": 0.0,
+      "CF": 0.0,
+      "components": {},
+      "atomic_C_kmolph": 0.0
+    },
+    {
+      "stream": "liquor_purge",
+      "direction": "output",
+      "kgph": 1537.0071257398397,
+      "price": -0.004,
+      "CF": 0.0,
+      "components": {
+        "Water": 1204.8062022294835,
+        "NaOH": 240.72804881924802,
+        "Na2CO3": 39.94873416275141,
+        "NaCl": 21.561969282652647,
+        "KCl": 29.962171245704198
+      },
+      "atomic_C_kmolph": 0.3769159593222371
+    },
+    {
+      "stream": "salt_cake",
+      "direction": "output",
+      "kgph": 1076.8545370426575,
+      "price": -0.04,
+      "CF": 0.0,
+      "components": {
+        "Water": 52.21538104616264,
+        "NaOH": 47.487841762026086,
+        "Na2CO3": 7.880590466374863,
+        "NaCl": 405.623176983611,
+        "KCl": 563.6475467844829
+      },
+      "atomic_C_kmolph": 0.0743533024991043
+    }
+  ],
+  "activities": {
+    "h2so4_kgph": 313.63301812748165,
+    "wastewater_m3ph": 5.841480971934739,
+    "landfill_kgph": 10355.528171766124,
+    "storage_kgCO2ph": {
+      "att_char": -243.72827873146818,
+      "caco3_cake": -2723.3850731107764,
+      "scrubber_cake": -114.61205119105074,
+      "salt_cake": -0.0
+    },
+    "factors": {
+      "NaOH": 1.12,
+      "CaOH2_limestone": 0.0,
+      "natural_gas_combustion": 0.056,
+      "natural_gas_upstream": 0.0098,
+      "electricity": 0.449,
+      "water_supply": 0.46,
+      "wastewater_treatment": 0.38,
+      "H2SO4": 0.04447,
+      "inert_landfill": 0.0,
+      "HCl_31": 0.021731,
+      "oxalic_acid": 0.527
+    },
+    "power_price": 0.0782,
+    "heating_cost_usdph": {
+      "natural_gas": 238.4153397673174,
+      "low_pressure_steam": 341.0088502813933,
+      "cooling_water": 17.132501114687937
+    },
+    "power_kW": 1582.6710007769725
+  },
+  "provenance": {
+    "reference": "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\comprehensive_report_20261107_provenance",
+    "reference_html_sha256": "62d7cfe1799c8eaf84cea33940cb626696cb66866ae7812c73b6fc09c30b49ba",
+    "input_sha256": {
+      "biorefineries/ATT/data/att.yaml": "a7aa37e8875404b7bf87cbe8b6be1b08abc3063a7a8e95d238d0f468f24631ae",
+      "biorefineries/ATT/data/feedstock.yaml": "6d3918b4bbc9cca838b04938b69abbe8263ee379f49dde607e63d4b65058a7a8",
+      "biorefineries/ATT/data/lca.yaml": "ec635b68da72fca209a447006273c93f2fca9aef9b902413196cb42ccc29ad03",
+      "biorefineries/ATT/data/marine_tea.yaml": "52c5c04fa702ee0b9fba426c84a7d63a383618784eae134706498c9dcf7ee99d",
+      "biorefineries/ATT/data/marine_whr.yaml": "af23e3b1d440e4e728b7ffd5110e5b54cf5d2b1246fa77197924af7939cde035",
+      "biorefineries/ATT/data/tea.yaml": "6d97ad8fd06f33c9211c0a286c06eec7a3dc012d89d1df1e062db011aa0d4bb3",
+      "biorefineries/ATT/analyses/inventory.py": "8a036b2f677a7c26aae64298658cd36411395aa34c2451f0697a072eaddb4c2a",
+      "biorefineries/ATT/analyses/marine_lca.py": "b360db982fbf78140ea475543a019ba9f07765c8a0b3dfbb08a2ca7cb2e63b4d",
+      "biorefineries/ATT/analyses/treatment_report.py": "23b70fd9d539a18250cfde678854edb73593be56d534d1b9c987fe99429fce98",
+      "biorefineries/ATT/analyses/functional_unit.py": "54ecdb1b2744bd4c267a9fbc1983f86435282eb7f71659be47d67b5bd2548c1f",
+      "biorefineries/ATT/analyses/att_s3_industrial.py": "8c872e98c9270aa0453563499b6ae214266b696cc2a888ca615d4caff375abee",
+      "biorefineries/ATT/analyses/industrial_whr.py": "704571d4027af4e539491ed578e52dc3d012716e61146fc0a3e7f71fe8463f45",
+      "biorefineries/ATT/analyses/marine_tea.py": "5b9267772c2c02d28171ddeb1e2e3a8f031d7402d11d980bc8dcd26a3a1524b3",
+      "biorefineries/ATT/analyses/marine_whr.py": "3f9ddad93088a9a00d3e5023de991b59f0b8e06dfc2c6eb9130ea2d652676882",
+      "biorefineries/ATT/analyses/tea.py": "96aae8c77ae1f084402ba429981e1876c678836f73e6573fd560fcad4e361e77",
+      "biorefineries/ATT/analyses/lca.py": "b95155e3a912975128a0f440d055aea54b8f2a79d731f746149ab9576e712ab7",
+      "biorefineries/ATT/analyses/breakdown.py": "ac4a5e546c490e2c0076611357fc1e66f303367a11ee573ee85ed3420fa7c068",
+      "biorefineries/ATT/analyses/scenarios.py": "1dae31e88630354753a44e390fb781d0ffb70d5de66835c4d2eb46dccad4aedb",
+      "biorefineries/ATT/analyses/reporting.py": "e525c3f55b296028d81042344f66d3596a52db62638ef9bb2c27013561017496",
+      "biorefineries/ATT/analyses/validation.py": "4fb28110ca46970fd9000ea6d2e3cae96c69afdafae97681ee5a25b856d23dca",
+      "biorefineries/ATT/analyses/att_comprehensive_report.py": "7a679baf7eec4274ff29310425cfb1cffb701cb2ca0b0e4dd5dd6b7a0d2821df",
+      "biorefineries/ATT/analyses/att_comprehensive_template.html": "879c27e2b44f7fa29edf14e10834008b7f9fb5ae59519c484a6f91bb4514e5ae",
+      "biorefineries/ATT/system.py": "dcb6a62e8755db354fefd8b4b11ef9541e07fefea31cd1d2d3b80bdd8cd30ab3",
+      "biorefineries/ATT/_chemicals.py": "b1c55ac758b551d3e32ae7c7f0a9320bdd0c029e2581b6354e533ed58fc1c691",
+      "biorefineries/ATT/units/_att.py": "28d9dbb47e28ba768127e553eef12427fca539e96aaaa7381a72840cb905f80b",
+      "biorefineries/ATT/analyses/ree_tea_verification.py": "54af2eedf8cf7d8890287cfb6c1d27a2824d682963d511ca6369a2fe9a5beb19"
+    },
+    "all_reference_sources_match": true,
+    "protected_files_unchanged": true
+  }
+}

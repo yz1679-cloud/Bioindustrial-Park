@@ -1,0 +1,101 @@
+{
+  "output_root": "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs",
+  "python": "3.12.10",
+  "steps": [
+    {
+      "step": "baseline_1kg",
+      "module": "run_att_1kgph_audit",
+      "exit_code": 0,
+      "seconds": 25.5,
+      "log": "validation\\logs\\baseline_1kg.log"
+    },
+    {
+      "step": "inventory",
+      "module": "run_att_inventory",
+      "exit_code": 0,
+      "seconds": 24.3,
+      "log": "validation\\logs\\inventory.log"
+    },
+    {
+      "step": "tea",
+      "module": "run_att_tea",
+      "exit_code": 0,
+      "seconds": 22.7,
+      "log": "validation\\logs\\tea.log"
+    },
+    {
+      "step": "lca",
+      "module": "run_att_lca",
+      "exit_code": 0,
+      "seconds": 20.6,
+      "log": "validation\\logs\\lca.log"
+    },
+    {
+      "step": "consolidated",
+      "module": "run_att_consolidated",
+      "exit_code": 0,
+      "seconds": 24.7,
+      "log": "validation\\logs\\consolidated.log"
+    },
+    {
+      "step": "documentation",
+      "module": "run_att_documentation",
+      "exit_code": 0,
+      "seconds": 27.1,
+      "log": "validation\\logs\\documentation.log"
+    },
+    {
+      "step": "diagram_svg",
+      "module": "run_att_diagram",
+      "exit_code": 0,
+      "seconds": 22.7,
+      "log": "validation\\logs\\diagram_svg.log"
+    },
+    {
+      "step": "diagram_png",
+      "module": "run_att_diagram",
+      "exit_code": 0,
+      "seconds": 22.4,
+      "log": "validation\\logs\\diagram_png.log"
+    }
+  ],
+  "tests": {
+    "exit_code": 0,
+    "seconds": 49.8,
+    "ran": 119,
+    "skipped": 0,
+    "result": "OK"
+  },
+  "qc": {
+    "baseline_1kg/14_Limitations_Checks.csv": {
+      "INFORMATIONAL": 19,
+      "PASS": 72
+    },
+    "full_scale/mass_energy/17_stream_sanity_check.csv": {
+      "PASS": 86
+    },
+    "full_scale/mass_energy/22_utility_consistency.csv": {
+      "PASS": 8
+    },
+    "full_scale/tea/05_checks.csv": {
+      "PASS": 13
+    },
+    "full_scale/lca/08_checks.csv": {
+      "PASS": 8
+    },
+    "full_scale/summary/08_consistency_checks.csv": {
+      "PASS": 26,
+      "INFORMATIONAL": 11
+    },
+    "documentation/26_QC_Checks.csv": {
+      "INFORMATIONAL": 18,
+      "PASS": 53
+    }
+  },
+  "status": "OK",
+  "failed_step": null,
+  "qc_totals": {
+    "INFORMATIONAL": 48,
+    "PASS": 266
+  }
+}
