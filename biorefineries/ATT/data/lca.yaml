@@ -74,6 +74,17 @@ lca:
       boundary: "transport to landfill and landfill machinery; inert, no landfill CH4"
       note: "Screening proxy for mineral waste only; char degradation in the ash/char cake not covered."
 
+    HCl_31:
+      value: 0.021731
+      unit: kg CO2e/kg 31 wt% HCl solution
+      source: "Borregaard EPD NEPD-3015-1686-EN, 2019 Sarpsborg Norway, A1-A3 GWP 70.1 kg CO2e/1000 kg dry HCl (https://www.epd-global.com/getfile.php/13162794-1741629295/EPDer/Kjemikalier/NEPD-3015-1686_Hydrochloric-acid.pdf); 0.0701 x 0.31 = 0.021731. Excludes A4 customer transport. Declared 34-36% product converted by HCl content; incremental dilution ignored. EPD expired 2026-08-10; use provisional geographic/process proxy. GWP method not specified in EPD."
+      boundary: "A1-A3 cradle-to-gate; proxy conversion to 31% solution"
+    oxalic_acid:
+      value: 0.527
+      unit: kg CO2e/kg modeled anhydrous oxalic acid
+      source: "Arfelis industrial plant LCA, Spain, https://sergiarfelis.com/wp-content/uploads/2025/07/Oxalic-acid-production.pdf; 0.62 kg CO2e total per kg oxalic acid x 85% mass allocation = 0.527; PEF climate-change method. Public primary-data preprint, verification status and hydrate specification not established; provisional proxy for modeled anhydrous H2C2O4."
+      boundary: "reported cradle-to-gate including production inputs; acid product chemical form not specified"
+
   natural_gas:
     burner_efficiency: 0.90       # U2 direct firing (att.yaml energy_sources)
     boiler_efficiency: 0.80       # LP steam (att.yaml inventory.lca)
@@ -161,8 +172,8 @@ lca:
     scrubber_makeup_water: "emission_factors.water_supply (Zib et al. 2021)."
     leach_water: "OPEN GAP: no factor (counts as 0); zero flow in the baseline because condensate is used."
     leachate_naoh: "OPEN GAP: no factor (counts as 0) although emission_factors.NaOH exists; zero flow in the baseline."
-    fresh_hcl: "OPEN GAP: no factor (counts as 0); about 45 kg/h at S1; indicative_gwp100.HCl_31 sizes it (data-gap table)."
-    fresh_oxalic_acid: "OPEN GAP: no factor (counts as 0); about 3 kg/h at S1; no usable value found (indicative_gwp100.oxalic_acid)."
+    fresh_hcl: "Provisional EPD-derived 31% solution factor, emission_factors.HCl_31; former baseline 0 via factor override."
+    fresh_oxalic_acid: "Provisional industrial LCA proxy, emission_factors.oxalic_acid; product hydrate basis unverified; former baseline 0 via factor override."
     h2_product: "Functional unit (1 kg H2); the product gas also holds CH4, CO and CO2, which are not credited."
     caco3_cake: "No substitution credit (coproduct.CaCO3_treatment: none); stored-carbon credit and landfill factor 0 (carbon_storage, inert_landfill)."
     scrubber_cake: "As caco3_cake."
@@ -190,10 +201,10 @@ lca:
 
   sensitivity_factors: [NaOH, natural_gas_upstream, electricity]
 
-  # Indicative magnitudes for the data-gap table only (not used in results).
+  # Historical indicative magnitudes (not used in results); active provisional reagent factors are in emission_factors above.
   indicative_gwp100:
     CH4_non_fossil: {value: 27.0, source: "IPCC AR6 WG1 Table 7.15"}
-    # REE leach reagents: NOT in the net GWP (no characterization factor on their streams). Values found by a 2026-11-04 search
+    # Historical REE reagent gap estimates, superseded by provisional factors in emission_factors. Values found by a 2026-11-04 search
     # are database entries with conflicting basis, listed only to size the gap.
-    HCl_31: {value: 0.51, range: [0.07, 1.2], unit: "kg CO2e/kg HCl solution", source: "BAFA CO2-Faktoren v3.3 0.51 kg CO2e/kg (cradle-to-gate) and ADEME Base Carbone 1.199 kg CO2e/kg (both via Climatiq); an EPD Norge Borregaard EPD gives 0.07 kg CO2e/kg for a 34-36 % product. The concentration basis differs and no GREET value was found: UNVERIFIED."}
+    HCl_31: {value: 0.51, range: [0.07, 1.2], unit: "kg CO2e/kg HCl solution", source: "BAFA CO2-Faktoren v3.3 0.51 kg CO2e/kg (cradle-to-gate) and ADEME Base Carbone 1.199 kg CO2e/kg (both via Climatiq); the Borregaard EPD gives 0.0701 kg CO2e/kg dry HCl, not per kg solution. The concentration basis differs and no GREET value was found: UNVERIFIED."}
     oxalic_acid: {value: null, source: "No usable value found: the ecoinvent dataset 'oxalic acid, production' exists but its value is not public; literature gives only CO2-based or bio-based routes."}

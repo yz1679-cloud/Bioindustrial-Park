@@ -139,7 +139,7 @@ def _register_rows():
         "att.yaml:att.inventory.equipment_sizing.U2_vessel.tau_h", "Experimental hold time used for sizing",
         affects="TEA")
     add("ATT reaction", "NaOH : dry Sargassum (gross)", Y("att.yaml", "att.reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry"),
-        "kg/kg dry", "M1", "NaOH loading", EXP, "User decision 2026-10-31 (workbook 261023 B14, basis not stated)",
+        "kg/kg dry", "M1", "NaOH loading", EXP, "Experimental gross NaOH loading confirmed 2026-11-06 as total dry Sargassum, not DAF",
         "att.yaml:att.reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry", "Specified",
         affects="Process, LCA, TEA")
     add("ATT reaction", "Fresh NaOH form", Y("att.yaml", "att.feed_preparation.fresh_naoh_form"), "-", "M1",

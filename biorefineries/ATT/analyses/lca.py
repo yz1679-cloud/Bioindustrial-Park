@@ -60,6 +60,8 @@ _FEED_FACTORS = {"fresh_naoh_solid": ("NaOH", "NaOH"), "dissolution_water": ("Wa
                  "f2_wash_water": ("Water", "water_supply"), "f1_wash_water": ("Water", "water_supply")}
 _STAGES = {
     "NaOH makeup": "Chemical supply",
+    "HCl (31% solution)": "Chemical supply",
+    "Oxalic acid": "Chemical supply",
     "Ca(OH)2": "Chemical supply",
     "Purge neutralization (H2SO4)": "Chemical supply",
     "Process water (D1)": "Water supply",
@@ -169,6 +171,14 @@ def apply_att_gwp(sys, lime_source=None, overrides=None):
             raise ValueError(f"{ID} is not pure {component}; per-kg stream factor invalid")
         value = f[name] / float(_LCA["water_density_kg_per_m3"]) if name == "water_supply" else f[name]
         stream.set_CF(KEY, value)
+    # HCl factor is on 31% purchased solution. Convert from actual HCl mass
+    # so dilution or an accidentally mixed stream cannot silently change basis.
+    if "fresh_hcl" in s and float(s["fresh_hcl"].F_mass) > 0:
+        st = s["fresh_hcl"]
+        st.set_CF(KEY, f["HCl_31"] * float(st.imass["HCl"]) / (0.31 * float(st.F_mass)))
+    if "fresh_oxalic_acid" in s and float(s["fresh_oxalic_acid"].F_mass) > 0:
+        st = s["fresh_oxalic_acid"]
+        st.set_CF(KEY, f["oxalic_acid"] * float(st.imass["OxalicAcid"]) / float(st.F_mass))
     # The lime factor is per kg of Ca(OH)2; the lime streams carry water and impurities (waste carbide lime paste).
     for ID in ("lime", "scrubber_lime"):
         if ID in s and float(s[ID].F_mass) > 0.0:
@@ -264,6 +274,13 @@ def get_att_gwp_contributions(sys, applied):
     rho = float(_LCA["water_density_kg_per_m3"])
     add("Process water (D1)", sum(w.F_mass for w in waters) / rho * hours, "m3", f["water_supply"], "kg CO2e/m3",
         sum(w.get_impact(KEY) for w in waters) * hours, _EF["water_supply"]["source"])
+
+    for ID, name, factor, unit in (("fresh_hcl", "HCl (31% solution)", "HCl_31", "kg solution"),
+                                     ("fresh_oxalic_acid", "Oxalic acid", "oxalic_acid", "kg acid")):
+        if ID in s:
+            stream = s[ID]
+            activity = (float(stream.imass["HCl"]) / 0.31 if ID == "fresh_hcl" else float(stream.imass["OxalicAcid"])) * hours
+            add(name, activity, unit, f[factor], "kg CO2e/kg", stream.get_impact(KEY) * hours, _EF[factor]["source"])
 
     eta = _LCA["natural_gas"]
     ng = f["natural_gas_combustion"] + f["natural_gas_upstream"]
@@ -492,17 +509,19 @@ def get_att_lca_data_gaps(sys, applied):
     cake = s["caco3_cake"]
     cake_landfill = float(cake.F_mass) / dry * f["inert_landfill"]
     hcl = _LCA["indicative_gwp100"]["HCl_31"]
-    hcl_kg_per_kg_dry = float(s["fresh_hcl"].F_mass) / dry
+    hcl_kg_per_kg_dry = float(s["fresh_hcl"].imass["HCl"]) / (0.31 * dry) if "fresh_hcl" in s else 0.0
+    oxalic_kg_per_kg_dry = float(s["fresh_oxalic_acid"].imass["OxalicAcid"]) / dry if "fresh_oxalic_acid" in s else 0.0
     untracked = s["att_residue_untracked"]
     untracked_CO2_per_kg_dry = float(untracked.get_atomic_flow("C")) * 44.0095 / dry
     rows = [
         ("Sargassum collection and transport", "NOT INCLUDED (no data)", float("nan"),
          "outside the boundary; no collection distance or fuel-use data", "potentially HIGH"),
-        ("REE reagent HCl (31 %)", "NO FACTOR: counted as 0 in the net GWP", hcl_kg_per_kg_dry * hcl["value"],
-         f"indicative: {hcl_kg_per_kg_dry:.4f} kg solution/kg dry x {hcl['value']} (range {hcl['range'][0]}-{hcl['range'][1]}) "
-         "kg CO2e/kg; conflicting database values, no GREET entry found", "LOW-MEDIUM"),
-        ("REE reagent oxalic acid", "NO FACTOR: counted as 0 in the net GWP", float("nan"),
-         "no usable value found (lca.yaml indicative_gwp100.oxalic_acid)", "LOW"),
+        ("REE reagent HCl (31 %)", "PROVISIONAL FACTOR IN NET" if f["HCl_31"] else "LEGACY ZERO FACTOR",
+         hcl_kg_per_kg_dry * f["HCl_31"],
+         "EPD dry-HCl basis converted to 31% solution; Norway and product dilution are proxies; expired EPD", "MEDIUM"),
+        ("REE reagent oxalic acid", "PROVISIONAL FACTOR IN NET" if f["oxalic_acid"] else "LEGACY ZERO FACTOR",
+         oxalic_kg_per_kg_dry * f["oxalic_acid"],
+         "Spain plant-data LCA; product hydrate form and allocation must be verified", "MEDIUM"),
         ("REE leach water and leachate NaOH", "NO FACTOR: counted as 0; zero flow in the baseline", float("nan"),
          "the leach water is condensate and the leachate NaOH is recycled; the water and NaOH factors exist but are not applied to these streams", "LOW"),
         ("Untracked organic residue (att_residue_untracked)", "NO SINK, no cost and no impact", untracked_CO2_per_kg_dry,

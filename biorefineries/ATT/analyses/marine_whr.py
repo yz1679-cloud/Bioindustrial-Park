@@ -9,7 +9,7 @@
 """
 ATT Scenario 2 (att_s2): marine engine waste heat recovery (WHR) for shipboard ATT, as an ACCOUNTING MODULE on top
 of the unchanged ATT S1 process (same units, chemistry and balances). Data: data/marine_whr.yaml; design basis:
-scenario_docs/ATT_S2_DESIGN_BASIS.md.
+docs/ATT_S2_DESIGN_BASIS.md.
 
 1. ``engine_sources``: heat of the main engine at a load (exhaust -> economizer steam; charge air -> hot-water loop;
    jacket water -> hot-water loop), bounded by the source temperatures (exhaust minimum outlet / acid dew point,
@@ -153,8 +153,13 @@ def s1_heat_sinks(sys, cfg=None):
         orig = hxn.original_heat_exchangers[slc.index]
         if orig.Q <= 0.0:
             continue
-        utils = [ls.unit for ls in slc.life_cycle if isinstance(ls.unit, bst.HXutility)]
-        res = sum(u.Q for u in utils)
+        # HXutility.Q is an unsigned magnitude: a residual cooler must not
+        # be counted as purchased steam for the original heating exchanger.
+        utils = [ls.unit for ls in slc.life_cycle if isinstance(ls.unit, bst.HXutility)
+                 and any(hu.agent is not None and "steam" in hu.agent.ID and hu.duty > 0
+                         for hu in ls.unit.heat_utilities)]
+        res = sum(hu.duty for u in utils for hu in u.heat_utilities
+                  if hu.agent is not None and "steam" in hu.agent.ID and hu.duty > 0)
         T_in = min(u.ins[0].T for u in utils) if utils else orig.outs[0].T
         residual[id(orig)] = (res / orig.Q, T_in, orig.outs[0].T, orig.Q - res)
     rows = []
@@ -203,7 +208,7 @@ def s1_heat_sinks(sys, cfg=None):
     for u in sys.units:
         if u.ID in listed or u in sys.facilities:     # the HXN's utility changes are already in the residuals
             continue
-        for hu in _heating_hus(u):
+        for hu in (hu for hu in u.heat_utilities if hu.agent is not None and hu.duty > 0):
             rows.append(dict(unit=u.ID, utility=hu.agent.ID, eligible=False, purchased_before_hxn_kW=hu.duty / 3600.0,
                              hxn_recovered_kW=0.0, purchased_kW=hu.duty / 3600.0, T_in_C=float("nan"),
                              T_out_C=float("nan"), usd_per_kWh=hu.cost / hu.duty * 3600.0, note="not configured as a sink"))
