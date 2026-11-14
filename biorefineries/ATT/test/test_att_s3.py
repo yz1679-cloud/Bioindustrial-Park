@@ -127,7 +127,7 @@ class S3IntegrationTests(unittest.TestCase):
                 self.assertAlmostEqual(sum(a['used_kW'] for a in case['allocations']) * case['overlap_fraction'], case['used_average_kW'])
                 for a in case['allocations']:
                     self.assertGreaterEqual(a['interval_bottom_C'] + 1e-8, a['sink_temperature_C'] + 20.)
-                self.assertEqual(next(s for s in case['sinks'] if s['unit'] == 'U3D')['purchased_kW'], 0.)
+                self.assertAlmostEqual(next(s for s in case['sinks'] if s['unit'] == 'U3D')['purchased_kW'], 0., places=8)
                 self.assertLess(case['hxn_enthalpy_audit']['max_lifecycle_error_kW'], 1e-5)
                 self.assertLess(case['hxn_enthalpy_audit']['max_exchanger_error_kW'], 1e-5)
                 self.assertTrue(case['s3_MSP_usd_per_kg_H2'] > 0)

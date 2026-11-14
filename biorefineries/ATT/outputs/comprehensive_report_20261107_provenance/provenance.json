@@ -1,0 +1,58 @@
+{
+  "commit": "59e7f1cb19be1b9b8aed335475a5c112514cac46",
+  "branch": "sabre",
+  "tracked_changes": "biorefineries/ATT/analyses/lca.py\nbiorefineries/ATT/analyses/marine_whr.py\nbiorefineries/ATT/analyses/reporting.py\nbiorefineries/ATT/analyses/validation.py\nbiorefineries/ATT/data/att.yaml\nbiorefineries/ATT/data/lca.yaml\nbiorefineries/ATT/data/tea.yaml\nbiorefineries/ATT/docs/ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md\nbiorefineries/ATT/docs/ATT_S1_S2_LCA_FINAL.md\nbiorefineries/ATT/docs/ATT_S1_S2_PROCESS_AND_ENERGY.md\nbiorefineries/ATT/test/test_att_baseline.py\nbiorefineries/ATT/test/test_att_ree_grade.py\nbiorefineries/ATT/test/test_att_ree_recovery.py\nbiorefineries/ATT/test/test_att_s2.py\nbiorefineries/ATT/test/test_att_s3.py\nbiorefineries/ATT/units/_att.py",
+  "staged_changes": "",
+  "working_tree_status": "M biorefineries/ATT/analyses/lca.py\n M biorefineries/ATT/analyses/marine_whr.py\n M biorefineries/ATT/analyses/reporting.py\n M biorefineries/ATT/analyses/validation.py\n M biorefineries/ATT/data/att.yaml\n M biorefineries/ATT/data/lca.yaml\n M biorefineries/ATT/data/tea.yaml\n M biorefineries/ATT/docs/ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md\n M biorefineries/ATT/docs/ATT_S1_S2_LCA_FINAL.md\n M biorefineries/ATT/docs/ATT_S1_S2_PROCESS_AND_ENERGY.md\n M biorefineries/ATT/test/test_att_baseline.py\n M biorefineries/ATT/test/test_att_ree_grade.py\n M biorefineries/ATT/test/test_att_ree_recovery.py\n M biorefineries/ATT/test/test_att_s2.py\n M biorefineries/ATT/test/test_att_s3.py\n M biorefineries/ATT/units/_att.py\n?? biorefineries/ATT/analyses/att_comprehensive_report.py\n?? biorefineries/ATT/analyses/att_comprehensive_template.html\n?? biorefineries/ATT/analyses/att_targeted_review.py\n?? biorefineries/ATT/analyses/functional_unit.py\n?? biorefineries/ATT/analyses/ree_tea_verification.py\n?? biorefineries/ATT/analyses/treatment_report.py\n?? biorefineries/ATT/outputs/\n?? biorefineries/ATT/test/test_att_comprehensive_report.py\n?? biorefineries/ATT/test/test_att_functional_unit.py\n?? biorefineries/ATT/test/test_att_ree_tea.py\n?? biorefineries/ATT/test/test_att_targeted_review.py\n?? biorefineries/sabre/Microsoft/",
+  "working_tree_state": "dirty",
+  "note": "Uncommitted changes are present; Git HEAD alone does not identify the files used. Input SHA-256 fingerprints identify the recorded files.",
+  "generated_utc": "2026-11-07T23:09:58.028920+00:00",
+  "versions": {
+    "biosteam": "2.53.11",
+    "thermosteam": "0.53.5",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scipy": "1.18.0",
+    "PyYAML": "6.0.3",
+    "python": "3.12.10"
+  },
+  "input_sha256": {
+    "biorefineries/ATT/data/att.yaml": "a7aa37e8875404b7bf87cbe8b6be1b08abc3063a7a8e95d238d0f468f24631ae",
+    "biorefineries/ATT/data/feedstock.yaml": "6d3918b4bbc9cca838b04938b69abbe8263ee379f49dde607e63d4b65058a7a8",
+    "biorefineries/ATT/data/lca.yaml": "ec635b68da72fca209a447006273c93f2fca9aef9b902413196cb42ccc29ad03",
+    "biorefineries/ATT/data/marine_tea.yaml": "52c5c04fa702ee0b9fba426c84a7d63a383618784eae134706498c9dcf7ee99d",
+    "biorefineries/ATT/data/marine_whr.yaml": "af23e3b1d440e4e728b7ffd5110e5b54cf5d2b1246fa77197924af7939cde035",
+    "biorefineries/ATT/data/tea.yaml": "6d97ad8fd06f33c9211c0a286c06eec7a3dc012d89d1df1e062db011aa0d4bb3",
+    "biorefineries/ATT/analyses/inventory.py": "8a036b2f677a7c26aae64298658cd36411395aa34c2451f0697a072eaddb4c2a",
+    "biorefineries/ATT/analyses/marine_lca.py": "b360db982fbf78140ea475543a019ba9f07765c8a0b3dfbb08a2ca7cb2e63b4d",
+    "biorefineries/ATT/analyses/treatment_report.py": "23b70fd9d539a18250cfde678854edb73593be56d534d1b9c987fe99429fce98",
+    "biorefineries/ATT/analyses/functional_unit.py": "54ecdb1b2744bd4c267a9fbc1983f86435282eb7f71659be47d67b5bd2548c1f",
+    "biorefineries/ATT/analyses/att_s3_industrial.py": "8c872e98c9270aa0453563499b6ae214266b696cc2a888ca615d4caff375abee",
+    "biorefineries/ATT/analyses/industrial_whr.py": "704571d4027af4e539491ed578e52dc3d012716e61146fc0a3e7f71fe8463f45",
+    "biorefineries/ATT/analyses/marine_tea.py": "5b9267772c2c02d28171ddeb1e2e3a8f031d7402d11d980bc8dcd26a3a1524b3",
+    "biorefineries/ATT/analyses/marine_whr.py": "3f9ddad93088a9a00d3e5023de991b59f0b8e06dfc2c6eb9130ea2d652676882",
+    "biorefineries/ATT/analyses/tea.py": "96aae8c77ae1f084402ba429981e1876c678836f73e6573fd560fcad4e361e77",
+    "biorefineries/ATT/analyses/lca.py": "b95155e3a912975128a0f440d055aea54b8f2a79d731f746149ab9576e712ab7",
+    "biorefineries/ATT/analyses/breakdown.py": "ac4a5e546c490e2c0076611357fc1e66f303367a11ee573ee85ed3420fa7c068",
+    "biorefineries/ATT/analyses/scenarios.py": "1dae31e88630354753a44e390fb781d0ffb70d5de66835c4d2eb46dccad4aedb",
+    "biorefineries/ATT/analyses/reporting.py": "e525c3f55b296028d81042344f66d3596a52db62638ef9bb2c27013561017496",
+    "biorefineries/ATT/analyses/validation.py": "4fb28110ca46970fd9000ea6d2e3cae96c69afdafae97681ee5a25b856d23dca",
+    "biorefineries/ATT/analyses/att_comprehensive_report.py": "7a679baf7eec4274ff29310425cfb1cffb701cb2ca0b0e4dd5dd6b7a0d2821df",
+    "biorefineries/ATT/analyses/att_comprehensive_template.html": "879c27e2b44f7fa29edf14e10834008b7f9fb5ae59519c484a6f91bb4514e5ae",
+    "biorefineries/ATT/system.py": "dcb6a62e8755db354fefd8b4b11ef9541e07fefea31cd1d2d3b80bdd8cd30ab3",
+    "biorefineries/ATT/_chemicals.py": "b1c55ac758b551d3e32ae7c7f0a9320bdd0c029e2581b6354e533ed58fc1c691",
+    "biorefineries/ATT/units/_att.py": "28d9dbb47e28ba768127e553eef12427fca539e96aaaa7381a72840cb905f80b",
+    "biorefineries/ATT/analyses/ree_tea_verification.py": "54af2eedf8cf7d8890287cfb6c1d27a2824d682963d511ca6369a2fe9a5beb19"
+  },
+  "verified_corrections_present": {
+    "LC1_acid_and_solution_water": "units/_att.py ATTReeLeach: carbonate HCl = 2 × Na2CO3; oxalic solute subtracted from solution water; no repeated tank water",
+    "common_HXN": "units/_att.py ATTMolecularSieve: liquid-water proxy pressure exceeds saturation pressure",
+    "marine_heating_inventory": "analyses/marine_whr.py s1_heat_sinks: signed steam residuals and all positive heating utilities",
+    "S3": "analyses/industrial_whr.py and att_s3_industrial.py: existing H1/H3 source and steam-displacement calculations"
+  },
+  "reference_report": {
+    "path": "C:\\Users\\zhouy\\Bioindustrial-Park\\biorefineries\\ATT\\outputs\\comprehensive_report_20261106_ree_tea\\ATT_S1_S2_S3_Comprehensive_Report.html",
+    "sha256": "30e0491f80b869a42a14034e1f245fc41948f11256d65a4edf5927787d2486a2",
+    "six_case_MSPs_unchanged": true
+  }
+}

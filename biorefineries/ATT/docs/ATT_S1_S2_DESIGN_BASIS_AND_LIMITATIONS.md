@@ -1,20 +1,19 @@
 # ATT S1/S2: design basis, evidence classification and limitations
 
 **Scope.** Engineering-screening study of two process scenarios:
-- **ATT S1:** land-based plant.
+- **ATT S1:** baseline.
 - **ATT S2:** the same process on an existing, retrofitted vessel with marine waste-heat recovery.
 
-Washing on/off, CaCO3 sales and carbon-credit treatments are sensitivity or accounting cases within these two
-scenarios, not additional scenarios.
+The washes (F2 and F1) and the cake drying are part of the flowsheet. CaCO3 sales and the carbon-credit rule are settings within
+these two scenarios, not additional scenarios.
 
-**Model state.** Branch `ATT`, commit `468d957e`, BioSTEAM 2.53.11. Configuration files:
+**Model state.** BioSTEAM 2.54.0. Configuration files:
 - `data/att.yaml`
-- `data/att_tea.yaml`
-- `data/att_lca.yaml`
+- `data/tea.yaml`
+- `data/lca.yaml`
 - `data/marine_whr.yaml`
 - `data/marine_tea.yaml`
 - `data/feedstock.yaml`
-- `data/tea.yaml`
 
 **Evidence classes:**
 - **EXP:** experimental measurement.
@@ -35,27 +34,34 @@ scenarios, not additional scenarios.
 | H2 output | 372.925 kg/h; 2,953.563 t/yr (7,920 h) | Simulation | DER | All per-kg-H2 results scale with the yield basis above |
 | Dry feed capacity | 5,029.17 kg/h (120.7 t/d) | SaBRe S5 waste-lime scale | SABRE / USER | Fixed. Annual and scale-economy results only; per-kg results depend weakly on it |
 | Presscake moisture, ash, composition | 76.3 %; ash 32.07 % dry; CHN 31.36/3.88/1.16 % | Wiatrowski et al. 2026 preprint (NLR), pressed solids 15 psi | LIT | One sample; Sargassum composition varies seasonally and regionally |
-| D0 outlet moisture | 50 wt % | Workbook 261005 B12 ("assumed") and user design | ENG / USER | Sets the D0 steam demand (≈ 50 % of gross steam) |
+| D0 outlet moisture | 50 wt % | Workbook 261005 B12 ("assumed") and user design | ENG / USER | Sets the D0 steam demand (≈ 37 % of gross steam) |
 | U2 temperature | 500 °C | Experiment | EXP | — |
-| NaOH dose | 1.0 kg/kg dry (gross, incl. recycle) | User decision 2026-10-31; the workbook "1 g/g" states no mass basis | USER | NaOH makeup is 1.22 USD/kg H2 and 3.89 kg CO2e/kg H2. The experimental seaweed basis (wet/dry/daf) is unconfirmed |
+| NaOH dose | 1.0 kg/kg dry (gross, incl. recycle) | Experimental basis confirmed by user 2026-11-06: total dry seaweed, not DAF | USER | NaOH makeup is 0.53 USD/kg H2 and 1.47 kg CO2e/kg H2. Gross dose includes recycle; fresh makeup is lower |
 | NaOH → Na2CO3 in U2 | 100 % | Workbook B15 | EXP (stated) / ENG | Not separately measured |
-| Residual organic carbon | Lumped residue CH0.5O1.195 (H/C = 0.5 assumed; O solved), 0.59 g/g daf; Hf by Channiwala–Parikh; Cp 1 J/g/K | `att.yaml` `material_balance` | ENG | **Structural assumption** from elemental closure, not a measured char. It sets the U2 heat duty (9.07 MJ/kg dry), the residue disposal (0.66 USD/kg H2), and part of the natural-gas GWP |
+| Residual organic carbon | Lumped residue CH0.5O1.195 (H/C = 0.5 assumed; O solved), 0.59 g/g daf; Hf by Channiwala–Parikh; Cp 1 J/g/K | `att.yaml` `material_balance` | ENG | **Structural assumption** from elemental closure, not a measured char. It sets the U2 heat duty (9.16 MJ/kg dry) and part of the natural-gas GWP. RS1 keeps only the char (see below); the char earns 0.65 of the 8.3 kg CO2e/kg H2 storage credit |
 | Causticization | 88 % conversion, Ca(OH)2:Na2CO3 = 1.1 mol/mol, 3 kg water/kg Na2CO3 | Workbook B16–B18 ("commercial causticizing"); CaCO3 experiment conversion 88.3 % | LIT / EXP | Lab CaCO3 experiment used clean Na2CO3 |
-| Lime | Waste carbide Ca(OH)2, free and burden-free; 42.6 kt/yr used vs 92.5 kt/yr supply | User scenario | USER | Availability, transport and impurities not assessed; limestone lime (0.91 kg CO2e/kg) would add ≈ 13 kg CO2e/kg H2 |
-| NaOH recycle | 95 % liquor recycle; EC1 to 50 wt % NaOH; effective recovery 74.2 % | `att.yaml`; workbook B19 | ENG / DER | EC1 constants tuned on the SaBRe S5 liquor |
+| Lime | Waste carbide lime of an acetylene plant, free and burden-free: a paste with 92 % Ca(OH)2, 4 % CaCO3, 4 % inert minerals (dry basis), 40 wt % water; 47.2 kt/yr of Ca(OH)2 used vs 92.5 kt/yr supply | `att.yaml waste_lime`; literature ranges (dried acetylene-plant sludge 95 % Ca(OH)2, 2 % CaCO3, 1.3 % SiO2; EIGA Doc 143/25 for the paste water) | USER / LIT | The split and the water content are choices inside the reported ranges (EIGA's slurry table reports 16–22 % CaCO3). The inert minerals are lumped, with SiO2 properties, and do not dissolve. Trace metals (Cu, Mn, Ni, Ba, Cr), chloride, sulfate and ammonium are not modeled. Availability and transport not assessed; fresh limestone lime (0.91 kg CO2e/kg) would add ≈ 14 kg CO2e/kg H2 |
+| NaOH recycle | 95 % liquor recycle; EC1 to 50 wt % NaOH; effective recovery 90.2 % | `att.yaml`; workbook B19 | ENG / DER | EC1 constants tuned on the SaBRe S5 liquor |
 | CO2 scrubber | 99 % capture, 1.1× Ca(OH)2 | `att.yaml` | ENG | No vendor data |
 | H2 product | No PSA; 98.89 mol % H2 at 2 MPa; MSP per kg contained H2 | `att.yaml` `gas_treatment` | USER / ENG | 1.1 % CH4 left in the product; end-use specification undefined |
-| F2 washing | 1 kg water/kg original dry cake, 25 °C, 0.25 h, one ideal stage + F2R refiltration (native BioSTEAM MixTank / RotaryVacuumFilter); solids fully retained; no wash-liquor recycle | `att.yaml downstream.f2_washing` | ENG | Ideal dilution, no solubility or kinetics; 100 % CaCO3 recovery assumed |
-| CaCO3 purity | F2 82.545 %, F3 93.107 % dry basis (model); lab ≈ 97 % | Model; workbook sheet 2 | DER / EXP | The lab value is a clean Na2CO3 + Ca(OH)2 system, not the industrial cake, so the bases are not comparable. Model purity is not forced |
-| CaCO3 sales | 100 USD per t CaCO3 component, F2 + F3; non-CaCO3 mass disposed at 0.04 USD/kg (net cake price) | `att_tea.yaml caco3_sales` | USER | **Optimistic, unverified:** no buyer or specification; 82.5 % cake is not PCC. Conservative bound: no F2 sales |
-| Carbonate storage | Conservative: only landfilled (unsold) CaCO3 credited; sold CaCO3 and soluble Na2CO3 not. Inherited credit reported for comparison only | `att_lca.yaml carbonate_storage_accounting` | USER / ENG | Landfill permanence of CaCO3 assumed; product end use unknown; no verified removal |
-| Emission factors | NaOH 1.12; natural gas 0.056 + 0.0066 per MJ; electricity 0.449 per kWh; H2SO4 0.0445 | Collaborators' table; IPCC 2006; GREET | LIT | Electricity is a location placeholder |
-| Financial basis | IRR 10 %, 20 yr, MACRS-7, 21 % tax, 60 % debt at 8 %/10 yr, FOC 4 % FCI, FCI = installed cost, CEPCI 596.2 | `tea.yaml`; `att_tea.yaml` cost_year | SABRE | No indirect capital. The inherited BioSTEAM DCF deducts loan principal from taxable income; kept for SaBRe consistency (+0.02–0.08 USD/kg if corrected) |
+| Ash split | Insoluble 0.3838, NaCl 0.2377, KCl 0.3785 of the seaweed ash (insoluble Ash minerals 619 kg/h stay in the char; K and Na dissolve as KCl and NaCl) | `att.yaml feed_preparation.ash_split` | USER / ENG | **Illustrative, not measured:** based on typical seaweed major-element contents the user shared (not the collaborators' sample); chloride as the counter-anion is assumed; S, P, Si, Al and Fe as soluble species are not modeled |
+| Insoluble char | 0.15 g per g of dry feed (754 kg/h: Ash minerals + CharN/CharS + organic Char 78 kg/h); the rest of the lumped residue goes to `att_residue_untracked` (1,939 kg/h) with no credit and no cost | `att.yaml downstream.char` (RS1) | USER (collaborator's mass balance, 0.126–0.169) | The carbon balance is not closed on measured sinks (atoms out do not exceed atoms in). U2's heat duty is not re-derived for the smaller char |
+| Salt crystallizer | XL1 removes 99 % of the NaCl and KCl from the EC1 concentrate; the cake keeps 10 wt % liquor; disposed at 0.04 USD/kg | `att.yaml downstream.salt_crystallizer` | ENG | PRELIMINARY: vessel and solids centrifuge (BioSTEAM defaults), no solubility data for NaCl/KCl in 50 wt % NaOH |
+| REE recovery | Switch on by default. HCl leach (0.5 mmol/g char, 5 kg liquor/kg char), oxalate precipitation (0.042 mmol/g char), roast of only the precipitate at 900 °C; product REO = 60 % of the REE of the initial wastewater (1.4 mg TREE/L at 2.5 g seaweed/L), capped by the oxalate stoichiometry; 1.31 wt % REO with mineral filler from the char Ash; REO sold at 35 USD/kg | `att.yaml downstream.ree_recovery`; `tea.yaml prices.REO` | USER / ENG / EXP (lab doses) | **Assumptions:** the seaweed already carries 737 ppm TREE (the capture section is not modeled or costed); the 60 % recovery is the collaborators' overall Nd recovery from a 0.01 M run, applied to the dilute case; no buyer for a 1.3 wt % REO solid; dissolved Fe, Al, Mn, Ca and Mg of the leach are not tracked; the roaster is a K1 kiln correlation; HCl and oxalic acid are not in the LCA |
+| F2 washing | 1 kg water/kg original dry cake, the condensate the dissolver does not need (fresh water only as a top-up), 0.25 h, one ideal stage + F2R refiltration (native BioSTEAM MixTank / RotaryVacuumFilter); solids fully retained; the wash liquor is recycled to the dissolver | `att.yaml downstream.f2_washing` | ENG | Ideal dilution, no solubility or kinetics; 100 % CaCO3 recovery assumed |
+| F1 washing | Same ratio for the ATT residue cake (W1 MixTank + F1R pressure filter, 30 wt % moisture, no dryer); the wash liquor is combined with the carbonate solution to C1 | `att.yaml downstream.f1_washing` | ENG / USER | Ideal dilution; the pressure filter F1R is 0.65 MUSD installed; the wash water is evaporated again in EC1 |
+| CaCO3 purity | F2 80.315 %, F3 90.441 % dry basis (model); lab ≈ 97 % | Model; workbook sheet 2 | DER / EXP | The lab value is a clean Na2CO3 + Ca(OH)2 system, not the industrial cake, so the bases are not comparable. Model purity is not forced |
+| CaCO3 cake drying | The F2 and scrubber cakes are dried from 25 to 1 wt % moisture in steam-heated drum dryers (D2, D3; D0 type, same drum temperature and exhaust humidity); no grinding or purification | `att.yaml downstream.caco3_drying` | USER / ENG | **The 1 wt % target is an assumption**: no filler specification or buyer. The dryers add 1.0 MUSD to the FCI. The disposal charge is on the wet mass, so drying the cakes removes 0.85 MUSD/yr of charged cake water |
+| CaCO3 cakes | Both dried cakes sold at 100 USD/t of CaCO3 component (the lime's CaCO3 included); the non-CaCO3 mass is disposed at 0.04 USD/kg wet | `tea.yaml caco3_sales` | USER | **Optimistic, unverified:** no buyer or specification; the 80.3 % cake with unreacted Ca(OH)2 is not PCC |
+| ATT residue | The leached char cake (30 wt % moisture, not dried) has a net price of 0, assumed to be taken as a sorbent | `tea.yaml prices.att_char` | USER | **No buyer, specification or measured properties.** Composition assumed (ash minerals and a CH0.5O0.1 char), possibly alkaline, arsenic and other metals not assessed. It lowers the S1 MSP by 0.09 USD/kg H2 |
+| Carbon storage | The Sargassum carbon of the solids is credited: the CaCO3 of the cakes (sold or landfilled) and the organic char of the residue. Soluble Na2CO3, the lime's CaCO3 and dissolved carbonate in wastewater are not | `lca.yaml carbon_storage` | USER / ENG | The fate of sold CaCO3 is outside the plant; residue composition assumed; no verified removal |
+| Emission factors | NaOH 1.12; natural gas 0.056 + 0.0098 per MJ; electricity 0.449 per kWh; H2SO4 0.0445 | Collaborators' table; IPCC 2006; GREET | LIT | Electricity is a location placeholder |
+| Financial basis | IRR 10 %, 20 yr, MACRS-7, 21 % tax, 60 % debt at 8 %/10 yr, FOC 4 % FCI, FCI = installed cost, CEPCI 596.2 | `tea.yaml` (financial, cost_year) | SABRE | No indirect capital |
 | Reference vessel / engine | SPAR PYXIS; MAN B&W 5S60ME-C8.2, 8,050 kW; 75 % MCR; exhaust 240 °C, 8 kg/kWh; min outlet 160 °C | `marine_whr.yaml`; public vessel data | LIT / ENG | No OEM part-load data; existing onboard heat users ignored (optimistic); space, stability and class not assessed |
-| WHR equipment | 1.008 MUSD (BioSTEAM HX correlations as proxies, placeholders for drum and controls) | `marine_whr.py` | ENG | Screening-level costs; scavenge-air interface needs OEM approval |
+| WHR equipment | 0.890 MUSD (BioSTEAM HX correlations as proxies, placeholders for drum and controls) | `marine_whr.py` | ENG | Screening-level costs; scavenge-air interface needs OEM approval |
 | Floating factors | CAPEX × 1.25 (sensitivity 1.10–1.40); labor × 2.0 (S1 labor = 50 % of FOC) | `marine_tea.yaml` | USER | No marine cost data |
-| Operating hours | 7,920 h (S1; S2 Mode A, idealized); 2,640 h (S2 Mode B: 8 h/d transit) | `tea.yaml`; `marine_whr.yaml` | USER | Realistic shipboard ATT hours unknown |
-| Excluded | Harvesting, collection, transport, vessel acquisition, propulsion fuel, REE recovery, CH4 credit | — | USER | Partial boundary for both TEA and LCA |
+| Operating hours | 7,920 h (S1 and S2, underway, idealized) | `tea.yaml`; `marine_whr.yaml` | USER | Realistic shipboard ATT hours unknown |
+| Excluded | Harvesting, collection, transport, vessel acquisition, propulsion fuel, REE capture from acid mine drainage, CH4 credit | — | USER | Partial boundary for both TEA and LCA |
 
 ## 2. Gas-yield verification summary
 
@@ -75,26 +81,28 @@ scale (sections 1 and 3) is a separate issue.
 
 | # | Uncertainty | Effect on results |
 |---|---|---|
-| 1 | **CaCO3 marketability and price.** No buyer, specification or verified price for 82.5 % (F2) / 93.1 % (F3) cake | S1 MSP 3.23 (sold) vs 5.33 (F2 not sold): **2.10 USD/kg**. ±100 USD/t ≈ ±1.57 USD/kg H2 (15.7 kg CaCO3/kg H2) |
-| 2 | **Carbonate fate and storage accounting** | S1 GWP 21.85 (sold, no credit) vs 15.26 (F2 landfilled, credited) vs 14.24 (inherited, not defensible). Storage is not verified removal |
-| 3 | **Transfer of the experimental yields** (catalyst, Ni soaking, steam co-feed, lab scale, single run; per-g-daf transfer to higher-ash presscake; NaOH dose basis) | Every per-kg-H2 result scales roughly with 1/H2 yield. A per-dry transfer would mean +21.9 % H2. Catalyst and Ni costs are absent from the TEA and LCA |
-| 4 | **S2 operating hours** | S2 MSP 3.42 (7,920 h) → 3.92 (5,280 h) → 5.44 (2,640 h). At 2,640 h, WHR no longer pays back |
-| 5 | **Lumped residue thermochemistry** | U2 duty 9.07 MJ/kg dry drives ≈ 8.9 kg CO2e/kg H2 and 0.62 USD/kg of fuel cost. Residue-cake disposal is 0.66 USD/kg H2 |
-| 6 | **Marine retrofit and WHR screening** | Floating CAPEX 1.10–1.40 ⇒ S2 MSP 3.32–3.51. WHR −1.39 kg CO2e/kg H2 is an upper bound (onboard users ignored, no OEM data) |
-| 7 | **Inherited DCF** | +0.02 to +0.08 USD/kg H2 if loan principal were not deducted |
+| 1 | **CaCO3 sales and cake quality.** No buyer, specification or verified price for the 80.3 % (F2) / 90.4 % (F3) cake | The revenue is −1.80 USD/kg H2 of the S1 MSP of 1.76; without sales it is 4.29. ±100 USD/t ≈ ±1.80 USD/kg H2 (18.0 kg CaCO3/kg H2) |
+| 2 | **Carbon storage accounting** | S1 GWP 16.88 net vs 25.15 without the storage credit (−8.28: char −0.65, sold CaCO3 −7.63). The soluble Na2CO3 (0.03), the lime's CaCO3 (0.31) and the untracked organics (699 kg C/h; 6.9 if emitted) are not credited. Storage is not verified removal |
+| 3 | **Transfer of the experimental yields** (catalyst, Ni soaking, steam co-feed, lab scale, single run; per-g-daf transfer to higher-ash presscake; NaOH dose is confirmed on total dry basis) | Every per-kg-H2 result scales roughly with 1/H2 yield. A per-dry transfer would mean +21.9 % H2. Catalyst and Ni costs are absent from the TEA and LCA |
+| 4 | **ATT residue has a net price of 0** | Lowers the S1 MSP by 0.09 USD/kg H2 (1.76 vs 1.86 with the leached char disposed at 0.04 USD/kg wet); the F1 wash adds 0.7 MUSD of capital |
+| 5 | **Lumped residue thermochemistry** | U2 duty 9.16 MJ/kg dry drives ≈ 9.5 kg CO2e/kg H2 (combustion and upstream) and 0.63 USD/kg of fuel cost |
+| 6 | **Marine retrofit and WHR screening** (S2 at 7,920 h/yr underway) | Floating CAPEX 1.10–1.40 ⇒ S2 MSP 1.88–2.10. WHR −1.43 kg CO2e/kg H2 is an upper bound (onboard users ignored, no OEM data) |
+| 7 | **REE recovery** (60 % of the wastewater REE, 1.31 wt % REO, 35 USD/kg REO; capture section not modeled) | Lowers the S1 MSP by 0.06 USD/kg H2 at 35 USD/kg REO; break-even 23 USD/kg REO (S1) and 28 (S2); at 2 USD/kg the MSP is 0.11 higher. Dissolved metals of the leach are not tracked and the LCA omits the HCl and oxalic acid production |
 
-Smaller items do not change the conclusions: EC1 constants, scrubber performance, cost year (CEPCI 800 adds
-+0.25 USD/kg), the electricity factor (±0.6–1.9 kg CO2e/kg H2), and collection-transport fuel.
+Smaller items do not change the conclusions: EC1 constants, scrubber performance, the electricity factor (−0.7 to +2.1 kg CO2e/kg H2), and collection-transport fuel.
 
 ## 4. Status
 
 The engineering-screening S1/S2 model is complete and reproducible:
-- 119 tests pass;
-- the full `run_att_all` pipeline completes (8/8 steps);
-- 266 QC checks pass, with 0 FAIL;
+- 28 tests pass;
+- the full `analyses/run.py all` pipeline completes (8/8 steps);
+- 368 QC checks pass, with 0 FAIL;
 - gas yields are verified as above.
 
 Results are **provisional screening estimates**. Before publication-grade claims, they need:
 1. experimental confirmation of the yield basis (replicates, CO detection limit, presscake vs raw seaweed, the
    catalyst and Ni requirement and their cost);
-2. CaCO3 product characterization and a market outlet.
+2. CaCO3 product characterization (including the moisture and purity a buyer would require) and a market outlet;
+3. characterization of the ATT residue (carbon, ash, pH, conductivity, porosity, metals including arsenic) and a buyer;
+4. measured seaweed ash composition (including chloride), char yield and carbon sinks, and the REE leach and oxalate
+   steps (extraction, selectivity against Ca, Mg, Fe and Al, the grade a refiner would accept) with a REO buyer.

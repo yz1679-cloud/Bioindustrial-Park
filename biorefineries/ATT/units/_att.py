@@ -9,16 +9,15 @@
 from math import ceil, exp, log, pi
 
 import biosteam as bst
-import numpy as np
 import thermosteam as tmo
 from biosteam.units.design_tools import PressureVessel
 from biosteam.units.design_tools.specification_factors import pressure_vessel_material_factors
 from biosteam.units.design_tools.vacuum import compute_vacuum_system_power_and_cost
+from biosteam.units.heat_exchange import compute_furnace_purchase_cost
 
 from biorefineries.ATT.utils import load_assumptions
 
 __all__ = (
-    "ATTPress",
     "ATTReactor",
     "close_att_u2_balance",
     "CausticizationReactor",
@@ -27,10 +26,7 @@ __all__ = (
     "ATTDrumDryer",
     "ATTCompressor",
     "ATTMolecularSieve",
-    "ATTVesselCost",
     "ATTPSA",
-    "ATTLimeKiln",
-    "ATTLimeSlaker",
     "ATTScrubber",
 )
 
@@ -38,11 +34,14 @@ _ATT_DATA = load_assumptions("att.yaml")["att"]
 
 _ATT = _ATT_DATA["reactor"]
 _ATT_DOWNSTREAM = _ATT_DATA["downstream"]
-_EQUIPMENT = _ATT_DATA["inventory"]["cost_estimates"]   # sizing of equipment BioSTEAM has no unit model for
+_EQUIPMENT = _ATT_DATA["inventory"]["equipment_sizing"]   # sizing of equipment BioSTEAM has no unit model for
 _NAOH_HEAT_OF_SOLUTION_kJ_per_kg = float(_ATT_DOWNSTREAM["naoh_heat_of_solution_kJ_per_kg"])
 
 _SARGASSUM_DRY_IDS = (
     "Ash",
+    "NaCl",       # soluble ash salts (att.yaml feed_preparation.ash_split); with Ash they are the inorganic part of the dry feed
+    "KCl",
+    "REO",        # rare earth oxides of the seaweed (att.yaml downstream.ree_recovery)
     "Protein",
     "Lignin",
     "Glucan",
@@ -57,6 +56,29 @@ _SARGASSUM_DRY_IDS = (
 )
 
 
+def _set_lime_stream(stream, ca_oh2_kmolph):
+    """
+    Fill ``stream`` with the lime that carries ``ca_oh2_kmolph`` of Ca(OH)2: the waste carbide lime paste of
+    att.yaml downstream.waste_lime (Ca(OH)2 with CaCO3 and inert mineral impurities and water) or, if that is
+    disabled, pure Ca(OH)2.
+    """
+    stream.empty()
+    cfg = _ATT_DOWNSTREAM.get("waste_lime", {})
+    if not cfg.get("enabled", False):
+        stream.phase = "s"
+        stream.imol["CaOH2"] = ca_oh2_kmolph
+        return
+    frac = cfg["dry_basis_wt_frac"]
+    dry_kgph = ca_oh2_kmolph * 74.09268 / float(frac["CaOH2"])
+    stream.phase = "l"
+    stream.imass["CaOH2"] = dry_kgph * float(frac["CaOH2"])
+    stream.imass["CaCO3"] = dry_kgph * float(frac["CaCO3"])
+    stream.imass["LimeInerts"] = dry_kgph * float(frac["LimeInerts"])
+    moisture = float(cfg["moisture_wt_frac"])
+    stream.imass["Water"] = dry_kgph * moisture / (1.0 - moisture)
+    stream.T = 298.15
+
+
 def _att_add_proxy_exchanger(unit, name, efficiency=None):
     """Create the auxiliary HXutility used by ``_att_proxy_exchanger`` (call in the unit's init)."""
     aux = unit.auxiliary(f"hxn_{name}", bst.HXutility, ins=bst.Stream(None),
@@ -66,7 +88,7 @@ def _att_add_proxy_exchanger(unit, name, efficiency=None):
 
 
 def _att_proxy_exchanger(unit, name, duty_kJph, T_in, T_out=None, *, latent=False, hxn_ok=True,
-                         costed=True):
+                         costed=True, proxy_pressure_Pa=None):
     """
     Carry a heating or cooling duty of ``unit`` in an auxiliary BioSTEAM
     ``HXutility`` whose process side is a water stream, so that the duty has
@@ -92,8 +114,9 @@ def _att_proxy_exchanger(unit, name, duty_kJph, T_in, T_out=None, *, latent=Fals
         s_out = bst.Stream(None, Water=1.0, T=T_in, P=P, phase="g" if heating else "l")
         per_kmol = abs(Water.Hvap(T_in))
     else:
-        s_in = bst.Stream(None, Water=1.0, T=T_in, P=101325.0, phase="l")
-        s_out = bst.Stream(None, Water=1.0, T=T_out, P=101325.0, phase="l")
+        pressure = 101325.0 if proxy_pressure_Pa is None else float(proxy_pressure_Pa)
+        s_in = bst.Stream(None, Water=1.0, T=T_in, P=pressure, phase="l")
+        s_out = bst.Stream(None, Water=1.0, T=T_out, P=pressure, phase="l")
         per_kmol = s_out.H - s_in.H
     scale = abs(duty_kJph) / abs(per_kmol)
     s_in.scale(scale)
@@ -161,8 +184,8 @@ class ATTCompressor(bst.IsothermalCompressor):
     """
     IsothermalCompressor whose intercooling duty is carried by a costed
     auxiliary cooler (water proxy, sensible from ``intercooler_T_K`` to the
-    outlet temperature). Kept out of the heat exchanger network: the
-    interstage temperature is an assumption, not a modeled stream.
+    outlet temperature). Its duty is matched in the heat exchanger network at the assumed interstage
+    temperature (att.yaml heat_recovery.u3k_interstage_temperature_K).
     """
 
     def _init(self, *args, intercooler_T_K=400.0, **kwargs):
@@ -176,14 +199,15 @@ class ATTCompressor(bst.IsothermalCompressor):
         for hu in self.heat_utilities[n:]:
             self.heat_utilities.remove(hu)
             _att_proxy_exchanger(self, "intercooler", hu.unit_duty, self.intercooler_T_K, self.outs[0].T,
-                                 hxn_ok=False)
+                                 hxn_ok=True)
 
 
 class ATTMolecularSieve(bst.MolecularSieve):
     """
     MolecularSieve whose regeneration heating and cooling duties are carried
     by costed auxiliary exchangers (water proxy at ``regeneration_T_K``).
-    Kept out of the heat exchanger network (provisional BioSTEAM duties).
+    Both duties are matched in the heat exchanger network (BioSTEAM's duties, at the assumed regeneration
+    temperature of att.yaml heat_recovery.u3d_regeneration_temperature_K).
     """
 
     def _init(self, *args, regeneration_T_K=450.0, **kwargs):
@@ -199,48 +223,17 @@ class ATTMolecularSieve(bst.MolecularSieve):
         for hu in new:
             self.heat_utilities.remove(hu)
         T_in = float(self.ins[0].T)
+        # The proxy represents sensible heat only. Keep it liquid when HXN
+        # flashes the stream above water's atmospheric boiling temperature.
+        proxy_P = max(101325.0, 1.05 * float(bst.settings.chemicals["Water"].Psat(max(T_in, self.regeneration_T_K))))
         for hu in new:
             if hu.unit_duty > 0.0:
                 _att_proxy_exchanger(self, "regeneration_heater", hu.unit_duty, T_in, self.regeneration_T_K,
-                                     hxn_ok=False)
+                                     hxn_ok=True, proxy_pressure_Pa=proxy_P)
             else:
                 _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
-                                     hxn_ok=False)
+                                     hxn_ok=True, proxy_pressure_Pa=proxy_P)
 
-
-
-class ATTVesselCost(bst.Unit, PressureVessel):
-    """
-    Vertical vessel of a given volume, costed with BioSTEAM's pressure-vessel
-    correlation (auxiliary unit of the ATT reactor; no mass or energy effect).
-    """
-    _N_ins = _N_outs = 1
-    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
-    _F_BM_default = {"Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
-
-    def __init__(self, ID="", ins=None, outs=(), thermo=None, *, volume_m3=1.0, length_to_diameter=3.0,
-                 material="Inconel-600"):
-        super().__init__(ID, ins, outs, thermo)
-        self.volume_m3 = float(volume_m3)
-        self.length_to_diameter = float(length_to_diameter)
-        self.vessel_type = "Vertical"
-        # BioSTEAM has no density for most alloys: size the wall with SS316
-        # and apply the material factor of the specified alloy.
-        self.vessel_material = "Stainless steel 316"
-        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[material]
-
-    def _run(self):
-        self.outs[0].copy_like(self.ins[0])
-
-    def _design(self):
-        D_m = (4.0 * self.volume_m3 / (pi * self.length_to_diameter)) ** (1.0 / 3.0)
-        self._design_and_cost_pressure_vessel(
-            101325.0, D_m, self.length_to_diameter * D_m,
-            pressure_units="Pa", length_units="m",
-        )
-
-    def _cost(self):
-        pass
 
 
 class ATTPSA(bst.Splitter):
@@ -270,123 +263,6 @@ class ATTPSA(bst.Splitter):
             self.anchor_installed_cost_usd * (tpd / self.anchor_capacity_t_H2_per_day) ** self.exponent
             * self.cost_factor
         )
-
-
-class ATTLimeKiln(bst.Unit):
-    """
-    Lime kiln of the lime recycle: dries and calcines the F2 cake.
-
-    CaCO3 -> CaO + CO2 (``calcination_conversion``) and Ca(OH)2 -> CaO + H2O; the cake water is
-    evaporated; NaOH, Na2CO3 and any other solids pass through unchanged (sodium rides with the lime).
-    ins: [0] cake. outs: [0] hot-end lime solids (cooled to ``solids_outlet_temperature_K``; the heat
-    of the lime is recovered inside the kiln), [1] exhaust (CO2, water vapor).
-
-    Heat: the net duty (products at their outlet temperatures minus the cake) is supplied by natural gas
-    through an auxiliary furnace (BioSTEAM furnace correlation). Shell: rotating drum costed with
-    BioSTEAM's drum-dryer correlation on a peripheral area proportional to the CaO capacity, times an
-    assumed refractory factor, with the dryer correlation's drive and fan power. PRELIMINARY.
-    """
-    _N_ins = 1
-    _N_outs = 2
-    auxiliary_unit_names = ("heat_exchanger",)
-    _F_BM_default = {"Rotary kiln": 2.06}
-    _units = {"CaO capacity": "t/d", "Kiln shell area": "m2"}
-
-    def _init(self, calcination_conversion=0.98, solids_outlet_temperature_K=363.15, exhaust_temperature_K=473.15,
-              heat_loss_fraction=0.10, kiln_area_m2_per_t_CaO_per_day=3.14, refractory_factor=2.0):
-        self.calcination_conversion = float(calcination_conversion)
-        self.solids_outlet_temperature_K = float(solids_outlet_temperature_K)
-        self.exhaust_temperature_K = float(exhaust_temperature_K)
-        self.heat_loss_fraction = float(heat_loss_fraction)
-        self.kiln_area_m2_per_t_CaO_per_day = float(kiln_area_m2_per_t_CaO_per_day)
-        self.refractory_factor = float(refractory_factor)
-        self.auxiliary("heat_exchanger", bst.HXutility, ins=self.ins, T=1173.15, rigorous=False, heat_only=True,
-                       heat_transfer_efficiency=1.0 / (1.0 + self.heat_loss_fraction))
-
-    def _run(self):
-        cake = self.ins[0]
-        solids, exhaust = self.outs
-        solids.empty()
-        exhaust.empty()
-        solids.phase, exhaust.phase = "s", "g"
-        for chemical in cake.chemicals:
-            ID = chemical.ID
-            n = float(cake.imol[ID])
-            if n and ID not in ("Water", "CaCO3", "CaOH2"):
-                solids.imol[ID] = n
-        caco3 = float(cake.imol["CaCO3"])
-        calcined = self.calcination_conversion * caco3
-        dehydrated = float(cake.imol["CaOH2"])
-        solids.imol["CaCO3"] = caco3 - calcined
-        solids.imol["BurntLime"] += calcined + dehydrated
-        exhaust.imol["CO2"] = calcined
-        exhaust.imol["Water"] = float(cake.imol["Water"]) + dehydrated
-        solids.T, exhaust.T = self.solids_outlet_temperature_K, self.exhaust_temperature_K
-        solids.P = exhaust.P = cake.P
-
-    def _design(self):
-        cake = self.ins[0]
-        solids, exhaust = self.outs
-        duty = float(solids.Hnet + exhaust.Hnet - cake.Hnet)          # kJ/h, net of the internal heat recovery
-        hx = self.heat_exchanger
-        hx.outs[0].copy_like(cake)
-        hx.outs[0].T = 1173.15
-        hx.simulate(run=False, design_kwargs={"duty": duty})
-        cao_tpd = float(solids.imol["BurntLime"]) * 56.0774 * 24.0 / 1e3
-        self._cao_tpd = cao_tpd
-        self.design_results["CaO capacity"] = cao_tpd
-        self.design_results["Kiln shell area"] = self.kiln_area_m2_per_t_CaO_per_day * cao_tpd
-        self.design_results["Net heat duty"] = duty
-        self._units["Net heat duty"] = "kJ/hr"
-
-    def _cost(self):
-        area = self.design_results["Kiln shell area"]
-        if area > 0.0:
-            ratio = area / 1235.35
-            # BioSTEAM DrumDryer: 0.52 x 2.268 MUSD at 1235 m2 peripheral area (CE 525.4, 2007), exponent 0.6, 939 kW.
-            self.baseline_purchase_costs["Rotary kiln"] = (
-                0.52 * 2268000.0 * bst.CE / 525.4 * ratio ** 0.6 * self.refractory_factor)
-            self.add_power_utility(938.866 * ratio ** 0.6)
-
-
-class ATTLimeSlaker(bst.Unit):
-    """
-    Slaker of the lime recycle: CaO + water -> Ca(OH)2 (semi-dry: ``water_ratio`` kmol water per kmol
-    CaO, so the hydrate leaves as a dry solid). The heat of slaking is removed by a costed auxiliary
-    cooler (water proxy) to ``T``; not matched in the HXN.
-    ins: [0] lime solids from the kiln (after the purge), [1] slaking water (set here). outs: [0] hydrated lime.
-    """
-    _N_ins = 2
-    _N_outs = 1
-
-    def _init(self, T=363.15, water_ratio=1.0):
-        self.T = float(T)
-        self.water_ratio = float(water_ratio)
-        _att_add_proxy_exchanger(self, "cooler")
-
-    def _run(self):
-        lime, water = self.ins
-        out = self.outs[0]
-        n_cao = float(lime.imol["BurntLime"])
-        water.empty()
-        water.imol["Water"] = self.water_ratio * n_cao
-        water.phase, water.T = "l", 298.15
-        out.empty()
-        out.phase = "s"
-        for chemical in lime.chemicals:
-            ID = chemical.ID
-            n = float(lime.imol[ID])
-            if n and ID != "BurntLime":
-                out.imol[ID] = n
-        out.imol["CaOH2"] += n_cao
-        out.imol["Water"] += (self.water_ratio - 1.0) * n_cao
-        out.T, out.P = self.T, lime.P
-
-    def _design(self):
-        lime, water = self.ins
-        duty = float(self.outs[0].Hnet - lime.Hnet - water.Hnet)       # kJ/h, negative: heat released
-        if duty < 0.0:
-            _att_proxy_exchanger(self, "cooler", duty, 400.0, self.T, hxn_ok=False)
 
 
 class ATTScrubber(bst.Unit):
@@ -419,22 +295,26 @@ class ATTScrubber(bst.Unit):
         n_co2 = float(gas.imol["CO2"])
         captured = self.co2_capture * n_co2
         unreacted = (self.lime_excess - 1.0) * captured
-        lime.empty()
-        lime.phase, lime.T = "s", 298.15
-        lime.imol["CaOH2"] = self.lime_excess * captured
-        solids_kg = captured * 100.0869 + unreacted * 74.09268
+        _set_lime_stream(lime, self.lime_excess * captured)
+        lime_caco3, lime_inerts = float(lime.imol["CaCO3"]), float(lime.imol["LimeInerts"])
+        lime_water = float(lime.imol["Water"])
+        solids_kg = (captured + lime_caco3) * 100.0869 + unreacted * 74.09268 + float(lime.imass["LimeInerts"])
         water_target_kmol = solids_kg * (1.0 - self.slurry_solids_wt_frac) / self.slurry_solids_wt_frac / 18.01528
         makeup.empty()
         makeup.phase, makeup.T = "l", 298.15
-        makeup.imol["Water"] = max(water_target_kmol - captured - float(filtrate.imol["Water"]), 0.0)
+        # Filtrate water the slurry needs besides the lime water and the reaction water (the system returns only this much
+        # of the F3 filtrate to the scrubber; the rest of it is process water).
+        self.filtrate_demand_kgph = max(water_target_kmol - captured - lime_water, 0.0) * 18.01528
+        makeup.imol["Water"] = max(water_target_kmol - captured - lime_water - float(filtrate.imol["Water"]), 0.0)
         scrubbed.copy_like(gas)
         scrubbed.imol["CO2"] = n_co2 - captured
         scrubbed.T = self.T
         slurry.empty()
         slurry.phase = "l"
-        slurry.imol["CaCO3"] = captured
+        slurry.imol["CaCO3"] = captured + lime_caco3
         slurry.imol["CaOH2"] = unreacted
-        slurry.imol["Water"] = float(filtrate.imol["Water"]) + float(makeup.imol["Water"]) + captured
+        slurry.imol["LimeInerts"] = lime_inerts
+        slurry.imol["Water"] = float(filtrate.imol["Water"]) + float(makeup.imol["Water"]) + lime_water + captured
         slurry.T, slurry.P = self.T, gas.P
 
     def _design(self):
@@ -443,113 +323,414 @@ class ATTScrubber(bst.Unit):
         self.tank.ins[0].copy_like(slurry)
         self.tank.simulate()
         if duty < 0.0:
-            _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=False)
+            _att_proxy_exchanger(self, "cooler", duty, self.T + 20.0, self.T, hxn_ok=True)
 
 
-class ATTPress(bst.Unit):
+class ATTResidueSplit(bst.Unit):
     """
-    P1: screw press of the fresh-Sargassum plant, with the cost and power basis of a
-    municipal biosolids screw press (att.yaml feed_preparation.press).
+    RS1: partition of the cooled ATT residue into the insoluble CHAR that goes to the dissolver and the part of the lumped residual
+    carbon that is not tracked (att.yaml downstream.char, user decision 2026-11-03).
 
-    ins: [0] fresh Sargassum. outs: [0] presscake, [1] press liquid (raw
-    juice for biostimulant production).
-
-    Each component stays in the cake in the fraction ``retention`` (default
-    1); the cake water makes up ``1 - cake_solids_wt_frac`` of the cake, and
-    the rest of the water leaves with the juice. Installed cost = anchor x
-    (dry solids throughput / anchor throughput) ** exponent (single train);
-    electricity = kWh per dry tonne of solids (ash included) fed.
+    The insoluble solids leaving the water dissolution are ``char_yield`` g per g of dry feed (the collaborator's ATT mass balance,
+    10-20 wt %): the insoluble seaweed minerals (Ash), the N and S char and an organic char (``char_species``, CH0.5O0.1) that
+    takes the rest of that mass. The remaining lumped residue (U2's elemental-closure surrogate, same H/C) leaves as
+    ``att_residue_untracked``: its carbon has no measured sink, is neither credited nor treated, and no element is created
+    (the split conserves C, H and O exactly). U2 itself, and so its heat duty, is not changed.
+    ins: [0] cooled residue. outs: [0] char residue (to D1), [1] untracked organics.
     """
-
     _N_ins = 1
     _N_outs = 2
-    _F_BM_default = {"Press system": 1.0}
 
-    def _init(self, cake_solids_wt_frac, retention=None, power_kWh_per_dry_ton=5.0,
-              capex_installed_ref_usd=3.1e6, ref_capacity_tph_dry=0.953, scale_exponent=0.6):
-        self.cake_solids_wt_frac = float(cake_solids_wt_frac)
-        self.retention = dict(retention or {})
-        self.power_kWh_per_dry_ton = float(power_kWh_per_dry_ton)
-        self.capex_installed_ref_usd = float(capex_installed_ref_usd)
-        self.ref_capacity_tph_dry = float(ref_capacity_tph_dry)
-        self.scale_exponent = float(scale_exponent)
+    def _init(self, char_yield, dry_feed_kgph, char_species="Char", lumped_species=("ResidueCH", "ResidueCHO")):
+        self.char_yield = float(char_yield)
+        self.dry_feed_kgph = dry_feed_kgph                       # callable: dry feed [kg/h]
+        self.char_species = char_species
+        self.lumped_species = tuple(lumped_species)
+
+    def _run(self):
+        res = self.ins[0]
+        char, lost = self.outs
+        char.copy_like(res)
+        lost.empty()
+        lost.phase = "s"
+        lost.T, lost.P = res.T, res.P
+        ch, cho = self.lumped_species
+        c_res = float(res.imol[ch] + res.imol[cho])
+        o_res = 2.0 * float(res.imol[cho])
+        char.imol[ch] = 0.0
+        char.imol[cho] = 0.0
+        mineral_kgph = float(res.imass["Ash"] + res.imass["CharN"] + res.imass["CharS"])
+        organic_kgph = self.char_yield * float(self.dry_feed_kgph()) - mineral_kgph
+        if organic_kgph < 0.0:
+            raise ValueError(f"RS1: the char yield {self.char_yield} g/g is below the mineral and N, S char of the residue "
+                             f"({mineral_kgph:.1f} kg/h of {self.char_yield * float(self.dry_feed_kgph()):.1f} kg/h)")
+        spec = res.chemicals[self.char_species]
+        n_char = organic_kgph / spec.MW                          # kmol/h of CH_aO_b = kmol C/h
+        o_char = n_char * spec.atoms.get("O", 0.0) / spec.atoms["C"]
+        if n_char > c_res * (1.0 + 1e-9) or o_char > o_res * (1.0 + 1e-9):
+            raise ValueError("RS1: the organic char would hold more C or O than the lumped residue of U2")
+        char.imol[self.char_species] = n_char
+        c_left, o_left = c_res - n_char, o_res - o_char
+        lost.imol[cho] = o_left / 2.0
+        lost.imol[ch] = c_left - o_left / 2.0
+
+
+class ATTSaltCrystallizer(bst.Unit):
+    """
+    XL1: removes the soluble ash salts (NaCl, KCl) from the NaOH recycle liquor (the EC1 concentrate, 50 wt % NaOH, in which they
+    are nearly insoluble): a crystallizer vessel and a solids centrifuge. ``removal`` of each salt leaves in the salt cake, which
+    holds ``cake_liquor_wt_frac`` of entrained liquor (its NaOH is lost). Costing: BioSTEAM MixTank (``tau_h``) and SolidsCentrifuge
+    sized on the EC1 concentrate with the crystals as the solids; PRELIMINARY (carbon-steel/stainless defaults, no nickel
+    alloy, no cooling or evaporation duty, no solubility data: the removal fraction is an input).
+    ins: [0] EC1 concentrate. outs: [0] clarified liquor (the NaOH recycle), [1] salt cake.
+    """
+    _N_ins = 1
+    _N_outs = 2
+
+    def _init(self, salts=("NaCl", "KCl"), removal=0.99, cake_liquor_wt_frac=0.10, tau_h=2.0):
+        self.salts = tuple(salts)
+        self.removal = float(removal)
+        self.cake_liquor_wt_frac = float(cake_liquor_wt_frac)
+        vessel = self.auxiliary("vessel", bst.MixTank, ins=bst.Stream(None), tau=float(tau_h))
+        self.register_auxiliary(vessel, "vessel")
+        separator = self.auxiliary("separator", bst.SolidsCentrifuge, ins=bst.Stream(None),
+                                   outs=(bst.Stream(None), bst.Stream(None)), split={"Ash": 0.99}, moisture_content=self.cake_liquor_wt_frac)
+        self.register_auxiliary(separator, "separator")
 
     def _run(self):
         feed = self.ins[0]
-        cake, juice = self.outs
+        liquor, cake = self.outs
+        liquor.copy_like(feed)
         cake.empty()
-        juice.empty()
-        cake.phase = juice.phase = "l"
-        for chemical in feed.chemicals:
-            ID = chemical.ID
-            if ID == "Water":
-                continue
-            mass = float(feed.imass[ID])
-            r = min(max(self.retention.get(ID, 1.0), 0.0), 1.0)
-            cake.imass[ID] = r * mass
-            juice.imass[ID] = (1.0 - r) * mass
-        solids = float(cake.F_mass)
-        f = self.cake_solids_wt_frac
-        water_feed = float(feed.imass["Water"])
-        water_cake = min(solids * (1.0 - f) / f, water_feed)
-        cake.imass["Water"] = water_cake
-        juice.imass["Water"] = water_feed - water_cake
-        cake.T = juice.T = feed.T
-        cake.P = juice.P = feed.P
+        cake.phases = liquor.phases                     # the cake keeps the phase of every species (energy is conserved)
+        cake.T, cake.P = feed.T, feed.P
+        for ID in self.salts:
+            n = self.removal * float(feed.imol[ID])
+            liquor.imol["l", ID] -= n
+            cake.imol["l", ID] += n
+        salt_kgph = float(cake.F_mass)
+        entrained = salt_kgph * self.cake_liquor_wt_frac / (1.0 - self.cake_liquor_wt_frac)      # kg/h of liquor in the cake
+        share = min(entrained / float(liquor.F_mass), 1.0) if float(liquor.F_mass) > 0.0 else 0.0
+        for phase in liquor.phases:
+            for chemical in liquor.chemicals:
+                ID = chemical.ID
+                moved = share * float(liquor.imass[phase, ID])
+                liquor.imass[phase, ID] -= moved
+                cake.imass[phase, ID] += moved
 
     def _design(self):
         feed = self.ins[0]
-        dry_tph = (float(feed.F_mass) - float(feed.imass["Water"])) / 1e3
-        self.design_results["Dry solids throughput (t/h)"] = dry_tph
-        self.power_utility(self.power_kWh_per_dry_ton * dry_tph)
+        self.vessel.ins[0].copy_like(feed)
+        self.vessel.simulate()
+        sep_in = self.separator.ins[0]
+        sep_in.empty()
+        sep_in.phase = "l"
+        sep_in.T, sep_in.P = feed.T, feed.P
+        for chemical in feed.chemicals:
+            if chemical.ID not in self.salts:
+                sep_in.imass[chemical.ID] = float(feed.imass[chemical.ID])
+        sep_in.imass["Ash"] = self.removal * sum(float(feed.imass[ID]) for ID in self.salts)     # the crystals as the solids of the separator
+        self.separator.simulate()
+
+
+class ATTReeLeach(bst.Unit):
+    """
+    LC1: HCl leach of the washed ATT char cake and oxalate precipitation of the rare earths (att.yaml downstream.ree_recovery).
+    PERFORMANCE-SPECIFIED. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic acid).
+    Additional HCl is dosed at two moles per mole of carbonate entering in the cake. Only the
+    oxalate precipitate is roasted: its REO is ``overall_recovery`` of the REE of the initial wastewater (the wastewater TREE per g
+    of seaweed, ``wastewater_TREE_mg_per_L`` / ``seaweed_dose_g_per_L``), capped by the oxalate stoichiometry (``oxalate_per_REE`` mol of
+    oxalate per mol of REE, REE molar mass ``REE_molar_mass``); the oxalate carries ``product_REO_wt_frac`` of REO after the roast,
+    the rest being mineral filler taken from the char's Ash (the Ca and Mg balance is not tracked: user decision 2026-11-03). The
+    leached char (with the REO that was not recovered) leaves as ``att_char``. The HCl is neutralized by the Na2CO3 and
+    NaOH of the cake liquor (CO2 leaves as ``leach_co2``), with fresh NaOH for any acid left. Both cakes keep
+    ``cake_moisture_wt_frac`` of liquor; the rest is the spent leachate (water, NaCl, KCl, Na2CO3), recycled to the dissolver D1.
+    Equipment (BioSTEAM MixTank and PressureFilter) is only for costing.
+    ins: [0] char cake, [1] 31 wt % HCl, [2] oxalic acid, [3] fresh leach water (makeup, set here), [4] NaOH for the acid left,
+    [5] condensate for the leach liquor (from the system; used first).
+    outs: [0] roaster feed (oxalate precipitate), [1] spent leachate, [2] leached char (the residue product), [3] leach CO2.
+    """
+    _N_ins = 6
+    _N_outs = 4
+    _DISSOLVED = ("Water", "Na2CO3", "NaOH", "NaCl", "KCl")
+
+    def _init(self, dry_feed_kgph, hcl_mol_per_kg_char=0.5, leach_liquor_kg_per_kg_char=5.0, oxalic_mol_per_kg_char=0.042,
+              oxalate_solution_kg_per_kg_char=0.42, cake_moisture_wt_frac=0.30, leach_tau_h=1.0, oxalate_tau_h=0.5,
+              wastewater_TREE_mg_per_L=1.4, seaweed_dose_g_per_L=2.5, overall_recovery=0.6, product_REO_wt_frac=0.0131,
+              REO_per_TREE=1.169, REE_molar_mass=149.1, oxalate_per_REE=1.5, scale_reagents_with_REE=False, hcl_mol_per_mol_REE=3.0,
+              reagent_excess=1.2, precipitate_wash_efficiency=0.0):
+        self.dry_feed_kgph = dry_feed_kgph                       # callable: dry seaweed feed [kg/h]
+        self.hcl_mol_per_kg_char = float(hcl_mol_per_kg_char)
+        self.leach_liquor_kg_per_kg_char = float(leach_liquor_kg_per_kg_char)
+        self.oxalic_mol_per_kg_char = float(oxalic_mol_per_kg_char)
+        self.oxalate_solution_kg_per_kg_char = float(oxalate_solution_kg_per_kg_char)
+        self.cake_moisture_wt_frac = float(cake_moisture_wt_frac)
+        self.wastewater_TREE_mg_per_L = float(wastewater_TREE_mg_per_L)
+        self.seaweed_dose_g_per_L = float(seaweed_dose_g_per_L)
+        self.overall_recovery = float(overall_recovery)
+        self.product_REO_wt_frac = float(product_REO_wt_frac)
+        self.REO_per_TREE = float(REO_per_TREE)
+        self.REE_molar_mass = float(REE_molar_mass)
+        self.oxalate_per_REE = float(oxalate_per_REE)
+        self.scale_reagents_with_REE = bool(scale_reagents_with_REE)
+        self.hcl_mol_per_mol_REE = float(hcl_mol_per_mol_REE)
+        self.reagent_excess = float(reagent_excess)
+        self.precipitate_wash_efficiency = float(precipitate_wash_efficiency)   # share of the entrained salts washed out of the oxalate cake
+        self._hcl_mol_per_kg_eff = self.hcl_mol_per_kg_char               # effective leach dose, excluding carbonate acid
+        self._oxalic_mol_per_kg_eff = self.oxalic_mol_per_kg_char
+        _att_add_proxy_exchanger(self, "cooler")
+        _att_add_proxy_exchanger(self, "heater")
+        for name, cls, kw in (("leach_tank", bst.MixTank, dict(tau=float(leach_tau_h))), ("oxalate_tank", bst.MixTank, dict(tau=float(oxalate_tau_h)))):
+            aux = self.auxiliary(name, cls, ins=bst.Stream(None), **kw)
+            self.register_auxiliary(aux, name)
+        for name in ("leach_filter", "oxalate_filter"):
+            aux = self.auxiliary(name, bst.PressureFilter, ins=bst.Stream(None), outs=(bst.Stream(None), bst.Stream(None)),
+                                 split={"Ash": 1.0}, moisture_content=self.cake_moisture_wt_frac)
+            self.register_auxiliary(aux, name)
+
+    def water_demand_kgph(self, solids_kgph):
+        """Water of the leach liquor and of the oxalic acid solution [kg/h] (the HCl solution brings its own)."""
+        cake = self.ins[0]
+        hcl_kmol = self._hcl_mol_per_kg_eff * solids_kgph / 1e3 + 2.0 * float(cake.imol["Na2CO3"])
+        hcl_solution = hcl_kmol * cake.chemicals["HCl"].MW / 0.31
+        oxalic_mass = self._oxalic_mol_per_kg_eff * solids_kgph / 1e3 * cake.chemicals["OxalicAcid"].MW
+        # The solution mass uses the configured 1 kg/L approximation and includes its acid solute.
+        oxalic_water = max(self.oxalate_solution_kg_per_kg_char * solids_kgph - oxalic_mass, 0.0)
+        return max(self.leach_liquor_kg_per_kg_char * solids_kgph - hcl_solution, 0.0) + oxalic_water
+
+    def _run(self):
+        cake, hcl, ox, water, fresh_naoh, condensate = self.ins
+        roast, leachate, residue, co2 = self.outs
+        chem = cake.chemicals
+        solid_IDs = [c.ID for c in chem if c.ID not in self._DISSOLVED and float(cake.imass[c.ID]) > 0.0]
+        solids_kgph = sum(float(cake.imass[ID]) for ID in solid_IDs)
+        # reagents: the lab doses per kg of char; with scale_reagents_with_REE the stoichiometry of the REE of the char (3 mol HCl per mol REE,
+        # oxalate_per_REE mol oxalate per mol REE, times reagent_excess) is used when it needs more (a char with far more REE than the lab's)
+        n_ree_char = float(cake.imass["REO"]) / self.REO_per_TREE / self.REE_molar_mass         # kmol REE/h in the char
+        hcl_experimental_kmol = self.hcl_mol_per_kg_char * solids_kgph / 1e3
+        hcl_leach_kmol = hcl_experimental_kmol
+        oxalic_kmol = self.oxalic_mol_per_kg_char * solids_kgph / 1e3
+        if self.scale_reagents_with_REE:
+            hcl_leach_kmol = max(hcl_leach_kmol, self.hcl_mol_per_mol_REE * n_ree_char * self.reagent_excess)
+            oxalic_kmol = max(oxalic_kmol, self.oxalate_per_REE * n_ree_char * self.reagent_excess)
+        self._hcl_mol_per_kg_eff = hcl_leach_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.hcl_mol_per_kg_char
+        self._oxalic_mol_per_kg_eff = oxalic_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.oxalic_mol_per_kg_char
+        self._hcl_experimental_kmolph = hcl_experimental_kmol
+        self._hcl_leach_kmolph = hcl_leach_kmol
+        self._hcl_carbonate_neutralization_kmolph = 2.0 * float(cake.imol["Na2CO3"])
+        hcl_kmol = hcl_leach_kmol + self._hcl_carbonate_neutralization_kmolph
+        hcl.empty()
+        hcl.phase = "l"
+        hcl.imol["HCl"] = hcl_kmol
+        hcl.imass["Water"] = float(hcl.imass["HCl"]) * (1.0 / 0.31 - 1.0)
+        ox.empty()
+        ox.phase = "s"
+        ox.imol["OxalicAcid"] = oxalic_kmol
+        water.empty()
+        water.phase = "l"
+        makeup = self.water_demand_kgph(solids_kgph) - float(condensate.imass["Water"])
+        water.imass["Water"] = makeup if makeup > 1e-6 else 0.0                       # fresh makeup only, no roundoff dust
+        # dissolved pool of the leach slurry (cake liquor + reagent water)
+        pool = {ID: float(cake.imass[ID]) for ID in self._DISSOLVED}
+        pool["Water"] += float(hcl.imass["Water"]) + float(water.imass["Water"]) + float(condensate.imass["Water"])
+        # neutralization of the HCl: Na2CO3 + 2 HCl -> 2 NaCl + H2O + CO2, NaOH + HCl -> NaCl + H2O, then fresh NaOH
+        mw = {ID: chem[ID].MW for ID in ("Na2CO3", "NaOH", "NaCl", "Water")}
+        n_na2co3, n_naoh = pool["Na2CO3"] / mw["Na2CO3"], pool["NaOH"] / mw["NaOH"]
+        by_carbonate = min(n_na2co3, hcl_kmol / 2.0)
+        left = hcl_kmol - 2.0 * by_carbonate
+        by_naoh = min(n_naoh, left)
+        left -= by_naoh
+        fresh_naoh.empty()
+        fresh_naoh.phase = "s"
+        fresh_naoh.imol["NaOH"] = left
+        nacl_kmol = 2.0 * by_carbonate + by_naoh + left
+        pool["Na2CO3"] -= by_carbonate * mw["Na2CO3"]
+        pool["NaOH"] -= by_naoh * mw["NaOH"]
+        pool["NaCl"] += nacl_kmol * mw["NaCl"]
+        pool["Water"] += (by_carbonate + by_naoh + left) * mw["Water"]
+        co2.empty()
+        co2.phase = "g"
+        co2.imol["CO2"] = by_carbonate
+        co2.T, co2.P = cake.T, cake.P
+        # REE: the product REO is overall_recovery of the REO of the initial wastewater, within the oxalate stoichiometry
+        reo_char = float(cake.imass["REO"])
+        reo_water = self.wastewater_TREE_mg_per_L / self.seaweed_dose_g_per_L * 1e-3 * float(self.dry_feed_kgph()) * self.REO_per_TREE
+        n_ree_char = reo_char / self.REO_per_TREE / self.REE_molar_mass                       # kmol REE/h in the char
+        self._stoich_ceiling = min(1.0, float(ox.imol["OxalicAcid"]) / (self.oxalate_per_REE * n_ree_char)) if n_ree_char > 0.0 else 1.0
+        reo_product = min(self.overall_recovery * reo_water, self._stoich_ceiling * reo_char)
+        self._reo_wastewater, self._reo_product = reo_water, reo_product
+        # the oxalate precipitate (REO + oxalic acid + mineral filler from the char's Ash) and its liquor
+        target_kgph = reo_product / self.product_REO_wt_frac                                   # roasted product [kg/h]
+        w = self.cake_moisture_wt_frac
+        salts = 0.0
+        for _ in range(10):                                                                    # converge the entrained-salt grade adjustment
+            filler = max(target_kgph - reo_product - salts, 0.0)
+            solids_p = reo_product + filler + float(ox.imass["OxalicAcid"])
+            share_p = min(solids_p * w / (1.0 - w) / pool["Water"], 1.0)
+            salts = share_p * sum(pool[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH")) * (1.0 - self.precipitate_wash_efficiency)
+        ash_char = float(cake.imass["Ash"])
+        if filler > ash_char:
+            raise ValueError(f"LC1: the mineral filler of the product ({filler:.1f} kg/h) exceeds the Ash of the char ({ash_char:.1f} kg/h)")
+        residue_solids = {ID: float(cake.imass[ID]) for ID in solid_IDs}
+        residue_solids["Ash"] = ash_char - filler
+        residue_solids["REO"] = reo_char - reo_product
+        solids_r = sum(residue_solids.values())
+        share_r = min(solids_r * w / (1.0 - w) / pool["Water"], 1.0 - share_p)
+        roast.empty()
+        residue.empty()
+        leachate.empty()
+        roast.phase = residue.phase = leachate.phase = "l"
+        roast.imass["REO"], roast.imass["Ash"] = reo_product, filler
+        roast.imol["OxalicAcid"] = float(ox.imol["OxalicAcid"])
+        for ID, kgph in residue_solids.items():
+            residue.imass[ID] = kgph
+        for ID, kgph in pool.items():       # the washed-out salts of the oxalate cake go to the spent leachate (wash water is not modeled)
+            roast.imass[ID] = share_p * kgph * ((1.0 - self.precipitate_wash_efficiency) if ID in ("NaCl", "KCl", "Na2CO3", "NaOH") else 1.0)
+            residue.imass[ID] = share_r * kgph
+            leachate.imass[ID] = kgph - float(roast.imass[ID]) - float(residue.imass[ID])
+        for s in (roast, leachate, residue):
+            s.T, s.P = cake.T, cake.P
+
+    def _design(self):
+        cake, hcl, ox, water, fresh_naoh, condensate = self.ins
+        roast, leachate, residue, co2 = self.outs
+        # heat of neutralization and dissolution (the unit is isothermal): a heater or cooler of the water proxy
+        duty = float(sum(s.Hnet for s in self.outs) - sum(s.Hnet for s in self.ins))
+        if duty < 0.0:
+            _att_proxy_exchanger(self, "cooler", duty, float(cake.T) + 10.0, float(cake.T), hxn_ok=True)
+        elif duty > 0.0:
+            _att_proxy_exchanger(self, "heater", duty, float(cake.T), float(cake.T) + 10.0, hxn_ok=True)
+        total = self.leach_tank.ins[0]
+        total.mix_from([cake, hcl, ox, water, fresh_naoh, condensate])
+        self.leach_tank.simulate()
+        solids = sum(float(cake.imass[c.ID]) for c in cake.chemicals if c.ID not in self._DISSOLVED)
+        precipitate = float(roast.F_mass - roast.imass["Water"] - sum(roast.imass[ID] for ID in ("NaCl", "KCl", "Na2CO3", "NaOH")))
+        for aux, kgph_solids, liquid in ((self.leach_filter, solids, total), (self.oxalate_filter, precipitate, leachate)):
+            fin = aux.ins[0]
+            fin.empty()
+            fin.phase = "l"
+            fin.T, fin.P = cake.T, cake.P
+            for c in liquid.chemicals:
+                if c.ID in self._DISSOLVED:
+                    fin.imass[c.ID] = float(liquid.imass[c.ID])
+            fin.imass["Ash"] = kgph_solids
+            aux.simulate()
+        ot = self.oxalate_tank.ins[0]
+        ot.copy_like(leachate)
+        self.oxalate_tank.simulate()
+
+
+class ATTReeRoaster(bst.Unit):
+    """
+    RO1: roaster (rotary kiln, 900 C) of the REE oxalate precipitate of LC1 (att.yaml downstream.ree_recovery). The oxalic acid burns
+    in the air (C -> CO2, H -> H2O), the cake water evaporates, the REO, the mineral filler and the salts stay as the roasted
+    ``ree_product`` (``product_REO_wt_frac`` of REO), which is sold on its REO content. The solids leave cooled to
+    363 K and the exhaust at 473 K (the heat of the hot streams is recovered inside the kiln); the net
+    heat duty is natural gas through an auxiliary furnace with ``heat_loss_fraction`` on it, or a cooler if the char burns
+    hotter than the kiln needs. The Ca/Mg minerals are inert in this model (no calcination heat or CO2). Shell cost: BioSTEAM
+    drum-dryer correlation on a shell area per t/d of feed solids, times a refractory factor (PRELIMINARY).
+    ins: [0] roaster feed, [1] air (set here). outs: [0] roasted product, [1] exhaust.
+    """
+    _N_ins = 2
+    _N_outs = 2
+    auxiliary_unit_names = ("heat_exchanger",)
+    _F_BM_default = {"Rotary kiln": 2.06}
+    _units = {"Feed solids": "t/d", "Kiln shell area": "m2"}
+
+    def _init(self, temperature_K=1173.15, excess_air=0.2, heat_loss_fraction=0.45, area_m2_per_t_per_day=3.14,
+              refractory_factor=2.0, solids_outlet_K=363.15, exhaust_K=473.15):
+        self.excess_air = float(excess_air)
+        self.heat_loss_fraction = float(heat_loss_fraction)
+        self.area_m2_per_t_per_day = float(area_m2_per_t_per_day)
+        self.refractory_factor = float(refractory_factor)
+        self.solids_outlet_K = float(solids_outlet_K)
+        self.exhaust_K = float(exhaust_K)
+        _att_add_proxy_exchanger(self, "cooler")
+        self.auxiliary("heat_exchanger", bst.HXutility, ins=bst.Stream(None), T=float(temperature_K), rigorous=False, heat_only=True,
+                       heat_transfer_efficiency=1.0 / (1.0 + self.heat_loss_fraction))
+
+    def _run(self):
+        feed, air = self.ins
+        prod, exhaust = self.outs
+        chem = feed.chemicals
+        prod.copy_like(feed)
+        exhaust.empty()
+        exhaust.phase = "g"
+        c = h = o = 0.0
+        for ID in ("Char", "OxalicAcid"):
+            n = float(feed.imol[ID])
+            atoms = chem[ID].atoms
+            c, h, o = c + n * atoms.get("C", 0.0), h + n * atoms.get("H", 0.0), o + n * atoms.get("O", 0.0)
+            prod.imol[ID] = 0.0
+        n_o2 = c + h / 4.0 - o / 2.0
+        n_nitrogen = float(feed.imol["CharN"])
+        prod.imol["CharN"] = 0.0
+        o2_air = n_o2 * (1.0 + self.excess_air)
+        air.empty()
+        air.phase = "g"
+        air.imol["Oxygen"] = o2_air
+        air.imol["Nitrogen"] = o2_air * 79.0 / 21.0
+        air.T, air.P = 298.15, 101325.0
+        exhaust.imol["CO2"] = c
+        exhaust.imol["Water"] = float(feed.imol["Water"]) + h / 2.0
+        exhaust.imol["Nitrogen"] = float(air.imol["Nitrogen"]) + n_nitrogen / 2.0
+        exhaust.imol["Oxygen"] = o2_air - n_o2
+        prod.imol["Water"] = 0.0
+        prod.phase = "l"
+        prod.T, exhaust.T = self.solids_outlet_K, self.exhaust_K
+        prod.P = exhaust.P = feed.P
+
+    def _design(self):
+        feed, air = self.ins
+        prod, exhaust = self.outs
+        duty = float(prod.Hnet + exhaust.Hnet - feed.Hnet - air.Hnet)       # kJ/h, net of the internal heat recovery
+        hx = self.heat_exchanger
+        if duty > 0.0:
+            hx.ins[0].copy_like(feed)
+            hx.outs[0].copy_like(feed)
+            hx.outs[0].T = hx.T
+            hx.simulate(run=False, design_kwargs={"duty": duty})
+        else:
+            hx.baseline_purchase_costs.clear()
+            if duty < 0.0:
+                _att_proxy_exchanger(self, "cooler", duty, self.exhaust_K + 20.0, self.exhaust_K, hxn_ok=False)
+        solids_tpd = float(feed.F_mass - feed.imass["Water"]) * 24.0 / 1e3
+        self.design_results["Feed solids"] = solids_tpd
+        self.design_results["Kiln shell area"] = self.area_m2_per_t_per_day * solids_tpd
+        self.design_results["Net heat duty"] = duty
+        self._units["Net heat duty"] = "kJ/hr"
 
     def _cost(self):
-        dry_tph = self.design_results["Dry solids throughput (t/h)"]
-        capex = (self.capex_installed_ref_usd
-                 * (dry_tph / self.ref_capacity_tph_dry) ** self.scale_exponent) if dry_tph > 0 else 0.0
-        self.design_results["Installed CAPEX ($)"] = capex
-        self.baseline_purchase_costs["Press system"] = capex
+        area = self.design_results["Kiln shell area"]
+        if area > 0.0:
+            ratio = area / 1235.35
+            self.baseline_purchase_costs["Rotary kiln"] = 0.52 * 2268000.0 * bst.CE / 525.4 * ratio ** 0.6 * self.refractory_factor
+            self.add_power_utility(938.866 * ratio ** 0.6)
 
 
-def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, char_atoms=None,
-                         residual_carbon_fate="co2", lumped_atoms=None, char_ID="Char"):
+def close_att_u2_balance(feed_atoms, fixed_atoms, specified_gas_kmolph, species_atoms, lumped_atoms):
     """
     Specified-yield U2 closure: the gas yields are inputs and are never
     changed. Carbon that is not in the specified gases or the carbonate (the
-    residual carbon) leaves as
-
-    * ``residual_carbon_fate='lumped'`` (ATT Scenario 1): the lumped residual
-      product CH_aO_b, a stoichiometric surrogate (not measured char). a is the
-      H/C of the two basis species in ``lumped_atoms`` ({ID: atoms}, end members
-      b = 0 and b = 2); the product water closes H and b closes O, so C, H and O
-      (and with them mass and electrons) all balance. Requires water >= 0 and
-      0 <= b <= 2, otherwise it raises (nothing is forced);
-    * ``residual_carbon_fate='char'`` (PROVISIONAL): the solid char
-      (``char_atoms``, CH0.5O0.1); water closes O and H is left unresolved;
-    * ``residual_carbon_fate='co2'`` (SaBRe closure): extra gas CO2; water
-      closes O and H is left unresolved.
-
-    For 'char' and 'co2' the hydrogen difference between the identified
-    products and the feed is reported by the reactor (negative: H in
-    unidentified products such as NH3, H2S, tars; positive: the identified
-    products hold more H than the feed, an unresolved balance). A carbon
-    deficit is left as an unresolved C residual instead of inventing carbon.
+    residual carbon) leaves as the lumped residual product CH_aO_b, a
+    stoichiometric surrogate (not measured char). a is the H/C of the two
+    basis species in ``lumped_atoms`` ({ID: atoms}, end members b = 0 and
+    b = 2); the product water closes H and b closes O, so C, H and O (and with
+    them mass and electrons) all balance. Requires water >= 0 and 0 <= b <= 2,
+    otherwise it raises (nothing is forced). A carbon deficit (the specified
+    gases and carbonate hold more C than the feed) leaves no residue and the
+    water closes O.
 
     Returns (gas kmol/h by species, residual product kmol/h by species, product
     water kmol/h, scale factor 1.0).
     """
-    if method != "specified_yields":
-        raise ValueError(f"Unsupported gas_closure_method '{method}'.")
-    if residual_carbon_fate not in ("lumped", "char", "co2"):
-        raise ValueError(f"residual_carbon_fate must be 'lumped', 'char' or 'co2', not {residual_carbon_fate!r}.")
     gas = dict(specified_gas_kmolph)
     fixed = dict(fixed_atoms)
     for ID, kmolph in gas.items():
         for element, n in species_atoms[ID].items():
             fixed[element] = fixed.get(element, 0.0) + n * kmolph
     remaining_C = feed_atoms.get("C", 0.0) - fixed.get("C", 0.0)
-    residue_kmolph = {}
-    if remaining_C > 0.0 and residual_carbon_fate == "lumped":
+    if remaining_C > 0.0:
         (ID0, atoms0), (ID2, atoms2) = sorted(lumped_atoms.items(), key=lambda kv: kv[1].get("O", 0.0))
         a = atoms0.get("H", 0.0) / atoms0["C"]
         if abs(atoms2.get("H", 0.0) / atoms2["C"] - a) > 1e-12 or atoms0.get("O", 0.0) != 0.0:
@@ -564,28 +745,17 @@ def close_att_u2_balance(method, feed_atoms, fixed_atoms, specified_gas_kmolph, 
             )
         x2 = b / b_max * remaining_C / atoms2["C"]
         x0 = (remaining_C - x2 * atoms2["C"]) / atoms0["C"]
-        residue_kmolph = {ID0: x0, ID2: x2}
-        return gas, residue_kmolph, water_kmolph, 1.0
-    if remaining_C > 0.0:
-        if residual_carbon_fate == "char":
-            char_kmolph = remaining_C / char_atoms["C"]
-            residue_kmolph = {char_ID: char_kmolph}
-            for element, n in char_atoms.items():
-                fixed[element] = fixed.get(element, 0.0) + n * char_kmolph
-        else:
-            gas["CO2"] = gas.get("CO2", 0.0) + remaining_C
-            fixed["C"] = fixed.get("C", 0.0) + remaining_C
-            fixed["O"] = fixed.get("O", 0.0) + 2.0 * remaining_C
+        return gas, {ID0: x0, ID2: x2}, water_kmolph, 1.0
     water_kmolph = feed_atoms.get("O", 0.0) - fixed.get("O", 0.0)
     if water_kmolph < 0.0:
         raise RuntimeError(
             f"The specified gas slate cannot be produced from this feed: the oxygen balance "
             f"gives product water {water_kmolph:.6g} kmol/h."
         )
-    return gas, residue_kmolph, water_kmolph, 1.0
+    return gas, {}, water_kmolph, 1.0
 
 
-class ATTReactor(bst.Unit):
+class ATTReactor(bst.Unit, PressureVessel):
     """
     Alkaline thermal treatment (ATT) reactor for Sargassum.
 
@@ -596,12 +766,11 @@ class ATTReactor(bst.Unit):
 
     The gas yields are specified (att.yaml: measured Ni-CatATT 1:1 slate) and
     never changed. C, O and Na are closed: carbon beyond the specified gases
-    and the carbonate leaves as the char (``residual_carbon_fate='char'``,
-    provisional) or as extra CO2 ('co2', SaBRe), and the product water
-    closes oxygen. Hydrogen is a check, not an unknown; an excess of H in
-    the identified products (unresolved balance) raises or is reported as
-    FAIL (``hydrogen_excess_action``). N and S are not followed (they stay
-    in an inert N/S residue). ``balance_checks`` reports (i) whether the
+    and the carbonate leaves as the lumped residual product CH_aO_b (an
+    assumed surrogate), and the product water closes hydrogen. Hydrogen is
+    a check, not an unknown; an excess of H in the identified products
+    (unresolved balance) is warned about and reported as FAIL. N and S are
+    not followed (they stay in an inert N/S residue). ``balance_checks`` reports (i) whether the
     NaOH can absorb the CO2 generated and (ii) whether the products respect
     the electron, mass and energy balances of the feed.
 
@@ -613,23 +782,28 @@ class ATTReactor(bst.Unit):
 
     Notes
     -----
-    The auxiliary HXutility represents heat supplied to the ATT reactor.
+    The heat supplied to the reactor is a natural-gas furnace (a heat utility of this unit, costed in ``_cost`` with
+    the Seider et al. fired-heater correlation that ``bst.HXutility`` uses) and the hold-up vessel is a vertical
+    pressure vessel (``_design``). Material: Inconel-600 (cost factor), assumed for the hot, high-salt caustic feed
+    (user decision 2026-11-04); stainless steel may not be sufficient. BioSTEAM has no density for Inconel, so the
+    wall weight is computed with stainless steel 316. The vertical vessel is a placeholder reactor type.
     This is a reduced-order, data-reconciled yield model, not a kinetic or
     mechanistic reaction model.
     """
 
+    gas_closure_method = "specified_yields"     # the gas yields are inputs and are never changed
+    residual_carbon_fate = "lumped"             # residual carbon leaves as the lumped residual product CH_aO_b
+
     _N_ins = 2          # [0] feed, [1] PSA tail gas: fuel gas burned in the U2 furnace (empty without a PSA)
     _N_outs = 2
 
-    # Official BioSTEAM auxiliary-unit pattern.
-    auxiliary_unit_names = ("heat_exchanger",)
+    _F_BM_default = {"Furnace": 2.19, "Vertical pressure vessel": 4.16, "Platform and ladders": 1.0}
+    _units = {"Pressure": "psi", "Diameter": "ft", "Length": "ft", "Wall thickness": "in", "Weight": "lb"}
 
     def _init(
         self,
         target_temperature_K=_ATT["target_temperature_K"],
         heat_loss_fraction=_ATT["heat_loss_fraction"],
-        case_name=None,
-        gas_closure_method=None,
     ):
         self.target_temperature_K = float(
             target_temperature_K
@@ -655,18 +829,8 @@ class ATTReactor(bst.Unit):
             1.0 / (1.0 + self.heat_loss_fraction)
         )
 
-        if case_name is None:
-            case_name = _ATT["baseline_case"]
-
-        cases = _ATT["cases"]
-        if case_name not in cases:
-            raise KeyError(
-                f"Unknown ATT case '{case_name}'. "
-                f"Available cases: {tuple(cases)}"
-            )
-
-        self.case_name = case_name
-        self.case_data = cases[case_name]
+        self.case_name = _ATT["baseline_case"]
+        self.case_data = _ATT["cases"][self.case_name]
 
         # Dose of the case [kg NaOH/kg dry Sargassum]; applied by the
         # flowsheet (M1), kept here for reporting.
@@ -693,22 +857,9 @@ class ATTReactor(bst.Unit):
             balance["naoh_to_na2co3_conversion"]
         )
 
-        self.gas_closure_method = str(
-            balance["gas_closure_method"] if gas_closure_method is None
-            else gas_closure_method
-        )
-        if self.gas_closure_method != "specified_yields":
-            raise ValueError(
-                f"Unsupported gas_closure_method '{self.gas_closure_method}'."
-            )
-        self.char_ID = str(balance["char_species"])
-        self.residual_carbon_fate = str(balance.get("residual_carbon_fate", "co2"))
-        # Basis species of the lumped residual product (residual_carbon_fate = 'lumped').
-        self.lumped_residue_IDs = tuple(balance.get("lumped_residue", {}).get("species", ()))
-        self.lumped_residue_H_per_C = float(balance.get("lumped_residue", {}).get("H_per_C", float("nan")))
-        self.hydrogen_excess_action = str(balance.get("hydrogen_excess_action", "raise"))
-        if self.hydrogen_excess_action not in ("raise", "report"):
-            raise ValueError("hydrogen_excess_action must be 'raise' or 'report'.")
+        # Basis species of the lumped residual product.
+        self.lumped_residue_IDs = tuple(balance["lumped_residue"]["species"])
+        self.lumped_residue_H_per_C = float(balance["lumped_residue"]["H_per_C"])
         self.heteroatom_IDs = dict(balance["heteroatom_species"])
 
         self.enforce_full_elemental_balance = bool(
@@ -730,27 +881,14 @@ class ATTReactor(bst.Unit):
                 "naoh_to_na2co3_conversion must be between 0 and 1."
             )
 
-        # Auxiliary HXutility.
-        #
-        # The detailed thermodynamic duty is calculated in _design().
-        # The auxiliary exchanger then carries the utility and equipment-
-        # cost bookkeeping for that calculated duty.
-        self.auxiliary(
-            "heat_exchanger",
-            bst.HXutility,
-            ins=self.ins[0],
-            T=self.target_temperature_K,
-            rigorous=False,
-            heat_only=True,
-            heat_transfer_efficiency=self.heat_transfer_efficiency,
-        )
-
-        # Reactor vessel (hold-up volume): costed with the pressure-vessel
-        # correlation; its volume follows the feed in _design().
+        # Reactor vessel (hold-up volume): costed with the pressure-vessel correlation in _design(); its volume
+        # follows the feed. BioSTEAM has no density for most alloys: the wall is sized with SS316 and the material
+        # factor of the specified alloy is applied.
         cfg = _EQUIPMENT["U2_vessel"]
-        vessel = self.auxiliary("vessel", ATTVesselCost, ins=bst.Stream(None),
-                                length_to_diameter=cfg["length_to_diameter"], material=cfg["material"])
-        self.register_auxiliary(vessel, "vessel")
+        self.vessel_length_to_diameter = float(cfg["length_to_diameter"])
+        self.vessel_type = "Vertical"
+        self.vessel_material = "Stainless steel 316"
+        self.F_M["Vertical pressure vessel"] = pressure_vessel_material_factors[cfg["material"]]
 
     def _run(self):
         feed = self.ins[0]
@@ -765,7 +903,7 @@ class ATTReactor(bst.Unit):
         )
 
         ash_kgph = float(
-            feed.imass["Ash"]
+            feed.imass["Ash"] + feed.imass["NaCl"] + feed.imass["KCl"] + feed.imass["REO"]
         )
 
         daf_sargassum_kgph = max(
@@ -801,9 +939,10 @@ class ATTReactor(bst.Unit):
         # 1. Fixed (non-gas) outlets: inert ash, Na2CO3/NaOH from the
         #    specified conversion, and feed N/S retained in the char.
         # ----------------------------------------------------------
-        residue.imass["Ash"] = ash_kgph
+        for ID in ("Ash", "NaCl", "KCl", "REO"):        # the inorganic part of the seaweed passes through unchanged
+            residue.imass[ID] = float(feed.imass[ID])
 
-        sodium_kmolph = float(feed.get_atomic_flow("Na"))
+        sodium_kmolph = float(feed.imol["NaOH"] + 2.0 * feed.imol["Na2CO3"])    # NaCl is not a NaOH source
         na2co3_kmolph = (
             0.5 * sodium_kmolph * self.naoh_to_na2co3_conversion
         )
@@ -811,7 +950,7 @@ class ATTReactor(bst.Unit):
         residue.imol["NaOH"] = sodium_kmolph - 2.0 * na2co3_kmolph
 
         chemicals = feed.chemicals
-        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash")
+        inorganic_IDs = ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl", "REO")
         organic_IDs = tuple(
             chemical.ID for chemical in chemicals
             if chemical.ID not in inorganic_IDs
@@ -855,23 +994,18 @@ class ATTReactor(bst.Unit):
 
         # ----------------------------------------------------------
         # 3. Close C with the specified gases, the carbonate and the
-        #    residual product (lumped CH_aO_b, char or extra CO2); water
-        #    closes O (and, for the lumped product, b closes O while water
-        #    closes H). The specified gases are never changed.
+        #    lumped residual product CH_aO_b: b closes O while water
+        #    closes H. The specified gases are never changed.
         # ----------------------------------------------------------
         fixed_atoms = atoms_of(flows_of(residue))
-        char_atoms = chemicals[self.char_ID].atoms
         species_atoms = {ID: chemicals[ID].atoms for ID in measured_gas_kmolph}
         lumped_atoms = {ID: chemicals[ID].atoms for ID in self.lumped_residue_IDs}
-        if self.residual_carbon_fate == "lumped":
-            for ID, a in lumped_atoms.items():
-                if abs(a.get("H", 0.0) / a["C"] - self.lumped_residue_H_per_C) > 1e-12:
-                    raise ValueError(f"{ID} has H/C {a.get('H', 0.0) / a['C']}, not lumped_residue.H_per_C "
-                                     f"{self.lumped_residue_H_per_C} (att.yaml).")
+        for ID, a in lumped_atoms.items():
+            if abs(a.get("H", 0.0) / a["C"] - self.lumped_residue_H_per_C) > 1e-12:
+                raise ValueError(f"{ID} has H/C {a.get('H', 0.0) / a['C']}, not lumped_residue.H_per_C "
+                                 f"{self.lumped_residue_H_per_C} (att.yaml).")
         model_gas_kmolph, residue_kmolph, water_kmolph, scale = close_att_u2_balance(
-            self.gas_closure_method, feed_atoms, fixed_atoms,
-            measured_gas_kmolph, species_atoms, char_atoms,
-            residual_carbon_fate=self.residual_carbon_fate, lumped_atoms=lumped_atoms, char_ID=self.char_ID,
+            feed_atoms, fixed_atoms, measured_gas_kmolph, species_atoms, lumped_atoms,
         )
         gas_atoms = atoms_of(model_gas_kmolph)
 
@@ -888,7 +1022,6 @@ class ATTReactor(bst.Unit):
         # Lumped formula CH_aO_b of the residual product (per C), as solved.
         self._residual_product_formula = ({"C": 1.0, "H": residual_H / residual_C, "O": residual_O / residual_C}
                                           if residual_C > 0.0 else {})
-        char_kmolph = residual_C   # residual carbon [kmol C/h], for the reports below
 
         # ----------------------------------------------------------
         # 4. Verification and reporting.
@@ -910,25 +1043,19 @@ class ATTReactor(bst.Unit):
             e: sum(float(feed.imol[ID]) * chemicals[ID].atoms.get(e, 0.0) for ID in organic_IDs)
             for e in ("C", "O")
         }
-        organic_O_kmolph = organic_atoms_feed["O"]
-        o_residual = self._unresolved_element_kmolph.get("O", 0.0)
         organic_atoms_feed["H"] = sum(
             float(feed.imol[ID]) * chemicals[ID].atoms.get("H", 0.0) for ID in organic_IDs
         )
         # The identified products may hold LESS hydrogen/reducing power than the
-        # feed (the rest is in unidentified products), never more. With
-        # hydrogen_excess_action = 'report' an excess is kept as an explicit,
-        # unresolved residual (warning + FAIL in balance_checks); no product
-        # is added or removed to hide it.
+        # feed (the rest is in unidentified products), never more. An excess
+        # is kept as an explicit, unresolved residual (warning + FAIL in
+        # balance_checks); no product is added or removed to hide it.
         bad = {}
         self._hydrogen_excess_kmolph = 0.0
         for e, v in self._unresolved_element_kmolph.items():
             if e == "H":
                 if v > 0.005 * organic_atoms_feed["H"]:
-                    if self.hydrogen_excess_action == "report":
-                        self._hydrogen_excess_kmolph = v
-                    else:
-                        bad[e] = v
+                    self._hydrogen_excess_kmolph = v
             elif e == "C":
                 if abs(v) > 0.02 * organic_atoms_feed["C"]:
                     bad[e] = v
@@ -938,8 +1065,7 @@ class ATTReactor(bst.Unit):
             from warnings import warn
             warn(f"U2: UNRESOLVED balance: the identified products (measured gases, residual product, water) hold "
                  f"{self._hydrogen_excess_kmolph * 1e3 / daf_sargassum_kgph:.2f} mmol H/g daf more hydrogen "
-                 f"than the feed (residual_carbon_fate={self.residual_carbon_fate!r}); reported in "
-                 f"balance_checks(), not corrected.", RuntimeWarning, stacklevel=2)
+                 f"than the feed; reported in balance_checks(), not corrected.", RuntimeWarning, stacklevel=2)
         if bad:
             raise RuntimeError(
                 "The specified gas slate violates the elemental/electron balance of the feed "
@@ -1194,7 +1320,7 @@ class ATTReactor(bst.Unit):
         Hf_products = {"C": -393474.0, "H": -285825.0 / 2.0, "S": -296810.0}
         organic_IDs = [
             chemical.ID for chemical in chemicals
-            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash")
+            if chemical.ID not in ("Water", "NaOH", "Na2CO3", "Ash", "NaCl", "KCl", "REO")
             and float(feed.imol[chemical.ID]) > 0.0
         ]
         native_Hf_kJph = 0.0
@@ -1244,34 +1370,21 @@ class ATTReactor(bst.Unit):
                 "representation would be invalid."
             )
 
-        # Populate the auxiliary HX outlet with a temperature endpoint
-        # for exchanger design/costing. The detailed phase-change duty is
-        # supplied explicitly from the ThermoSteam enthalpy calculation
-        # above, so this auxiliary outlet is only a design representation.
-        hx = self.heat_exchanger
-        hx_out = hx.outs[0]
-        hx_out.copy_like(feed)
-        hx_out.T = self.target_temperature_K
-        hx_out.P = feed.P
+        # Heat supply: the natural-gas furnace of this unit. The detailed phase-change duty is the full Hnet
+        # balance above; the heat-loss allowance enters through the heat-transfer efficiency.
+        T_in = float(feed.T)
+        self.add_heat_utility(heat_duty_kJph, T_in, max(self.target_temperature_K, T_in),
+                              heat_transfer_efficiency=self.heat_transfer_efficiency, hxn_ok=True)
 
-        # Design/cost the auxiliary exchanger at the calculated process
-        # duty. BioSTEAM automatically rolls auxiliary utilities and costs
-        # into the parent ATT reactor.
-        hx.simulate(
-            run=False,
-            design_kwargs={
-                "duty": heat_duty_kJph,
-            },
-        )
         cfg = _EQUIPMENT["U2_vessel"]
-        vessel = self.vessel
-        vessel.ins[0].copy_like(feed)
-        vessel.volume_m3 = float(feed.F_mass) / cfg["density_kg_per_m3"] * cfg["tau_h"] / cfg["fill_fraction"]
-        vessel.simulate(run=False)
+        volume_m3 = float(feed.F_mass) / cfg["density_kg_per_m3"] * cfg["tau_h"] / cfg["fill_fraction"]
+        D_m = (4.0 * volume_m3 / (pi * self.vessel_length_to_diameter)) ** (1.0 / 3.0)
+        self._design_and_cost_pressure_vessel(
+            101325.0, D_m, self.vessel_length_to_diameter * D_m, pressure_units="Pa", length_units="m")
 
         utility_heat_duty_kJph = sum(
             max(float(hu.duty), 0.0)
-            for hu in hx.heat_utilities
+            for hu in self.heat_utilities
         )
 
         # PSA tail gas (ins[1]) is fuel for the furnace: its LHV x the burner efficiency replaces natural gas heat,
@@ -1281,7 +1394,7 @@ class ATTReactor(bst.Unit):
         eta_burner = float(_ATT_DATA["energy_sources"]["natural_gas"]["burner_efficiency"])
         burn = _ATT_DATA["gas_treatment"]["tail_gas_combustion"] == "offset_u2_natural_gas"
         tail_LHV_kJph = float(tail.LHV) if tail.F_mol else 0.0
-        gross_ng_kJph = sum(max(float(hu.duty), 0.0) for hu in hx.heat_utilities
+        gross_ng_kJph = sum(max(float(hu.duty), 0.0) for hu in self.heat_utilities
                             if hu.agent is not None and hu.agent.ID == "natural_gas")
         self.tail_gas_LHV_kJph = tail_LHV_kJph
         self.tail_gas_heat_kJph = min(tail_LHV_kJph * eta_burner, gross_ng_kJph) if burn else 0.0
@@ -1384,6 +1497,17 @@ class ATTReactor(bst.Unit):
         ] = self._utility_thermal_power_kW
 
 
+    def _cost(self):
+        # Natural-gas furnace, as bst.HXutility costs a fuel-heated exchanger: Seider et al. fired-heater purchase
+        # cost on the heat absorbed (Btu/h), bare-module factor 2.19 (_F_BM_default).
+        duty = abs(self.net_duty)
+        if duty <= 1e-12:
+            return
+        if not self.heat_utilities[0].agent.isfuel:
+            raise RuntimeError("U2 heat must be supplied by a fuel-fired furnace.")
+        self.baseline_purchase_costs["Furnace"] = compute_furnace_purchase_cost(duty * 0.947817, bst.CE)
+
+
 
 def _att_u2_balance_checks(self):
     """
@@ -1438,7 +1562,7 @@ def _att_u2_balance_checks(self):
     e_per_C_needed = (e_feed - e_out) / n_char_C if n_char_C > 0.0 else float("nan")
     e_per_C_char = e_char / n_char_C if n_char_C > 0.0 else float("nan")
     char_HHV_kJph = sum(float(residue.imol[ID]) * chemicals[ID].HHV for ID in res_IDs)
-    surrogate = self.residual_carbon_fate in ("lumped", "char")
+    surrogate = True
     ratio_all = ((gas_HHV_kJph + char_HHV_kJph) / (feed_HHV_kJph + max(heat_kJph, 0.0))
                  if feed_HHV_kJph > 0 else float("nan"))
     unresolved = bool(getattr(self, "_hydrogen_excess_kmolph", 0.0))
@@ -1526,12 +1650,9 @@ class CausticizationReactor(bst.Unit):
         lime_equiv=_ATT_DOWNSTREAM["lime_equiv"],
         target_temperature_K=_ATT_DOWNSTREAM["causticization_temperature_K"],
         heat_loss_fraction=_ATT_DOWNSTREAM["heat_loss_fraction"],
-        lime_supplied=False,
         **kwargs,
     ):
         super().__init__(ID, ins, outs, **kwargs)
-        # lime_supplied: the lime inlet is the dosed (recycled + makeup) lime of the system, not set here.
-        self.lime_supplied = bool(lime_supplied)
 
         self.conversion = float(conversion)
         self.lime_equiv = float(lime_equiv)
@@ -1560,11 +1681,8 @@ class CausticizationReactor(bst.Unit):
         na2co3_kmolph = float(carbonate_solution.imol["Na2CO3"])
         required_lime_kmolph = na2co3_kmolph * self.lime_equiv
 
-        # Automatically dose Ca(OH)2 (unless the system supplies the lime, as with lime recycle).
-        if not self.lime_supplied:
-            lime.empty()
-            lime.imol["CaOH2"] = required_lime_kmolph
-            lime.phase = "s"
+        # Automatically dose Ca(OH)2.
+        _set_lime_stream(lime, required_lime_kmolph)
         slurry.T = self.target_temperature_K
         slurry.P = carbonate_solution.P
 
@@ -1629,7 +1747,7 @@ class CausticizationReactor(bst.Unit):
         # infinite-dilution aqueous-ion standards, NOT by molten NaOH Hf.
         # Concentrated-solution enthalpy is NOT included; its effect is
         # bounded at about -40 to +300 kJ/h (att.yaml c1_energy_basis_status).
-        from biorefineries.ATT.analyses.att.thermodynamics import from_reactor_streams
+        from biorefineries.ATT.analyses.thermodynamics import from_reactor_streams
         aqueous_reference = from_reactor_streams(carbonate_solution, lime, slurry)
         heat_duty_kJph = aqueous_reference.phase_reference_corrected_delta_kJph
         # The recorded in/out enthalpies and formation term must use the
@@ -1646,7 +1764,7 @@ class CausticizationReactor(bst.Unit):
         self.design_results['C1 native Hnet heat before aqueous correction'] = aqueous_reference.uncorrected_Hnet_delta_kJph
         self._formation_reaction_heat_kJph = formation_term_kJph
         self._sensible_phase_heat_kJph = sensible_term_kJph
-        # Step 7.16 scope superseded by aqueous reference scope above
+        # Superseded by the aqueous reference scope above
         self.design_results['C1 reaction formation enthalpy contribution'] = formation_term_kJph
         self.design_results['C1 sensible and phase enthalpy contribution'] = sensible_term_kJph
 
@@ -1674,10 +1792,6 @@ class CausticizationReactor(bst.Unit):
         self.tank.ins[0].copy_like(self.outs[0])
         self.tank.simulate()
         if abs(heat_duty_kJph) > 1e-12:
-            efficiency = (
-                1.0 / (1.0 + self.heat_loss_fraction)
-                if heat_duty_kJph > 0.0 else 1.0
-            )
             mixed = bst.Stream(None)
             mixed.mix_from(self.ins)
             T_out = float(self.target_temperature_K)
@@ -1752,13 +1866,14 @@ class CausticizationReactor(bst.Unit):
 _MW_NAOH = 39.997      # g/mol
 _MW_NA2CO3 = 105.988   # g/mol
 _LIQUOR_IDS = ("Water", "NaOH", "Na2CO3")
+_PASSIVE_SALTS = ("NaCl", "KCl")      # soluble ash salts: carried through EC1 unchanged, removed in the crystallizer XL1
 
 
 def _liquor_masses(stream, unit_ID):
     other = {
         chemical.ID: float(stream.imass[chemical.ID])
         for chemical in stream.chemicals
-        if chemical.ID not in _LIQUOR_IDS and float(stream.imass[chemical.ID]) != 0.0
+        if chemical.ID not in _LIQUOR_IDS and chemical.ID not in _PASSIVE_SALTS and float(stream.imass[chemical.ID]) != 0.0
     }
     if other:
         raise RuntimeError(
@@ -1870,6 +1985,8 @@ class NaOHEvaporator(bst.Unit):
         concentrate.imass["l", "NaOH"] = naoh
         concentrate.imass["l", "Na2CO3"] = dissolved
         concentrate.imass["s", "Na2CO3"] = crystals
+        for ID in _PASSIVE_SALTS:                      # dissolved ash salts (the model carries them in the liquid phase)
+            concentrate.imass["l", ID] = float(feed.imass[ID])
         concentrate.T = T
         concentrate.P = 101325.0
 

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SaBRe ATT: additional chemical reagents explain the REE-ON materials cost increase; waste treatment is accounted for separately.">
+<title>Why Does REE Recovery Increase Materials Cost? | SaBRe ATT</title>
+<style>
+:root{--ink:#183149;--muted:#536575;--line:#dce4e9;--teal:#007f82;--orange:#c36518}
+*{box-sizing:border-box}body{margin:0;background:#edf1f4;color:var(--ink);font:15px/1.4 'Segoe UI',Arial,sans-serif;font-variant-numeric:tabular-nums}
+.report{max-width:1100px;margin:26px auto;background:#fff;padding:30px 42px 24px;box-shadow:0 6px 30px #18314912;border-top:5px solid var(--teal)}
+.eyebrow{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase}button{background:white;border:1px solid var(--line);border-radius:4px;color:var(--muted);padding:5px 10px;font:inherit;letter-spacing:0;cursor:pointer}
+h1{font-size:31px;line-height:1.15;letter-spacing:-.7px;margin:12px 0 14px;font-weight:750}.finding{margin:0;padding:13px 17px;background:#edf7f6;border-left:4px solid var(--teal);font-size:17px;line-height:1.4;font-weight:600}
+.meta{display:flex;justify-content:space-between;margin:12px 0 0;font-size:11.5px;color:var(--muted)}section{margin-top:20px}.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:5px}h2{font-size:17px;line-height:1.25;margin:0;font-weight:700}.figure-number{color:var(--teal);font-size:10px;letter-spacing:1.2px;font-weight:800;display:block;margin-bottom:4px}.metric{font-size:15px;font-weight:700;white-space:nowrap}.metric strong{color:var(--teal);font-size:22px}.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:9px 0 1px}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}.legend b{font-weight:600;color:var(--ink)}svg{width:100%;height:auto;display:block;overflow:visible}svg text{font-family:'Segoe UI',Arial,sans-serif;fill:var(--ink)}.grid{stroke:#e3e9ee;stroke-width:1}.tick{font-size:12px;fill:var(--muted)}.rowlabel{font-size:15px;font-weight:700}.inbar{font-size:15px;font-weight:650;fill:white}.total{font-size:19px;font-weight:750}.callout{font-size:12px;fill:var(--teal);font-weight:650}.increment-label{font-size:15px}.increment-value{font-size:16px;font-weight:700}.caption{margin:0;color:var(--muted);font-size:11.5px}.increment{border-top:1px solid var(--line);padding-top:15px}.clarification{border:1px solid var(--line);border-radius:6px;padding:13px 17px;margin-top:15px}.clarification h2{font-size:16px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{padding:6px 10px;border-bottom:1px solid #e9edf0;text-align:right}th:first-child,td:first-child{text-align:left;padding-left:0}thead th{font-size:10px;color:var(--muted);font-weight:650}tbody th{font-weight:650}tbody tr:first-child td:last-child{color:var(--teal);font-weight:750}tbody tr:last-child>*{border-bottom:0}.separate{font-weight:400;color:var(--muted);font-size:10px}.clarification p{font-size:12px;line-height:1.45;margin:8px 0 0}.takeaways{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;list-style:none;margin:16px 0 0;padding:0}.takeaways li{font-size:12px;line-height:1.4;padding-left:24px;position:relative}.takeaways li::before{content:attr(data-number);position:absolute;left:0;top:0;color:var(--teal);font-size:17px;font-weight:750}footer{border-top:1px solid var(--line);margin-top:17px;padding-top:10px;font-size:10px;color:var(--muted);line-height:1.5}footer p{margin:0}footer p+p{margin-top:3px}
+@page{size:letter portrait;margin:10mm}
+@media print{html,body{background:#fff;margin:0;padding:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}.report{width:100%;max-width:none;margin:0;padding:0;border-top-width:4px;box-shadow:none}button{display:none}.eyebrow{padding-top:10px;font-size:9px}h1{font-size:25px;margin:10px 0}.finding{font-size:13px;padding:10px 12px}.meta{font-size:9px;margin-top:8px}section{margin-top:15px}h2{font-size:15px}.figure-number{font-size:9px}.legend{font-size:9px;gap:11px}.metric{font-size:12px}.metric strong{font-size:18px}.caption{font-size:9px}.increment{padding-top:12px}.clarification{padding:10px 13px;margin-top:12px}.clarification h2{font-size:14px}table{font-size:11px}th,td{padding:5px 8px}thead th{font-size:9px}.clarification p{font-size:10px}.takeaways{gap:14px;margin-top:13px}.takeaways li{font-size:10px}footer{font-size:8px;margin-top:13px;padding-top:8px}section,.takeaways,footer{break-inside:avoid}}
+@media screen and (max-width:720px){.report{margin:0;padding:22px 18px;box-shadow:none}h1{font-size:27px}.finding{font-size:15px}.section-head{align-items:flex-start;flex-direction:column;gap:5px}.legend{gap:8px}.meta{gap:12px}.takeaways{grid-template-columns:1fr;gap:10px}th,td{padding:6px 4px}.separate{display:block}}
+
+/* Additions retain the original report's typography, palette, and figures. */
+.hcl-breakdown,.hcl-market{border-top:1px solid var(--line);padding-top:18px}
+.hcl-key{margin:11px 0 14px;padding:11px 14px;border-left:4px solid var(--orange);background:#fcf4ec;font-size:15px;line-height:1.4}.hcl-key strong{color:#a74f0b}
+.hcl-purposes{display:grid;grid-template-columns:1fr 1fr;gap:22px}.hcl-purposes article{min-width:0}.hcl-purposes h3,.hcl-demand h3{font-size:14px;margin:0 0 7px;font-weight:700}.purpose-letter{display:inline-block;background:#536e86;color:white;border-radius:3px;padding:1px 6px;margin-right:4px}.purpose-letter.carbonate{background:var(--orange)}.hcl-purposes ul{padding-left:17px;margin:0 0 7px;font-size:12px;line-height:1.45}.hcl-purposes li+li{margin-top:5px}.hcl-purposes .caption{font-size:10.5px}.reaction{font-size:13px;font-weight:650;margin:4px 0 0}.hcl-demand{margin:17px 0 0}.hcl-demand .section-head{margin-bottom:0}.hcl-demand h3{margin-bottom:0}.hcl-total{font-size:12px;white-space:nowrap}.hcl-share{font-size:17px;font-weight:650;fill:white}.hcl-flow-label{font-size:16px;font-weight:650}.hcl-table{font-size:12px;margin-bottom:7px}.hcl-table tbody tr:first-child td:last-child{color:var(--ink);font-weight:400}.hcl-sum>*{font-weight:750;background:#f3f7f8}.purpose-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}.leach-dose{background:#536e86}.neutralization{background:var(--orange)}.reconciliation{color:var(--muted);font-size:10px;margin:5px 0 0;line-height:1.4}
+.price-basis{font-size:11.5px;color:var(--muted);margin:8px 0}.price-table td:nth-child(3){text-align:left}.price-table th,.price-table td{font-size:11.5px;padding:7px 8px}.price-table thead th{font-size:10px}.price-interpretation{font-size:12px;line-height:1.45;margin:9px 0 6px}.market-sources{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}.market-sources p{margin:2px 0}.market-sources a{color:#16676f;text-decoration:underline;text-underline-offset:2px}.takeaways li:nth-child(n+4){grid-column:span 3}
+@media print{.hcl-breakdown{break-before:page;padding-top:7px;margin-top:0}.hcl-market{padding-top:10px;margin-top:12px}.hcl-breakdown>h2{font-size:15px}.hcl-key{font-size:11px;margin:8px 0 10px;padding:8px 10px}.hcl-purposes{gap:17px}.hcl-purposes h3,.hcl-demand h3{font-size:11px;margin-bottom:5px}.hcl-purposes ul{font-size:10px;line-height:1.4;padding-left:13px;margin-bottom:5px}.hcl-purposes li+li{margin-top:3px}.hcl-purposes .caption{font-size:9px}.reaction{font-size:10px}.hcl-demand{margin-top:11px;break-inside:avoid}.hcl-total{font-size:10px}.hcl-table{font-size:10px;margin-bottom:5px}.hcl-table td,.hcl-table th{padding:4px 6px}.reconciliation{font-size:8px;margin-top:4px}.price-basis{font-size:9px;margin:6px 0}.price-table td,.price-table th{font-size:9px;padding:5px}.price-table thead th{font-size:8px}.price-interpretation{font-size:10px;line-height:1.4;margin:7px 0 5px}.market-sources{font-size:8px;line-height:1.4;margin-top:5px}.takeaways{gap:8px 13px}.takeaways li:nth-child(n+4){grid-column:span 3}.hcl-market,.clarification,.takeaways{break-inside:avoid}}
+@media screen and (max-width:720px){.hcl-purposes{grid-template-columns:1fr;gap:14px}.hcl-total{white-space:normal}.price-table td,.price-table th{font-size:10px}.price-table td:nth-child(3){max-width:140px}.takeaways li:nth-child(n+4){grid-column:auto}}
+
+@media print{.hcl-key{margin:6px 0;padding:6px 10px}.hcl-purposes ul{line-height:1.3}.hcl-purposes li+li{margin-top:2px}.hcl-demand{margin-top:8px}.hcl-table td,.hcl-table th{padding-top:3px;padding-bottom:3px}.hcl-market{padding-top:8px;margin-top:9px}.price-table td,.price-table th{padding-top:4px;padding-bottom:4px}.market-sources{line-height:1.3}.market-sources p{margin:1px 0}}
+</style>
+</head>
+<body>
+<main class="report">
+<header>
+<div class="eyebrow"><span>SaBRe ATT / TEA cost explanation</span><button type="button" id="print-report" aria-label="Print report or save to PDF">Print / Save PDF</button></div>
+<h1>Why Does REE Recovery Increase Materials Cost?</h1>
+<p class="finding">REE recovery increases annual materials cost primarily through additional chemical consumption, especially HCl, rather than waste treatment expenses.</p>
+<div class="meta"><span>Same materials costs across S1, S2, and S3 for each REE configuration</span><span>All costs: million USD/year</span></div>
+</header>
+<section aria-labelledby="figure1-heading">
+<div class="section-head"><h2 id="figure1-heading"><span class="figure-number">Figure 1</span>Materials Cost Comparison</h2><span class="metric">REE-OFF → REE-ON</span></div>
+<div class="legend"><span><i style="background:#536e86"></i>Main-process NaOH</span><span><i style="background:#007f82"></i>REE-leaching NaOH <b>0.042</b></span><span><i style="background:#c36518"></i>HCl (31%) <b>0.193</b></span><span><i style="background:#8064a2"></i>Oxalic acid <b>0.014</b></span></div>
+<svg viewBox="0 0 1000 169" role="img" aria-labelledby="comparison-title comparison-desc"><title id="comparison-title">Figure 1: Materials Cost Comparison</title><desc id="comparison-desc">REE-OFF totals 1.602532 and REE-ON totals 1.861128 million USD/year. REE-ON adds REE-leaching NaOH, HCl, and oxalic acid, plus a small increase in main-process NaOH. Colored segments use one common linear scale.</desc><line x1="119" x2="119" y1="14" y2="130" class="grid"/><text x="119" y="152" class="tick" text-anchor="middle">0.0</text><line x1="301.5" x2="301.5" y1="14" y2="130" class="grid"/><text x="301.5" y="152" class="tick" text-anchor="middle">0.5</text><line x1="484" x2="484" y1="14" y2="130" class="grid"/><text x="484" y="152" class="tick" text-anchor="middle">1.0</text><line x1="666.5" x2="666.5" y1="14" y2="130" class="grid"/><text x="666.5" y="152" class="tick" text-anchor="middle">1.5</text><line x1="849" x2="849" y1="14" y2="130" class="grid"/><text x="849" y="152" class="tick" text-anchor="middle">2.0</text><text x="103" y="50" class="rowlabel" text-anchor="end">REE-OFF</text><rect data-component="main" data-configuration="off" data-value="1.602532" x="119.000000" y="25" width="584.924180" height="40" fill="#536e86"/><text x="411.462" y="50" class="inbar" text-anchor="middle">1.602532</text><text x="717.924" y="51" class="total">$1.60M/year</text><text x="103" y="111" class="rowlabel" text-anchor="end">REE-ON</text><rect data-component="main" data-configuration="on" data-value="1.612861" x="119.000000" y="86" width="588.694265" height="40" fill="#536e86"/><text x="413.347" y="111" class="inbar" text-anchor="middle">1.612861</text><rect data-component="leach" data-configuration="on" data-value="0.042117" x="707.694265" y="86" width="15.372705" height="40" fill="#007f82"/><rect data-component="hcl" data-configuration="on" data-value="0.192516" x="723.066970" y="86" width="70.268340" height="40" fill="#c36518"/><rect data-component="oxalic" data-configuration="on" data-value="0.013634" x="793.335310" y="86" width="4.976410" height="40" fill="#8064a2"/><text x="812.312" y="112" class="total">$1.86M/year</text><path d="M 707.6943,79 v-7 H 798.3117 v7" fill="none" stroke="#007f82" stroke-width="2"/><text x="753.0030" y="64" class="callout" text-anchor="middle">Added REE reagents</text></svg>
+<p class="caption">Main-process NaOH dominates both totals. Colored REE reagents are added only in REE-ON; their annual costs are labeled in the legend.</p>
+</section>
+<section class="increment" aria-labelledby="figure2-heading">
+<div class="section-head"><h2 id="figure2-heading"><span class="figure-number">Figure 2</span>What Causes the Increase?</h2><span class="metric">Total increase <strong>+$0.259M/year</strong></span></div>
+<svg viewBox="0 0 1000 190" role="img" aria-labelledby="increase-title increase-desc"><title id="increase-title">Figure 2: What Causes the Increase?</title><desc id="increase-desc">Additional main-process NaOH 0.010329, HCl 0.192516, oxalic acid 0.013634, and REE-leaching NaOH 0.042117 million USD/year. Total increase 0.258596 million USD/year. HCl contributes 74.4 percent.</desc><text x="265" y="33" text-anchor="end" class="increment-label">Additional main-process NaOH</text><rect x="283" y="12" width="500" height="30" rx="3" fill="#f0f3f6"/><rect data-increment="main" data-value="0.010329" x="283" y="12" width="25.822500" height="30" rx="3" fill="#536e86"/><text x="802" y="33" class="increment-value">+$0.010M/year</text><text x="265" y="77" text-anchor="end" class="increment-label">HCl (31%)</text><rect x="283" y="56" width="500" height="30" rx="3" fill="#f0f3f6"/><rect data-increment="hcl" data-value="0.192516" x="283" y="56" width="481.290000" height="30" rx="3" fill="#c36518"/><text x="802" y="77" class="increment-value">+$0.193M/year</text><text x="748" y="77" text-anchor="end" class="inbar">74% of increase</text><text x="265" y="121" text-anchor="end" class="increment-label">Oxalic acid</text><rect x="283" y="100" width="500" height="30" rx="3" fill="#f0f3f6"/><rect data-increment="oxalic" data-value="0.013634" x="283" y="100" width="34.085000" height="30" rx="3" fill="#8064a2"/><text x="802" y="121" class="increment-value">+$0.014M/year</text><text x="265" y="165" text-anchor="end" class="increment-label">REE-leaching NaOH</text><rect x="283" y="144" width="500" height="30" rx="3" fill="#f0f3f6"/><rect data-increment="leach" data-value="0.042117" x="283" y="144" width="105.292500" height="30" rx="3" fill="#007f82"/><text x="802" y="165" class="increment-value">+$0.042M/year</text></svg>
+<p class="caption">HCl accounts for approximately <b>74%</b> of the materials increase. Bar lengths show each reagent’s incremental annual cost.</p>
+</section>
+
+<section class="hcl-breakdown" aria-labelledby="hcl-heading">
+<h2 id="hcl-heading">Why Is HCl Consumption Higher Than the Experimental Dosage?</h2>
+<p class="hcl-key">Approximately <strong>63%</strong> of modeled HCl demand is associated with neutralizing residual sodium carbonate, rather than the original experimental leaching dosage.</p>
+<div class="hcl-purposes">
+<article><h3><span class="purpose-letter">A</span> Experiment-based leaching dose</h3><ul>
+<li>UCLA procedure: <b>5 mL of 0.1 M HCl/g insoluble residue</b> = <b>0.5 mol HCl/kg</b>.</li>
+<li>Applied to the model's insoluble residue/char basis: <b>758.71 kg/h</b>, excluding dissolved salts and water.</li>
+<li>Requires <b>44.62 kg/h</b> of 31 wt% HCl solution.</li></ul>
+<p class="caption">The experimental dose is not the stoichiometric acid consumption of REE ions.</p></article>
+<article><h3><span class="purpose-letter carbonate">B</span> Additional carbonate neutralization</h3><ul>
+<li>Residual Na<sub>2</sub>CO<sub>3</sub> entering LC1: <b>34.66 kg/h</b>.</li>
+<li>The model adds acid to neutralize carbonate before or during leaching: <b>0.654 kmol HCl/h</b>.</li>
+<li>Requires <b>76.92 kg/h</b> of 31 wt% HCl solution.</li></ul>
+<p class="reaction">Na<sub>2</sub>CO<sub>3</sub> + 2 HCl &rarr; 2 NaCl + CO<sub>2</sub> + H<sub>2</sub>O</p></article>
+</div>
+<figure class="hcl-demand">
+<div class="section-head"><h3><span class="figure-number">Figure 3</span>HCl Demand by Purpose</h3><span class="hcl-total">Total <b>121.54 kg/h</b> &middot; <b>$192,516/year</b></span></div>
+<svg viewBox="0 0 1000 102" role="img" aria-labelledby="hcl-demand-title hcl-demand-desc"><title id="hcl-demand-title">HCl Demand by Purpose</title><desc id="hcl-demand-desc">Experiment-based leaching dose: 44.618098907 kg/h of 31 wt% HCl solution, 36.7 percent, 70675.068669 USD/year. Additional carbonate neutralization: 76.919887148 kg/h, 63.3 percent, 121841.101243 USD/year. Total 121.537986055 kg/h, 192516.169912 USD/year.</desc>
+<rect data-hcl-segment="experimental" data-value="44.618098906967" x="40" y="16" width="337.743386464" height="46" fill="#536e86"/><rect data-hcl-segment="carbonate" data-value="76.919887148461" x="377.743386464" y="16" width="582.256613536" height="46" fill="#c36518"/>
+<text x="208.8717" y="45" class="hcl-share" text-anchor="middle">Experiment-based leaching: 36.7%</text><text x="668.8717" y="45" class="hcl-share" text-anchor="middle">Carbonate neutralization: 63.3%</text>
+<text x="208.8717" y="87" class="hcl-flow-label" text-anchor="middle">44.62 kg/h &#183; $70,675/year</text><text x="668.8717" y="87" class="hcl-flow-label" text-anchor="middle">76.92 kg/h &#183; $121,841/year</text></svg>
+<table class="hcl-table" aria-label="HCl consumption and cost by purpose"><thead><tr><th scope="col">Component</th><th scope="col">31 wt% solution (kg/h)</th><th scope="col">Annual cost (USD/year)</th></tr></thead><tbody>
+<tr><th scope="row"><i class="purpose-dot leach-dose"></i>Experiment-based leaching dose</th><td data-hcl="experimental-flow">44.62</td><td data-hcl="experimental-cost">70,675</td></tr>
+<tr><th scope="row"><i class="purpose-dot neutralization"></i>Additional carbonate neutralization</th><td data-hcl="carbonate-flow">76.92</td><td data-hcl="carbonate-cost">121,841</td></tr>
+<tr class="hcl-sum"><th scope="row">Total</th><td data-hcl="total-flow">121.54</td><td data-hcl="total-cost">192,516</td></tr></tbody></table>
+<figcaption class="caption">Basis: <b>31 wt% HCl solution &times; $0.20/kg solution &times; 7,920 h/year</b>. The added carbonate demand explains why the modeled total exceeds the UCLA leaching dose.</figcaption>
+<p class="reconciliation">Unrounded flow: 44.618098907 + 76.919887148 = 121.537986055 kg/h. Unrounded annual costs sum to $192,516.169912/year, matching the TEA ledger before display rounding.</p>
+</figure>
+</section>
+<section class="hcl-market" aria-labelledby="hcl-market-heading">
+<h2 id="hcl-market-heading">HCl Price Assumption and Market Reference</h2>
+<p class="price-basis">Industrial hydrochloric acid solution &middot; All prices below are <b>USD per metric ton of solution</b>, including water.</p>
+<table class="price-table" aria-label="HCl model price and published US market references"><thead><tr><th scope="col">Price reference</th><th scope="col">HCl concentration</th><th scope="col">Location / price basis</th><th scope="col">USD/t solution</th></tr></thead><tbody>
+<tr><th scope="row">Current TEA assumption</th><td>31 wt%</td><td>Location / delivery terms unspecified</td><td data-price="model">200.00</td></tr>
+<tr><th scope="row">ChemAnalyst &middot; Q3 2026 [1]</th><td>35&ndash;37%</td><td>US Gulf Coast &middot; Ex-Works</td><td data-price="exworks">205.67</td></tr>
+<tr><th scope="row">ChemAnalyst &middot; September 2026 [2]</th><td>35&ndash;37%</td><td>US Gulf Coast &middot; Delivered</td><td data-price="delivered">364.00</td></tr></tbody></table>
+<p class="price-interpretation">The baseline assumption of <b>$200/t for 31 wt% HCl</b> is a plausible preliminary screening estimate. Published US industrial HCl price references provide market context, although differences in acid concentration, location, and delivery terms limit direct comparison.</p>
+<p class="caption">$200/t solution = $0.20/kg solution; annual model HCl expense &asymp; $192,516. Prices are for solution, not pure HCl; no concentration or delivery adjustment is applied.</p>
+<div class="market-sources"><p>[1] <a href="https://www.chemanalyst.com/Pricing-data/hydrochloric-acid-61" target="_blank" rel="noopener noreferrer">ChemAnalyst: Hydrochloric Acid Prices</a> &mdash; Q3 2026 (quarter ending September); Market Overview table, North America row.</p>
+<p>[2] <a href="https://www.chemanalyst.com/NewsAndDeals/NewsDetails/us-hydrochloric-acid-market-faces-continued-price-pressure-44994" target="_blank" rel="noopener noreferrer">ChemAnalyst: US Hydrochloric Acid Market Faces Continued Price Pressure Heading into October</a> &mdash; September 2026 assessment; published October 14, 2026.</p><p>Source pages verified November 13, 2026.</p></div>
+</section>
+
+<section class="clarification" aria-labelledby="category-heading">
+<h2 id="category-heading">Materials vs. Waste Treatment</h2>
+<table aria-label="Separate annual operating cost categories, in million USD per year">
+<thead><tr><th scope="col">Cost category</th><th scope="col">REE-OFF</th><th scope="col">REE-ON</th><th scope="col">Increase</th></tr></thead>
+<tbody><tr><th scope="row">Materials</th><td data-cost="materials-off">1.603</td><td data-cost="materials-on">1.861</td><td data-cost="materials-increase">+0.259</td></tr>
+<tr><th scope="row">Waste treatment <span class="separate">(separate category)</span></th><td data-cost="waste-off">1.274</td><td data-cost="waste-on">1.298</td><td data-cost="waste-increase">+0.024</td></tr></tbody>
+</table>
+<p>Although waste treatment expenses also increase slightly when REE recovery is enabled, they are accounted for separately and do not explain the increase in materials cost.</p>
+</section>
+<ol class="takeaways" aria-label="Conclusions">
+<li data-number="1">REE-ON requires additional chemical reagents for rare-earth recovery.</li>
+<li data-number="2">HCl is the largest driver of the materials cost increase.</li>
+<li data-number="3">Waste treatment is a separate operating cost category.</li>
+<li data-number="4">HCl demand includes the experiment-based leaching dose and additional acid for residual Na<sub>2</sub>CO<sub>3</sub> neutralization.</li>
+<li data-number="5">The TEA uses $0.20/kg for 31 wt% HCl solution as a preliminary market-based assumption.</li>
+</ol>
+<footer><p><b>Data source:</b> ATT S1–S3 Comprehensive Report, TEA ledger. <span>Report generated November 7, 2026 (UTC).</span></p>
+<p>Materials: 1.602532 → 1.861128; Δ = 0.258596. Waste treatment: 1.274177 → 1.297820; Δ = 0.023643. Display values are rounded; differences are calculated before display rounding.</p></footer>
+</main>
+<script id="report-data" type="application/json">{
+  "unit": "million USD/year",
+  "components": [
+    {
+      "key": "main",
+      "label": "Main-process NaOH",
+      "off": 1.602532,
+      "on": 1.612861,
+      "color": "#536e86"
+    },
+    {
+      "key": "leach",
+      "label": "REE-leaching NaOH",
+      "off": 0,
+      "on": 0.042117,
+      "color": "#007f82"
+    },
+    {
+      "key": "hcl",
+      "label": "HCl (31%)",
+      "off": 0,
+      "on": 0.192516,
+      "color": "#c36518"
+    },
+    {
+      "key": "oxalic",
+      "label": "Oxalic acid",
+      "off": 0,
+      "on": 0.013634,
+      "color": "#8064a2"
+    }
+  ],
+  "materials": {
+    "off": 1.602532,
+    "on": 1.861128,
+    "increase": 0.258596
+  },
+  "waste_treatment": {
+    "off": 1.274177,
+    "on": 1.29782,
+    "increase": 0.023643
+  },
+  "hcl_share_percent": 74.44662717134062,
+  "scenarios": [
+    "S1",
+    "S2",
+    "S3"
+  ],
+  "source": "ATT S1–S3 Comprehensive Report, TEA ledger.",
+  "source_file": "outputs/comprehensive_report_20261107_provenance/ATT_S1_S2_S3_Comprehensive_Report.html",
+  "source_generated_utc": "2026-11-07T23:09:58.028920+00:00",
+  "source_sha256": "62d7cfe1799c8eaf84cea33940cb626696cb66866ae7812c73b6fc09c30b49ba",
+  "hcl_consumption_breakdown": {
+    "concentration_wt_fraction": 0.31,
+    "price_usd_per_kg_solution": 0.2,
+    "hours_per_year": 7920.0,
+    "experimental_dose_mol_per_kg": 0.5,
+    "scale_reagents_with_REE": false,
+    "insoluble_residue_basis_kgph": 758.7083965010099,
+    "lc1_inlet_na2co3_kgph": 34.657798424089854,
+    "molecular_weights_kg_per_kmol": {
+      "HCl": 36.46094,
+      "Na2CO3": 105.988439
+    },
+    "neutralization_hcl_mol_per_mol_na2co3": 2,
+    "experimental": {
+      "hcl_kmolph": 0.379354198250505,
+      "solution_kgph": 44.61809890696699,
+      "annual_cost_usd": 70675.06866863572,
+      "share_percent": 36.71123765916179
+    },
+    "carbonate": {
+      "hcl_kmolph": 0.6539920533047922,
+      "solution_kgph": 76.91988714846075,
+      "annual_cost_usd": 121841.10124316183,
+      "share_percent": 63.28876234083821
+    },
+    "total_solution_kgph": 121.53798605542774,
+    "fresh_hcl_total_kgph": 121.53798605542774,
+    "fresh_hcl_active_kgph": 37.6767756771826,
+    "annual_cost_usd": 192516.16991179757,
+    "tea_ledger_annual_cost_usd": 192516.16991179757,
+    "verification_basis": "Existing Comprehensive Report LC1 inlet component flows and assumptions; current LC1 equations; model chemical molecular weights. No simulation outputs or model inputs changed."
+  },
+  "hcl_market_references": [
+    {
+      "publisher": "ChemAnalyst",
+      "period": "Q3 2026",
+      "location": "US Gulf Coast",
+      "concentration_wt_percent": "35-37",
+      "basis": "Ex-Works",
+      "price_usd_per_metric_tonne_solution": 205.67,
+      "url": "https://www.chemanalyst.com/Pricing-data/hydrochloric-acid-61",
+      "support": "Market Overview table, quarter ending September 2026; North America row.",
+      "verified_on": "2026-11-13"
+    },
+    {
+      "publisher": "ChemAnalyst",
+      "period": "September 2026",
+      "publication_date": "2026-10-14",
+      "location": "US Gulf Coast",
+      "concentration_wt_percent": "35-37",
+      "basis": "Delivered",
+      "price_usd_per_metric_tonne_solution": 364,
+      "url": "https://www.chemanalyst.com/NewsAndDeals/NewsDetails/us-hydrochloric-acid-market-faces-continued-price-pressure-44994",
+      "support": "September 2026 HCl 35-37% DEL USGC assessment.",
+      "verified_on": "2026-11-13"
+    }
+  ]
+}</script>
+<script>
+'use strict';
+// Embedded source values support independent checks without external libraries.
+const reportData = JSON.parse(document.getElementById('report-data').textContent);
+const sum = key => reportData.components.reduce((total, item) => total + item[key], 0);
+const close = (a, b) => Math.abs(a - b) < 1e-9;
+if (!close(sum('off'), reportData.materials.off) || !close(sum('on'), reportData.materials.on) || !close(sum('on') - sum('off'), reportData.materials.increase)) {
+  throw new Error('Embedded materials cost totals do not reconcile.');
+}
+const hcl = reportData.hcl_consumption_breakdown;
+if (!close(hcl.experimental.solution_kgph + hcl.carbonate.solution_kgph, hcl.total_solution_kgph) ||
+    !close(hcl.total_solution_kgph, hcl.fresh_hcl_total_kgph) ||
+    !close(hcl.experimental.annual_cost_usd + hcl.carbonate.annual_cost_usd, hcl.tea_ledger_annual_cost_usd) ||
+    !close(hcl.total_solution_kgph * hcl.price_usd_per_kg_solution * hcl.hours_per_year, hcl.tea_ledger_annual_cost_usd)) {
+  throw new Error('Embedded HCl consumption and ledger expense do not reconcile.');
+}
+document.getElementById('print-report').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>
