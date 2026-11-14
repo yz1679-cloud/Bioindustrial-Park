@@ -9,7 +9,7 @@
 """
 ATT Scenario 2 (att_s2): marine engine waste heat recovery (WHR) for shipboard ATT, as an ACCOUNTING MODULE on top
 of the unchanged ATT S1 process (same units, chemistry and balances). Data: data/marine_whr.yaml; design basis:
-docs/ATT_S2_DESIGN_BASIS.md.
+scenario_docs/ATT_S2_DESIGN_BASIS.md.
 
 1. ``engine_sources``: heat of the main engine at a load (exhaust -> economizer steam; charge air -> hot-water loop;
    jacket water -> hot-water loop), bounded by the source temperatures (exhaust minimum outlet / acid dew point,

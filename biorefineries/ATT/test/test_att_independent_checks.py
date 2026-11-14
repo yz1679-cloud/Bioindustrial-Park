@@ -14,7 +14,7 @@ produced it:
   BioSTEAM cash flow table and showing that the MSP is the price at which the NPV at the required IRR is zero.
 
 None of these checks changes the model. They add no pinned numbers beyond the experimental inputs of the design basis
-(docs/ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md).
+(scenario_docs/ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md).
 """
 import unittest
 import warnings
