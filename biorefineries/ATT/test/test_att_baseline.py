@@ -11,9 +11,14 @@ SOLD at 100 USD/t of CaCO3 (assumed; the non-CaCO3 mass is disposed), the REE re
 roast; the REO is sold at 35 USD/kg, assumed) and the storage credit for the Sargassum carbon
 in the solids (CaCO3 sold or landfilled, the residue); soluble Na2CO3 carbon is not credited.
 
-Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was
-cross-checked to 9 digits against an independent model of the same process (SaBRe Scenario 5); the wash recycle and the
-lime paste are ATT-only changes. If a deliberate model change moves a value, update it in the same commit and say why.
+Values: BioSTEAM 2.54.0 (biosteam a4f6d15, thermosteam d3d4c7f, hensmith 0.1.2 at 95e9362), relative tolerance 1e-5.
+The heat integration comes from hensmith, and the version string alone does not tell its releases apart: the PyPI
+hensmith 0.1.2 (with biosteam 5d3f9ba and thermosteam 88becb6) gave S1 MSP 1.76234374, S2 no WHR 2.05076332 and all WHR
+1.98989299; the hensmith at 95e9362 (needed by the current thermosteam, whose network code moved there) gives the values
+below. Only MSP, GWP, FCI and AOC move; H2 output, reagent use, U2 duty, the stored-carbon credit and the WHR heat do not.
+The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was cross-checked to 9 digits against an independent model of
+the same process (SaBRe Scenario 5); the wash recycle and the lime paste are ATT-only changes. If a deliberate model
+change moves a value, update it in the same commit and say why.
 """
 import unittest
 import warnings
@@ -28,10 +33,10 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
-    "MSP_USD_per_kg_H2": 1.76234374,
-    "GWP_kgCO2e_per_kg_H2": 16.87554514,
-    "FCI_MUSD": 14.78550599,
-    "AOC_MUSD_per_yr": 3.28904579,
+    "MSP_USD_per_kg_H2": 1.85390402,
+    "GWP_kgCO2e_per_kg_H2": 18.08589153,
+    "FCI_MUSD": 14.74969488,
+    "AOC_MUSD_per_yr": 3.56411581,
     "H2_t_per_yr": 2953.56307,
     "fresh_NaOH_t_per_yr": 3882.8180,
     "Ca_OH_2_used_t_per_yr": 47166.4092,
@@ -39,14 +44,14 @@ S1_METRICS = {
     "dry_feed_t_per_day": 120.7001,
 }
 S1_STORED_CARBON_CREDIT = -8.27879478        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 25.15433992
+S1_GWP_WITHOUT_CREDIT = 26.36468632
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
 # (engine sources, MSP, GWP, FCI [USD]); 7920 h underway
 S2_CASES = {
-    "no WHR": (2.05076332, 16.87554514, 18481882.5),
-    "all WHR": (1.98989299, 15.44329853, 19371656.9),
+    "no WHR": (2.14162503, 18.08589153, 18437118.6),
+    "all WHR": (2.08075470, 16.65364493, 19326893.0),
 }
 
 
