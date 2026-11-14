@@ -88,7 +88,7 @@ def _att_add_proxy_exchanger(unit, name, efficiency=None):
 
 
 def _att_proxy_exchanger(unit, name, duty_kJph, T_in, T_out=None, *, latent=False, hxn_ok=True,
-                         costed=True, proxy_pressure_Pa=None):
+                         costed=True):
     """
     Carry a heating or cooling duty of ``unit`` in an auxiliary BioSTEAM
     ``HXutility`` whose process side is a water stream, so that the duty has
@@ -114,9 +114,8 @@ def _att_proxy_exchanger(unit, name, duty_kJph, T_in, T_out=None, *, latent=Fals
         s_out = bst.Stream(None, Water=1.0, T=T_in, P=P, phase="g" if heating else "l")
         per_kmol = abs(Water.Hvap(T_in))
     else:
-        pressure = 101325.0 if proxy_pressure_Pa is None else float(proxy_pressure_Pa)
-        s_in = bst.Stream(None, Water=1.0, T=T_in, P=pressure, phase="l")
-        s_out = bst.Stream(None, Water=1.0, T=T_out, P=pressure, phase="l")
+        s_in = bst.Stream(None, Water=1.0, T=T_in, P=101325.0, phase="l")
+        s_out = bst.Stream(None, Water=1.0, T=T_out, P=101325.0, phase="l")
         per_kmol = s_out.H - s_in.H
     scale = abs(duty_kJph) / abs(per_kmol)
     s_in.scale(scale)
@@ -223,16 +222,13 @@ class ATTMolecularSieve(bst.MolecularSieve):
         for hu in new:
             self.heat_utilities.remove(hu)
         T_in = float(self.ins[0].T)
-        # The proxy represents sensible heat only. Keep it liquid when HXN
-        # flashes the stream above water's atmospheric boiling temperature.
-        proxy_P = max(101325.0, 1.05 * float(bst.settings.chemicals["Water"].Psat(max(T_in, self.regeneration_T_K))))
         for hu in new:
             if hu.unit_duty > 0.0:
                 _att_proxy_exchanger(self, "regeneration_heater", hu.unit_duty, T_in, self.regeneration_T_K,
-                                     hxn_ok=True, proxy_pressure_Pa=proxy_P)
+                                     hxn_ok=True)
             else:
                 _att_proxy_exchanger(self, "regeneration_cooler", hu.unit_duty, self.regeneration_T_K, T_in,
-                                     hxn_ok=True, proxy_pressure_Pa=proxy_P)
+                                     hxn_ok=True)
 
 
 
@@ -436,8 +432,7 @@ class ATTSaltCrystallizer(bst.Unit):
 class ATTReeLeach(bst.Unit):
     """
     LC1: HCl leach of the washed ATT char cake and oxalate precipitation of the rare earths (att.yaml downstream.ree_recovery).
-    PERFORMANCE-SPECIFIED. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic acid).
-    Additional HCl is dosed at two moles per mole of carbonate entering in the cake. Only the
+    PERFORMANCE-SPECIFIED. The reagent doses are the lab's per g of char (5 mL of 0.1 M HCl, 0.42 mL of 0.1 M oxalic acid). Only the
     oxalate precipitate is roasted: its REO is ``overall_recovery`` of the REE of the initial wastewater (the wastewater TREE per g
     of seaweed, ``wastewater_TREE_mg_per_L`` / ``seaweed_dose_g_per_L``), capped by the oxalate stoichiometry (``oxalate_per_REE`` mol of
     oxalate per mol of REE, REE molar mass ``REE_molar_mass``); the oxalate carries ``product_REO_wt_frac`` of REO after the roast,
@@ -476,7 +471,7 @@ class ATTReeLeach(bst.Unit):
         self.hcl_mol_per_mol_REE = float(hcl_mol_per_mol_REE)
         self.reagent_excess = float(reagent_excess)
         self.precipitate_wash_efficiency = float(precipitate_wash_efficiency)   # share of the entrained salts washed out of the oxalate cake
-        self._hcl_mol_per_kg_eff = self.hcl_mol_per_kg_char               # effective leach dose, excluding carbonate acid
+        self._hcl_mol_per_kg_eff = self.hcl_mol_per_kg_char               # doses actually used (per kg of char solids), set in _run
         self._oxalic_mol_per_kg_eff = self.oxalic_mol_per_kg_char
         _att_add_proxy_exchanger(self, "cooler")
         _att_add_proxy_exchanger(self, "heater")
@@ -490,13 +485,8 @@ class ATTReeLeach(bst.Unit):
 
     def water_demand_kgph(self, solids_kgph):
         """Water of the leach liquor and of the oxalic acid solution [kg/h] (the HCl solution brings its own)."""
-        cake = self.ins[0]
-        hcl_kmol = self._hcl_mol_per_kg_eff * solids_kgph / 1e3 + 2.0 * float(cake.imol["Na2CO3"])
-        hcl_solution = hcl_kmol * cake.chemicals["HCl"].MW / 0.31
-        oxalic_mass = self._oxalic_mol_per_kg_eff * solids_kgph / 1e3 * cake.chemicals["OxalicAcid"].MW
-        # The solution mass uses the configured 1 kg/L approximation and includes its acid solute.
-        oxalic_water = max(self.oxalate_solution_kg_per_kg_char * solids_kgph - oxalic_mass, 0.0)
-        return max(self.leach_liquor_kg_per_kg_char * solids_kgph - hcl_solution, 0.0) + oxalic_water
+        hcl_solution = self._hcl_mol_per_kg_eff * solids_kgph / 1e3 * 36.46094 / 0.31
+        return max(self.leach_liquor_kg_per_kg_char * solids_kgph - hcl_solution, 0.0) + self.oxalate_solution_kg_per_kg_char * solids_kgph
 
     def _run(self):
         cake, hcl, ox, water, fresh_naoh, condensate = self.ins
@@ -507,18 +497,13 @@ class ATTReeLeach(bst.Unit):
         # reagents: the lab doses per kg of char; with scale_reagents_with_REE the stoichiometry of the REE of the char (3 mol HCl per mol REE,
         # oxalate_per_REE mol oxalate per mol REE, times reagent_excess) is used when it needs more (a char with far more REE than the lab's)
         n_ree_char = float(cake.imass["REO"]) / self.REO_per_TREE / self.REE_molar_mass         # kmol REE/h in the char
-        hcl_experimental_kmol = self.hcl_mol_per_kg_char * solids_kgph / 1e3
-        hcl_leach_kmol = hcl_experimental_kmol
+        hcl_kmol = self.hcl_mol_per_kg_char * solids_kgph / 1e3
         oxalic_kmol = self.oxalic_mol_per_kg_char * solids_kgph / 1e3
         if self.scale_reagents_with_REE:
-            hcl_leach_kmol = max(hcl_leach_kmol, self.hcl_mol_per_mol_REE * n_ree_char * self.reagent_excess)
+            hcl_kmol = max(hcl_kmol, self.hcl_mol_per_mol_REE * n_ree_char * self.reagent_excess)
             oxalic_kmol = max(oxalic_kmol, self.oxalate_per_REE * n_ree_char * self.reagent_excess)
-        self._hcl_mol_per_kg_eff = hcl_leach_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.hcl_mol_per_kg_char
+        self._hcl_mol_per_kg_eff = hcl_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.hcl_mol_per_kg_char
         self._oxalic_mol_per_kg_eff = oxalic_kmol * 1e3 / solids_kgph if solids_kgph > 0.0 else self.oxalic_mol_per_kg_char
-        self._hcl_experimental_kmolph = hcl_experimental_kmol
-        self._hcl_leach_kmolph = hcl_leach_kmol
-        self._hcl_carbonate_neutralization_kmolph = 2.0 * float(cake.imol["Na2CO3"])
-        hcl_kmol = hcl_leach_kmol + self._hcl_carbonate_neutralization_kmolph
         hcl.empty()
         hcl.phase = "l"
         hcl.imol["HCl"] = hcl_kmol
@@ -563,7 +548,7 @@ class ATTReeLeach(bst.Unit):
         target_kgph = reo_product / self.product_REO_wt_frac                                   # roasted product [kg/h]
         w = self.cake_moisture_wt_frac
         salts = 0.0
-        for _ in range(10):                                                                    # converge the entrained-salt grade adjustment
+        for _ in range(2):                                                                     # the entrained salts stay in the product
             filler = max(target_kgph - reo_product - salts, 0.0)
             solids_p = reo_product + filler + float(ox.imass["OxalicAcid"])
             share_p = min(solids_p * w / (1.0 - w) / pool["Water"], 1.0)
@@ -617,6 +602,7 @@ class ATTReeLeach(bst.Unit):
             aux.simulate()
         ot = self.oxalate_tank.ins[0]
         ot.copy_like(leachate)
+        ot.imass["Water"] = float(leachate.imass["Water"]) + float(self.oxalate_solution_kg_per_kg_char) * solids
         self.oxalate_tank.simulate()
 
 

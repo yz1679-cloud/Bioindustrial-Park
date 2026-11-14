@@ -80,16 +80,16 @@ def _basis(sys):
     def add(group, item, experiment, model, unit, note):
         rows.append(dict(group=group, item=item, UCLA_experiment=experiment, model_1kgph=model, unit=unit, note=note))
 
-    add("Feed", "Sargassum", 0.25, daf * 1e3, "g dry seaweed (confirmed experimental basis) | g daf/h (model)",
-        "Experiment: 0.25 g total dry seaweed (user confirmation 2026-11-06); model: 1 kg/h dry x daf fraction")
+    add("Feed", "Sargassum", 0.25, daf * 1e3, "g seaweed, basis not stated (experiment) | g daf/h (model)",
+        "Experiment: 0.25 g seaweed (workbook 261023, mass basis not stated); model: 1 kg/h dry x daf fraction")
     add("Feed", "daf / dry", 1 - 0.172, daf / dry, "-", "workbook ash 17.2 wt% dry | model presscake ash 32.07 wt% dry")
     add("Feed", "Dry Sargassum", float("nan"), dry, "kg/h", "Model basis")
     add("Feed", "Wet Sargassum as harvested", float("nan"), float(s["att_sargassum_feed"].F_mass), "kg/h",
         "presscake moisture 0.763 (feedstock.yaml nlr_pressed)")
     add("NaOH", "NaOH", 0.25, float(feed.imass["NaOH"]), "g (experiment) | kg/h (model)", "")
     add("NaOH", "NaOH : dry", float("nan"), float(feed.imass["NaOH"]) / dry, "kg/kg dry",
-        "att.yaml reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry = 1.0 (experiment: 0.25 g NaOH : 0.25 g total dry seaweed, confirmed 2026-11-06)")
-    steam_g_per_g_daf = 3.6 / 0.25   # 3.6 g steam over the run; seaweed basis confirmed as total dry
+        "att.yaml reactor.cases.Ni-CatATT_1to1.naoh_kg_per_kg_dry = 1.0 (experiment: 0.25 g : 0.25 g, basis not stated)")
+    steam_g_per_g_daf = 3.6 / 0.25   # 3.6 g steam over the run (workbook 261023 footnote); seaweed basis not stated
     water_u2 = float(feed.imass["Water"])
     add("Water/steam", "Steam over the run (3.6 g per 0.25 g seaweed)", steam_g_per_g_daf, steam_g_per_g_daf * daf,
         "g/g daf (exp.) | kg/h equivalent (model basis)",

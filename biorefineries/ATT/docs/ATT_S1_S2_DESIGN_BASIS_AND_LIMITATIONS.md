@@ -36,7 +36,7 @@ these two scenarios, not additional scenarios.
 | Presscake moisture, ash, composition | 76.3 %; ash 32.07 % dry; CHN 31.36/3.88/1.16 % | Wiatrowski et al. 2026 preprint (NLR), pressed solids 15 psi | LIT | One sample; Sargassum composition varies seasonally and regionally |
 | D0 outlet moisture | 50 wt % | Workbook 261005 B12 ("assumed") and user design | ENG / USER | Sets the D0 steam demand (≈ 37 % of gross steam) |
 | U2 temperature | 500 °C | Experiment | EXP | — |
-| NaOH dose | 1.0 kg/kg dry (gross, incl. recycle) | Experimental basis confirmed by user 2026-11-06: total dry seaweed, not DAF | USER | NaOH makeup is 0.53 USD/kg H2 and 1.47 kg CO2e/kg H2. Gross dose includes recycle; fresh makeup is lower |
+| NaOH dose | 1.0 kg/kg dry (gross, incl. recycle) | User decision 2026-10-31; the workbook "1 g/g" states no mass basis | USER | NaOH makeup is 0.53 USD/kg H2 and 1.47 kg CO2e/kg H2. The experimental seaweed basis (wet/dry/daf) is unconfirmed |
 | NaOH → Na2CO3 in U2 | 100 % | Workbook B15 | EXP (stated) / ENG | Not separately measured |
 | Residual organic carbon | Lumped residue CH0.5O1.195 (H/C = 0.5 assumed; O solved), 0.59 g/g daf; Hf by Channiwala–Parikh; Cp 1 J/g/K | `att.yaml` `material_balance` | ENG | **Structural assumption** from elemental closure, not a measured char. It sets the U2 heat duty (9.16 MJ/kg dry) and part of the natural-gas GWP. RS1 keeps only the char (see below); the char earns 0.65 of the 8.3 kg CO2e/kg H2 storage credit |
 | Causticization | 88 % conversion, Ca(OH)2:Na2CO3 = 1.1 mol/mol, 3 kg water/kg Na2CO3 | Workbook B16–B18 ("commercial causticizing"); CaCO3 experiment conversion 88.3 % | LIT / EXP | Lab CaCO3 experiment used clean Na2CO3 |
@@ -83,7 +83,7 @@ scale (sections 1 and 3) is a separate issue.
 |---|---|---|
 | 1 | **CaCO3 sales and cake quality.** No buyer, specification or verified price for the 80.3 % (F2) / 90.4 % (F3) cake | The revenue is −1.80 USD/kg H2 of the S1 MSP of 1.76; without sales it is 4.29. ±100 USD/t ≈ ±1.80 USD/kg H2 (18.0 kg CaCO3/kg H2) |
 | 2 | **Carbon storage accounting** | S1 GWP 16.88 net vs 25.15 without the storage credit (−8.28: char −0.65, sold CaCO3 −7.63). The soluble Na2CO3 (0.03), the lime's CaCO3 (0.31) and the untracked organics (699 kg C/h; 6.9 if emitted) are not credited. Storage is not verified removal |
-| 3 | **Transfer of the experimental yields** (catalyst, Ni soaking, steam co-feed, lab scale, single run; per-g-daf transfer to higher-ash presscake; NaOH dose is confirmed on total dry basis) | Every per-kg-H2 result scales roughly with 1/H2 yield. A per-dry transfer would mean +21.9 % H2. Catalyst and Ni costs are absent from the TEA and LCA |
+| 3 | **Transfer of the experimental yields** (catalyst, Ni soaking, steam co-feed, lab scale, single run; per-g-daf transfer to higher-ash presscake; NaOH dose basis) | Every per-kg-H2 result scales roughly with 1/H2 yield. A per-dry transfer would mean +21.9 % H2. Catalyst and Ni costs are absent from the TEA and LCA |
 | 4 | **ATT residue has a net price of 0** | Lowers the S1 MSP by 0.09 USD/kg H2 (1.76 vs 1.86 with the leached char disposed at 0.04 USD/kg wet); the F1 wash adds 0.7 MUSD of capital |
 | 5 | **Lumped residue thermochemistry** | U2 duty 9.16 MJ/kg dry drives ≈ 9.5 kg CO2e/kg H2 (combustion and upstream) and 0.63 USD/kg of fuel cost |
 | 6 | **Marine retrofit and WHR screening** (S2 at 7,920 h/yr underway) | Floating CAPEX 1.10–1.40 ⇒ S2 MSP 1.88–2.10. WHR −1.43 kg CO2e/kg H2 is an upper bound (onboard users ignored, no OEM data) |

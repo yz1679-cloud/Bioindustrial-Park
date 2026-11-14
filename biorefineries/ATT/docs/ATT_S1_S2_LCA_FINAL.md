@@ -1,7 +1,5 @@
 # ATT S1/S2: life-cycle GWP100 (final)
 
-> Historical zero-reagent-factor snapshot: provisional HCl and oxalic-acid factors were added on 2026-11-06. See `ATT_TARGETED_TEA_LCA_WHR_REVIEW.md` for the current factors and comparison. The historical numbers below are preserved.
-
 **Model state.** BioSTEAM 2.54.0. The baseline credits the **Sargassum carbon in the solids** as stored carbon: the
 CaCO3 of the cakes (sold or landfilled) and the organic char of the leached-char residue (`lca.yaml
 carbon_storage`). The soluble Na2CO3 in the cakes and the CaCO3 of the waste lime are **not** credited. The CaCO3 cakes are dried to

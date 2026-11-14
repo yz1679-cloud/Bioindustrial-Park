@@ -145,7 +145,7 @@ limitations:
   - "PSA capital is a preliminary review-based estimate (+/-50 %), not a correlation or vendor quote."
   - "Equipment at CEPCI 596.2 (2020 USD) while chemical prices are 2024-2025 and utility prices are BioSTEAM defaults (older basis); the MSP is therefore not a single-year number. Only the municipal press anchor (3.1 MUSD, year unrecorded in the source) and the PSA anchor (year unknown) are not escalated."
   - "FOC = 4 % of FCI lumps labor, maintenance and overhead; labor is not estimated explicitly."
-  - "att_residue_untracked (the lumped residual carbon of U2 beyond the carbonate, gas and char, about 1.9 t/h) has no sink in the baseline: no cost is booked. An explicitly assumed $0.04/kg disposal sensitivity is available through analyses/att_targeted_review.py; baseline remains zero."
+  - "att_residue_untracked (the lumped residual carbon of U2 beyond the carbonate, gas and char, about 1.9 t/h) has no sink in the model: it is not sold, disposed or treated, so no cost is booked for it (stream_prices)."
   - "The disposal prices (solid 40 USD/t, wastewater 4 USD/m3) are assumptions carried over from SaBRe; the solid fee has a tipping-fee cross-check, the wastewater fee has no adequate source (prices.disposal_*.source)."
   - "Not costed: feed receiving/storage and solids handling, chemical storage, off-gas handling (placeholder sensitivity only), CaCO3 product finishing."
   - "No CH4/CO revenue: reported experimental CH4/CO are outside the element-balanced model."
@@ -192,7 +192,7 @@ stream_prices:
   caco3_dryer_emissions: "Dryer emission port to the atmosphere, zero flow in the baseline, no fee."
   roaster_exhaust: "Roaster exhaust to the atmosphere, no fee and no treatment cost."
   leach_co2: "CO2 of the REE leach to the atmosphere, no fee."
-  att_residue_untracked: "OPEN GAP: price 0 (user decision 2026-11-04, kept as a documented gap). The lumped residual carbon of U2 beyond the carbonate, gas and char has no measured sink; baseline cost remains zero; an optional fee sensitivity adds only this separate stream as VOC (see analyses/att_targeted_review.py)."
+  att_residue_untracked: "OPEN GAP: price 0 (user decision 2026-11-04, kept as a documented gap). The lumped residual carbon of U2 beyond the carbonate, gas and char has no measured sink; it is neither sold nor disposed nor treated, so no cost is booked (see limitations)."
 
 utility_prices:
   natural_gas: "BioSTEAM default agent price, converted to USD/MJ LHV and applied to fuel = U2 duty / burner efficiency 0.90 (natural_gas_note above)."

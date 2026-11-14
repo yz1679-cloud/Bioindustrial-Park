@@ -11,7 +11,7 @@ SOLD at 100 USD/t of CaCO3 (assumed; the non-CaCO3 mass is disposed), the REE re
 roast; the REO is sold at 35 USD/kg, assumed) and the storage credit for the Sargassum carbon
 in the solids (CaCO3 sold or landfilled, the residue); soluble Na2CO3 carbon is not credited.
 
-Values: current S1 assumptions including LC1 carbonate-neutralization acid and the liquid U3D HXN proxy, relative tolerance 1e-5. The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was
+Values: BioSTEAM 2.54.0, relative tolerance 1e-5. The earlier S1 baseline (no washing, pure Ca(OH)2 lime) was
 cross-checked to 9 digits against an independent model of the same process (SaBRe Scenario 5); the wash recycle and the
 lime paste are ATT-only changes. If a deliberate model change moves a value, update it in the same commit and say why.
 """
@@ -28,25 +28,25 @@ ALL_WHR = ("jacket", "scavenge", "exhaust")
 
 # ---- S1 (analyses/breakdown.build_att_breakdown("att_s1")) ----------------------------------------------------
 S1_METRICS = {
-    "MSP_USD_per_kg_H2": 1.85420646,
-    "GWP_kgCO2e_per_kg_H2": 17.15869700,
-    "FCI_MUSD": 14.75175771,
-    "AOC_MUSD_per_yr": 3.56474176,
+    "MSP_USD_per_kg_H2": 1.76234374,
+    "GWP_kgCO2e_per_kg_H2": 16.87554514,
+    "FCI_MUSD": 14.78550599,
+    "AOC_MUSD_per_yr": 3.28904579,
     "H2_t_per_yr": 2953.56307,
-    "fresh_NaOH_t_per_yr": 3982.37332,
-    "Ca_OH_2_used_t_per_yr": 47072.38784,
-    "U2_heat_duty_MJ_per_kg_dry": 9.15429210,
+    "fresh_NaOH_t_per_yr": 3882.8180,
+    "Ca_OH_2_used_t_per_yr": 47166.4092,
+    "U2_heat_duty_MJ_per_kg_dry": 9.15813820,
     "dry_feed_t_per_day": 120.7001,
 }
-S1_STORED_CARBON_CREDIT = -8.26366818        # kg CO2e per kg H2, in the net GWP
-S1_GWP_WITHOUT_CREDIT = 25.42236518
+S1_STORED_CARBON_CREDIT = -8.27879478        # kg CO2e per kg H2, in the net GWP
+S1_GWP_WITHOUT_CREDIT = 25.15433992
 
 # ---- S2 (analyses/marine_tea.evaluate_case; the S1 process with the S2 TEA and heat-recovery accounting) -------
 S2_WHR_UTILIZED_KW = 1819.05804704
 # (engine sources, MSP, GWP, FCI [USD]); 7920 h underway
 S2_CASES = {
-    "no WHR": (2.14196771, 17.15869700, 18439697.13),
-    "all WHR": (2.08109738, 15.72645039, 19329471.56),
+    "no WHR": (2.05076332, 16.87554514, 18481882.5),
+    "all WHR": (1.98989299, 15.44329853, 19371656.9),
 }
 
 
