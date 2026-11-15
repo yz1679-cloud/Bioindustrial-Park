@@ -148,7 +148,7 @@ def collect_ree_tea(industrial_cases=None):
     """Rebuild all six existing financial cases and verify their DCF credits."""
     import biosteam as bst
     from biorefineries.ATT.analyses import scenarios, tea, marine_tea, marine_whr
-    from biorefineries.ATT.analyses.att_s3_industrial import run as s3_run
+    from biorefineries.ATT.analyses.s3_industrial import run as s3_run
     output={key:[] for key in ('cases','ledger','equipment','dcf_components','cashflows','increments')}
     for enabled in (False,True):
         system=scenarios.create(scenarios.ATT_S1,ree_recovery=enabled)

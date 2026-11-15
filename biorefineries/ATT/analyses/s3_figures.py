@@ -3,8 +3,8 @@ The 10-page S3 figure PDF of the advisor meeting (S3 REE On), drawn from the mod
 
 Run:  python -m biorefineries.ATT.analyses.s3_figures [--out DIR]       (default: results/s3_figures/ATT_S3_Figures.pdf)
 
-Every number comes from a run of the model in this checkout: the cases of the comprehensive report (att_comprehensive_report),
-the industrial heat case (att_s3_industrial), and the four stages P0 (pessimistic disposal) to P3 (S3) of the waterfall.
+Every number comes from a run of the model in this checkout: the cases of the comprehensive report (comprehensive_report),
+the industrial heat case (s3_industrial), and the four stages P0 (pessimistic disposal) to P3 (S3) of the waterfall.
 The EROI and the hydrogen benchmarks are computed in headline_results. The checks inside raise if the groupings of the
 figures do not add up to the totals they explain. Nothing is written but the PDF and a JSON file with its values.
 """
@@ -68,7 +68,7 @@ DRY = H2 = HOURS = YIELD = ANNUAL_T = None
 def _stages():
     """P0 (pessimistic disposal), P1 (S1 REE off), P2 (S1 REE on) and P3 (S3 REE on): MSP and GWP, and the S3 industrial case."""
     from biorefineries.ATT.analyses import lca, tea
-    from biorefineries.ATT.analyses.att_s3_industrial import run as s3_run
+    from biorefineries.ATT.analyses.s3_industrial import run as s3_run
     from biorefineries.ATT.analyses.breakdown import build_att_breakdown
     stages = {}
     for enabled, stage in [(False, 'P1'), (True, 'P2')]:
@@ -108,7 +108,7 @@ def _stages():
 def _load():
     """Run the model and set the data the pages read."""
     global C, B, S, ECON, DCF, LCA, U, DRY, H2, HOURS, YIELD, ANNUAL_T
-    from biorefineries.ATT.analyses.att_comprehensive_report import clean, collect, tables
+    from biorefineries.ATT.analyses.comprehensive_report import clean, collect, tables
     data = collect()
     R = clean(dict(data, tables=tables(data)))
     stages, S = _stages()

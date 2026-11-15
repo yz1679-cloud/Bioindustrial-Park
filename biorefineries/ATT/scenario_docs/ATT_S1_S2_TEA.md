@@ -17,7 +17,7 @@
   taken as a sorbent, no buyer).
 
 S2 results are for 7,920 h/yr underway. MSP is the minimum H2 selling price in USD per kg of contained H2 (NPV = 0 at
-a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA_FINAL.md`.
+a 10 % IRR). The carbon accounting paired with it is described in `ATT_S1_S2_LCA.md`.
 
 ## 1. Production and financial basis
 

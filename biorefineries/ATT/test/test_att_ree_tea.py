@@ -7,7 +7,7 @@ class REETeaVerificationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         warnings.filterwarnings('ignore')
-        from biorefineries.ATT.analyses.ree_tea_verification import collect_ree_tea
+        from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
         cls.data = collect_ree_tea()
 
     def test_six_case_dcf_and_annual_cost_reconciliation(self):

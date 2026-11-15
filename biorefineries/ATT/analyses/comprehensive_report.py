@@ -1,7 +1,7 @@
 """Build an offline, current-runtime ATT S1/S2/S3 technical report.
 
 Run from the repository root with the project interpreter:
-  python -m biorefineries.ATT.analyses.att_comprehensive_report --out NEW_DIRECTORY
+  python -m biorefineries.ATT.analyses.comprehensive_report --out NEW_DIRECTORY
 No model inputs or existing outputs are modified.
 """
 import argparse
@@ -18,7 +18,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-TEMPLATE = Path(__file__).with_name('att_comprehensive_template.html')
+TEMPLATE = Path(__file__).with_name('comprehensive_report_template.html')
 
 
 def clean(x):
@@ -98,7 +98,7 @@ def _scientific_notes():
       ('S2 boundary and pumps', 'Idealized host vessel has an independent primary mission; ATT is ancillary. At 75% engine load and 7920 h/year, propulsion emissions are not allocated to ATT; incremental WHR power and burdens are included. YAML pump_efficiency=0.70 is reference-only; active BioSTEAM pump and motor efficiencies depend on flow.', 'Accepted scenario assumptions and confirmed pump behavior', 'data/marine_whr.yaml; analyses/marine_whr.py _pump; analyses/marine_lca.py'),
       ('S3 source scaling', 'Assume the historical 120000 tons/year means U.S. short tons: 120000 × 0.90718474 = 108862.1688 metric t/year. Relative to the paper reference of 120000 metric t/year this gives 0.90718474 at equal 7920 h/year and full utilization. This is host-capacity scaling, not ATT-demand scaling; the ton subtype is not established by the historical source.', 'Explicit unit-conversion and host-transfer assumption', 'analyses/industrial_whr.py industrial_sources; scenario_docs/ATT_S3_DESIGN_BASIS.md'),
       ('S3 H3 discrepancy and host surplus', 'Prior supplied-PDF review records H3 800→40 C in Table 1, Fig. 10 and text (5.17 kW/K × 760 K ≈ 3.93 MW), versus 800→400 C in Table 4. The current 800→40 C interpretation follows the former mutually consistent values. H1/H3 are treated as additive; independence and availability after the host complex uses heat are not site-verified.', 'Documented literature discrepancy and host assumption', 'Wang et al. 2025 DOI 10.1016/j.psep.2025.107306; scenario_docs/ATT_S3_DESIGN_BASIS.md Literature interpretation'),
-      ('S3 heat and costing basis', 'Current H1/H3 capacities and intervals are retained. A 20 C approach and 90% effectiveness produce useful steam for D0/EC1 only. The 0.95 steam-to-process ratio is descriptive; avoided fuel uses 80% boiler efficiency once. Installed $500/kW and 1% auxiliary power use useful steam capacity. Heat has zero purchase cost and upstream burden. This is an idealized screen, not site feasibility.', 'Accepted engineering screening assumptions', 'analyses/att_s3_industrial.py run; analyses/industrial_whr.py generate_steam'),
+      ('S3 heat and costing basis', 'Current H1/H3 capacities and intervals are retained. A 20 C approach and 90% effectiveness produce useful steam for D0/EC1 only. The 0.95 steam-to-process ratio is descriptive; avoided fuel uses 80% boiler efficiency once. Installed $500/kW and 1% auxiliary power use useful steam capacity. Heat has zero purchase cost and upstream burden. This is an idealized screen, not site feasibility.', 'Accepted engineering screening assumptions', 'analyses/s3_industrial.py run; analyses/industrial_whr.py generate_steam'),
       ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. Avoided beach decomposition is excluded from baseline net GWP and appears only as a separate optional counterfactual, with the existing model assumptions.', 'Boundary assumptions and provisional emission factors', 'data/lca.yaml emission_factors and beach_rot_counterfactual; analyses/lca.py; analyses/breakdown.py')]]
 
 
@@ -146,7 +146,7 @@ def carbon_credit_breakdown(system):
 def collect():
     """Recompute model cases and collect explicit source ledgers without changing assumptions."""
     from biorefineries.ATT.analyses import treatment_report, scenarios, inventory, marine_tea, marine_lca, marine_whr, tea
-    from biorefineries.ATT.analyses.att_s3_industrial import run as s3_run
+    from biorefineries.ATT.analyses.s3_industrial import run as s3_run
     from biorefineries.ATT.analyses.breakdown import build_att_breakdown
     fu, balances, carbon, pseudo = treatment_report.run()
     details = {}
@@ -201,7 +201,7 @@ def collect():
             r = next(x for x in fu if x['scenario']==scenario and x['ree_enabled']==ree and x['basis']=='per_kg_h2')
             if not math.isclose(r['hydrogen_msp_usd_per_kg'],msp,rel_tol=1e-8,abs_tol=1e-8) or not math.isclose(r['net_gwp_kg_co2e'],gwp,rel_tol=1e-8,abs_tol=1e-8):
                 raise ValueError(f'Functional-unit results do not reconcile: {scenario} REE={ree}')
-    from biorefineries.ATT.analyses.ree_tea_verification import collect_ree_tea
+    from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
     ree_tea=collect_ree_tea({flag:case['industrial'] for flag,case in details.items()})
     versions = {}
     for package in ('biosteam','thermosteam','numpy','pandas','scipy','PyYAML'):
@@ -209,9 +209,9 @@ def collect():
         except importlib.metadata.PackageNotFoundError: versions[package] = 'unavailable'
     import sys
     versions['python']=sys.version.split()[0]
-    inputs = list((ROOT/'data').glob('*.yaml')) + [ROOT/'analyses'/x for x in ('inventory.py','marine_lca.py','treatment_report.py','functional_unit.py','att_s3_industrial.py','industrial_whr.py','marine_tea.py','marine_whr.py','tea.py','lca.py','breakdown.py','scenarios.py','reporting.py','validation.py','att_comprehensive_report.py','att_comprehensive_template.html')]
+    inputs = list((ROOT/'data').glob('*.yaml')) + [ROOT/'analyses'/x for x in ('inventory.py','marine_lca.py','treatment_report.py','functional_unit.py','s3_industrial.py','industrial_whr.py','marine_tea.py','marine_whr.py','tea.py','lca.py','breakdown.py','scenarios.py','reporting.py','validation.py','comprehensive_report.py','comprehensive_report_template.html')]
     inputs += [ROOT/'system.py',ROOT/'_chemicals.py',ROOT/'units'/'_att.py']
-    inputs += [ROOT/'analyses'/'ree_tea_verification.py']
+    inputs += [ROOT/'analyses'/'ree_tea_cases.py']
     provenance = git_provenance()
     provenance.update(generated_utc=datetime.now(timezone.utc).isoformat(), versions=versions,
                       input_sha256={str(p.relative_to(REPO)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
@@ -219,7 +219,7 @@ def collect():
         LC1_acid_and_solution_water='units/_att.py ATTReeLeach: carbonate HCl = 2 × Na2CO3; oxalic solute subtracted from solution water; no repeated tank water',
         common_HXN='units/_att.py ATTMolecularSieve: liquid-water proxy pressure exceeds saturation pressure',
         marine_heating_inventory='analyses/marine_whr.py s1_heat_sinks: signed steam residuals and all positive heating utilities',
-        S3='analyses/industrial_whr.py and att_s3_industrial.py: existing H1/H3 source and steam-displacement calculations')
+        S3='analyses/industrial_whr.py and s3_industrial.py: existing H1/H3 source and steam-displacement calculations')
     assumptions = _assumptions()
     for row in assumptions:
         path = row['parameter']
@@ -235,8 +235,8 @@ def collect():
     industrial = details['True']['industrial']
     for name, value in industrial['configuration'].items():
         assumptions.append(dict(parameter='S3.'+name, value=value, unit='See source parameter name',
-          source='analyses/att_s3_industrial.py run defaults', source_type='Engineering screening assumption',
-          scenario='S3', reference='analyses/att_s3_industrial.py run', status='Unverified host-site assumption'))
+          source='analyses/s3_industrial.py run defaults', source_type='Engineering screening assumption',
+          scenario='S3', reference='analyses/s3_industrial.py run', status='Unverified host-site assumption'))
     for source in industrial['sources']:
         for name, unit in [('available_kW','kW'),('T_in_C','deg C'),('T_out_C','deg C')]:
             assumptions.append(dict(parameter='S3.'+source['source']+'.'+name, value=source[name], unit=unit,
@@ -438,7 +438,7 @@ def _write_ree_tea_review(out, data):
         lines.append('| '+group+' | '+' | '.join(f'{x:+.8f}' for x in values)+' |')
     lines+=['', 'Accounting checks: installed unit costs plus explicit adjustments equal FCI; HCl and oxalic ledger costs equal their feed costs; CaCO3 and REO sales are credited once; independent DCF roots match the solved MSP. In BioSTEAM, negative-price waste products and net cake prices affect sales. The report separates their disposal and gross revenue portions for readability; raw TEA.AOC therefore differs from report gross OPEX without creating a second charge.',
             '', 'Code references:']
-    for file,needle in [('analyses/tea.py','class ATTTEA'),('analyses/tea.py','def _apply_prices'),('analyses/tea.py','def evaluate_att_tea'),('analyses/tea.py','def _opex_table'),('analyses/marine_tea.py','def evaluate_case'),('analyses/att_s3_industrial.py','def run('),('analyses/ree_tea_verification.py','def _root'),('analyses/ree_tea_verification.py','def _dcf_components')]:
+    for file,needle in [('analyses/tea.py','class ATTTEA'),('analyses/tea.py','def _apply_prices'),('analyses/tea.py','def evaluate_att_tea'),('analyses/tea.py','def _opex_table'),('analyses/marine_tea.py','def evaluate_case'),('analyses/s3_industrial.py','def run('),('analyses/ree_tea_cases.py','def _root'),('analyses/ree_tea_cases.py','def _dcf_components')]:
         number=next(i for i,line in enumerate((ROOT/file).read_text(encoding='utf-8').splitlines(),1) if needle in line)
         lines.append(f'- biorefineries/ATT/{file}:{number} — `{needle}`')
     (out/'REE_TEA_VERIFICATION.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')

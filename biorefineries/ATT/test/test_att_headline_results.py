@@ -10,8 +10,8 @@ import unittest
 import warnings
 
 from biorefineries.ATT.analyses import headline_results as hr
-from biorefineries.ATT.analyses.att_s3_industrial import run as s3_run
-from biorefineries.ATT.analyses.ree_tea_verification import collect_ree_tea
+from biorefineries.ATT.analyses.s3_industrial import run as s3_run
+from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
 from biorefineries.ATT.analyses.treatment_report import run as treatment_run
 
 

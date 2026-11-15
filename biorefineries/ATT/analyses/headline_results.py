@@ -6,8 +6,8 @@ zero energy burden, so only the auxiliary power of the heat recovery is added. T
 are assumptions of the advisor report (references in BENCHMARKS), not model results.
 """
 from biorefineries.ATT.analyses import inventory, scenarios
-from biorefineries.ATT.analyses.att_s3_industrial import run as s3_run
-from biorefineries.ATT.analyses.ree_tea_verification import collect_ree_tea
+from biorefineries.ATT.analyses.s3_industrial import run as s3_run
+from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
 
 H2_LHV_MJ_PER_KG = 120.0
 MJ_PER_KWH = 3.6

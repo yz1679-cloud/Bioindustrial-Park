@@ -69,7 +69,7 @@ def write_outputs(output_dir, cases, comparison):
 def run_comparison(**config):
     """Calculate S3 and S2 on each matching REE configuration in this runtime."""
     from biorefineries.ATT.analyses import scenarios, marine_tea
-    from biorefineries.ATT.analyses.att_s3_industrial import run
+    from biorefineries.ATT.analyses.s3_industrial import run
     cases, comparison = [], []
     for enabled in (True, False):
         c = run(enable_ree_recovery=enabled, **config)

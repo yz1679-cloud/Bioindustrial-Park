@@ -72,12 +72,12 @@ Run from repository root using the project's environment:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest biorefineries.ATT.test.test_att_s3
-.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.att_s3_industrial
-.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.att_s3_industrial --no-ree
-.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.att_s3_results
+.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_industrial
+.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_industrial --no-ree
+.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_results
 ```
 
-The exporter runs both REE configurations and recomputes S1/S2/S3 in the same runtime. It creates a timestamped directory under `biorefineries/ATT/results/att_s3/` containing strict `results.json`, process-product, heat-source, heat-allocation, summary and scenario-comparison CSVs. Each case includes the configuration, S1/S3 boundary-flow fingerprint check and mass-balance audit. `--out` can select a new directory; existing directories are rejected rather than overwritten. Run `python -m biorefineries.ATT.analyses.att_s3_results --help` to configure host/reference hours, utilization, approach, effectiveness, capital, auxiliary electricity, heat price and allocated heat burden. The S2 row inherits the unchanged S2 accounting limitation described above.
+The exporter runs both REE configurations and recomputes S1/S2/S3 in the same runtime. It creates a timestamped directory under `biorefineries/ATT/results/att_s3/` containing strict `results.json`, process-product, heat-source, heat-allocation, summary and scenario-comparison CSVs. Each case includes the configuration, S1/S3 boundary-flow fingerprint check and mass-balance audit. `--out` can select a new directory; existing directories are rejected rather than overwritten. Run `python -m biorefineries.ATT.analyses.s3_results --help` to configure host/reference hours, utilization, approach, effectiveness, capital, auxiliary electricity, heat price and allocated heat burden. The S2 row inherits the unchanged S2 accounting limitation described above.
 
 REE-on and REE-off runs complete using BioSTEAM 2.53.11. At 7,920 h/year overlap the source provides 14.48774 MW theoretical heat, of which 13.92932 MW is above the 159.039 C steam pinch. All 13.92932 MW is extracted under the baseline demand; 1.39293 MW is lost and 12.53638 MW reaches the steam header, displacing 12.53638 MW purchased steam. Unused heat remaining at the source is 0.55842 MW. The steam utility duty is equivalent to 11.90957 MW process-side heating after the S1 steam-transfer efficiency; this conversion is not a further deduction from displaced utility. Annual delivered steam heat is 99,288.17 MWh or 357,437.40 GJ. With REE on, remaining purchased steam is 3.53867 MW; remaining total external utility heat including unchanged fired heat is 17.04174 MW. With REE off these are 3.53279 and 16.96483 MW respectively.
 

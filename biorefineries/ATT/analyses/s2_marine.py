@@ -7,7 +7,7 @@
 # for license details.
 
 """
-att_s2_marine.py
+s2_marine.py
 ----------------
 ATT Scenario 2 (shipboard ATT with marine waste heat recovery): heat source and sink ledgers, allocation, WHR
 equipment, energy performance and load sensitivity, the S1/S2 TEA comparison for the operating mode of
@@ -17,7 +17,7 @@ the accounting checks. One simulation of the (unchanged) ATT S1 process at its c
 Outputs: biorefineries/ATT/results/tables/att_s2_*.csv (root: paths.results_root)
 
 Run from the repo root:
-    python biorefineries/ATT/analyses/att_s2_marine.py
+    python biorefineries/ATT/analyses/s2_marine.py
 """
 import sys
 import warnings

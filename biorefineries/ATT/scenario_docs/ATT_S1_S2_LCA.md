@@ -159,7 +159,7 @@ kg CO2e/kg H2.
 ## 5. Interpretation
 
 1. **Pairing.** The net GWP of 16.88 (S1) pairs with the MSP of 1.76; S2 with WHR pairs 15.44 with 1.99
-   (`ATT_S1_S2_TEA_FINAL.md`).
+   (`ATT_S1_S2_TEA.md`).
 2. **Main levers.**
    - U2 and boiler natural gas make up ≈ 86 % of the gross emissions (combustion plus upstream).
    - Heat electrification or renewable heat would act on the largest share.

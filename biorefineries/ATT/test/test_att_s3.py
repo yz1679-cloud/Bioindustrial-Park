@@ -63,7 +63,7 @@ class IndustrialHeatTests(unittest.TestCase):
 class S3IntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from biorefineries.ATT.analyses.att_s3_industrial import run
+        from biorefineries.ATT.analyses.s3_industrial import run
         cls.cases = [run(enable_ree_recovery=value) for value in (True, False)]
 
     def test_both_cases_conserve_heat_and_respect_temperatures(self):

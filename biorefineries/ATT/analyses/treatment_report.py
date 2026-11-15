@@ -15,7 +15,7 @@ from biorefineries.ATT.analyses.functional_unit import normalize_case
 def run():
     from biorefineries.ATT.analyses import scenarios, inventory, marine_tea, tea
     from biorefineries.ATT.analyses.breakdown import build_att_breakdown
-    from biorefineries.ATT.analyses.att_s3_industrial import run as run_s3
+    from biorefineries.ATT.analyses.s3_industrial import run as run_s3
     rows, balances, carbon, pseudo = [], [], [], []
     rate = float(tea._FIN['IRR'])
     duration = tea._FIN['duration']

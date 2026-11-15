@@ -1,6 +1,6 @@
 """Independent S3 screening on the unchanged land-based S1 flowsheet.
 
-Run: python -m biorefineries.ATT.analyses.att_s3_industrial [--no-ree]
+Run: python -m biorefineries.ATT.analyses.s3_industrial [--no-ree]
 """
 import argparse
 import json

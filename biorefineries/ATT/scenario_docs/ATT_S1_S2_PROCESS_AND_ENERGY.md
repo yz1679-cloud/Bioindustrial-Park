@@ -12,8 +12,8 @@ credits the Sargassum carbon of the solids in the LCA. All values are simulation
 Basis: 7920 h/yr (330 d × 24 h).
 
 Companion documents:
-- `ATT_S1_S2_TEA_FINAL.md`
-- `ATT_S1_S2_LCA_FINAL.md`
+- `ATT_S1_S2_TEA.md`
+- `ATT_S1_S2_LCA.md`
 - `ATT_S1_S2_DESIGN_BASIS_AND_LIMITATIONS.md`
 
 ## 1. Scenarios and system boundaries
