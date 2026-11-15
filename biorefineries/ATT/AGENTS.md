@@ -9,7 +9,7 @@
 - Generated results go to `results/` only. It is git-ignored; the default folders are in `analyses/paths.py`. Re-running a generator replaces its folder in place.
 - No `outputs/` folder, no dated or versioned folders (`..._20261107`, `_FINAL`, `_old`), no copies of reports or PDFs in git.
 - Do not commit runtime caches (numba, matplotlib) or `__pycache__`.
-- `scenario_docs/` holds hand-written documentation only. A number typed into a document is copied from a result and must be updated when the result changes.
+- `scenario_docs/` holds hand-written documentation of the assumptions, design bases, methods and limitations only. Do not type result numbers (MSP, GWP, costs, flows, duties) into it: they go stale with every model or environment change. Point to the generated report or table in `results/` instead. Input values (prices, efficiencies, experimental yields) belong there.
 
 ## Tests (`test/`)
 A test stays only if it does one of two things:

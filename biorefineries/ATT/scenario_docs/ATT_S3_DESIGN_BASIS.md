@@ -1,8 +1,10 @@
 # ATT S3: industrial waste-heat screening (provisional)
 
-## Status and implementation plan
+## Status and scope
 
-S3 is an independent accounting extension around the S1 flowsheet; it does not alter S1 or S2. It simulates S1 with the existing REE switch, reconciles post-HXN utility agents, allocates temperature-feasible carbide heat once and applies incremental costs and emissions to S1. The HXN warning and non-passing frozen regression tests remain material inherited limitations. Results are provisional engineering screens, not a designed heat-exchanger network or validated facility performance.
+S3 is an independent accounting extension around the S1 flowsheet; it does not alter S1 or S2. It simulates S1 with the existing REE switch, reconciles post-HXN utility agents, allocates temperature-feasible carbide heat once and applies incremental costs and emissions to S1. The HXN warning remains a material inherited limitation. Results are provisional engineering screens, not a designed heat-exchanger network or validated facility performance.
+
+This document records the design basis and assumptions. It contains no results; the numbers come from the model and are in the generated tables (see "Where the results are" at the end).
 
 The 2013 [CSB case study](https://www.csb.gov/file.aspx?DocumentId=5665) states that the Louisville facility had one 50 MW furnace with nominal capacity of 120,000 tons/year and did not produce acetylene for sale. This is historical capacity, not verified current throughput; the report does not specify short or metric tons. No carbide or acetylene process is simulated. The baseline S1 process itself already assumes waste carbide lime; this S3 extension does not modify that assumption or imply that the host supplies it.
 
@@ -46,47 +48,34 @@ TEA uses S1's DCF and incremental `extra_capital` and `extra_voc`; the capital a
 
 ## Steam reconciliation and inherited HXN warning
 
-`marine_whr.s1_heat_sinks` sums the unsigned `Q` of each lifecycle's `HXutility`. `System.heat_utilities` sums signed `HeatUtility` objects by agent over system cost units, including the HXN's negative original-utility adjustment and positive replacement utilities. For U3D the final `HXutility.Q` is 625.833 kW but its actual heat utility is **cooling water at -625.833 kW**, not steam. Treating that magnitude as positive steam caused the entire discrepancy. Other rows were checked against their actual utility agents; the S3-only correction uses positive residual LP steam duties, and fails if the resulting total does not reconcile.
+`marine_whr.s1_heat_sinks` sums the unsigned `Q` of each lifecycle's `HXutility`. `System.heat_utilities` sums signed `HeatUtility` objects by agent over system cost units, including the HXN's negative original-utility adjustment and positive replacement utilities. For U3D the final `HXutility.Q` can be a cooling duty: its actual heat utility is **cooling water at a negative duty**, not steam. Treating that magnitude as positive steam caused an earlier discrepancy of the sink inventory. Other rows were checked against their actual utility agents; the S3-only correction uses positive residual LP steam duties, and fails if the resulting total does not reconcile.
 
-REE-on reconciliation, kW, BioSTEAM 2.53.11:
+The reconciliation, by unit (D0 feed dryer, D2 and D3 CaCO3 dryers, C1 causticization, EC1 NaOH evaporator, U3D gas dryer regeneration), compares the gross steam duty, the HXN gross-minus-net change, the S3 net steam, and the old sink total. Gross and net values are utility duties including efficiency allowances; the difference is a signed accounting change, not necessarily physical process-to-process heat. In particular, the EC1 residual utility can be higher than its original utility because of HXN utility/efficiency accounting; it is not negative physical heat recovery. The U3D lifecycle of the HXN can receive more process heat than its duty and reject the surplus as cooling, leaving a small net duty: the network then overshoots and cools the stream, and S3 does not credit that cooler as a heat sink. Gross process heating elsewhere, cooling utilities, U2 natural gas, and RO1 natural gas are not mixed into the steam comparison. How much of the U3D duty the network covers depends on the heat-integration (`hensmith`) release, which is why the tests do not pin it.
 
-| Unit | Description | Gross steam | HXN gross minus net | S3 net steam / system contribution | Old sink total | Old difference |
-|---|---|---:|---:|---:|---:|---:|
-| D0 | Feed dryer | 9294.012 | 5145.407 | 4148.605 | 4148.605 | 0 |
-| D2 | CaCO3 dryer | 1961.325 | 1961.325 | 0 | 0 | 0 |
-| D3 | CaCO3 dryer | 77.869 | 77.869 | 0 | 0 | 0 |
-| C1 | Causticization | 1516.129 | 1516.129 | 0 | 0 | 0 |
-| EC1 | NaOH evaporator | 11896.632 | -29.816 | 11926.448 | 11926.448 | 0 |
-| U3D | Gas dryer regeneration | 112.292 | 112.292 | 0 | 625.833 | +625.833 |
-| Total | | 24858.258 | 8783.206 | 16075.052 | 16700.886 | +625.833 |
+The inherited HXN warning is **related**, not merely coincidental: BioSTEAM's balance metric sums absolute heat-exchanger loads, and the overshoot-plus-cooling appears in that metric. An independent enthalpy audit of all network stream lifecycles compares each original stream enthalpy change with its lifecycle stages, and each process-to-process exchanger balances its two stream enthalpy changes. S3 repeats these checks and refuses results if either maximum exceeds 1e-6 times the summed absolute original process enthalpy changes (`test_att_s3.py` enforces them). Thus the modeled stream balances close even though BioSTEAM's absolute-load metric can exceed its 2% threshold. The overshoot and corrective cooling remain physically questionable for a practical network; no warning was suppressed, and a practicable exchanger design remains outside this screening model.
 
-Gross and net values are utility duties including efficiency allowances; the difference is a signed accounting change, not necessarily physical process-to-process heat. In particular, the EC1 residual utility is 29.816 kW higher than its original utility because of HXN utility/efficiency accounting; it is not negative physical heat recovery. U3D process duty is 106.677 kW: its HXN lifecycle receives 8.546 + 723.965 kW of process heat and rejects 625.833 kW as cooling, leaving 106.677 kW net. The network therefore overshoots and cools the stream; S3 does not credit that cooler as a heat sink. Gross process heating elsewhere, cooling utilities, U2 natural gas, and RO1 natural gas are not mixed into the steam comparison.
+## Verification and generation
 
-The inherited HXN warning is **related**, not merely coincidental: BioSTEAM's balance metric sums absolute heat-exchanger loads, and this overshoot-plus-cooling appears in that metric. An independent enthalpy audit of all 12 network stream lifecycles found a maximum difference of 1.1e-11 kW between each original stream enthalpy change and its lifecycle stages. The 10 process-to-process exchangers each balance their two stream enthalpy changes within 4.5e-10 kW. S3 repeats these checks and refuses results if either maximum exceeds 1e-6 times the summed absolute original process enthalpy changes. Thus these modeled stream balances close even though BioSTEAM's absolute-load metric reports 2.835% against its 2% threshold. The overshoot and corrective cooling remain physically questionable for a practical network; no warning was suppressed, and a practicable exchanger design remains outside this screening model.
-
-The project declares `biosteam>=2.53.0`; the frozen test comments say 2.54.0. A controlled 2.54.0 install in a temporary directory, using the existing Thermosteam, failed before simulation: that release does not expose `biosteam.HeatExchangerNetwork`, which the unchanged S1 code requires. It cannot reproduce these baseline results without separate compatibility work. This does not establish the cause of the frozen numerical differences in 2.53.11.
-
-## Verification and results
-
-Run from repository root using the project's environment:
+Run from the repository root using the project's environment:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest biorefineries.ATT.test.test_att_s3
 .\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_industrial
 .\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_industrial --no-ree
 .\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_results
+.\.venv\Scripts\python.exe -m biorefineries.ATT.analyses.s3_figures
 ```
 
-The exporter runs both REE configurations and recomputes S1/S2/S3 in the same runtime. It creates a timestamped directory under `biorefineries/ATT/results/att_s3/` containing strict `results.json`, process-product, heat-source, heat-allocation, summary and scenario-comparison CSVs. Each case includes the configuration, S1/S3 boundary-flow fingerprint check and mass-balance audit. `--out` can select a new directory; existing directories are rejected rather than overwritten. Run `python -m biorefineries.ATT.analyses.s3_results --help` to configure host/reference hours, utilization, approach, effectiveness, capital, auxiliary electricity, heat price and allocated heat burden. The S2 row inherits the unchanged S2 accounting limitation described above.
+The exporter runs both REE configurations and recomputes S1/S2/S3 in the same runtime. It writes strict `results.json`, process-product, heat-source, heat-allocation, summary and scenario-comparison CSVs to `biorefineries/ATT/results/s3_results/` (git-ignored; regenerated in place; `--out` selects another directory). Each case includes the configuration, the S1/S3 boundary-flow fingerprint check and the mass-balance audit. Run `python -m biorefineries.ATT.analyses.s3_results --help` to configure host/reference hours, utilization, approach, effectiveness, capital, auxiliary electricity, heat price and allocated heat burden. S3 is an accounting extension and does not change the S1 boundary flows. S3 net AOC uses the S1 breakdown coproduct-revenue convention; raw BioSTEAM AOC is reported separately. The S2 row inherits the S2 accounting limitation described in `ATT_S2_DESIGN_BASIS.md`. The S3 figure set (PDF) is generated by `analyses/s3_figures.py` into `results/s3_figures/`.
 
-REE-on and REE-off runs complete using BioSTEAM 2.53.11. At 7,920 h/year overlap the source provides 14.48774 MW theoretical heat, of which 13.92932 MW is above the 159.039 C steam pinch. All 13.92932 MW is extracted under the baseline demand; 1.39293 MW is lost and 12.53638 MW reaches the steam header, displacing 12.53638 MW purchased steam. Unused heat remaining at the source is 0.55842 MW. The steam utility duty is equivalent to 11.90957 MW process-side heating after the S1 steam-transfer efficiency; this conversion is not a further deduction from displaced utility. Annual delivered steam heat is 99,288.17 MWh or 357,437.40 GJ. With REE on, remaining purchased steam is 3.53867 MW; remaining total external utility heat including unchanged fired heat is 17.04174 MW. With REE off these are 3.53279 and 16.96483 MW respectively.
+| Scenario | Process | Heat source |
+|---|---|---|
+| S1 | Land, REE on | Purchased utilities plus existing HXN |
+| S2 | Same process, shipboard, REE on | Marine engine sources |
+| S3 | Same land process, REE on | Hypothetical scaled carbide cooling |
 
-The incremental installed allowance is $6.268 million; incremental fixed operating allowance is $0.251 million/year; avoided steam cost is $2.197 million/year; added electricity costs about $0.078 million/year. Avoided boiler fuel is 15.67048 MW LHV using the S1 boiler efficiency of 0.80. With the $500/kW and 1% auxiliary placeholders and zero heat charge/burden, the provisional REE-on MSP is $1.462/kg H2 and GWP is 7.834 kg CO2e/kg H2. REE-off MSP is $1.526/kg H2 and GWP is 7.715 kg CO2e/kg H2. These figures include inherited S1 assumptions and are not validated design estimates. The original S2 extractor and its failing reconciliation test remain unchanged.
+## Where the results are
 
-The S1 boundary inventory reports 100,437.762 kg/h in and out with REE on (relative difference 1.56e-12) and 100,349.924 kg/h in and out with REE off (5.30e-12). S3 is an accounting extension and does not change these flows. S3 net AOC uses the S1 breakdown coproduct-revenue convention; raw BioSTEAM AOC is reported separately.
-
-| Scenario | Process | Heat source | Economics / GWP status |
-|---|---|---|---|
-| S1 | Land, REE on | Purchased utilities plus existing HXN | $1.820/kg H2; 17.637 kg CO2e/kg H2 in this environment |
-| S2 | Same process, shipboard, REE on | Marine engine sources | $2.047/kg H2; 16.204 kg CO2e/kg H2, existing S2 accounting, subject to extractor issue |
-| S3 | Same land process, REE on | Hypothetical scaled carbide cooling | $1.462/kg H2; 7.834 kg CO2e/kg H2, provisional assumptions above |
+The recovered heat, the economics and the GWP of S3 are in `results/s3_results/` and in the S1, S2 and S3 comparison of
+`python -m biorefineries.ATT.analyses.comprehensive_report` (`scenario_comparison.csv`). They include the inherited S1
+assumptions and are not validated design estimates.

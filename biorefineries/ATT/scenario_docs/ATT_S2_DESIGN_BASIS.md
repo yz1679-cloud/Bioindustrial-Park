@@ -5,6 +5,9 @@ implies that SPAR PYXIS, or any ship, can host ATT, or that class or OEM approva
 `ATT_S2_REFERENCES.md`. Data classes are as in `data/marine_whr.yaml`: PUB-MFR, PUB-RES, MODEL, DERIVED, USER,
 ENG (preliminary engineering estimate) and MISSING.
 
+This document records the design basis and assumptions. It contains no results; the numbers come from the model and are in
+the generated tables (see "Where the results are" at the end).
+
 ## 1. Scope and boundary
 
 - **Process.** The process is ATT Scenario 1, **unchanged**: the same flowsheet (including the ash split, the char split RS1, the salt crystallizer XL1, the REE recovery LC1/RO1, the F2 and F1 cake washing with recycled wash liquor, the drying of the two CaCO3 cakes in D2 and D3, and the carbide-lime paste),
@@ -53,37 +56,29 @@ The recoverable heat is temperature-limited, not a fixed fraction:
 - **Jacket water:** Q = fraction × gross, and requires T_JW ≥ T_supply + approach.
 - **Low load:** below 50 % load (collection at 15 %, anchored at 0 %) there is no qualifying heat (USER, conservative).
 
-Cross-check: the gross exhaust heat of 3.12 MW (to 25 °C) matches the previous 25.5 %-of-fuel estimate
-(3.123 MW).
-
-| Source | T | Gross MW | Recoverable MW | Delivered MW | Utilized MW |
-|---|---|---|---|---|---|
-| Exhaust (economizer → steam) | 240 → 160 °C | 3.12 | 1.16 | 1.04 | 1.04 |
-| Charge air (HT loop 95/85 °C) | 160 → 95 °C | 1.59 | 0.86 | 0.78 | 0.78 |
-| Jacket water (LT loop 80/70 °C) | 85 °C | 0.64 | 0.19 | 0.17 | 0 |
-| **Total** | | **5.34** | **2.21** | **1.99** | **1.82** |
-
-Charge-air gross is counted to 40 °C (the previous estimate gave 2.02 MW).
+The model reports, for each source (exhaust to steam, charge air to the HT loop, jacket water to the LT loop), the gross,
+recoverable, delivered and utilized heat. The charge-air gross heat is counted to 40 °C.
 
 ## 4. ATT heat sinks (MODEL, S1 at 5029.17 kg dry/h, after the S1 HXN)
 
 The sinks are the **purchased** heating that remains after the S1 heat exchanger network, which already recovers
 the U3 gas-cooler heat into C1, D0, D2 and D3. Those HXN savings are never offered again. The steam sinks add up to
-the system's net purchased LP steam of 15.13 MW (a test checks this).
+the system's net purchased LP steam (a test checks this).
 
-| Unit | Purchased before HXN (MW) | Purchased after HXN (MW) | Process T | WHR assigned (MW) | Remaining (MW) |
-|---|---|---|---|---|---|
-| D0 dryer (drum at 70 °C) | 9.29 | 3.13 | 70–74 °C | 1.82 (0.78 charge air + 1.04 steam) | 1.31 |
-| D2 and D3 CaCO3 cake dryers (drum at 70 °C) | 2.04 | 0 (covered by the HXN) | 74 °C | 0 | 0 |
-| C1 causticizer | 1.52 | 0 (covered by the HXN) | 90 °C | 0 | 0 |
-| EC1 evaporator | 11.90 | 11.93 | 90–91.5 °C boiling | 0 | 11.93 |
-| U3D sieve regeneration | 0.11 | 0.07 (the HXN covers 0.04) | 40 → 127 °C | 0 | 0.07 |
-| U2 feed preheater (S2 boundary, conceptual) | — | 0.29 (fired-equivalent) | 78 → 95 °C | 0 (no source left) | 0.29 |
-| U2 500 °C reaction heat (fired) | 13.43 | 13.14 | 500 °C | **not eligible** | 13.14 |
+| Unit | Process T |
+|---|---|
+| D0 dryer (drum at 70 °C) | 70–74 °C |
+| D2 and D3 CaCO3 cake dryers (drum at 70 °C) | 74 °C |
+| C1 causticizer | 90 °C |
+| EC1 evaporator | 90–91.5 °C boiling |
+| U3D sieve regeneration | 40 → 127 °C |
+| U2 feed preheater (S2 boundary, conceptual) | 78 → 95 °C |
+| U2 500 °C reaction heat (fired) | 500 °C, **not eligible** |
 
-EC1's purchased duty after the HXN (11.93 MW) is slightly above its unit duty (11.90 MW). BioSTEAM's HXN
-recomputes the utility exchanger of that stream; the after-HXN value is used because it is what the system
-actually purchases.
+For each sink the model reports the heating purchased before and after the HXN, the heat assigned from the WHR and the
+remainder. D2, D3 and C1 are covered by the HXN and have no purchased heat left. EC1's purchased duty after the HXN can
+be slightly above its unit duty: BioSTEAM's HXN recomputes the utility exchanger of that stream, and the after-HXN value is
+used because it is what the system actually purchases.
 
 **Allocation rules** (`marine_whr.allocate`):
 - Sources are taken from the lowest grade first (jacket, then charge air, then exhaust steam); sinks from the
@@ -92,21 +87,22 @@ actually purchases.
   are covered partly, from the cold end.
 - No sink receives more than its purchased duty, and each source is used once.
 - External heating after = before − assigned (≥ 0).
-- Heat delivered but not utilized: 0.17 MW of jacket water (all of it), for which no remaining sink is cold enough.
+- Heat that is delivered but not utilized is reported (the jacket-water loop, for which no remaining sink is cold enough).
 
-## 5. Added WHR equipment (installed USD)
+## 5. Added WHR equipment (installed cost)
 
-| Item | Installed USD | Basis |
-|---|---|---|
-| Exhaust economizer (513 m², U 0.05 kW/m²K) | 247 k | R-BST floating-head correlation, a proxy for finned water tubes |
-| Steam drum / boiler interface | 150 k | ENG placeholder (vendor data MISSING) |
-| Feedwater / condensate pump | 19 k | R-BST pump |
-| Charge-air HT recovery cooler (367 m²) | 198 k | R-BST proxy; OEM interface |
-| Scavenge-air loop pump | 21 k | R-BST pump |
-| Piping, valves, bypass, sootblowing, instruments, controls, insulation | 254 k | ENG, 40 % of the above |
-| **Total** | **0.89 M** | Sensitivity × 0.5 / × 2 and an IMO power-WHRS context of 5.2 MUSD |
+| Item | Basis |
+|---|---|
+| Exhaust economizer (U 0.05 kW/m²K) | R-BST floating-head correlation, a proxy for finned water tubes |
+| Steam drum / boiler interface | ENG placeholder (vendor data MISSING) |
+| Feedwater / condensate pump | R-BST pump |
+| Charge-air HT recovery cooler | R-BST proxy; OEM interface |
+| Scavenge-air loop pump | R-BST pump |
+| Piping, valves, bypass, sootblowing, instruments, controls, insulation | ENG, 40 % of the above |
 
-- Pump electricity is 10.0 kW.
+The total is reported by the model; sensitivity × 0.5 / × 2 and an IMO power-WHRS context of 5.2 MUSD.
+
+- The WHR pumps use electricity, which is added to the process power.
 - The jacket-water loop has no sink, so its plate exchanger and pump are not part of the equipment.
 - A buffer tank is optional and off; it is a transient buffer, not MW-hours of storage.
 - There is no ORC (future option only).
@@ -115,8 +111,8 @@ actually purchases.
 
 ## 6. Operating modes and feed logistics
 
-- **Operating mode**: 7 920 h/yr underway at 75 % MCR (idealized, USER-3). Same hourly capacity as S1, so 2 954 t H2/yr. The
-  results of this document are for this mode. Fewer hours are covered by the operating-hours sensitivity.
+- **Operating mode**: 7 920 h/yr underway at 75 % MCR (idealized, USER-3). Same hourly capacity as S1, so the same annual H2.
+  The model results are for this mode. Fewer hours are covered by the operating-hours sensitivity.
 - **Feed.** S1's 120.7 t dry/d of presscake (76.3 % moisture, about 509 t wet/d) is far above one 200 t/d
   fresh-seaweed collector, which gives about 30 t dry/d at 85 %. The 7 920 h mode would need the equivalent of about 4 such
   collectors. Feed supply and onboard storage are **unresolved feasibility limits**.
@@ -129,7 +125,7 @@ actually purchases.
   It is itemized as an "FCI factor" line.
 - **WHR CAPEX** is added after the multiplier, so there is no double marine factor.
 - **Labor.** S1 has no labor line: its FOC = 4 % of FCI lumps labor, maintenance and overhead. The S1 labor is
-  taken as **50 % of the S1 FOC** (ENG, no staffing basis; sensitivity 25–75 %), which is about 0.30 MUSD/yr.
+  taken as **50 % of the S1 FOC** (ENG, no staffing basis; sensitivity 25–75 %).
   - S2 FOC = 2.0 × S1 labor (fixed USD/yr, USER-1) + 50 % × 4 % × FCI_S2 for maintenance and overhead.
   - The multiplier therefore applies to labor only, and the CAPEX factor does not scale labor (a test checks
     this).
@@ -151,29 +147,7 @@ actually purchases.
 - The provisional items of S1 (lumped residue, which is credited as stored carbon, the sold CaCO3 and the residue-disposal
   assumption) are kept as they are.
 
-## 9. Results (`results/tables/att_s2_*.csv`, all PROVISIONAL)
-
-| Case | Hours | H2 t/yr | FCI MUSD | Labor MUSD/yr | Energy OPEX MUSD/yr | MSP USD/kg | GWP kg CO2e/kg H2 |
-|---|---|---|---|---|---|---|---|
-| S1 | 7 920 | 2 954 | 14.79 | 0.30 | 5.63 | 1.76 | 16.88 |
-| S2, no WHR | 7 920 | 2 954 | 18.48 | 0.59 | 5.63 | 2.05 | 16.88 |
-| S2, all three | 7 920 | 2 954 | 19.37 | 0.59 | 5.32 | 1.99 | 15.44 |
-
-**Energy:**
-- External heating falls from 28.6 to 26.7 MW (−6.4 %).
-- Purchased LP steam falls by 12.0 %.
-- The U2 fired duty (13.4 MW) is unchanged.
-
-**Engine load:**
-- At 50 % load, WHR utilizes 0.81 MW.
-- At 100 % load, it utilizes 3.32 MW.
-- At 15 % load and at anchor, it utilizes nothing.
-
-**Cost:**
-- The WHR saves 0.31 MUSD/yr of utilities, which recovers about a fifth of the floating cost penalty (+0.29 USD/kg H2
-  without WHR, +0.23 with it).
-
-## 10. Main limitations
+## 9. Main limitations
 
 1. No OEM part-load data: the exhaust and charge-air temperatures and flows are ENG estimates. The economizer
    backpressure, charge-air interface and jacket-water use need OEM approval.
@@ -185,3 +159,11 @@ actually purchases.
 7. The U2 feed preheater is conceptual (wet slurry). Hot-water use in D0 assumes compatible heating surfaces.
 8. The S1 provisional items (lumped residue, residue enthalpy, CaCO3 purity, drying and sales, residue disposal, and storage) carry
    over unchanged.
+
+All S2 results are **PROVISIONAL**.
+
+## Where the results are
+
+Generate them with the project interpreter; all go to the git-ignored `results/` folder:
+- `python biorefineries/ATT/analyses/s2_marine.py`: the S2 tables (`results/tables/att_s2_*.csv`);
+- `python -m biorefineries.ATT.analyses.comprehensive_report`: the S1, S2 and S3 comparison.
