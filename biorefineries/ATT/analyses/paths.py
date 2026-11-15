@@ -26,6 +26,7 @@ Layout (keys of ``output_dir``)::
     documentation/             documentation  master model documentation
     documentation/diagrams/    diagrams       process flow diagrams (1 kg/h basis)
     figures/                   figures        S1 and S2 flowsheet diagrams (run.py figures)
+    s3_figures/                s3_figures     the 10-page S3 figure PDF (analyses/s3_figures.py)
     validation/                validation     run summary, tests and QC tally
     tables/                    tables         ATT S1/S2 scenario tables (analyses/att_*.py)
 """
@@ -50,6 +51,7 @@ SUBDIRS = {
     "documentation": "documentation",
     "diagrams": "documentation/diagrams",
     "figures": "figures",
+    "s3_figures": "s3_figures",
     "validation": "validation",
     "tables": "tables",
 }

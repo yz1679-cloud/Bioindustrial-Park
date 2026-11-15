@@ -36,7 +36,10 @@ def s3_energy_and_eroi(industrial=None, system=None):
     output = H2_LHV_MJ_PER_KG * industrial["h2_kg_per_hour"] / dry
     external_s1 = fuel + boiler + electric
     external_s3 = external_s1 - avoided + aux
-    return dict(h2_output_MJ_per_kg_dry=output, external_S1_MJ_per_kg_dry=external_s1,
+    return dict(fuel_MJ_per_kg_dry=fuel, boiler_fuel_S1_MJ_per_kg_dry=boiler, electricity_MJ_per_kg_dry=electric,
+                avoided_boiler_fuel_MJ_per_kg_dry=avoided, whr_auxiliary_power_MJ_per_kg_dry=aux,
+                recovered_heat_MJ_per_kg_dry=recovered,
+                h2_output_MJ_per_kg_dry=output, external_S1_MJ_per_kg_dry=external_s1,
                 external_S3_MJ_per_kg_dry=external_s3, EROI_S1=output / external_s1, EROI_S3=output / external_s3,
                 EROI_S3_counting_recovered_heat=output / (external_s3 + recovered))
 
