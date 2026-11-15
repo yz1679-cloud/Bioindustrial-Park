@@ -1,10 +1,9 @@
 """Export independent S3 results and current S1/S2/S3 comparisons.
 
-The output directory must not already exist; no existing results are replaced.
+Default output: results/s3_results (git-ignored; regenerated in place).
 """
 import argparse
 import csv
-from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
@@ -21,7 +20,7 @@ def _clean(value):
 
 
 def _csv(path, rows, columns):
-    with path.open('x', encoding='utf-8', newline='') as f:
+    with path.open('w', encoding='utf-8', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction='ignore')
         writer.writeheader()
         writer.writerows(rows)
@@ -30,9 +29,9 @@ def _csv(path, rows, columns):
 def write_outputs(output_dir, cases, comparison):
     """Write complete case results and tables in a new, non-existing directory."""
     out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=False)
+    out.mkdir(parents=True, exist_ok=True)
     document = _clean(dict(cases=cases, scenario_comparison=comparison))
-    with (out / 'results.json').open('x', encoding='utf-8') as f:
+    with (out / 'results.json').open('w', encoding='utf-8') as f:
         json.dump(document, f, indent=2, allow_nan=False, default=float)
         f.write('\n')
     summary_keys = ['ree_enabled', 'operating_hours_per_year', 'h2_kg_per_hour', 'boundary_flows_unchanged',
@@ -95,7 +94,7 @@ def run_comparison(**config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--out', type=Path, help='New output directory; existing paths are never overwritten')
+    parser.add_argument('--out', type=Path, help='output directory (default: results/s3_results)')
     parser.add_argument('--reference-hours', type=float, default=7920.)
     parser.add_argument('--host-hours', type=float, default=7920.)
     parser.add_argument('--utilization', type=float, default=1.)
@@ -108,10 +107,8 @@ def main():
     options = vars(parser.parse_args())
     out = options.pop('out')
     if out is None:
-        from biorefineries.ATT.analyses.paths import results_root
-        out = results_root() / 'att_s3' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    if out.exists():
-        raise FileExistsError(f'output directory already exists: {out}')
+        from biorefineries.ATT.analyses.paths import output_dir
+        out = output_dir('s3_results')
     cases, comparison = run_comparison(**options)
     print('Saved S3 results to', write_outputs(out, cases, comparison).resolve())
 

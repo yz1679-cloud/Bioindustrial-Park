@@ -27,8 +27,11 @@ Layout (keys of ``output_dir``)::
     documentation/diagrams/    diagrams       process flow diagrams (1 kg/h basis)
     figures/                   figures        S1 and S2 flowsheet diagrams (run.py figures)
     s3_figures/                s3_figures     the 10-page S3 figure PDF (analyses/s3_figures.py)
+    s3_results/                s3_results     S3 industrial heat cases and tables (analyses/s3_results.py)
+    comprehensive_report/      comprehensive_report   the S1/S2/S3 HTML report with its CSV tables
+    treatment_report/          treatment_report       treatment-basis screening tables
     validation/                validation     run summary, tests and QC tally
-    tables/                    tables         ATT S1/S2 scenario tables (analyses/att_*.py)
+    tables/                    tables         ATT S1/S2 scenario tables (analyses/s2_marine.py and others)
 """
 import os
 from pathlib import Path
@@ -52,6 +55,9 @@ SUBDIRS = {
     "diagrams": "documentation/diagrams",
     "figures": "figures",
     "s3_figures": "s3_figures",
+    "s3_results": "s3_results",
+    "comprehensive_report": "comprehensive_report",
+    "treatment_report": "treatment_report",
     "validation": "validation",
     "tables": "tables",
 }

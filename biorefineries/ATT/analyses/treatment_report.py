@@ -3,13 +3,14 @@
 Capital charge is FCI times the ordinary capital recovery factor, not the DCF
 MSP calculation: working capital, financing, tax and startup are not modeled
 in this screening charge. Hydrogen revenue is excluded from net treatment cost.
-Run: python -m biorefineries.ATT.analyses.treatment_report --out NEW_DIRECTORY
+Run: python -m biorefineries.ATT.analyses.treatment_report [--out DIRECTORY]
 """
 import argparse
 import csv
 from pathlib import Path
 
 from biorefineries.ATT.analyses.functional_unit import normalize_case
+from biorefineries.ATT.analyses.paths import output_dir
 
 
 def run():
@@ -83,14 +84,13 @@ def run():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--out', type=Path, required=True, help='New directory; never overwrite existing output')
+    p.add_argument('--out', type=Path, help='output directory (default: results/treatment_report)')
     args = p.parse_args()
-    if args.out.exists():
-        raise FileExistsError(args.out)
+    args.out = args.out or output_dir('treatment_report')
     rows, balances, carbon, pseudo = run()
-    args.out.mkdir(parents=True, exist_ok=False)
+    args.out.mkdir(parents=True, exist_ok=True)
     for name, data in (('functional_units.csv', rows), ('elemental_balances.csv', balances), ('carbon_flows.csv', carbon), ('pseudo_flows.csv', pseudo)):
-        with (args.out / name).open('x', encoding='utf-8', newline='') as f:
+        with (args.out / name).open('w', encoding='utf-8', newline='') as f:
             w = csv.DictWriter(f, fieldnames=list(data[0]))
             w.writeheader()
             w.writerows(data)

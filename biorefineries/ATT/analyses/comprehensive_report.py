@@ -1,8 +1,8 @@
 """Build an offline, current-runtime ATT S1/S2/S3 technical report.
 
 Run from the repository root with the project interpreter:
-  python -m biorefineries.ATT.analyses.comprehensive_report --out NEW_DIRECTORY
-No model inputs or existing outputs are modified.
+  python -m biorefineries.ATT.analyses.comprehensive_report [--out DIRECTORY]   (default: results/comprehensive_report)
+No model inputs are modified; the output folder is regenerated in place (results/ is git-ignored).
 """
 import argparse
 import csv
@@ -15,6 +15,8 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+
+from biorefineries.ATT.analyses.paths import output_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
@@ -257,7 +259,7 @@ def collect():
 
 def _save_csv(path, rows):
     keys = list(dict.fromkeys(k for r in rows for k in r))
-    with path.open('x',encoding='utf-8',newline='') as f:
+    with path.open('w',encoding='utf-8',newline='') as f:
         w=csv.DictWriter(f,fieldnames=keys,extrasaction='raise'); w.writeheader()
         w.writerows({k: json.dumps(v, ensure_ascii=False) if isinstance(v,(list,dict)) else v for k,v in r.items()} for r in rows)
 
@@ -451,7 +453,7 @@ def write_report(out, data):
     failed=[row for row in qc if row['status']!='PASS']
     if failed:
         raise ValueError(f'Report reconciliation failed: {failed}')
-    out.mkdir(parents=True,exist_ok=False)
+    out.mkdir(parents=True,exist_ok=True)
     all_tables['report_qc']=qc
     for name, rows in all_tables.items(): _save_csv(out/(name+'.csv'),rows)
     payload=clean(dict(data, tables=all_tables))
@@ -497,12 +499,11 @@ def write_report(out, data):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--out',type=Path,help='New output directory (never overwritten)')
+    p.add_argument('--out',type=Path,help='output directory (default: results/comprehensive_report)')
     p.add_argument('--verify-tests',action='store_true',help='Run the full ATT suite and record its output in the release bundle')
     p.add_argument('--reference-report',type=Path,help='Previous HTML used for comparison; recorded by path and SHA-256')
     args=p.parse_args()
-    out=args.out or ROOT/'outputs'/('comprehensive_report_'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
-    if out.exists(): raise FileExistsError(out)
+    out=args.out or output_dir('comprehensive_report')
     verification={}
     if args.verify_tests:
         print('Running full ATT test suite...',flush=True)
