@@ -1,0 +1,36 @@
+# Hydrogen benchmarks for the S3 comparison (analyses/headline_results.py and analyses/s3_figures.py).
+# Illustrative plant-gate selling prices (analyst-selected, 2024 USD, U.S. plant gate; not quoted sales contracts, no inflation or
+# deflation applied) and well-to-production-gate GWP of the hydrogen the ATT hydrogen is assumed to replace one to one.
+# These are assumptions of the advisor package, not model results; no ATT MSP is used as a market price.
+
+benchmarks:
+  Gray:
+    technology: "Natural gas SMR without CCS"
+    price_usd_per_kg: 1.5
+    gwp_kg_co2e_per_kg: 9.3
+    cost_source: "NETL 2022 [1]; illustrative price, not its exact LCOH"
+    gwp_source: "Argonne 2024 [3], §5: 9.3, excluding plant CapEx"
+  Blue:
+    technology: "Natural gas SMR with high-capture CCS"
+    price_usd_per_kg: 2.0
+    gwp_kg_co2e_per_kg: 3.5
+    cost_source: "DOE Liftoff 2024 [2]: approximately $2/kg production cost"
+    gwp_source: "Argonne 2024 [3], Fig. 5: approximately 3.5, including CapEx"
+  Green:
+    technology: "Wind-powered PEM water electrolysis"
+    price_usd_per_kg: 6.0
+    gwp_kg_co2e_per_kg: 0.6
+    cost_source: "DOE Liftoff 2024 [2]: midpoint of $5–7/kg cost range"
+    gwp_source: "Argonne 2024 [3], Fig. 5: rounded wind PEM value, including CapEx"
+
+references:
+  - title: "[1] Lewis et al. (NETL), 2022 · Commercial fossil-based H2 production"
+    url: "https://www.hydrogen.energy.gov/docs/hydrogenprogramlibraries/pdfs/review22/fe005_lewis_2022_o-pdf.pdf"
+    note: "U.S. SMR cost context; 2018-dollar cost basis. Gray $1.50 is an illustrative selection, not an extracted NETL result."
+  - title: "[2] U.S. DOE · Pathways to Commercial Liftoff: Clean Hydrogen, 2024 Update"
+    url: "https://www.energy.gov/sites/default/files/2025-07/LIFTOFF_DOE_Clean-Hydrogen-2024-Update.pdf"
+    note: "2024 developer-cost context; approximately $2/kg reforming with CCS and $5–7/kg electrolysis before 45V."
+  - title: "[3] Elgowainy et al., 2024 · U.S. hydrogen pathways, Argonne R&D GREET"
+    url: "https://doi.org/10.3389/fenrg.2024.1473383"
+    note: "Frontiers in Energy Research 12:1473383, §5 and Fig. 5. CCS performance and renewable technology are pathway-specific."
+references_note: "Sources checked November 10, 2026. DOE 2024 PDF text was accessible through the search index; its direct URL returned 404."

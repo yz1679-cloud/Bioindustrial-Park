@@ -6,19 +6,16 @@ zero energy burden, so only the auxiliary power of the heat recovery is added. T
 are assumptions of the advisor report (references in BENCHMARKS), not model results.
 """
 from biorefineries.ATT.analyses import inventory, scenarios
+from biorefineries.ATT.utils import load_assumptions
 from biorefineries.ATT.analyses.s3_industrial import run as s3_run
 from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
 
 H2_LHV_MJ_PER_KG = 120.0
 MJ_PER_KWH = 3.6
 
-# name: (H2 price [USD/kg], H2 GWP [kg CO2e/kg]); sources: Lewis et al. (NETL) 2022, DOE Liftoff Clean Hydrogen 2024 update,
-# Elgowainy et al. 2024 (Argonne R&D GREET), Front. Energy Res. 12:1473383, Sec. 5 and Fig. 5.
-BENCHMARKS = {
-    "Gray": (1.5, 9.3),     # natural gas SMR without CCS; the price is an illustrative selection
-    "Blue": (2.0, 3.5),     # natural gas SMR with high-capture CCS
-    "Green": (6.0, 0.6),    # wind-powered PEM electrolysis; the price is the midpoint of 5 to 7
-}
+# name: (H2 price [USD/kg], H2 GWP [kg CO2e/kg]), from data/hydrogen_benchmarks.yaml (illustrative assumptions with their sources)
+BENCHMARKS = {name: (float(v["price_usd_per_kg"]), float(v["gwp_kg_co2e_per_kg"]))
+              for name, v in load_assumptions("hydrogen_benchmarks.yaml")["benchmarks"].items()}
 
 
 def s3_energy_and_eroi(industrial=None, system=None):

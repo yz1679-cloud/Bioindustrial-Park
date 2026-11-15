@@ -26,6 +26,7 @@ from matplotlib.patches import Rectangle, Patch
 from biorefineries.ATT.analyses import headline_results as hr
 from biorefineries.ATT.analyses import inventory, scenarios
 from biorefineries.ATT.analyses.paths import output_dir
+from biorefineries.ATT.utils import load_assumptions
 
 COL = dict(ink='#233746',muted='#5E6C76',line='#D8E0E5',wash='#F2F5F7',
     materials='#4477AA',heat='#CC7744',electricity='#D3A638',waste='#88949A',
@@ -40,15 +41,14 @@ plt.rcParams.update({'font.family':'DejaVu Sans','font.size':10,'axes.labelsize'
     'axes.grid':False,'savefig.facecolor':'white','figure.facecolor':'white',
     'text.parse_math':False})
 
-# Hydrogen benchmarks: the prices and GWP values are in headline_results; the sources are listed here.
-BENCHMARKS=[dict(name='Gray',technology='Natural gas SMR without CCS',
-        cost_source='NETL 2022 [1]; illustrative price, not its exact LCOH',ci_source='Argonne 2024 [3], §5: 9.3, excluding plant CapEx'),
-    dict(name='Blue',technology='Natural gas SMR with high-capture CCS',
-        cost_source='DOE Liftoff 2024 [2]: approximately $2/kg production cost',ci_source='Argonne 2024 [3], Fig. 5: approximately 3.5, including CapEx'),
-    dict(name='Green',technology='Wind-powered PEM water electrolysis',
-        cost_source='DOE Liftoff 2024 [2]: midpoint of $5–7/kg cost range',ci_source='Argonne 2024 [3], Fig. 5: rounded wind PEM value, including CapEx')]
-for _b in BENCHMARKS:
-    _b['price'], _b['ci'] = hr.BENCHMARKS[_b['name']]
+# Assumptions of the figures, from the yaml files: hydrogen benchmarks (data/hydrogen_benchmarks.yaml), the DCF and the
+# disposal price (data/tea.yaml).
+_HB = load_assumptions('hydrogen_benchmarks.yaml')
+BENCHMARKS=[dict(name=name,technology=v['technology'],cost_source=v['cost_source'],ci_source=v['gwp_source'],
+                 price=hr.BENCHMARKS[name][0],ci=hr.BENCHMARKS[name][1]) for name,v in _HB['benchmarks'].items()]
+_TEA = load_assumptions('tea.yaml')
+DISPOSAL_USD_PER_KG = -float(_TEA['prices']['disposal_solid']['value'])      # the solid-waste disposal price, a positive cost
+COST_YEAR = int(_TEA['cost_year']['basis_year'])
 
 CHECKS = []
 def check(name, actual, expected, atol=1e-7, rtol=1e-8):
@@ -82,11 +82,11 @@ def _stages():
         baseline = tea.evaluate_att_tea(system)
         cake_ids = tuple(baseline['caco3_sales'])
         try:
-            # P0: no CaCO3 sale; both cakes and the ATT char are disposed of at the existing 0.04 USD/kg disposal price
+            # P0: no CaCO3 sale; both cakes and the ATT char are disposed of at the solid-waste disposal price of tea.yaml
             result = tea.evaluate_att_tea(system, caco3_sales=None,
-                price_overrides={**scenarios.tea_config()['price_overrides'], 'att_char': -0.04})
+                price_overrides={**scenarios.tea_config()['price_overrides'], 'att_char': -DISPOSAL_USD_PER_KG})
             for ID in cake_ids:
-                if not np.isclose(streams[ID].price, -0.04):
+                if not np.isclose(streams[ID].price, -DISPOSAL_USD_PER_KG):
                     raise ValueError('Full cake disposal not enabled: '+ID)
             lca.apply_att_gwp(system, overrides=scenarios.lca_overrides())
             h2 = float(streams['h2_product'].imass['H2'])
@@ -94,7 +94,8 @@ def _stages():
             cake = sum(float(streams[ID].F_mass) for ID in cake_ids)
             char = float(streams['att_char'].F_mass)
             stages['P0'] = dict(msp=result['msp'], gwp=gwp, cake_disposal_kgph=cake, char_disposal_kgph=char,
-                cake_disposal_usd_per_year=cake*0.04*system.operating_hours, char_disposal_usd_per_year=char*0.04*system.operating_hours)
+                cake_disposal_usd_per_year=cake*DISPOSAL_USD_PER_KG*system.operating_hours,
+                char_disposal_usd_per_year=char*DISPOSAL_USD_PER_KG*system.operating_hours)
         finally:
             tea.evaluate_att_tea(system)
             for st in (*system.feeds, *system.products):
@@ -434,7 +435,7 @@ def cover(book,E):
         f.text(x+.015,.716,value,fontsize=25,weight='bold')
         f.text(x+.015,.678,txt,fontsize=8.2,color=COL['muted'])
     rows=[['Dry Sargassum presscake',f'{DRY:,.2f} kg/h','Total dry mass, including ash; not DAF'],
-        ['H2 component / H2-rich gas',f'{H2:,.5f} / {B["products"]["h2_product_gas_kgph"]:,.5f} kg/h','20 bar; no PSA; only H2 component earns H2 credits'],
+        ['H2 component / H2-rich gas',f'{H2:,.5f} / {B["products"]["h2_product_gas_kgph"]:,.5f} kg/h','No PSA; only the H2 component earns H2 credits'],
         ['H2 yield / annual dry throughput',f'{YIELD:,.5f} kg/t / {ANNUAL_T:,.2f} t/y',f'{HOURS:,.0f} operating h/y'],
         ['Industrial WHR delivered',f'{S["used_average_kW"]:,.2f} kW','Useful LP steam from H1 and H3; upstream heat burden = 0'],
         ['Treatment cost before H2 revenue',f'${ECON["net_treatment_cost_usd_per_year"]/ANNUAL_T:,.2f}/t dry','Existing screening capital convention; not the DCF MSP']]
@@ -549,8 +550,10 @@ def contribution_page(book, items, kind, original_lca=None):
     fig.text(.09, .247, f'◆ Net {net:.6f} {unit}', fontsize=13, weight='bold')
     bottom = contribution_table(fig, items, .035 if dcf else .058)
     if dcf:
-        note(fig, 'DCF: 10% IRR; 20 operating years; 21% income tax; MACRS7; 60% debt at 8% for 10 years; working capital = 5% FCI.',
-             .475, bottom-.024, 79, 9.2)
+        f_ = _TEA['financial']
+        note(fig, f"DCF: {f_['IRR']:.0%} IRR; {f_['duration'][1]-f_['duration'][0]} operating years; {f_['income_tax']:.0%} income tax; "
+                  f"{f_['depreciation']}; {f_['finance_fraction']:.0%} debt at {f_['finance_interest']:.0%} for {f_['finance_years']} years; "
+                  f"working capital = {f_['WC_over_FCI']:.0%} FCI.", .475, bottom-.024, 79, 9.2)
         note(fig, f"WHR additions included above: installed capital ${S['incremental_capex_usd']:,.0f}; fixed OPEX ${S['incremental_foc_usd_per_year']:,.0f}/y; auxiliary power ${S['auxiliary_electricity_cost_usd_per_year']:,.0f}/y.",
              .475, bottom-.077, 79, 9.2)
         residual = abs(math.fsum(v for _, v, _ in items)-net)
@@ -574,22 +577,14 @@ def benchmark_assumptions(book):
     for b in BENCHMARKS:
         rows.append([b['name']+' H2\n'+b['technology'],f"${b['price']:.2f}/kg",f"{b['ci']:.2f} kg CO2e/kg",b['cost_source'],b['ci_source']])
     table(f,['Reference case','Selling price','GWP factor','Economic basis','LCA basis'],rows,[.21,.11,.13,.27,.28],top=.813,bottom=.56,fs=9)
-    paragraph(f,'Price year and geography: all three prices are analyst-selected 2024-USD screening assumptions for a U.S. plant gate. They are informed by production-cost studies, not quoted sales contracts. No price inflation or deflation is applied; the ATT model retains its existing 2020 equipment cost basis and mixed-year operating prices. This is not a harmonized price-year comparison.',y=.537,width=147,fs=9)
-    paragraph(f,'Environmental boundary: U.S. well-to-production-gate H2. Gray uses the published 9.3 value excluding plant capital emissions; Blue and Green are rounded Figure 5 values including embodied capital. This small boundary mismatch is retained explicitly rather than claiming a harmonized inventory. Delivery, dispensing and further purification are excluded. ATT gas is 98.89 mol% H2 at 20 bar, with no PSA; full selling-price realization and 1:1 H2 substitution are provisional.',y=.405,width=147,fs=9)
-    refs=[('[1] Lewis et al. (NETL), 2022 · Commercial fossil-based H2 production',
-        'https://www.hydrogen.energy.gov/docs/hydrogenprogramlibraries/pdfs/review22/fe005_lewis_2022_o-pdf.pdf',
-        'U.S. SMR cost context; 2018-dollar cost basis. Gray $1.50 is an illustrative selection, not an extracted NETL result.'),
-        ('[2] U.S. DOE · Pathways to Commercial Liftoff: Clean Hydrogen, 2024 Update',
-        'https://www.energy.gov/sites/default/files/2025-07/LIFTOFF_DOE_Clean-Hydrogen-2024-Update.pdf',
-        '2024 developer-cost context; approximately $2/kg reforming with CCS and $5–7/kg electrolysis before 45V.'),
-        ('[3] Elgowainy et al., 2024 · U.S. hydrogen pathways, Argonne R&D GREET',
-        'https://doi.org/10.3389/fenrg.2024.1473383',
-        'Frontiers in Energy Research 12:1473383, §5 and Fig. 5. CCS performance and renewable technology are pathway-specific.')]
+    paragraph(f,'Price year and geography: all three prices are analyst-selected 2024-USD screening assumptions for a U.S. plant gate. They are informed by production-cost studies, not quoted sales contracts. No price inflation or deflation is applied; the ATT model retains its existing ' + str(COST_YEAR) + ' equipment cost basis and mixed-year operating prices. This is not a harmonized price-year comparison.',y=.537,width=147,fs=9)
+    paragraph(f,'Environmental boundary: U.S. well-to-production-gate H2. Gray uses the published ' + f"{BENCHMARKS[0]['ci']:g}" + ' value excluding plant capital emissions; Blue and Green are rounded Figure 5 values including embodied capital. This small boundary mismatch is retained explicitly rather than claiming a harmonized inventory. Delivery, dispensing and further purification are excluded. ATT gas is H2-rich at 2 MPa, with no PSA; full selling-price realization and 1:1 H2 substitution are provisional.',y=.405,width=147,fs=9)
+    refs=[(r['title'],r['url'],r['note']) for r in _HB['references']]
     y=.255
     for title,url,txt in refs:
         f.text(.05,y,title,fontsize=9,color=COL['materials'],url=url,weight='bold')
         f.text(.05,y-.023,txt,fontsize=8.1,color=COL['muted']); y-=.056
-    f.text(.05,.086,'Sources checked November 10, 2026. DOE 2024 PDF text was accessible through the search index; its direct URL returned 404.',fontsize=7.5,color=COL['muted'])
+    f.text(.05,.086,_HB['references_note'],fontsize=7.5,color=COL['muted'])
     book.save(f)
 
 
@@ -641,13 +636,13 @@ def waterfall_page(book):
         ax.set_title('4A  Hydrogen MSP' if i==0 else '4B  Carbon intensity',loc='left',pad=16)
         check('Waterfall telescopes '+key,values[0]+sum(values[j]-values[j-1] for j in range(1,4)),values[-1])
     P=C['stages']
-    rows=[['P0','Off','Off','No sale; full cakes + char at $0.04/kg',fmt(P['P0']['msp'],6),fmt(P['P0']['gwp'],6)],
+    rows=[['P0','Off','Off',f'No sale; full cakes + char at ${DISPOSAL_USD_PER_KG:g}/kg',fmt(P['P0']['msp'],6),fmt(P['P0']['gwp'],6)],
         ['P1 = S1 Off','Off','Off','CaCO3 component sold; char $0/kg',fmt(P['P1']['msp'],6),fmt(P['P1']['gwp'],6)],
         ['P2 = S1 On','On','Off','Retain P1 commercialization',fmt(P['P2']['msp'],6),fmt(P['P2']['gwp'],6)],
         ['P3 = S3 On','On','On','Retain P2; add existing S3 WHR',fmt(P['P3']['msp'],6),fmt(P['P3']['gwp'],6)]]
     table(f,['Stage','REE','WHR','Cake / char economics','MSP','GWP'],rows,[.15,.07,.07,.43,.14,.14],top=.307,bottom=.13,fs=8.3)
     p0=P['P0']
-    paragraph(f,f"Only P0 adds new disposal assumptions: both full CaCO3 cakes ({p0['cake_disposal_kgph']:,.2f} kg/h) and ATT char ({p0['char_disposal_kgph']:,.2f} kg/h) incur $0.04/kg. P0 cake disposal is ${p0['cake_disposal_usd_per_year']:,.2f}/y and char disposal is ${p0['char_disposal_usd_per_year']:,.2f}/y. No new disposal or carbon credit is assigned to att_residue_untracked. Carbon storage treatment is identical across sale/disposal; P0 → P1 GWP change is zero.",y=.126,width=166,fs=8)
+    paragraph(f,f"Only P0 adds new disposal assumptions: both full CaCO3 cakes ({p0['cake_disposal_kgph']:,.2f} kg/h) and ATT char ({p0['char_disposal_kgph']:,.2f} kg/h) incur ${DISPOSAL_USD_PER_KG:g}/kg. P0 cake disposal is ${p0['cake_disposal_usd_per_year']:,.2f}/y and char disposal is ${p0['char_disposal_usd_per_year']:,.2f}/y. No new disposal or carbon credit is assigned to att_residue_untracked. Carbon storage treatment is identical across sale/disposal; P0 → P1 GWP change is zero.",y=.126,width=166,fs=8)
     book.save(f)
 
 
