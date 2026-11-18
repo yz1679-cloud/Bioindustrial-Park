@@ -57,14 +57,16 @@ CASE_LABELS = {k: v["label"] for k, v in ALL_SCENARIOS.items()}
 SHORT_LABELS = {k: v["short"] for k, v in ALL_SCENARIOS.items()}
 
 
-def create(spec=ATT_S1, dry_kgph=None, ree_recovery=None, ree_grade=None, ree_params=None):
+def create(spec=ATT_S1, dry_kgph=None, ree_recovery=None, ree_grade=None, ree_params=None,
+           feedstock_dry_composition=None):
     """Simulated system of a scenario; operating hours are set. ``dry_kgph`` defaults to the scenario capacity."""
     ref = inv.get_att_reference_scale()
     dry_kgph = dry_feed_kgph(spec) if dry_kgph is None else dry_kgph
     system = inv._simulate(att_system.create_att_system(
         dry_sargassum_kgph=dry_kgph,
         psa=spec["psa"], co2_scrubber=spec["scrubber"],
-        ree_recovery=ree_recovery, ree_grade=ree_grade, ree_params=ree_params), dry_kgph)
+        ree_recovery=ree_recovery, ree_grade=ree_grade, ree_params=ree_params,
+        feedstock_dry_composition=feedstock_dry_composition), dry_kgph)
     system.operating_hours = ref["operating_hours_per_year"]
     return system
 

@@ -11,12 +11,17 @@ from biorefineries.ATT.analyses import industrial_whr as whr
 
 def run(enable_ree_recovery=True, reference_hours=7920., host_hours=7920., utilization=1.,
         approach_C=20., effectiveness=.9, installed_cost_usd_per_kW=500.,
-        auxiliary_kW_per_kW=.01, heat_price_usd_per_MWh=0., heat_burden_kg_per_MWh=0.):
+        auxiliary_kW_per_kW=.01, heat_price_usd_per_MWh=0., heat_burden_kg_per_MWh=0., system=None,
+        return_tea=False):
     """Simulate S1 and add an illustrative industrial heat accounting case.
 
     Host hours imply constant annual nominal production scaled by utilization;
     annual ATT recovery assumes the two plants overlap for min(host, ATT) hours.
     Capital and auxiliaries are explicitly uncertain screening inputs, not quotes.
+    ``system`` may supply an already simulated ATT system for composition
+    sensitivities; when supplied, its REE setting takes precedence.
+    ``return_tea`` exposes the evaluated TEA object for detailed accounting;
+    the default return remains JSON-compatible.
     """
     import biosteam as bst
     from biorefineries.ATT.analyses import scenarios, marine_whr, lca, tea, inventory
@@ -25,7 +30,9 @@ def run(enable_ree_recovery=True, reference_hours=7920., host_hours=7920., utili
     for x in (installed_cost_usd_per_kW, auxiliary_kW_per_kW, heat_price_usd_per_MWh, heat_burden_kg_per_MWh):
         if not math.isfinite(x) or x < 0:
             raise ValueError('cost, auxiliary and burden inputs must be finite and nonnegative')
-    system = scenarios.create(scenarios.ATT_S1, ree_recovery=enable_ree_recovery)
+    if system is None:
+        system = scenarios.create(scenarios.ATT_S1, ree_recovery=enable_ree_recovery)
+    enable_ree_recovery = any(u.ID == 'LC1' for u in system.units)
     def boundary_snapshot():
         return tuple((stream.ID, float(stream.T), float(stream.P), tuple(float(x) for x in stream.mass))
                      for stream in (*system.feeds, *system.products))
@@ -78,7 +85,7 @@ def run(enable_ree_recovery=True, reference_hours=7920., host_hours=7920., utili
     products = {stream.ID: dict(mass_kg_per_h=float(stream.F_mass),
                 **{f'{component}_kg_per_h': float(stream.imass[component]) for component in ('H2', 'CaCO3', 'REO')})
                 for stream in system.products}
-    return dict(ree_enabled=enable_ree_recovery, sources=sources, sinks=sinks, allocations=allocations,
+    output = dict(ree_enabled=enable_ree_recovery, sources=sources, sinks=sinks, allocations=allocations,
         operating_hours_per_year=hours, product_flows=products, boundary_flows_unchanged=boundary_snapshot() == original_flows,
         configuration=dict(reference_hours=reference_hours, host_hours=host_hours, utilization=utilization,
                            approach_C=approach_C, effectiveness=effectiveness,
@@ -115,6 +122,9 @@ def run(enable_ree_recovery=True, reference_hours=7920., host_hours=7920., utili
         avoided_emissions_kg_per_hour=avoided_emissions, auxiliary_emissions_kg_per_hour=aux_emissions,
         heat_burden_kg_per_hour=heat_emissions, h2_kg_per_hour=h2,
         net_operating_benefit_usd_per_year=avoided_cost_h*hours-sum(x[1] for x in voc[1:])-installed*float(tea._FIN['foc_frac_of_fci']))
+    if return_tea:
+        output['tea_result'] = result
+    return output
 
 
 def main():

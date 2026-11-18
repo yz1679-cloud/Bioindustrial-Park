@@ -84,6 +84,7 @@ def create_att_system(
     ree_params=None,
     psa=None,
     co2_scrubber=None,
+    feedstock_dry_composition=None,
 ):
     """
     Build the alkaline thermal treatment (ATT) process.
@@ -117,6 +118,11 @@ def create_att_system(
         Purify the compressed gas in a PSA (U3P, 90 % H2 recovery, tail gas burned) or not. None uses
         att.yaml gas_treatment.psa_enabled (ATT Scenario 1: False; the scrubbed, dried and
         compressed gas leaves as h2_product).
+    feedstock_dry_composition : dict or None
+        Optional dry presscake mass fractions for composition sensitivities.
+        Applied before the ash split; moisture and all other inputs retain
+        their configured values. The supplied fractions must sum to one.
+        Neither the supplied mapping nor baseline feedstock data are mutated.
 
     Returns
     -------
@@ -164,10 +170,17 @@ def create_att_system(
         / (1.0 - raw_moisture_frac)
     )
 
+    if feedstock_dry_composition is not None:
+        composition = dict(feedstock_dry_composition)
+        if (set(composition) != set(feed_params["dry_composition"])
+                or any(not 0.0 <= float(x) <= 1.0 for x in composition.values())
+                or abs(sum(composition.values()) - 1.0) > 1e-10):
+            raise ValueError("Dry composition override must contain the baseline species, nonnegative fractions summing to one")
     raw_feed = make_sargassum_feed(
         fresh_feed_kgph=fresh_feed_kgph,
         moisture_frac=raw_moisture_frac,
-        dry_composition=feed_params["dry_composition"],
+        dry_composition=(feed_params["dry_composition"] if feedstock_dry_composition is None
+                         else feedstock_dry_composition),
     )
 
     raw_feed.ID = "att_sargassum_feed"
