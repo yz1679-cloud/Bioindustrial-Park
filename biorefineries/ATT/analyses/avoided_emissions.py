@@ -9,12 +9,21 @@ ATT/results/avoided_emissions. No stream factors or process impacts are set here
 import argparse
 from copy import deepcopy
 import json
+import math
+
+from chemicals.elements import periodic_table
 
 from biorefineries.ATT.analyses import inventory, lca
 from biorefineries.ATT.analyses.paths import ATT_ROOT, output_dir
+from biorefineries.ATT.units._att import _SARGASSUM_DRY_IDS
 
-__all__ = ('gcc_production_emissions', 'decomposition_emissions', 'decomposition_emissions_dry',
-           'raw_sargassum_equivalent', 'calculate_avoided_emissions', 'generate')
+__all__ = ('gcc_production_emissions', 'organic_inventory', 'boyle_coefficients',
+           'decomposition_emissions', 'calculate_avoided_emissions', 'scenario_rows', 'generate')
+
+_ELEMENTS = ('C', 'H', 'O', 'N', 'S')
+_INORGANIC_IDS = frozenset(('Ash', 'NaCl', 'KCl', 'REO'))
+_PARAMETERS = ('anaerobic_fraction', 'anaerobic_biodegradability',
+               'aerobic_mineralization', 'methane_realization')
 
 
 def assumptions():
@@ -29,47 +38,91 @@ def gcc_production_emissions(products, emission_factor=None):
     return sum(float(s.imass['CaCO3']) for s in products) * float(emission_factor)
 
 
-def raw_sargassum_equivalent(presscake_mass, presscake_water, raw_moisture=None):
-    """Optional reporting equivalence only; not the methane calculation basis."""
-    if raw_moisture is None:
-        raw_moisture = assumptions()['avoided_sargassum_decomposition_emissions']['reference_raw_moisture_fraction']
-    return (float(presscake_mass) - float(presscake_water)) / (1. - float(raw_moisture))
+def organic_inventory(feed):
+    """CHONS kmol and kg on the supplied inlet basis (normally kg/h).
 
-
-def decomposition_emissions(raw_mass, ch4_gwp100=None):
-    """Published wet-reference emissions; ATT calculations use dry solids below.
-
-    Retained for reference checks and wet-basis reporting. Biogenic CO2 is
-    informational, never CO2e.
+    Use the process's biomass component register and native chemical MWs;
+    water, ash minerals, salts and REO do not enter the empirical formula.
+    Atomic masses come from the same elements library as ThermoSTEAM.
     """
-    c = assumptions()['avoided_sargassum_decomposition_emissions']
-    gwp = float(c['ch4_gwp100'] if ch4_gwp100 is None else ch4_gwp100)
-    gas = {name: sum(float(s['mass_fraction']) * float(s[name]) for s in c['species'].values()) / 1000.
-           for name in ('CH4', 'CO2')}
-    ch4 = float(raw_mass) * gas['CH4']
-    return dict(avoided_ch4_kg=ch4, biogenic_co2_kg=float(raw_mass) * gas['CO2'],
-                avoided_co2e_kg=ch4 * gwp, ch4_gwp100=gwp,
-                weighted_ch4_g_per_kg_raw=gas['CH4'] * 1000.,
-                weighted_co2_g_per_kg_raw=gas['CO2'] * 1000.)
+    atoms = dict.fromkeys(_ELEMENTS, 0.)
+    organics = 0.
+    for ID in _SARGASSUM_DRY_IDS:
+        if ID in _INORGANIC_IDS:
+            continue
+        mass = float(feed.imass[ID])
+        if mass == 0.:
+            continue
+        chemical = feed.chemicals[ID]
+        if mass < 0. or not chemical.atoms.get('C') or set(chemical.atoms)-set(_ELEMENTS):
+            raise ValueError(f'Organic component {ID} must have nonnegative mass and a CHONS formula.')
+        organics += mass
+        kmol = mass / chemical.MW
+        for e in _ELEMENTS:
+            atoms[e] += kmol * chemical.atoms.get(e, 0.)
+    carbon = atoms['C']
+    return dict(wet_mass_kg=float(feed.F_mass),
+                dry_mass_kg=float(feed.F_mass-feed.imass['Water']),
+                organic_mass_kg=organics, element_kmol=atoms,
+                element_mass_kg={e: n*periodic_table[e].MW for e, n in atoms.items()},
+                normalized_formula={e: n/carbon if carbon else 0. for e, n in atoms.items()},
+                formula_unit_kmol=carbon,
+                formula_mw_kg_per_kmol=organics/carbon if carbon else 0.)
 
 
-def decomposition_emissions_dry(dry_mass_kg, ch4_gwp100=None):
-    """Potential emissions from actual dry solids, independent of feed water.
+def boyle_coefficients(atoms):
+    """Boyle stoichiometry; positive H2O denotes water consumed, not emitted."""
+    a, b, c, d, e = (float(atoms.get(k, 0.)) for k in _ELEMENTS)
+    ch4 = a/2. + b/8. - c/4. - 3.*d/8. - e/4.
+    co2 = a-ch4
+    if min(ch4, co2) < -1e-12:
+        raise ValueError('The organic composition gives a negative Boyle gas coefficient.')
+    return dict(CH4=max(0., ch4), CO2=max(0., co2),
+                H2O=a-b/4.-c/2.+3.*d/4.+e/2., NH3=d, H2S=e)
 
-    Derive kg CH4/t dry from the existing published weighted wet factor for
-    one reference tonne. Do not recalculate rounded species-specific dry
-    factors. The caller applies the unchanged realization fraction.
+
+def decomposition_emissions(feed, *, anaerobic_fraction=None, anaerobic_biodegradability=None,
+                            aerobic_mineralization=None, methane_realization=None, ch4_gwp100=None):
+    """Separate gas formation, atmospheric methane and its optional climate credit.
+
+    Partition original organics first, then mineralize once in each pathway.
+    The carbon not mineralized stays in an explicit residual ledger. Produced
+    biogenic CO2 is not automatically an atmospheric flux or a climate credit.
     """
-    c = assumptions()['avoided_sargassum_decomposition_emissions']
-    reference = decomposition_emissions(1000., ch4_gwp100)
-    solids = 1. - float(c['reference_raw_moisture_fraction'])
-    ch4_factor = reference['avoided_ch4_kg'] / solids
-    co2_factor = reference['biogenic_co2_kg'] / solids
-    tonnes_dry = float(dry_mass_kg) / 1000.
-    ch4 = tonnes_dry * ch4_factor
-    return dict(reference, avoided_ch4_kg=ch4, biogenic_co2_kg=tonnes_dry * co2_factor,
-                avoided_co2e_kg=ch4 * reference['ch4_gwp100'],
-                ch4_kg_per_t_dry=ch4_factor, biogenic_co2_kg_per_t_dry=co2_factor)
+    cfg = assumptions()['avoided_sargassum_decomposition_emissions']
+    overrides = dict(anaerobic_fraction=anaerobic_fraction,
+                     anaerobic_biodegradability=anaerobic_biodegradability,
+                     aerobic_mineralization=aerobic_mineralization, methane_realization=methane_realization)
+    p = {key: float(cfg[key] if value is None else value) for key, value in overrides.items()}
+    if any(not math.isfinite(v) or not 0. <= v <= 1. for v in p.values()):
+        raise ValueError('Pathway, biodegradability, mineralization and realization fractions must be in [0, 1].')
+    gwp = float(cfg['ch4_gwp100'] if ch4_gwp100 is None else ch4_gwp100)
+    if not math.isfinite(gwp) or gwp < 0.:
+        raise ValueError('Methane GWP100 must be finite and nonnegative.')
+    inv = organic_inventory(feed)
+    coeff = boyle_coefficients(inv['normalized_formula'])
+    f, bi, mineral, realization = (p[k] for k in _PARAMETERS)
+    anaerobic_units = inv['formula_unit_kmol'] * f
+    gas_units = anaerobic_units * bi
+    mw_ch4 = float(feed.chemicals['CH4'].MW)
+    mw_co2 = float(feed.chemicals['CO2'].MW)
+    carbon = inv['element_mass_kg']['C']
+    ch4 = gas_units * coeff['CH4'] * mw_ch4
+    co2_an = gas_units * coeff['CO2'] * mw_co2
+    co2_aer = carbon * (1.-f) * mineral * mw_co2 / periodic_table['C'].MW
+    atmospheric = ch4 * realization
+    return dict(inventory=inv, parameters=dict(p, aerobic_fraction=1.-f, ch4_gwp100=gwp),
+                boyle_coefficients=coeff,
+                anaerobic_organic_mass_kg=inv['organic_mass_kg']*f,
+                aerobic_organic_mass_kg=inv['organic_mass_kg']*(1.-f),
+                anaerobic_carbon_kg=carbon*f, aerobic_carbon_kg=carbon*(1.-f),
+                anaerobic_gas_carbon_kg=carbon*f*bi,
+                aerobic_gas_carbon_kg=carbon*(1.-f)*mineral,
+                unmineralized_carbon_kg=carbon*(f*(1.-bi)+(1.-f)*(1.-mineral)),
+                anaerobic_ch4_kg=ch4, anaerobic_co2_kg=co2_an, aerobic_co2_kg=co2_aer,
+                biogenic_co2_kg=co2_an+co2_aer,
+                atmospheric_ch4_kg=atmospheric, unrealized_ch4_kg=ch4-atmospheric,
+                avoided_co2e_kg=atmospheric*gwp, ch4_gwp100=gwp)
 
 
 def _check_existing_credits(system, products, gcc, decomposition):
@@ -83,7 +136,9 @@ def _check_existing_credits(system, products, gcc, decomposition):
 
 
 def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
-                               include_decomposition=None, ch4_gwp100=None, decomposition_fraction=1.):
+                               include_decomposition=None, ch4_gwp100=None,
+                               anaerobic_fraction=None, anaerobic_biodegradability=None,
+                               aerobic_mineralization=None, methane_realization=None):
     """Read actual streams; return original and expanded CI on two bases.
 
     ``original_ci`` may supply the existing S2/S3 CI with its WHR adjustment.
@@ -108,13 +163,14 @@ def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
     if original_ci is None:
         original_ci = float(system.get_net_impact(lca.KEY)) / (float(system.operating_hours) * h2)
     dry = wet-water
-    rot = decomposition_emissions_dry(dry, ch4_gwp100)
-    raw = raw_sargassum_equivalent(wet, water)  # optional reporting equivalence only
+    rot = decomposition_emissions(feed, ch4_gwp100=ch4_gwp100,
+                                 anaerobic_fraction=anaerobic_fraction,
+                                 anaerobic_biodegradability=anaerobic_biodegradability,
+                                 aerobic_mineralization=aerobic_mineralization,
+                                 methane_realization=methane_realization)
     gcc_potential = gcc_production_emissions(products)
     gcc_credit = gcc_potential if gcc else 0.
-    if not 0. <= decomposition_fraction <= 1.:
-        raise ValueError('Decomposition realization must be between zero and one.')
-    dec_credit = rot['avoided_co2e_kg'] * decomposition_fraction if dec else 0.
+    dec_credit = rot['avoided_co2e_kg'] if dec else 0.
     storage = lca.get_att_stored_carbon_credit(system)
     original = float(original_ci)
     per_h2 = dict(original_CI=original, existing_storage_credit=storage,
@@ -122,227 +178,268 @@ def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
                   avoided_sargassum_decomposition_emissions=dec_credit / h2,
                   expanded_CI=original - gcc_credit / h2 - dec_credit / h2,
                   main_CI=original - gcc_credit / h2,
-                  potential_CI=original - gcc_credit / h2 - rot['avoided_co2e_kg'] * decomposition_fraction / h2)
+                  potential_CI=original - gcc_credit / h2 - rot['avoided_co2e_kg'] / h2)
     return dict(per_kg_h2=per_h2,
                 per_tonne_wet_presscake={k: v * h2 / wet * 1000. for k, v in per_h2.items()},
                 per_tonne_dry={k: v * h2 / dry * 1000. for k, v in per_h2.items()},
-                per_tonne_fresh_87_5={k: v * h2 / dry * 125. for k, v in per_h2.items()},
-                per_tonne_wet_75={k: v * h2 / dry * 250. for k, v in per_h2.items()},
                 activity=dict(presscake_wet_kgph=wet, presscake_water_kgph=water,
                               presscake_dry_kgph=wet-water, presscake_moisture_fraction=water/wet,
-                              h2_kgph=h2, raw_equivalent_kgph=raw,
+                              h2_kgph=h2,
                               pure_caco3_kgph=sum(float(s.imass['CaCO3']) for s in products),
                               cakes=[dict(stream=s.ID, total_kgph=float(s.F_mass),
                                           pure_caco3_kgph=float(s.imass['CaCO3'])) for s in products],
                               potential_gcc_kgCO2eph=gcc_potential,
                               potential_decomposition_kgCO2eph=rot['avoided_co2e_kg'],
-                              avoided_ch4_kgph=rot['avoided_ch4_kg'] * decomposition_fraction,
+                              anaerobic_ch4_kgph=rot['anaerobic_ch4_kg'],
+                              atmospheric_ch4_kgph=rot['atmospheric_ch4_kg'],
+                              anaerobic_co2_kgph=rot['anaerobic_co2_kg'],
+                              aerobic_co2_kgph=rot['aerobic_co2_kg'],
                               biogenic_co2_kgph=rot['biogenic_co2_kg']),
                 include_gcc=gcc, include_decomposition=dec, ch4_gwp100=rot['ch4_gwp100'],
-                decomposition_fraction=decomposition_fraction,
-                weighted_ch4_g_per_kg_raw=rot['weighted_ch4_g_per_kg_raw'],
-                weighted_co2_g_per_kg_raw=rot['weighted_co2_g_per_kg_raw'],
-                ch4_kg_per_t_dry=rot['ch4_kg_per_t_dry'],
-                decomposition_basis='actual presscake dry solids',
-                raw_basis='optional fresh-mass reporting equivalence; upstream press not simulated',
+                parameters=rot['parameters'], decomposition=rot,
+                decomposition_basis='actual presscake organic component CHONS',
                 conversion_assumption=d['conversion_assumption'],
                 legacy_beach_rot_included=False, biogenic_co2_included=False)
 
 
 def scenario_rows(system, scenario, ree_enabled, original_ci):
-    """Both functional units, independent switches, and CH4 GWP sensitivity."""
+    """Three actual-flow bases, separate ledgers and one-at-a-time sensitivities."""
     rows = []
-    cfg = assumptions()
-    default = float(cfg['avoided_sargassum_decomposition_emissions']['ch4_gwp100'])
-    gwps = dict.fromkeys([default, *cfg['avoided_sargassum_decomposition_emissions']['sensitivity_ch4_gwp100']])
-    for gwp in gwps:
-        for label, gcc, dec in (('main', True, False), ('potential', True, True), ('configured', None, None),
-                                ('original_only', False, False), ('gcc_only', True, False), ('decomposition_only', False, True)):
-            fractions = sorted(set([1., *cfg['avoided_sargassum_decomposition_emissions']['sensitivity_avoidance_fraction']])) if label=='potential' else [1.]
-            for fraction in fractions:
-                result = calculate_avoided_emissions(system, original_ci, include_gcc=gcc,
-                                                    include_decomposition=dec, ch4_gwp100=gwp, decomposition_fraction=fraction)
-                a = result['activity']
-                scales = dict(per_kg_h2=1./a['h2_kgph'], per_tonne_wet_presscake=1000./a['presscake_wet_kgph'],
-                              per_tonne_dry=1000./a['presscake_dry_kgph'], per_tonne_fresh_87_5=125./a['presscake_dry_kgph'],
-                              per_tonne_wet_75=250./a['presscake_dry_kgph'])
-                for basis, scale in scales.items():
-                    rows.append(dict(scenario=scenario, ree_enabled=ree_enabled, basis=basis,
-                                 credit_case=label, ch4_gwp100=gwp, reference_gwp=(gwp == default),
-                                 decomposition_fraction=fraction, reference_fraction=(fraction==1.),
+    cfg = assumptions()['avoided_sargassum_decomposition_emissions']
+    for label, gcc, dec in (('main', True, False), ('potential', True, True), ('configured', None, None),
+                            ('original_only', False, False), ('gcc_only', True, False), ('decomposition_only', False, True)):
+        settings = [('reference', None, {})]
+        if label == 'potential':
+            settings += [(key, float(value), {key: float(value)})
+                         for key, values in cfg['sensitivities'].items() for value in values]
+        for parameter, value, overrides in settings:
+            result = calculate_avoided_emissions(system, original_ci, include_gcc=gcc,
+                                                include_decomposition=dec, **overrides)
+            a = result['activity']
+            inv = result['decomposition']['inventory']
+            scales = dict(per_kg_h2=1./a['h2_kgph'], per_tonne_wet_presscake=1000./a['presscake_wet_kgph'],
+                          per_tonne_dry=1000./a['presscake_dry_kgph'])
+            for basis, scale in scales.items():
+                rows.append(dict(scenario=scenario, ree_enabled=ree_enabled, basis=basis,
+                                 credit_case=label, **result['parameters'],
+                                 sensitivity_parameter=parameter, sensitivity_value=value,
+                                 reference_case=(parameter=='reference'),
                                  decomposition_basis=result['decomposition_basis'],
-                                 ch4_kg_per_t_dry=result['ch4_kg_per_t_dry'],
                                  include_gcc=result['include_gcc'], include_decomposition=result['include_decomposition'],
+                                 anaerobic_ch4_kg=a['anaerobic_ch4_kgph']*scale,
+                                 atmospheric_ch4_kg=a['atmospheric_ch4_kgph']*scale,
+                                 anaerobic_co2_kg=a['anaerobic_co2_kgph']*scale,
+                                 aerobic_co2_kg=a['aerobic_co2_kgph']*scale,
                                  biogenic_co2_kg=a['biogenic_co2_kgph']*scale,
-                                 avoided_ch4_kg=a['avoided_ch4_kgph']*scale,
-                                 raw_equivalent_kg=a['raw_equivalent_kgph']*scale,
+                                 methane_climate_impact_kgCO2e=a['potential_decomposition_kgCO2eph']*scale,
+                                 organic_mass_kg=inv['organic_mass_kg']*scale,
+                                 **{f'organic_{e}_kg': m*scale for e, m in inv['element_mass_kg'].items()},
+                                 unmineralized_carbon_kg=result['decomposition']['unmineralized_carbon_kg']*scale,
+                                 unrealized_ch4_kg=result['decomposition']['unrealized_ch4_kg']*scale,
+                                 formula_unit_kmol=inv['formula_unit_kmol']*scale,
+                                 formula_mw_kg_per_kmol=inv['formula_mw_kg_per_kmol'],
+                                 **{f'formula_{e}_per_C': n for e, n in inv['normalized_formula'].items()},
                                  conversion_assumption=result['conversion_assumption'], **result[basis]))
     return rows
 
 
 BASIS_LABELS = dict(per_kg_h2='kg CO2e/kg H2', per_tonne_dry='kg CO2e/tonne dry Sargassum (0 wt% moisture)',
-                    per_tonne_fresh_87_5='kg CO2e/tonne fresh Sargassum equivalent (87.5 wt% moisture)',
-                    per_tonne_wet_75='kg CO2e/tonne wet-feed equivalent (75 wt% moisture)',
                     per_tonne_wet_presscake='kg CO2e/tonne modeled wet presscake (actual model moisture)')
 
 
 def reference_rows(data, credit_case, basis=None):
     return [r for r in data['avoided_emissions']['rows'] if r['credit_case']==credit_case
-            and r['reference_gwp'] and r['reference_fraction'] and (basis is None or r['basis']==basis)]
+            and r['reference_case'] and (basis is None or r['basis']==basis)]
+
+
+def _method_text():
+    d = assumptions()['avoided_sargassum_decomposition_emissions']
+    return ('Hypothetical ATT presscake left to decompose on a beach. CHONS inventories come from actual organic '
+            f'component formulas, including protein sulfur. Original organic matter is allocated {d["anaerobic_fraction"]:.0%} anaerobic and '
+            f'{1.-d["anaerobic_fraction"]:.0%} aerobic in the reference screening scenario. Boyle CH4 and CO2 are scaled once by anaerobic '
+            'biodegradability; aerobic carbon oxidation uses an independent mineralization fraction. '
+            'Only atmospheric methane times GWP100 enters the additional climate indicator. '
+            'Biogenic CO2 is modeled formation, not necessarily direct atmospheric release in waterlogged settings. '
+            'Neither historical IPCC beach rot nor the former Bueno factor enters this calculation.')
 
 
 def report_section(data):
-    """Static, portable section embedded only in the opt-in comprehensive report."""
+    """Portable optional-indicator tables, including physical gas accounting."""
     from html import escape
-    rows = reference_rows(data, 'main')
     potential = reference_rows(data, 'potential')
-    moisture = next(r['moisture_fraction'] for r in data['functional'] if r['basis']=='per_kg_h2')
-    dry_reference = decomposition_emissions_dry(1000.)
-    parts = ['<section class="card" id="avoided-emissions"><h2>Main CI including GCC avoided production</h2>',
-             '<p>Main CI = original CI - GCC avoided production. Existing storage is already included in original CI. '
-             'Sargassum decomposition is excluded from main results and appears below as a potential additional analysis.</p>',
-             f'<p>Actual modeled wet presscake moisture: {moisture*100:.3f} wt%. Dry-feed units throughout mean 0 wt% moisture. The two wet reference cases below are equivalent masses, not new simulations.</p>',
-             '<p><a href="ATT_S3_Figures.pdf">Updated S3 figures</a> | <a href="avoided_emissions_ci.pdf">Six-case CI comparison</a></p>']
+    d = data['avoided_emissions']['assumptions']['avoided_sargassum_decomposition_emissions']
+    parts = ['<section class="card" id="avoided-emissions"><h2>Main CI and additional beach-decomposition scenario</h2>',
+             '<p>Main CI = original CI minus GCC avoided production. Existing storage remains included once in original CI. '
+             'Beach decomposition is excluded from main CI and baseline ATT LCA.</p>',
+             '<p>'+escape(_method_text())+'</p>',
+             '<p><a href="ATT_S3_Figures.pdf">S3 figures</a> | '
+             '<a href="avoided_emissions_report.md">Equations, inputs and limitations</a> | '
+             '<a href="avoided_emissions_sensitivity.csv">One-at-a-time sensitivity data</a></p>']
     for basis, unit in BASIS_LABELS.items():
-        parts.append(f'<h3>{unit}</h3><table><thead><tr><th>Scenario</th><th>REE</th><th>Original CI</th>'
-                     '<th>Existing storage (included)</th><th>Avoided GCC</th><th>Decomposition in main</th><th>Main CI</th></tr></thead><tbody>')
-        for r in rows:
+        parts.append('<h3>'+escape(unit)+'</h3><table><thead><tr><th>Scenario</th><th>REE</th>'
+                     '<th>Original CI</th><th>GCC reduction</th><th>Main CI</th>'
+                     '<th>Additional methane reduction</th><th>Potential CI</th></tr></thead><tbody>')
+        for r in potential:
             if r['basis'] != basis:
                 continue
-            values = ''.join(f'<td>{r[k]:.6f}</td>' for k in ('original_CI', 'existing_storage_credit',
-                             'avoided_gcc_production_emissions', 'avoided_sargassum_decomposition_emissions', 'expanded_CI'))
+            values = ''.join(f'<td>{r[k]:.6f}</td>' for k in ('original_CI', 'avoided_gcc_production_emissions',
+                             'main_CI', 'avoided_sargassum_decomposition_emissions', 'expanded_CI'))
             parts.append(f'<tr><td>{r["scenario"]}</td><td>{"On" if r["ree_enabled"] else "Off"}</td>{values}</tr>')
         parts.append('</tbody></table>')
-    parts += ['</section><section class="card" id="potential-decomposition"><h2>Potential additional beach-decomposition analysis</h2>',
-              '<p><a href="figure_2c_carbon_intensity_with_and_without_decomposition.pdf">Figure 2C: S3 carbon intensity with and without avoided Sargassum decomposition</a></p>',
-              '<p>Natural reference: fresh, unprocessed Sargassum decomposes on beaches. '
-              f'ATT receives dewatered presscake at {moisture*100:.1f} wt% moisture and applies the literature-derived factor '
-              f'{dry_reference["ch4_kg_per_t_dry"]:g} kg CH4/t dry to its actual dry-solids mass, then GWP100 and realization. '
-              'Methane potential relates to biodegradable organic matter; moisture only converts reporting units. '
-              'Dry-solids conservation through pressing is assumed. Organic losses, biodegradability and field emissions remain uncertain; '
-              'this is not a methane measurement from UCLA feedstock or actual beaches. It is outside main CI. Biogenic CO2 has no credit.</p>',
-              '<img src="avoided_emissions_ci.png" alt="Main GCC-adjusted CI and potential additional decomposition comparison" style="width:100%;max-width:1100px">',
-              '<table><tr><th>Scenario</th><th>REE</th><th>Main without decomposition</th><th>Additional decomposition reduction</th><th>Potential with decomposition</th></tr>']
+    parts += ['<h3 id="potential-decomposition">Physical gases per tonne wet ATT presscake</h3><p>CH4 production and atmospheric CH4 are distinct. '
+              'CO2 columns describe biogenic formation and receive no climate credit.</p>',
+              '<table><tr><th>Scenario</th><th>REE</th><th>CH4 produced</th><th>Atmospheric CH4</th>'
+              '<th>Anaerobic CO2</th><th>Aerobic CO2</th><th>Total biogenic CO2</th></tr>']
     for r in potential:
-        if r['basis']=='per_kg_h2':
-            parts.append(f'<tr><td>{r["scenario"]}</td><td>{"On" if r["ree_enabled"] else "Off"}</td>'
-                         f'<td>{r["main_CI"]:.6f}</td><td>{r["avoided_sargassum_decomposition_emissions"]:.6f}</td><td>{r["expanded_CI"]:.6f}</td></tr>')
-    parts.append('</table><p>Table units: kg CO2e/kg H2. GWP100 and 0-100% CH4-realization sensitivities are provided in the CSV and S3 PDF.</p>')
-    parts.append('<p><a href="avoided_emissions_report.md">Methods, sources, limitations and sensitivity</a> | '
-                 '<a href="avoided_emissions_sensitivity.csv">All credit switches and CH4 GWP cases</a></p>')
-    for c in data['avoided_emissions']['assumptions'].values():
-        parts.append('<p>'+escape(c.get('conversion_assumption', '')+' '+c['limitation'])
-                     + ' <a href="'+escape(c['url'], quote=True)+'">'+escape(c['source'])+'</a></p>')
-    parts.append('</section>')
-    return '<div class="wrap">' + '\n'.join(parts) + '</div>'
+        if r['basis'] == 'per_tonne_wet_presscake':
+            values = ''.join(f'<td>{r[k]:.6f}</td>' for k in ('anaerobic_ch4_kg','atmospheric_ch4_kg',
+                             'anaerobic_co2_kg','aerobic_co2_kg','biogenic_co2_kg'))
+            parts.append(f'<tr><td>{r["scenario"]}</td><td>{"On" if r["ree_enabled"] else "Off"}</td>{values}</tr>')
+    parts += ['</table><p>Independent one-at-a-time sensitivities vary anaerobic allocation, anaerobic biodegradability, '
+              'aerobic mineralization and atmospheric methane realization. Each holds the remaining inputs fixed.</p>',
+              '<img src="potential_decomposition_sensitivity.png" alt="Four independent decomposition sensitivities: methane climate impact and physical biogenic CO2" style="width:100%">',
+              '<p>'+escape(d['limitation'])+'</p></section>']
+    return '<div class="wrap">'+'\n'.join(parts)+'</div>'
 
 
 def _write_outputs(out, data):
     from biorefineries.ATT.analyses.comprehensive_report import _save_csv
     payload = data['avoided_emissions']
     rows = payload['rows']
-    base = reference_rows(data, 'main')
+    main = reference_rows(data, 'main')
     potential = reference_rows(data, 'potential')
-    moisture = next(r['moisture_fraction'] for r in data['functional'] if r['basis']=='per_kg_h2')
-    _save_csv(out/'avoided_emissions.csv', base)
+    sensitivity = [r for r in rows if r['credit_case']=='potential' and not r['reference_case']]
+    _save_csv(out/'avoided_emissions.csv', main)
     _save_csv(out/'avoided_emissions_sensitivity.csv', rows)
     _save_csv(out/'potential_decomposition.csv', potential)
     (out/'avoided_emissions.json').write_text(json.dumps(payload, indent=2, allow_nan=False)+'\n', encoding='utf-8')
-    lines = ['# ATT avoided-emission indicators', '',
-             'Main CI includes GCC avoided production and excludes beach-decomposition avoidance. Original CI and existing storage are retained separately. ',
-             'Potential CI additionally subtracts assumption-dependent CH4 avoidance; it is not a base result. Biogenic CO2 is informational only.', '',
-             'The comprehensive HTML and S3 figures in this folder use current model runs.', '',
-             f'Actual modeled wet presscake moisture is {moisture*100:.3f} wt%. Reference wet-basis conversions do not change it.', '']
+    d = payload['assumptions']['avoided_sargassum_decomposition_emissions']
+    g = payload['assumptions']['avoided_gcc_production_emissions']
+    lines = ['# ATT avoided-emission indicators', '', _method_text(), '',
+             'Main CI = original CI - GCC. Potential CI = main CI - atmospheric methane climate impact. '
+             'The optional calculation never changes system impacts, TEA or H2 production.', '',
+             '## Equations', '',
+             'For carbon-normalized organic formula CaHbOcNdSe, with a = 1:', '',
+             '- y_CH4 = a/2 + b/8 - c/4 - 3d/8 - e/4',
+             '- y_CO2 = a/2 - b/8 + c/4 + 3d/8 + e/4',
+             '- n_formula = organic carbon kmol, summed from component mass / native MW times C atoms',
+             '- CH4 produced = n_formula * f_an * BI_an * y_CH4 * MW_CH4',
+             '- Anaerobic CO2 = n_formula * f_an * BI_an * y_CO2 * MW_CO2',
+             '- Aerobic CO2 = organic C mass * (1 - f_an) * MF_aer * MW_CO2 / AW_C',
+             '- Atmospheric CH4 = CH4 produced * methane realization',
+             '- Additional avoided CO2e = atmospheric CH4 * CH4 GWP100',
+             '- Unmineralized C = organic C * [f_an * (1 - BI_an) + (1 - f_an) * (1 - MF_aer)]', '',
+             'No legacy GWP-minus-CO2 subtraction and no 87.5% raw-moisture conversion are used. '
+             'Unrealized methane is tracked separately and is not presumed to become atmospheric CO2.', '',
+             '## Inputs, sources and assumptions', '', '| Parameter | Reference | Source / status |', '|---|---:|---|',
+             f'| Anaerobic fraction of original organics | {d["anaerobic_fraction"]:g} | {d["allocation_note"]} |',
+             f'| Anaerobic BI | {d["anaerobic_biodegradability"]:.12g} | {d["anaerobic_biodegradability_source"]} |',
+             f'| Aerobic mineralization | {d["aerobic_mineralization"]:g} | {d["aerobic_mineralization_source"]} |',
+             f'| Atmospheric methane realization | {d["methane_realization"]:g} | {d["methane_realization_note"]} |',
+             f'| Non-fossil methane GWP100 | {d["ch4_gwp100"]:g} | {d["reference_gwp_source"]} |', '',
+             f'Boyle: [{d["source"]}]({d["url"]}).',
+             f'BI: [Milledge et al., Table 11]({d["anaerobic_biodegradability_url"]}).',
+             f'Aerobic analogy: [Boldreel et al.]({d["aerobic_mineralization_url"]}).',
+             f'GWP: [IPCC errata]({d["reference_gwp_url"]}).', '',
+             f'GCC remains {g["emission_factor"]:g} kg CO2e/kg contained CaCO3: [{g["source"]}]({g["url"]}).', '',
+             '## Active organic composition per tonne wet presscake', '',
+             '| Scenario | REE | Organics kg | C kg | H kg | O kg | N kg | S kg | Formula units kmol | Formula MW kg/kmol |',
+             '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+    for r in potential:
+        if r['basis'] != 'per_tonne_wet_presscake':
+            continue
+        values = ' | '.join(f'{r[k]:.9f}' for k in ('organic_mass_kg','organic_C_kg','organic_H_kg','organic_O_kg',
+                           'organic_N_kg','organic_S_kg','formula_unit_kmol','formula_mw_kg_per_kmol'))
+        lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {values} |')
+    reference = next(r for r in potential if r['basis']=='per_tonne_wet_presscake')
+    formula = 'C'+''.join(f'{e}{reference[f"formula_{e}_per_C"]:.8f}' for e in ('H','O','N','S'))
+    lines += ['', f'First reference case organic formula: **{formula}**. Recomputed from native component formulas; not a hardcoded input.', '',
+              'Native atomic masses are from chemicals.elements.periodic_table, matching ThermoSTEAM molecular weights. '
+              'The older carbon-fate ledger uses rounded AW_C = 12.011; its tiny carbon-mass difference is retained to preserve baseline reporting.', '']
     for basis, unit in BASIS_LABELS.items():
-        lines += [f'## Main results: {unit}', '', '| Scenario | REE | Original CI | Existing storage (already included) | Avoided GCC | Decomposition in main | Main CI |',
+        lines += [f'## Reference results: {unit}', '',
+                  '| Scenario | REE | Original CI | GCC reduction | Main CI | Additional methane reduction | Potential CI |',
                   '|---|---|---:|---:|---:|---:|---:|']
-        for r in base:
-            if r['basis'] == basis:
-                values = ' | '.join(f'{r[k]:.6f}' for k in ('original_CI','existing_storage_credit','avoided_gcc_production_emissions',
-                                   'avoided_sargassum_decomposition_emissions','expanded_CI'))
+        for r in potential:
+            if r['basis']==basis:
+                values=' | '.join(f'{r[k]:.9f}' for k in ('original_CI','avoided_gcc_production_emissions','main_CI',
+                                 'avoided_sargassum_decomposition_emissions','expanded_CI'))
                 lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {values} |')
         lines.append('')
-    lines += ['## Potential additional Sargassum decomposition', '',
-              'Counterfactual: Sargassum left on beaches and allowed to decompose. This is additional, potential and assumption-dependent; never the default CI.', '',
-              '| Scenario | REE | Basis | Main without decomposition | Additional decomposition reduction | Potential with decomposition |',
-              '|---|---|---|---:|---:|---:|']
+    lines += ['## Physical gas formation per tonne wet ATT presscake', '',
+              '| Scenario | REE | CH4 produced kg | Atmospheric CH4 kg | Anaerobic CO2 kg | Aerobic CO2 kg | Total biogenic CO2 kg |',
+              '|---|---|---:|---:|---:|---:|---:|']
     for r in potential:
-        lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {BASIS_LABELS[r["basis"]]} | '
-                     f'{r["main_CI"]:.6f} | {r["avoided_sargassum_decomposition_emissions"]:.6f} | {r["expanded_CI"]:.6f} |')
-    lines += ['## Active configuration', '',
-              '| Indicator | Enabled in configured case | Active factor |', '|---|---|---|']
-    g = payload['assumptions']['avoided_gcc_production_emissions']
-    d = payload['assumptions']['avoided_sargassum_decomposition_emissions']
-    dry_reference = decomposition_emissions_dry(1000.)
-    presscake_reference = decomposition_emissions_dry(1000.*(1.-moisture))
-    lines += [f'| Avoided GCC | {g["enabled"]} | {g["emission_factor"]:g} {g["unit"]} |',
-              f'| Avoided decomposition | {d["enabled"]} | {dry_reference["ch4_kg_per_t_dry"]:g} kg CH4/t dry; CH4 GWP100 = {d["ch4_gwp100"]:g} |', '',
-              f'Published fresh-reference moisture: {d["reference_raw_moisture_fraction"]:.6%}. '
-              'The dry-solids factor is derived from the existing weighted wet factor divided by the literature solids fraction, '
-              'not from rounded species-specific dry factors. Avoided CO2e = actual dry tonnes x dry CH4 factor x GWP100 x realization.', '',
-              '| Active mixture species | Mass fraction | CH4 g/kg wet raw | CO2 g/kg wet raw |',
-              '|---|---:|---:|---:|']
-    for name, species in d['species'].items():
-        lines.append(f'| {name} | {species["mass_fraction"]:g} | {species["CH4"]:g} | {species["CO2"]:g} |')
-    active = decomposition_emissions(1., ch4_gwp100=d['ch4_gwp100'])
-    lines += ['', f'Active weighted CH4 factor: {active["weighted_ch4_g_per_kg_raw"]:g} g/kg wet raw; '
-              f'active weighted CO2 factor: {active["weighted_co2_g_per_kg_raw"]:g} g/kg wet raw. '
-              f'Derived primary CH4 factor: {dry_reference["ch4_kg_per_t_dry"]:g} kg CH4/t dry.', '',
-              'Complete configuration, per-species source values and references are recorded in avoided_emissions.json.', '',
-              '## Published source factors and reference checks', '',
-              'The following values document the requested reference case; the active configuration above governs the generated tables.', '',
-              'Published GCC reference: 12.5 kg CO2e per declared 1000 kg = 0.0125 kg CO2e/kg pure CaCO3, GWP-total, A1-A3. '
-              '[Lafarge Granulats (2026), EPD-IES-0031144:001](https://www.environdec.com/library/epd31144). '
-              'Only the CaCO3 component of the two final product cakes is multiplied; purity is not applied again.', '',
-              'Brazilian mixture: 50% S. fluitans + 15% S. natans I + 35% S. natans VIII. '
-              'Table 3 wet-basis CH4 values are 7.02, 4.37, 10.1 g/kg; CO2 values are 20.4, 12.2, 31.7 g/kg. '
-              'Weighted CH4 = 7.7005 g/kg and CO2 = 23.125 g/kg raw wet Sargassum. '
-              '[Bueno et al. (2023), Tables 2-3 and section 3.2](https://doi.org/10.3390/su15076254). '
-              'Reference moisture is 87.5%. Reference GWP100 is the user-requested 28; '
-              '25.3 is the optional non-fossil CH4 sensitivity from '
-              '[IPCC AR6 WGI errata, 7 October 2025, p. 3, Table 7.15](https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf). '
-              'Baseline emission factors are not re-characterized.', '',
-              'Reference check: one tonne raw wet mixture gives 7.7005 kg CH4, 215.614 kg CO2e at 28, '
-              '194.82265 kg CO2e at 25.3, and 23.125 kg biogenic CO2 reported separately.', '',
-              f'Dry-solids reference check at GWP100 = {dry_reference["ch4_gwp100"]:g}: one tonne dry gives '
-              f'{dry_reference["avoided_ch4_kg"]:.6f} kg CH4 and {dry_reference["avoided_co2e_kg"]:.6f} kg CO2e; '
-              f'one tonne presscake at {moisture*100:.1f} wt% moisture gives {presscake_reference["avoided_ch4_kg"]:.6f} kg CH4 '
-              f'and {presscake_reference["avoided_co2e_kg"]:.6f} kg CO2e.', '',
-              'Natural reference: fresh, unprocessed Sargassum is deposited on beaches and decomposes. ATT receives dewatered presscake. '
-              'The calculation applies the normalized dry-solids factor to actual feed dry mass. Methane potential follows biodegradable '
-              'organic matter, not water content itself: holding dry solids and biodegradability constant preserves total potential. '
-              'Moisture converts functional units only. Fresh-mass equivalence remains optional reporting information. '
-              'The reference-scale press-retention configuration is not a validated upstream pressing balance. '
-              'The factor is not measured methane from the UCLA feedstock or actual beaches. Actual feed water, CaCO3 and H2 '
-              'are read from the model; total gas mass is not used as H2.', '',
-              '## Limitations and double counting', '']
-    for c in payload['assumptions'].values():
-        if c.get('conversion_assumption'):
-            lines += [c['conversion_assumption'], '']
-        lines += [c['limitation'], '']
-    lines += ['Existing carbonate/char storage is shown as a negative credit already inside original CI. '
-              'It is neither recalculated as a new credit nor subtracted again. The separate legacy IPCC beach-rot '
-              'estimate is retained for backward compatibility and excluded from expanded CI. These are screening '
-              'counterfactuals, not a validated consequential LCA; the storage and avoided-decomposition claims '
-              'need compatible carbon-fate and counterfactual evidence.', '',
-              '## Sensitivity: kg CO2e/kg H2', '',
-              'Illustrative 0%, 10%, 50% and 100% realization of semi-empirical CH4 avoidance explores lower or variable emissions. '
-              'These are screening fractions, not a measured confidence interval.', '',
-              '| Scenario | REE | CH4 GWP100 | Realization fraction | Potential CI |', '|---|---|---:|---:|---:|']
-    for r in rows:
-        if r['basis']=='per_kg_h2' and r['credit_case']=='potential':
-            lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {r["ch4_gwp100"]:g} | {r["decomposition_fraction"]:g} | {r["expanded_CI"]:.6f} |')
-    lines += ['', 'The sensitivity CSV includes original-only, GCC-only and decomposition-only cases on both functional units.', '',
-              '## Reproduce', '', 'From the repository root:', '',
-              '```text', 'python -m biorefineries.ATT.analyses.avoided_emissions', '```', '',
-              'Configure the two independent enabled switches and factors in data/lca.yaml: lca.avoided_emissions. '
-              'No factors are registered on the BioSTEAM system. All artifacts from this command stay in '
-              'results/avoided_emissions/, which is covered by the existing results Git-ignore rule.', '']
+        if r['basis']=='per_tonne_wet_presscake':
+            values=' | '.join(f'{r[k]:.9f}' for k in ('anaerobic_ch4_kg','atmospheric_ch4_kg','anaerobic_co2_kg','aerobic_co2_kg','biogenic_co2_kg'))
+            lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {values} |')
+    lines += ['', '## Independent one-at-a-time sensitivity', '', d['sensitivity_note'], '',
+              'S3 REE On; gas masses and climate impact below are per tonne actual wet presscake. '
+              'The full CSV includes all six cases and wet, dry and H2 bases.', '',
+              '| Varied parameter | Value | CH4 produced kg | Atmospheric CH4 kg | Anaerobic CO2 kg | Aerobic CO2 kg | Total biogenic CO2 kg | Methane climate impact kg CO2e |',
+              '|---|---:|---:|---:|---:|---:|---:|---:|']
+    for r in sensitivity:
+        if r['scenario']=='S3' and r['ree_enabled'] and r['basis']=='per_tonne_wet_presscake':
+            values=' | '.join(f'{r[k]:.9f}' for k in ('anaerobic_ch4_kg','atmospheric_ch4_kg','anaerobic_co2_kg',
+                              'aerobic_co2_kg','biogenic_co2_kg','methane_climate_impact_kgCO2e'))
+            lines.append(f'| {r["sensitivity_parameter"]} | {r["sensitivity_value"]:.9g} | {values} |')
+    lines += ['', '![One-at-a-time sensitivity](potential_decomposition_sensitivity.png)', '',
+              '## Limitations and carbon-credit accounting', '', d['limitation'], '',
+              'The methane-based BI is applied to anaerobic CO2 as a modeling approximation. '
+              'No timescale or beach-wide anaerobic fraction has been established. The aerobic screening interval '
+              'is informed by kelp analogies and is not a measured Sargassum range. NH3/H2S stoichiometry is included '
+              'in Boyle closure but these gases receive no characterization in this methane-only indicator.', '',
+              'Existing stored-carbon credit is neither recalculated nor subtracted a second time. Physical biogenic '
+              'CO2 is never added to the methane climate credit. Combined storage and avoided-methane claims remain '
+              'conditional on compatible carbon fate, counterfactual and permanence evidence.', '',
+              '## Reproduce', '', '```text',
+              'python -m biorefineries.ATT.analyses.comprehensive_report',
+              'python -m biorefineries.ATT.analyses.s3_figures', '```', '']
     (out/'avoided_emissions_report.md').write_text('\n'.join(lines), encoding='utf-8')
-    _figure(out, base, potential, moisture)
+    _figure(out, main, potential)
+    from matplotlib import pyplot as plt
+    fig = plt.figure(figsize=(13, 8.5))
+    fig.suptitle('One-at-a-time decomposition sensitivities | S3 REE On', fontsize=16, y=.96)
+    fig.text(.09,.88,'All other inputs fixed. Dotted lines mark reference inputs; gas formation and methane climate impact are distinct.',fontsize=9)
+    draw_decomposition_sensitivity(fig, sensitivity)
+    fig.text(.09,.06,'Screening scenarios, not confidence intervals. Biogenic CO2 formation is not automatically atmospheric release and receives no climate credit.',fontsize=8)
+    fig.savefig(out/'potential_decomposition_sensitivity.png', dpi=180)
+    fig.savefig(out/'potential_decomposition_sensitivity.pdf')
+    plt.close(fig)
 
 
-def _figure(out, rows, potential, moisture):
+def draw_decomposition_sensitivity(fig, rows):
+    """Four OAT panels; physical CO2 and methane CO2e have distinct axes."""
+    cfg = assumptions()['avoided_sargassum_decomposition_emissions']
+    labels = ('Anaerobic fraction', 'Anaerobic biodegradability',
+              'Aerobic mineralization', 'Atmospheric methane realization')
+    positions = ((.09,.55,.33,.23), (.59,.55,.33,.23),
+                 (.09,.19,.33,.23), (.59,.19,.33,.23))
+    for parameter, label, position in zip(_PARAMETERS, labels, positions):
+        series = sorted((r for r in rows if r['scenario']=='S3' and r['ree_enabled']
+                         and r['basis']=='per_tonne_wet_presscake' and r['credit_case']=='potential'
+                         and r['sensitivity_parameter']==parameter), key=lambda r:r['sensitivity_value'])
+        ax = fig.add_axes(position)
+        physical = ax.twinx()
+        x = [r['sensitivity_value'] for r in series]
+        ax.plot(x, [r['methane_climate_impact_kgCO2e'] for r in series], 'o-', color='#176B50', label='Methane climate impact')
+        physical.plot(x, [r['biogenic_co2_kg'] for r in series], 's--', color='#B15F20', label='Biogenic CO2 formation')
+        ax.axvline(cfg[parameter], color='#64748B', linewidth=.8, linestyle=':')
+        ax.set_xlabel(label, fontsize=9)
+        ax.set_ylabel('kg CO2e / t wet presscake', color='#176B50', fontsize=8)
+        physical.set_ylabel('kg biogenic CO2 / t wet presscake', color='#B15F20', fontsize=8)
+        ax.tick_params(axis='y', labelcolor='#176B50', labelsize=8)
+        physical.tick_params(axis='y', labelcolor='#B15F20', labelsize=8)
+        ax.tick_params(axis='x', labelsize=8)
+        ax.set_ylim(bottom=0.)
+        physical.set_ylim(bottom=0.)
+        ax.grid(alpha=.2)
+        if parameter == _PARAMETERS[0]:
+            lines = ax.lines[:1]+physical.lines[:1]
+            ax.legend(lines, [line.get_label() for line in lines], fontsize=7, loc='upper center', bbox_to_anchor=(.5,1.28))
+
+
+def _figure(out, rows, potential):
     import matplotlib
     matplotlib.use('Agg')
     from matplotlib import pyplot as plt
@@ -359,11 +456,11 @@ def _figure(out, rows, potential, moisture):
     ax.axhline(0, color='black', linewidth=.7)
     ax.legend()
     fig.tight_layout(rect=(0,.20,1,1))
-    dry_reference = decomposition_emissions_dry(1000.)
-    fig.text(.07,.06,f'Potential beach decomposition (Bueno et al. 2023): {dry_reference["ch4_kg_per_t_dry"]:g} kg CH4/t dry, derived from 7.7005 kg/t fresh at 87.5 wt% moisture.\n'
-             f'ATT uses actual presscake dry solids (current moisture {moisture*100:.1f} wt%). Moisture converts units; water alone does not change methane potential.\n'
-             'Dry-solids conservation is assumed; organic losses, biodegradability and beach CH4 are uncertain. Not UCLA measurements; biogenic CO2 is excluded.\n'
-             'GWP100 = 25.3 and 0-100% realization sensitivities are separate analyses. GCC (0.0125 kg CO2e/kg pure CaCO3) remains in both versions.',fontsize=8.5)
+    d = assumptions()['avoided_sargassum_decomposition_emissions']
+    fig.text(.07,.06,f'Component-specific Boyle + aerobic carbon oxidation; anaerobic fraction {d["anaerobic_fraction"]:g}, BI {d["anaerobic_biodegradability"]:.4f}.\n'
+             f'Aerobic mineralization {d["aerobic_mineralization"]:g}; atmospheric methane realization {d["methane_realization"]:g}; GWP100 {d["ch4_gwp100"]:g}.\n'
+             'Hypothetical ATT presscake decomposition; screening parameters, not measured beach fluxes. Biogenic CO2 has no climate credit.\n'
+             'GCC and existing storage remain unchanged in both versions. Historical IPCC and Bueno indicators are excluded.', fontsize=8.5)
     fig.savefig(out/'avoided_emissions_ci.png', dpi=180)
     fig.savefig(out/'avoided_emissions_ci.pdf')
     plt.close(fig)

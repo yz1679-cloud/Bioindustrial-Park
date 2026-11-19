@@ -165,25 +165,32 @@ lca:
       limitation: "Equivalent substitution of conventional GCC is assumed; product-quality equivalence is not established. Both final cakes' contained CaCO3 is used, including carried-in waste-lime carbonate; water and other impurities receive no displacement. Existing storage excludes waste-lime carbonate and is unchanged."
     avoided_sargassum_decomposition_emissions:
       enabled: false  # potential additional scenario; never part of main CI
-      reference_raw_moisture_fraction: 0.875
-      ch4_gwp100: 28.0
-      sensitivity_ch4_gwp100: [28.0, 25.3]
-      sensitivity_avoidance_fraction: [0.0, 0.1, 0.5, 1.0]
-      sensitivity_note: "Illustrative 0-100% realization of the theoretical CH4 avoidance, not a measured uncertainty interval. Field CH4 emissions and the beach counterfactual need confirmation."
-      gas_unit: g/kg unprocessed wet Sargassum
-      calculation_basis: "Actual dry Sargassum solids in the ATT presscake feed. Water changes reporting mass, not methane potential of unchanged biodegradable matter."
-      dry_factor_derivation: "Derive kg CH4/t dry from the existing weighted kg CH4/t fresh factor divided by (1 - 0.875); do not recalculate rounded species-specific dry factors."
-      species:
-        S_fluitans: {mass_fraction: 0.50, CH4: 7.02, CO2: 20.4}
-        S_natans_I: {mass_fraction: 0.15, CH4: 4.37, CO2: 12.2}
-        S_natans_VIII: {mass_fraction: 0.35, CH4: 10.1, CO2: 31.7}
-      source: "Bueno et al. (2023), Sustainability 15(7), 6254; Tables 2-3 and section 3.2 Brazilian mixture"
-      url: https://doi.org/10.3390/su15076254
-      reference_gwp_source: "User-requested reference GWP100 = 28; applied to avoided CH4 only, without re-characterizing baseline factors."
-      sensitivity_gwp_source: "IPCC AR6 WGI errata, version 7 October 2025, p. 3, Table 7.15, non-fossil CH4 GWP100 = 25.3."
-      sensitivity_gwp_url: https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf
-      conversion_assumption: "Avoided CH4 = actual presscake dry tonnes times the dry-solids factor derived from the published wet-reference factor, times realization. CO2e = avoided CH4 times GWP100. Moisture is used for functional-unit conversion only. Dry-solids conservation through pressing is assumed; ATT has no validated upstream pressing mass balance or measured organic-matter retention. Fresh-mass equivalence is optional reporting information."
-      limitation: "Literature-based semi-empirical decomposition potential, not a methane measurement from the UCLA feedstock or actual beaches. Methane potential follows biodegradable organic matter, not water itself. Organic losses during pressing, biodegradability differences and actual beach fluxes are uncertain. Biogenic CO2 has no credit; legacy IPCC beach rot is not added. Full realization and no press-liquor emissions remain assumptions requiring validation."
+      model: Boyle anaerobic decomposition plus aerobic carbon mineralization
+      anaerobic_fraction: 0.40
+      allocation_note: "Fractions of original organic matter: anaerobic f and aerobic 1-f. The 40/60 split is an assumed screening scenario, not a measured beach-wide ratio."
+      anaerobic_biodegradability: 0.27666666666666667
+      anaerobic_biodegradability_species: {S_natans_I: 0.17, S_fluitans: 0.29, S_natans_VIII: 0.37}
+      anaerobic_biodegradability_source: "Unweighted arithmetic mean of Milledge et al. (2020), Energies 13(6), 1523, Table 11, CHNS-based biodegradability indices. Methane-potential-based; applying the same index to anaerobic CO2 is an approximation."
+      anaerobic_biodegradability_url: https://doi.org/10.3390/en13061523
+      aerobic_mineralization: 0.40
+      aerobic_mineralization_source: "Provisional screening assumption informed by analogous kelp research: Boldreel et al. (2023), Marine Ecology Progress Series 709, 1-15. Neither 0.40 nor the 0.30-0.50 sensitivity is a measured Sargassum beach-specific factor."
+      aerobic_mineralization_url: https://doi.org/10.3354/meps14285
+      methane_realization: 1.0
+      methane_realization_note: "Net fraction of modeled CH4 production reaching the atmosphere; aggregates unmodeled suppression, oxidation or retention. Full realization is not a verified field emission rate. Unrealized methane is not automatically converted to atmospheric CO2."
+      ch4_gwp100: 25.3
+      reference_gwp_source: "IPCC AR6 WGI errata, version 7 October 2025, p. 3, corrected Table 7.15, non-fossil CH4 GWP100 = 25.3. Applied only to this additional indicator."
+      reference_gwp_url: https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf
+      sensitivities:
+        anaerobic_fraction: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        anaerobic_biodegradability: [0.17, 0.27666666666666667, 0.37]
+        aerobic_mineralization: [0.30, 0.40, 0.50]
+        methane_realization: [0.0, 0.1, 0.5, 1.0]
+      sensitivity_note: "One parameter varies at a time; all others remain at reference values. Screening scenarios, not measured confidence intervals."
+      calculation_basis: "CHONS kmol from actual organic pseudo-components of the ATT inlet, including protein sulfur; water and inorganic ash species excluded. No raw-Sargassum moisture conversion."
+      source: "Boyle stoichiometry, as reproduced by Achinas and Euverink (2016), Resource-Efficient Technologies 2, 143-147, and Bueno et al. (2023), Eq. 1; active ATT component composition."
+      url: https://doi.org/10.1016/j.reffit.2016.08.001
+      conversion_assumption: "Original organics are partitioned once. Anaerobic CH4 and CO2 use Boyle times f times BI; aerobic CO2 uses organic C times (1-f) times independent mineralization. Atmospheric CH4 = produced CH4 times realization. Avoided CO2e = atmospheric CH4 times GWP100. Normalize by actual wet-feed, dry-feed and H2 component flows."
+      limitation: "Hypothetical ATT presscake left on a beach, not a measured field flux. Feed formulas are surrogates; biological rates, elapsed time, pressing losses and methane fate are unresolved. Aerobic CO2 is modeled biogenic inorganic-carbon formation, not necessarily direct atmospheric release in waterlogged settings. Biogenic CO2 is not a climate credit. Legacy IPCC and Bueno factors are excluded. Storage remains included once in original CI; simultaneous claims require compatible counterfactual and permanence evidence."
 
   # EMISSION BASIS OF EVERY BOUNDARY STREAM (system.feeds and system.products of ATT S1 and S2) AND OF EACH UTILITY. The factors are in
   # emission_factors above, the process impacts and the unit settings; this register says how each one was decided. A test

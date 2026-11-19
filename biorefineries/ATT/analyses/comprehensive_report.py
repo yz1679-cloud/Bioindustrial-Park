@@ -101,7 +101,7 @@ def _scientific_notes():
       ('S3 source scaling', 'Assume the historical 120000 tons/year means U.S. short tons: 120000 × 0.90718474 = 108862.1688 metric t/year. Relative to the paper reference of 120000 metric t/year this gives 0.90718474 at equal 7920 h/year and full utilization. This is host-capacity scaling, not ATT-demand scaling; the ton subtype is not established by the historical source.', 'Explicit unit-conversion and host-transfer assumption', 'analyses/industrial_whr.py industrial_sources; scenario_docs/ATT_S3_DESIGN_BASIS.md'),
       ('S3 H3 discrepancy and host surplus', 'Prior supplied-PDF review records H3 800→40 C in Table 1, Fig. 10 and text (5.17 kW/K × 760 K ≈ 3.93 MW), versus 800→400 C in Table 4. The current 800→40 C interpretation follows the former mutually consistent values. H1/H3 are treated as additive; independence and availability after the host complex uses heat are not site-verified.', 'Documented literature discrepancy and host assumption', 'Wang et al. 2025 DOI 10.1016/j.psep.2025.107306; scenario_docs/ATT_S3_DESIGN_BASIS.md Literature interpretation'),
       ('S3 heat and costing basis', 'Current H1/H3 capacities and intervals are retained. A 20 C approach and 90% effectiveness produce useful steam for D0/EC1 only. The 0.95 steam-to-process ratio is descriptive; avoided fuel uses 80% boiler efficiency once. Installed $500/kW and 1% auxiliary power use useful steam capacity. Heat has zero purchase cost and upstream burden. This is an idealized screen, not site feasibility.', 'Accepted engineering screening assumptions', 'analyses/s3_industrial.py run; analyses/industrial_whr.py generate_steam'),
-      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. Avoided beach decomposition is excluded from baseline net GWP and appears only as a separate optional counterfactual, with the existing model assumptions.', 'Boundary assumptions and provisional emission factors', 'data/lca.yaml emission_factors and beach_rot_counterfactual; analyses/lca.py; analyses/breakdown.py')]]
+      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. The additional beach counterfactual uses active organic CHONS, Boyle anaerobic decomposition and independent aerobic carbon mineralization. Only atmospheric methane times GWP100 is a potential additional credit. Physical biogenic CO2 formation is separate; this indicator does not alter baseline net GWP or reapply storage.', 'Screening allocation, biodegradability, mineralization and atmospheric realization; not measured beach fluxes', 'data/lca.yaml avoided_emissions; analyses/avoided_emissions.py; baseline analyses/lca.py unchanged')]]
 
 
 def _inactive_reason(row):
@@ -353,6 +353,14 @@ def tables(data):
                 carbon_flows=data['carbon'],pseudo_flows=data['pseudo'],elemental_balances=case_balances)
     if 'avoided_emissions' in data:
         from biorefineries.ATT.analyses.avoided_emissions import reference_rows
+        result['optional_beach_counterfactual'] = [dict(
+            ree_enabled=str(r['ree_enabled']), scenario=r['scenario'],
+            baseline_net_kgCO2e_per_kg_H2=r['original_CI'],
+            optional_extra_kgCO2e_per_kg_H2=-r['avoided_sargassum_decomposition_emissions'],
+            counterfactual_net_kgCO2e_per_kg_H2=r['original_CI']-r['avoided_sargassum_decomposition_emissions'],
+            counted_in_baseline=False,
+            basis='Original ATT CI minus mechanistic atmospheric-methane indicator; GCC shown separately in main/potential CI tables')
+            for r in reference_rows(data, 'potential', 'per_kg_h2')]
         main = {(r['scenario'],r['ree_enabled'],r['basis']):r for r in reference_rows(data,'main')}
         def reported(row):
             basis = 'per_tonne_wet_presscake' if row['basis']=='per_tonne_wet' else row['basis']
@@ -433,14 +441,12 @@ def report_qc(data, all_tables):
             check(label,basis+' gross OPEX basis conversion',r['operating_cost_usd'],r['annual_operating_cost_usd']/(row['h2_component_kgph']*row['operating_hours'])*r['hydrogen_kg'])
     if 'avoided_emissions' in data:
         for row in data['avoided_emissions']['rows']:
-            label = f"{row['scenario']} REE {row['ree_enabled']} {row['basis']} {row['credit_case']} GWP {row['ch4_gwp100']}"
+            label = f"{row['scenario']} REE {row['ree_enabled']} {row['basis']} {row['credit_case']} {row['sensitivity_parameter']} {row['sensitivity_value']}"
             original = next(r for r in data['functional'] if r['scenario']==row['scenario']
                             and r['ree_enabled']==row['ree_enabled'] and r['basis']=='per_kg_h2')
             h2 = data['details'][str(row['ree_enabled'])]['base']['products']['h2_component_kgph']
             scale = dict(per_kg_h2=1., per_tonne_wet_presscake=h2/original['wet_feed_kgph']*1000.,
-                         per_tonne_dry=h2/original['dry_feed_kgph']*1000.,
-                         per_tonne_fresh_87_5=h2/original['dry_feed_kgph']*125.,
-                         per_tonne_wet_75=h2/original['dry_feed_kgph']*250.)[row['basis']]
+                         per_tonne_dry=h2/original['dry_feed_kgph']*1000.)[row['basis']]
             check(label, 'Original CI preserved', row['original_CI'], original['net_gwp_kg_co2e'] * scale)
             check(label, 'Expanded credit ledger closes', row['expanded_CI']
                   + row['avoided_gcc_production_emissions'] + row['avoided_sargassum_decomposition_emissions'], row['original_CI'])

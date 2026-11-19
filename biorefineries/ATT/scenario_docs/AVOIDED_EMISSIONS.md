@@ -47,103 +47,114 @@ achieve that quality, and market displacement are not established.
 
 ## Beach decomposition
 
-Source: [Bueno et al. (2023), Sustainability 15(7), 6254](https://doi.org/10.3390/su15076254),
-Tables 2-3 and section 3.2. The Brazilian mixture is 50% S. fluitans, 15% S. natans I
-and 35% S. natans VIII. The wet-raw Table 3 inputs, in that order, are CH4
-7.02, 4.37 and 10.1 g/kg, and CO2 20.4, 12.2 and 31.7 g/kg. Weighted factors
-are calculated from those inputs, rather than inserted as an ATT operating result.
+The counterfactual is the actual ATT presscake left to decompose on a beach.
+The active `nlr_pressed` chemical composition is unchanged. The calculation
+sums CHONS atom inventories from the process biomass pseudo-components and
+normalizes to carbon. It excludes inlet water and inorganic Ash, NaCl, KCl
+and REO. Protein sulfur is included; no unrelated sulfur assay is substituted.
+Atomic masses come from the same elements library as ThermoSTEAM molecular
+weights. The pre-existing carbon-fate ledger retains its rounded carbon atomic
+mass to preserve baseline accounting.
 
-Reference raw moisture is 87.5%. The reference CH4 GWP100 is the user-requested
-28. The optional sensitivity is 25.3, non-fossil methane, from [IPCC AR6 WGI
-errata, version 7 October 2025](https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf),
-p. 3, corrected Table 7.15. These choices apply only to the new decomposition
-indicator; the baseline inventory factors are not re-characterized. Avoided
-biogenic CO2 is reported as a separate physical mass and receives no CO2e credit.
+Original organic matter is allocated between anaerobic fraction `f` and aerobic
+fraction `1-f`. Reference `f = 0.40` is an assumed screening allocation, not an
+experimentally established beach-wide ratio. Allocation occurs before applying
+biodegradability or mineralization.
 
-The natural reference is fresh, unprocessed Sargassum deposited on the beach
-and allowed to decompose. ATT receives dewatered presscake, currently at
-76.3 wt% moisture. Methane potential is primarily related to biodegradable
-organic matter, rather than water content itself. Normalize the existing
-published weighted wet factor to dry solids for compatibility with that feed:
+For organic formula CaHbOcNdSe, Boyle coefficients are:
 
 ```text
-dry CH4 factor = 7.7005 kg CH4/t fresh / (1 - 0.875)
-              = 61.604 kg CH4/t dry Sargassum
-presscake dry mass = actual inlet mass - actual inlet Water mass
-avoided CH4 = actual dry tonnes * dry CH4 factor * realization fraction
-avoided decomposition CO2e = avoided CH4 * selected CH4 GWP100
+y_CH4 = a/2 + b/8 - c/4 - 3d/8 - e/4
+y_CO2 = a/2 - b/8 + c/4 + 3d/8 + e/4
+CH4 produced = formula kmol * f * BI_an * y_CH4 * MW_CH4
+anaerobic CO2 = formula kmol * f * BI_an * y_CO2 * MW_CO2
+aerobic CO2 = organic C mass * (1-f) * MF_aer * MW_CO2 / AW_C
+atmospheric CH4 = CH4 produced * methane realization
+additional methane climate impact = atmospheric CH4 * GWP100
 ```
 
-The dry factor is derived from the existing weighted wet factor, not independently
-recalculated from rounded species-specific dry factors. The published reference
-moisture remains 87.5 wt%; actual presscake moisture is read from the model.
-Moisture is needed only for conversion between fresh, presscake and dry-feed
-functional units. Holding dry solids and biodegradability constant while changing
-water does not change total methane potential. An equivalent fresh mass may still
-be reported as an optional interpretation; it does not drive the calculation.
+Boyle stoichiometry is reproduced by
+[Achinas and Euverink (2016)](https://doi.org/10.1016/j.reffit.2016.08.001) and
+[Bueno et al. (2023), Eq. 1](https://doi.org/10.3390/su15076254). The previous
+Bueno mixture factor is superseded and is not an input to this model.
 
-Dry-solids conservation through pressing is assumed, not experimentally validated.
-There is no operating upstream raw-feed stream or simulated pressing balance.
-The raw-feed scale and component-retention calculation in `system.py` are scale
-references only. Organic-matter losses to press liquor, feed composition, ash,
-biodegradability differences and actual beach methane emissions remain uncertain.
-The literature factor is a semi-empirical potential from elemental composition,
-Boyle's equation and biodegradability correction, not a methane measurement from
-the UCLA feedstock or actual beach conditions. Applying it to ATT dry solids and
-assuming complete realization remain screening assumptions.
+Anaerobic BI is the unweighted mean of 0.17, 0.29 and 0.37 from
+[Milledge et al. (2020), Table 11](https://doi.org/10.3390/en13061523), giving
+0.27666666666666667. These are methane-potential-based indices from different
+Sargassum species. Applying the same BI to anaerobic CO2 is an approximation.
+BI is applied once and only within the anaerobic pathway.
 
-The existing IPCC beach-rot estimate remains a separate alternative, excluded
-from original CI. It is never added to the new Bueno indicator. The calculator
-also refuses enabled credits if a corresponding displacement is already
-registered in the system's baseline impact ledger. Combining existing storage
-with the requested full methane credit requires compatible counterfactual,
-product-fate and permanence evidence before making a consequential LCA claim.
+Aerobic mineralization is independently assumed to be 0.40, with screening
+values 0.30 and 0.50. These are provisional choices informed by analogous kelp
+research, [Boldreel et al. (2023), MEPS 709](https://doi.org/10.3354/meps14285),
+not measured Sargassum beach-specific factors or a calibrated uncertainty
+interval. Fully aerobic decomposition produces no methane in this model.
 
-## Configuration and verification
+Reference methane realization is 1.0. It represents the net fraction of modeled
+CH4 production reaching the atmosphere, aggregating suppression, oxidation or
+retention. Full realization is not a verified field emission rate. Unrealized
+methane is not automatically reclassified as atmospheric CO2.
 
-Main environmental figures always show GCC displacement as its own factor.
-The decomposition configuration defaults to disabled. Named potential scenarios
-enable it explicitly and explore GWP100 and CH4-realization sensitivities.
-Realization fractions of 0%, 10%, 50% and 100% are illustrative screening inputs,
-not measured beach-emission estimates or confidence bounds. More field data are
-needed to establish actual CH4 emissions, organic losses in pressing and the
-relevant beach counterfactual. The legacy IPCC counterfactual is not combined
-with the Bueno scenario.
+Non-fossil methane GWP100 is 25.3, attributed to the
+[IPCC AR6 WGI errata, 7 October 2025](https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf),
+p. 3, corrected Table 7.15. Baseline inventory factors are unchanged. Biogenic
+CO2 is reported separately as modeled formation, with no climate credit. In
+waterlogged environments, inorganic-carbon formation need not equal direct
+atmospheric CO2 release.
 
-Figure 1 uses the same model energy ledger on four bases: kg H2, kg dry feed
-(0 wt% moisture), kg fresh wet equivalent (87.5 wt% moisture), and kg wet-feed
-equivalent (75 wt% moisture). For energy per kg dry feed, multiply by dry-feed
-flow/H2-component flow for hydrogen, or by 0.125 and 0.25 for the two wet cases.
-Per-tonne CI conversion uses the same solids fractions. The modeled inlet's
-actual moisture is reported separately. These are normalization choices, not
-changes to feed moisture, energy demand or the original process model.
+The carbon ledger retains unmineralized organic carbon explicitly. Methane
+and CO2 formation cannot consume more carbon than allocated to each pathway.
+No legacy IPCC equation, GWP-minus-CO2 subtraction, or raw-feed moisture
+conversion enters the new indicator. Existing storage remains counted once
+in original CI. Combining storage and methane avoidance still requires
+compatible carbon-fate, product-fate and permanence evidence; this implementation
+does not establish that consequential claim.
 
-Figure 2B is the main GCC-adjusted environmental breakdown without decomposition.
-Its design is retained. The separate Figure 2C compares the same S3 REE On main
-result against the expanded potential beach-decomposition scenario. GCC is
-included in both; CH4 avoidance is the only additional term. Figure 2C includes
-the source, GWP, raw-moisture and dry-solids-conservation assumptions and is
-exported as a standalone PDF/PNG as well as a separate page immediately after
-Figure 2B in the S3 figure book.
-Gray, blue and green H2 reference figures retain separate storage, WHR, GCC
-and H2-displacement terms and pair results without/with decomposition. P0 in
-the commercialization waterfall disposes the cakes and has no GCC substitution;
-P1 starts CaCO3 commercialization and its GCC credit. Decomposition remains a
-separate potential waterfall and comparison. Older PDF and repository HTML
-reports supply visual references only; every plotted operating value is
-recomputed from the current model.
+## Configuration, normalization and verification
 
-`data/lca.yaml`, `lca.avoided_emissions`, holds the two independent enabled
-switches for diagnostic API cases, factors, product streams, species mixture and GWP sensitivity inputs.
-Disabling both returns expanded CI equal to original CI. The sensitivity CSV
-includes main, potential, original-only, GCC-only and decomposition-only cases in addition to
-the configured diagnostic case. Main reporting always includes GCC and excludes
-decomposition; changing the configured diagnostic switches does not silently
-change that definition. Annual hours cancel in normalization; hydrogen uses the
-H2 component, not total product-gas mass.
+`data/lca.yaml`, `lca.avoided_emissions`, holds independent GCC/decomposition
+switches and decomposition parameters. Decomposition defaults to disabled;
+main reported CI always includes GCC and excludes decomposition. Named potential
+cases explicitly enable the additional methane indicator. Disabling both
+credits in the diagnostic API returns original CI.
 
-Tests pin the source-reference emissions and enforce component, dry-solids,
-credit-ledger and functional-unit accounting. The model-invariance check compares
-streams, enthalpies, utilities, TEA, original CI and existing credits before and
-after calculating the indicators. Existing model and physical-balance tests
-remain applicable without changing their pinned results.
+Gas masses and methane climate impact are normalized using actual inlet wet
+mass, inlet dry mass and scenario H2 component production. Outputs use tonnes
+wet ATT presscake, tonnes dry Sargassum and kg H2. The decomposition scenario
+does not use fresh-feed equivalents. Existing energy-only reference-basis
+figures retain their original conversions and operating values.
+
+One-at-a-time sensitivities vary:
+
+- Anaerobic fraction: 0, 0.2, 0.4, 0.6, 0.8, 1.
+- Anaerobic BI: 0.17, its reference mean, 0.37.
+- Aerobic mineralization: 0.30, 0.40, 0.50.
+- Atmospheric methane realization: 0, 0.1, 0.5, 1.
+
+Every sweep holds the remaining parameters fixed. Physical biogenic CO2 and
+methane climate impact use distinct quantities and axes. Generated data and
+figures are in [the sensitivity CSV](../results/avoided_emissions/avoided_emissions_sensitivity.csv)
+and [the sensitivity figure](../results/avoided_emissions/potential_decomposition_sensitivity.pdf).
+Operating results belong in these generated artifacts, not this document.
+
+Figure 2B retains the main GCC-adjusted environmental breakdown. Figure 2C and
+the additional comparison/waterfall charts use only the mechanistic methane
+indicator. GCC is included consistently in main and potential comparisons;
+existing carbonate/char storage is never subtracted again. Historical IPCC
+calculations remain in baseline analysis code for compatibility and are not
+combined with this scenario. The comprehensive report's optional comparison
+uses the new mechanistic indicator.
+
+Regenerate the stable comprehensive HTML and S3 figure book from the repository
+root, or with that root on PYTHONPATH:
+
+```text
+python -m biorefineries.ATT.analyses.comprehensive_report
+python -m biorefineries.ATT.analyses.s3_figures
+```
+
+Tests pin the reported reference and enforce elemental/carbon balance, pathway
+allocation, independent mineralization, atmospheric methane accounting and
+functional-unit conversions. The invariance test compares process streams,
+enthalpies, utilities, TEA, original CI and existing storage before and after
+calculating the indicator. Existing baseline pins are retained unchanged.

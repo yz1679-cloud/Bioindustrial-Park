@@ -641,10 +641,10 @@ def treatment_page(book,b,index):
         ax.legend([Patch(facecolor=c) for _,_,c in legend_items],[k for k,_,_ in legend_items],loc='upper left',bbox_to_anchor=(-.08,-.13),fontsize=8,frameon=False)
     paragraph(f,f"H2 yield = {YIELD:.5f} kg/t dry (0 wt% moisture). Main includes GCC reduction {C['main_ci']['avoided_gcc_production_emissions']*YIELD:.2f} kg CO2e/t dry, plus H2 displacement, with storage/WHR once. "
         f"Potential additional scenario subtracts {C['potential_ci']['avoided_sargassum_decomposition_emissions']*YIELD:.2f} kg CO2e/t dry. "
-        f"Natural reference: fresh Sargassum decomposes on beaches. Bueno et al. 2023 dry factor = {avoided.decomposition_emissions_dry(1000.)['ch4_kg_per_t_dry']:g} kg CH4/t dry "
-        "(from 7.7005 kg/t fresh at 87.5 wt% moisture), GWP100=28. ATT uses actual dry solids; moisture only converts units. "
-        "Pressing dry-solids conservation is assumed; organic losses/biodegradability and beach CH4 are uncertain, not UCLA measurements. "
-        "Sensitivity follows; all three cases share environmental axis limits.",y=.14,width=160,fs=8)
+        "Feed-specific Boyle decomposition plus aerobic carbon oxidation uses active component CHONS, including sulfur. "
+        "The reference 40/60 allocation, anaerobic BI and independent aerobic mineralization are screening inputs. "
+        "GWP100 = 25.3 applies to atmospheric methane only. Biogenic CO2 is reported as formation, without a climate credit. "
+        "Historical IPCC and Bueno factors are excluded; sensitivity follows.",y=.14,width=160,fs=8)
     book.save(f)
 
 
@@ -691,13 +691,13 @@ def waterfall_page(book):
 
 def decomposition_caption():
     d=avoided.assumptions()['avoided_sargassum_decomposition_emissions']
-    gas=avoided.decomposition_emissions_dry(1000.)
-    return (f"Potential scenario: fresh, unprocessed Sargassum decomposes on beaches (Bueno et al. 2023). "
-        f"Dry factor = {gas['ch4_kg_per_t_dry']:g} kg CH4/t dry, derived from {gas['weighted_ch4_g_per_kg_raw']:g} kg/t fresh "
-        f"at {d['reference_raw_moisture_fraction']*100:.1f} wt% moisture. ATT uses actual presscake dry solids "
-        f"(current moisture {C['presscake_moisture_fraction']*100:.1f} wt%); CH4 GWP100 = {d['ch4_gwp100']:g}. "
-        "Moisture converts units only; methane potential follows biodegradable organic matter. Dry-solids conservation through pressing is assumed. "
-        "Organic losses, biodegradability and beach CH4 are uncertain; not UCLA feedstock or field-flux measurements. Biogenic CO2 has no credit.")
+    return (f"Hypothetical ATT presscake decomposition; actual moisture {C['presscake_moisture_fraction']*100:.1f} wt%. "
+        f"Original organics: {d['anaerobic_fraction']*100:g}% anaerobic, {(1-d['anaerobic_fraction'])*100:g}% aerobic. "
+        f"Boyle CH4 and CO2 use BI = {d['anaerobic_biodegradability']:.4f} once (Milledge et al., Table 11). "
+        f"Aerobic carbon oxidation uses independent mineralization = {d['aerobic_mineralization']:g} (kelp-informed assumption). "
+        f"Atmospheric methane realization = {d['methane_realization']:g}; GWP100 = {d['ch4_gwp100']:g}. "
+        "Screening inputs, not measured beach fluxes. Biogenic CO2 formation is not necessarily atmospheric release and has no credit. "
+        "Storage remains counted once; historical decomposition indicators are excluded.")
 
 
 def decomposition_comparison_page(book):
@@ -736,14 +736,14 @@ def decomposition_comparison_page(book):
         'the only additional term. The expanded potential scenario is separate from the default main result; '
         'Figure 2B remains the primary CI breakdown with GCC and without decomposition.',y=.315,width=151,fs=9.3)
     paragraph(f,decomposition_caption(),y=.225,width=156,fs=8.8)
-    f.text(.05,.105,'Assumptions and sensitivity: Bueno et al. (2023), DOI 10.3390/su15076254; GWP100 25.3 and 0–100% realization are separate sensitivities.',
-           fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/su15076254')
+    f.text(.05,.105,'Boyle + carbon oxidation; BI: Milledge et al. 2020; aerobic analogy: Boldreel et al. 2023; GWP100: IPCC 2025 errata.',
+        fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/en13061523')
     book.save(f)
 
 
 def decomposition_page(book):
     f=book.new('Potential additional analysis · Beach decomposition',subtitle='Main = original CI minus GCC; potential = main minus CH4 avoidance. GCC is included in both versions.')
-    rows=[r for r in C['avoided_emissions']['rows'] if r['basis']=='per_kg_h2' and r['reference_gwp'] and r['reference_fraction']]
+    rows=[r for r in C['avoided_emissions']['rows'] if r['basis']=='per_kg_h2' and r['reference_case']]
     main=[r for r in rows if r['credit_case']=='main']; potential=[r for r in rows if r['credit_case']=='potential']
     ax=f.add_axes([.09,.40,.84,.36]); x=np.arange(len(main))
     ax.bar(x-.19,[r['expanded_CI'] for r in main],.38,color=COL['gcc'],label='Without decomposition · main incl. GCC')
@@ -757,29 +757,23 @@ def decomposition_page(book):
     paragraph(f,decomposition_caption(),y=.30,width=156,fs=9)
     paragraph(f,'GCC: 0.0125 kg CO2e/kg pure CaCO3; Lafarge Granulats (2026), EPD-IES-0031144:001, A1-A3. '
         'GCC quality equivalence and permanent storage remain assumptions. Neither legacy optional IPCC beach-rot credit nor biogenic CO2 is added.',y=.17,width=156,fs=8.5)
-    f.text(.05,.095,'Bueno et al. (2023) · DOI: 10.3390/su15076254',fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/su15076254')
+    f.text(.05,.095,'Anaerobic BI: Milledge et al. (2020), Table 11; aerobic mineralization: provisional kelp-informed screening input.',
+        fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/en13061523')
     book.save(f)
 
 
 def decomposition_sensitivity_page(book):
-    f=book.new('Potential decomposition · GWP and realization sensitivity',subtitle='S3 REE On · GCC remains included at every point; 0% is the main result without decomposition')
-    rows=[r for r in C['avoided_emissions']['rows'] if r['scenario']=='S3' and r['ree_enabled'] and r['basis']=='per_kg_h2' and r['credit_case']=='potential']
-    ax=f.add_axes([.09,.42,.54,.36])
-    for gwp in sorted({r['ch4_gwp100'] for r in rows}):
-        series=sorted((r for r in rows if r['ch4_gwp100']==gwp),key=lambda r:r['decomposition_fraction'])
-        ax.plot([r['decomposition_fraction']*100 for r in series],[r['expanded_CI'] for r in series],marker='o',label=f'CH4 GWP100 = {gwp:g}')
-        for r in series:
-            check(f'Realization sensitivity {gwp} {r["decomposition_fraction"]}',r['expanded_CI'],r['main_CI']-r['avoided_sargassum_decomposition_emissions'])
-    style(ax,'kg CO2e/kg H2'); ax.set_xlabel('Realization of theoretical CH4 avoidance (%)'); ax.legend(frameon=False,fontsize=9)
-    gas=avoided.decomposition_emissions_dry(1000.)
-    notes=[['Derived CH4 factor',f"{gas['ch4_kg_per_t_dry']:g} kg/t dry\n({gas['weighted_ch4_g_per_kg_raw']:g} kg/t fresh)"],
-           ['Reference moisture',f"87.5 wt% fresh; {C['presscake_moisture_fraction']*100:.1f} wt% presscake"],['Reference GWP100','28; prior reference calculation'],
-           ['Optional GWP100','25.3; IPCC AR6 WGI 2025 errata'],['Realization fractions','0%, 10%, 50%, 100%; illustrative'],
-           ['Field uncertainty','Not a measured confidence interval']]
-    table(f,['Input / qualification','Basis'],notes,[.45,.55],x=.67,total_width=.28,top=.79,bottom=.38,fs=8.4)
-    paragraph(f,decomposition_caption(),y=.30,width=156,fs=9)
-    paragraph(f,'The realization sweep explores lower or variable actual methane emissions and incomplete avoidance. It is not a calibrated field model. '
-        'The dry-solids conversion does not establish carbon retention in press liquor. GWP sensitivity re-characterizes only this new CH4 indicator, not the original ATT inventory.',y=.16,width=156,fs=8.5)
+    f=book.new('Potential decomposition sensitivity',
+        subtitle='S3 REE On | One parameter varies; all others fixed. Dotted lines mark reference inputs.')
+    rows=C['avoided_emissions']['rows']
+    avoided.draw_decomposition_sensitivity(f, rows)
+    for r in rows:
+        if r['scenario']=='S3' and r['ree_enabled'] and r['credit_case']=='potential' and r['basis']=='per_kg_h2':
+            check(f"Decomposition OAT {r['sensitivity_parameter']} {r['sensitivity_value']}",
+                  r['expanded_CI'],r['main_CI']-r['avoided_sargassum_decomposition_emissions'])
+    paragraph(f,'Green: atmospheric methane climate impact. Orange: total physical biogenic CO2 formation, which receives no climate credit. '
+        'All parameters are screening assumptions; these ranges are not measured confidence intervals. Data: avoided_emissions_sensitivity.csv.',
+        y=.105,width=168,fs=8)
     book.save(f)
 
 

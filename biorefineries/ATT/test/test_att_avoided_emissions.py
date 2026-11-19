@@ -6,38 +6,88 @@ import biosteam as bst
 
 from biorefineries.ATT.analyses import inventory, lca, scenarios, tea
 from biorefineries.ATT.analyses import avoided_emissions as avoided
+from biorefineries.ATT._chemicals import create_chemicals
+from biorefineries.ATT.utils import load_assumptions, make_sargassum_feed
+from chemicals.elements import periodic_table
 
 
 class TestAvoidedEmissionReferences(unittest.TestCase):
 
-    def test_brazilian_mix_reported_reference(self):
-        # Bueno Table 3 wet-basis mixture; 1 tonne raw biomass, not presscake.
-        reference = avoided.decomposition_emissions(1000.)
-        self.assertAlmostEqual(reference['avoided_ch4_kg'], 7.7005, places=7)
-        self.assertAlmostEqual(reference['biogenic_co2_kg'], 23.125, places=7)
-        self.assertAlmostEqual(reference['avoided_co2e_kg'], 215.614, places=7)
-        ar6 = avoided.decomposition_emissions(1000., ch4_gwp100=25.3)
-        self.assertAlmostEqual(ar6['avoided_co2e_kg'], 194.82265, places=7)
+    @classmethod
+    def setUpClass(cls):
+        create_chemicals(include_att=True)
+        cfg = load_assumptions('feedstock.yaml')['feedstock_type']['nlr_pressed']
+        cls.feed = make_sargassum_feed(1000., cfg['moisture_frac'], cfg['dry_composition'])
 
-    def test_presscake_dry_solids_identity(self):
-        # One tonne at the current 76.3% moisture represents 237 kg solids.
-        raw = avoided.raw_sargassum_equivalent(1000., 763.)
-        self.assertAlmostEqual(raw, 1896., places=7)
-        reference = avoided.decomposition_emissions(raw)
-        self.assertAlmostEqual(reference['avoided_co2e_kg'], 408.804144, places=7)
-        # Reconstruct dry matter on the reference raw basis independently.
-        self.assertAlmostEqual(raw - raw * .875, 237., places=7)
+    def test_reported_mechanistic_reference(self):
+        # New reported scenario replaces the Bueno factor intentionally.
+        r = avoided.decomposition_emissions(self.feed)
+        for key, expected in [('anaerobic_ch4_kg', 5.314), ('anaerobic_co2_kg', 15.56),
+                              ('aerobic_co2_kg', 65.36), ('biogenic_co2_kg', 80.91)]:
+            self.assertAlmostEqual(r[key], expected, delta=.01, msg=key)
+        self.assertAlmostEqual(r['avoided_co2e_kg'], 134.44, delta=.02)
+        self.assertAlmostEqual(r['avoided_co2e_kg']/r['inventory']['dry_mass_kg']*1000., 567.3, delta=.1)
 
-    def test_reported_dry_solids_reference(self):
-        dry = avoided.decomposition_emissions_dry(1000.)
-        self.assertAlmostEqual(dry['ch4_kg_per_t_dry'], 61.604, places=7)
-        self.assertAlmostEqual(dry['avoided_ch4_kg'], 61.604, places=7)
-        self.assertAlmostEqual(dry['avoided_co2e_kg'], 1724.912, places=7)
-        presscake = avoided.decomposition_emissions_dry(237.)
-        self.assertAlmostEqual(presscake['avoided_ch4_kg'], 14.600148, places=7)
-        self.assertAlmostEqual(presscake['avoided_co2e_kg'], 408.804144, places=7)
-        ar6 = avoided.decomposition_emissions_dry(1000., ch4_gwp100=25.3)
-        self.assertAlmostEqual(ar6['avoided_co2e_kg'], 1558.5812, places=7)
+    def test_active_component_element_and_formula_accounting(self):
+        r = avoided.decomposition_emissions(self.feed)
+        inv = r['inventory']
+        self.assertAlmostEqual(inv['dry_mass_kg'], 237., places=10)
+        self.assertAlmostEqual(inv['organic_mass_kg'], 160.9941, places=10)
+        for e in ('C', 'H', 'O', 'N', 'S'):
+            # Native stream atom accounting is independent of our inventory loop.
+            expected = self.feed.get_atomic_flow(e)
+            if e in ('H', 'O'):
+                expected -= self.feed.imol['Water'] * (2 if e=='H' else 1)
+            self.assertAlmostEqual(inv['element_kmol'][e], expected, places=10)
+            self.assertAlmostEqual(inv['element_mass_kg'][e], expected*periodic_table[e].MW, places=9)
+        self.assertGreater(inv['element_mass_kg']['S'], .13)
+        self.assertAlmostEqual(sum(inv['element_mass_kg'].values()), inv['organic_mass_kg'], places=9)
+        self.assertAlmostEqual(inv['formula_unit_kmol']*inv['formula_mw_kg_per_kmol'], inv['organic_mass_kg'], places=9)
+
+    def test_boyle_element_balance_and_sulfur(self):
+        # Cellulose: one repeat + H2O -> 3 CH4 + 3 CO2.
+        r = avoided.boyle_coefficients(dict(C=6., H=10., O=5., N=0., S=0.))
+        self.assertEqual((r['CH4'], r['CO2'], r['H2O']), (3., 3., 1.))
+        # Methanethiol: CH4S + 0.5 H2O -> .75 CH4 + .25 CO2 + H2S.
+        r = avoided.boyle_coefficients(dict(C=1., H=4., O=0., N=0., S=1.))
+        self.assertEqual((r['CH4'], r['CO2'], r['H2S'], r['H2O']), (.75, .25, 1., .5))
+        atoms = avoided.organic_inventory(self.feed)['normalized_formula']
+        r = avoided.boyle_coefficients(atoms)
+        self.assertAlmostEqual(r['CH4']+r['CO2'], atoms['C'])
+        self.assertAlmostEqual(4*r['CH4']+3*r['NH3']+2*r['H2S'], atoms['H']+2*r['H2O'])
+        self.assertAlmostEqual(2*r['CO2'], atoms['O']+r['H2O'])
+        self.assertEqual(r['NH3'], atoms['N'])
+        self.assertEqual(r['H2S'], atoms['S'])
+
+    def test_pathway_carbon_allocation_and_residual(self):
+        for anaerobic in (0., .2, .4, .6, .8, 1.):
+            r = avoided.decomposition_emissions(self.feed, anaerobic_fraction=anaerobic)
+            carbon = r['inventory']['element_mass_kg']['C']
+            self.assertAlmostEqual(r['anaerobic_organic_mass_kg']+r['aerobic_organic_mass_kg'], 160.9941)
+            self.assertAlmostEqual(r['anaerobic_carbon_kg']+r['aerobic_carbon_kg'], carbon)
+            self.assertAlmostEqual(r['anaerobic_gas_carbon_kg']+r['aerobic_gas_carbon_kg']+r['unmineralized_carbon_kg'], carbon)
+            # Independently recover gas carbon from emitted species masses.
+            gas_carbon = (r['anaerobic_ch4_kg']/self.feed.chemicals['CH4'].MW
+                          + (r['anaerobic_co2_kg']+r['aerobic_co2_kg'])/self.feed.chemicals['CO2'].MW)*periodic_table['C'].MW
+            self.assertAlmostEqual(gas_carbon+r['unmineralized_carbon_kg'], carbon)
+            self.assertGreaterEqual(min(r[k] for k in ('anaerobic_ch4_kg','anaerobic_co2_kg','aerobic_co2_kg')), 0.)
+        self.assertEqual(avoided.decomposition_emissions(self.feed, anaerobic_fraction=0.)['anaerobic_ch4_kg'], 0.)
+        self.assertEqual(avoided.decomposition_emissions(self.feed, anaerobic_fraction=1.)['aerobic_co2_kg'], 0.)
+
+    def test_independent_mineralization_and_atmospheric_accounting(self):
+        full = avoided.decomposition_emissions(self.feed, anaerobic_biodegradability=1.)
+        half = avoided.decomposition_emissions(self.feed, anaerobic_biodegradability=.5)
+        self.assertAlmostEqual(half['anaerobic_ch4_kg'], full['anaerobic_ch4_kg']/2.)
+        self.assertAlmostEqual(half['anaerobic_co2_kg'], full['anaerobic_co2_kg']/2.)
+        self.assertEqual(half['aerobic_co2_kg'], full['aerobic_co2_kg'])
+        none = avoided.decomposition_emissions(self.feed, aerobic_mineralization=0., methane_realization=0.)
+        self.assertEqual(none['aerobic_co2_kg'], 0.)
+        self.assertEqual(none['atmospheric_ch4_kg'], 0.)
+        self.assertEqual(none['avoided_co2e_kg'], 0.)
+        self.assertGreater(none['anaerobic_ch4_kg'], 0.)
+        quarter = avoided.decomposition_emissions(self.feed, methane_realization=.25)
+        self.assertAlmostEqual(quarter['atmospheric_ch4_kg']+quarter['unrealized_ch4_kg'], quarter['anaerobic_ch4_kg'])
+        self.assertAlmostEqual(quarter['atmospheric_ch4_kg'], quarter['anaerobic_ch4_kg']/4.)
 
 
 class TestAvoidedEmissionAccounting(unittest.TestCase):
@@ -114,8 +164,8 @@ class TestAvoidedEmissionAccounting(unittest.TestCase):
     def test_main_and_potential_credit_ledgers(self):
         main = avoided.calculate_avoided_emissions(self.system)
         potential = avoided.calculate_avoided_emissions(self.system, include_decomposition=True)
-        none = avoided.calculate_avoided_emissions(self.system, include_decomposition=True, decomposition_fraction=0.)
-        half = avoided.calculate_avoided_emissions(self.system, include_decomposition=True, decomposition_fraction=.5)
+        none = avoided.calculate_avoided_emissions(self.system, include_decomposition=True, methane_realization=0.)
+        half = avoided.calculate_avoided_emissions(self.system, include_decomposition=True, methane_realization=.5)
         for basis in ('per_kg_h2', 'per_tonne_wet_presscake'):
             m, p = main[basis], potential[basis]
             self.assertEqual(m['avoided_sargassum_decomposition_emissions'], 0.)
@@ -124,10 +174,10 @@ class TestAvoidedEmissionAccounting(unittest.TestCase):
             self.assertAlmostEqual(none[basis]['expanded_CI'], m['expanded_CI'])
             self.assertAlmostEqual(half[basis]['expanded_CI'], (m['expanded_CI']+p['expanded_CI'])/2.)
         # Independently specified reference results per dry tonne, not copied formulas.
-        for realization, expected in [(0., 0.), (.1, 172.4912), (.5, 862.456), (1., 1724.912)]:
+        for realization, expected in [(0., 0.), (.1, 56.73), (.5, 283.65), (1., 567.3)]:
             result = avoided.calculate_avoided_emissions(self.system, include_decomposition=True,
-                                                       decomposition_fraction=realization)
-            self.assertAlmostEqual(result['per_tonne_dry']['avoided_sargassum_decomposition_emissions'], expected, places=7)
+                                                       methane_realization=realization)
+            self.assertAlmostEqual(result['per_tonne_dry']['avoided_sargassum_decomposition_emissions'], expected, delta=.1)
 
     def test_constant_dry_solids_methane_is_invariant_to_water(self):
         # Change water only; this read-only credit calculation must not infer
@@ -140,24 +190,39 @@ class TestAvoidedEmissionAccounting(unittest.TestCase):
             for moisture in (.5, .763, .875, .9):
                 feed.imass['Water'] = dry * moisture / (1.-moisture)
                 current = avoided.calculate_avoided_emissions(self.system, include_decomposition=True)
-                self.assertAlmostEqual(current['activity']['avoided_ch4_kgph'], baseline['activity']['avoided_ch4_kgph'], places=8)
+                self.assertAlmostEqual(current['activity']['atmospheric_ch4_kgph'], baseline['activity']['atmospheric_ch4_kgph'], places=8)
                 self.assertAlmostEqual(current['activity']['presscake_dry_kgph'], dry, places=8)
-                self.assertEqual(current['decomposition_basis'], 'actual presscake dry solids')
                 for key in ('original_CI','existing_storage_credit','avoided_gcc_production_emissions',
                             'main_CI','potential_CI','avoided_sargassum_decomposition_emissions'):
                     self.assertAlmostEqual(current['per_kg_h2'][key], baseline['per_kg_h2'][key], places=8)
         finally:
             feed.imass['Water'] = water
 
-    def test_wet_reference_solids_accounting(self):
-        result = avoided.calculate_avoided_emissions(self.system)
-        dry = result['per_tonne_dry']
-        for basis, solids in [('per_tonne_fresh_87_5', .125), ('per_tonne_wet_75', .25)]:
-            for key, value in dry.items():
-                self.assertAlmostEqual(result[basis][key], value*solids)
-        # Source-reference decomposition per fresh tonne is independent of ATT yield.
-        potential = avoided.calculate_avoided_emissions(self.system, include_decomposition=True)
-        self.assertAlmostEqual(potential['per_tonne_fresh_87_5']['avoided_sargassum_decomposition_emissions'], 215.614)
+    def test_actual_feed_and_hydrogen_normalization(self):
+        result = avoided.calculate_avoided_emissions(self.system, include_decomposition=True)
+        a = result['activity']
+        for key, dry_value in result['per_tonne_dry'].items():
+            self.assertAlmostEqual(result['per_tonne_wet_presscake'][key], dry_value*a['presscake_dry_kgph']/a['presscake_wet_kgph'])
+            self.assertAlmostEqual(result['per_kg_h2'][key]*a['h2_kgph'], dry_value*a['presscake_dry_kgph']/1000.)
+        self.assertAlmostEqual(result['per_kg_h2']['avoided_sargassum_decomposition_emissions'], 7.65, delta=.01)
+
+    def test_sensitivity_pathway_and_climate_accounting(self):
+        rows = avoided.scenario_rows(self.system, 'S1', True, 20.)
+        reference = next(r for r in rows if r['credit_case']=='potential' and r['reference_case'] and r['basis']=='per_tonne_wet_presscake')
+        cfg = avoided.assumptions()['avoided_sargassum_decomposition_emissions']
+        for r in rows:
+            if r['credit_case']!='potential' or r['basis']!='per_tonne_wet_presscake':
+                continue
+            for key in cfg['sensitivities']:
+                if key != r['sensitivity_parameter']:
+                    self.assertEqual(r[key], cfg[key])
+            self.assertAlmostEqual(r['anaerobic_fraction']+r['aerobic_fraction'], 1.)
+            self.assertAlmostEqual(r['anaerobic_co2_kg']+r['aerobic_co2_kg'], r['biogenic_co2_kg'])
+            self.assertAlmostEqual(r['atmospheric_ch4_kg']*r['ch4_gwp100'], r['methane_climate_impact_kgCO2e'])
+            if r['sensitivity_parameter']=='aerobic_mineralization':
+                self.assertEqual(r['methane_climate_impact_kgCO2e'], reference['methane_climate_impact_kgCO2e'])
+            if r['sensitivity_parameter']=='methane_realization':
+                self.assertEqual(r['biogenic_co2_kg'], reference['biogenic_co2_kg'])
 
 
 if __name__ == '__main__':
