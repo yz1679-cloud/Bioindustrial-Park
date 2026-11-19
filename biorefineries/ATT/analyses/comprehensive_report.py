@@ -1,7 +1,7 @@
 """Build an offline, current-runtime ATT S1/S2/S3 technical report.
 
 Run from the repository root with the project interpreter:
-  python -m biorefineries.ATT.analyses.comprehensive_report [--out DIRECTORY]   (default: results/comprehensive_report)
+  python -m biorefineries.ATT.analyses.comprehensive_report [--out DIRECTORY]   (default: results/avoided_emissions)
 No model inputs are modified; the output folder is regenerated in place (results/ is git-ignored).
 """
 import argparse
@@ -145,13 +145,14 @@ def carbon_credit_breakdown(system):
     return result
 
 
-def collect():
+def collect(include_avoided_emissions=True):
     """Recompute model cases and collect explicit source ledgers without changing assumptions."""
     from biorefineries.ATT.analyses import treatment_report, scenarios, inventory, marine_tea, marine_lca, marine_whr, tea
     from biorefineries.ATT.analyses.s3_industrial import run as s3_run
     from biorefineries.ATT.analyses.breakdown import build_att_breakdown
     fu, balances, carbon, pseudo = treatment_report.run()
     details = {}
+    avoided_rows = []
     for ree in (True, False):
         sys = scenarios.create(scenarios.ATT_S1, ree_recovery=ree)
         base = build_att_breakdown('att_s1', sys=sys)
@@ -203,6 +204,9 @@ def collect():
             r = next(x for x in fu if x['scenario']==scenario and x['ree_enabled']==ree and x['basis']=='per_kg_h2')
             if not math.isclose(r['hydrogen_msp_usd_per_kg'],msp,rel_tol=1e-8,abs_tol=1e-8) or not math.isclose(r['net_gwp_kg_co2e'],gwp,rel_tol=1e-8,abs_tol=1e-8):
                 raise ValueError(f'Functional-unit results do not reconcile: {scenario} REE={ree}')
+            if include_avoided_emissions:
+                from biorefineries.ATT.analyses.avoided_emissions import scenario_rows
+                avoided_rows.extend(scenario_rows(sys, scenario, ree, gwp))
     from biorefineries.ATT.analyses.ree_tea_cases import collect_ree_tea
     ree_tea=collect_ree_tea({flag:case['industrial'] for flag,case in details.items()})
     versions = {}
@@ -214,6 +218,8 @@ def collect():
     inputs = list((ROOT/'data').glob('*.yaml')) + [ROOT/'analyses'/x for x in ('inventory.py','marine_lca.py','treatment_report.py','functional_unit.py','s3_industrial.py','industrial_whr.py','marine_tea.py','marine_whr.py','tea.py','lca.py','breakdown.py','scenarios.py','reporting.py','validation.py','comprehensive_report.py','comprehensive_report_template.html')]
     inputs += [ROOT/'system.py',ROOT/'_chemicals.py',ROOT/'units'/'_att.py']
     inputs += [ROOT/'analyses'/'ree_tea_cases.py']
+    if include_avoided_emissions:
+        inputs += [ROOT/'analyses'/'avoided_emissions.py', ROOT/'analyses'/'s3_figures.py', ROOT/'analyses'/'paths.py']
     provenance = git_provenance()
     provenance.update(generated_utc=datetime.now(timezone.utc).isoformat(), versions=versions,
                       input_sha256={str(p.relative_to(REPO)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
@@ -252,9 +258,13 @@ def collect():
             inactive.append(dict(row, status=reason))
         else:
             active.append(row)
-    return clean(dict(functional=fu, balances=balances, carbon=carbon, pseudo=pseudo,ree_tea=ree_tea,
+    result = dict(functional=fu, balances=balances, carbon=carbon, pseudo=pseudo,ree_tea=ree_tea,
                       details=details, assumptions=active, inactive_parameters=inactive,
-                      scientific_notes=_scientific_notes(), limitations=_limits(), provenance=provenance))
+                      scientific_notes=_scientific_notes(), limitations=_limits(), provenance=provenance)
+    if include_avoided_emissions:
+        from biorefineries.ATT.analyses.avoided_emissions import assumptions
+        result['avoided_emissions'] = dict(rows=avoided_rows, assumptions=assumptions())
+    return clean(result)
 
 
 def _save_csv(path, rows):
@@ -331,7 +341,7 @@ def tables(data):
                                    'Waste management' if row['stage']=='Waste management' else
                                    'WHR displaced utility / auxiliary adjustment' if row['record_type']!='S1 inherited' else
                                    'Upstream material / energy supply')
-    return dict(scenario_comparison=comparison,process_summary=process,mass_balance=mass,energy_balance=energy,
+    result = dict(scenario_comparison=comparison,process_summary=process,mass_balance=mass,energy_balance=energy,
                 tea_breakdown=tea,lca_breakdown=lca,functional_unit_comparison=fu,
                 assumptions_and_sources=data['assumptions'],scientific_limitations=data['limitations'],
                 scientific_notes=data['scientific_notes'],inactive_parameters=data['inactive_parameters'],
@@ -341,6 +351,27 @@ def tables(data):
                 dcf_msp_components=data['ree_tea']['dcf_components'],dcf_cashflows=data['ree_tea']['cashflows'],
                 dcf_financial_assumptions=[dict(parameter=key,value=value) for key,value in data['ree_tea']['financial_assumptions'].items()],
                 carbon_flows=data['carbon'],pseudo_flows=data['pseudo'],elemental_balances=case_balances)
+    if 'avoided_emissions' in data:
+        from biorefineries.ATT.analyses.avoided_emissions import reference_rows
+        main = {(r['scenario'],r['ree_enabled'],r['basis']):r for r in reference_rows(data,'main')}
+        def reported(row):
+            basis = 'per_tonne_wet_presscake' if row['basis']=='per_tonne_wet' else row['basis']
+            ci = main[row['scenario'],row['ree_enabled'],basis]
+            return dict(row, original_net_gwp_kg_co2e=row['net_gwp_kg_co2e'],
+                        gcc_credit=ci['avoided_gcc_production_emissions'],
+                        net_gwp_kg_co2e=ci['expanded_CI'], main_CI=ci['expanded_CI'],
+                        total_credit_gwp_kg_co2e=row['credit_gwp_kg_co2e']-ci['avoided_gcc_production_emissions'],
+                        reporting_definition='Main CI includes GCC; excludes potential decomposition')
+        result['scenario_comparison'] = [reported(r) for r in comparison]
+        result['functional_unit_comparison'] = [reported(r) for r in fu]
+        for r in lca:
+            r['counted_in_original_CI'] = True
+        for r in reference_rows(data,'main','per_kg_h2'):
+            lca.append(dict(ree_enabled=str(r['ree_enabled']),scenario=r['scenario'],
+                record_type='GCC reporting credit',stage='GCC avoided production',
+                contributor='Avoided conventional GCC production',emission_category='GCC avoided production (separate from storage)',
+                kgCO2e_per_kg_H2=-r['avoided_gcc_production_emissions'],counted_in_original_CI=False))
+    return result
 
 
 def report_qc(data, all_tables):
@@ -351,6 +382,8 @@ def report_qc(data, all_tables):
         checks.append(dict(case=case,check=name,value=value,reference=target,status='PASS' if ok else 'FAIL'))
     check('All','Six unique cases',len({(r['scenario'],r['ree_enabled']) for r in all_tables['scenario_comparison']}),6)
     for row in all_tables['scenario_comparison']:
+        displayed = row
+        row = dict(row, net_gwp_kg_co2e=row.get('original_net_gwp_kg_co2e', row['net_gwp_kg_co2e']))
         scenario=row['scenario']; enabled=str(row['ree_enabled']); label=f'{scenario} REE {enabled}'
         d=data['details'][enabled]; b=d['base']; h=d['marine_whr']; s=d['industrial']
         cost=next(x for x in data['ree_tea']['cases'] if x['scenario']==scenario and str(x['ree_enabled'])==enabled)
@@ -369,7 +402,8 @@ def report_qc(data, all_tables):
             if key.endswith('relative_error'): check(label,key,value,0.,atol=1e-8)
         check(label,'H2 component = wet-basis conversion',row['h2_component_kgph'],row['hydrogen_kg']*row['wet_feed_kgph']/1000.)
         check(label,'Gas contains H2 plus nonnegative other components',max(0.,row['h2_component_kgph']-row['h2_product_gas_kgph']),0.)
-        check(label,'LCA sum = baseline net GWP',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled),row['net_gwp_kg_co2e']/row['hydrogen_kg'])
+        check(label,'Original LCA sum = original net GWP',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled and x.get('counted_in_original_CI', True)),row['net_gwp_kg_co2e']/row['hydrogen_kg'])
+        check(label,'Reported LCA sum = main CI',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled),displayed['net_gwp_kg_co2e']/row['hydrogen_kg'])
         check(label,'Storage sum = baseline storage credit',sum(b['storage_credits'].values()),row['credit_gwp_kg_co2e']/row['hydrogen_kg'])
         check(label,'Gross emissions + storage = net',row['gross_gwp_kg_co2e']+row['credit_gwp_kg_co2e'],row['net_gwp_kg_co2e'])
         check(label,'Contained CaCO3 + disposed remainder = cake mass',row['caco3_component_kgph']+row['caco3_impurity_disposal_kgph'],row['caco3_cake_total_kgph'])
@@ -397,6 +431,22 @@ def report_qc(data, all_tables):
             check(label,basis+' net annual treatment cost',r['annual_operating_cost_usd']+r['annual_capital_charge_usd']-r['annual_coproduct_revenue_usd'],r['annual_net_treatment_cost_usd'])
             check(label,basis+' GWP basis conversion',r['net_gwp_kg_co2e'],row['net_gwp_kg_co2e']/row['hydrogen_kg']*r['hydrogen_kg'])
             check(label,basis+' gross OPEX basis conversion',r['operating_cost_usd'],r['annual_operating_cost_usd']/(row['h2_component_kgph']*row['operating_hours'])*r['hydrogen_kg'])
+    if 'avoided_emissions' in data:
+        for row in data['avoided_emissions']['rows']:
+            label = f"{row['scenario']} REE {row['ree_enabled']} {row['basis']} {row['credit_case']} GWP {row['ch4_gwp100']}"
+            original = next(r for r in data['functional'] if r['scenario']==row['scenario']
+                            and r['ree_enabled']==row['ree_enabled'] and r['basis']=='per_kg_h2')
+            h2 = data['details'][str(row['ree_enabled'])]['base']['products']['h2_component_kgph']
+            scale = dict(per_kg_h2=1., per_tonne_wet_presscake=h2/original['wet_feed_kgph']*1000.,
+                         per_tonne_dry=h2/original['dry_feed_kgph']*1000.,
+                         per_tonne_fresh_87_5=h2/original['dry_feed_kgph']*125.,
+                         per_tonne_wet_75=h2/original['dry_feed_kgph']*250.)[row['basis']]
+            check(label, 'Original CI preserved', row['original_CI'], original['net_gwp_kg_co2e'] * scale)
+            check(label, 'Expanded credit ledger closes', row['expanded_CI']
+                  + row['avoided_gcc_production_emissions'] + row['avoided_sargassum_decomposition_emissions'], row['original_CI'])
+            if row['credit_case']=='main':
+                check(label, 'Main excludes decomposition', row['avoided_sargassum_decomposition_emissions'], 0.)
+                check(label, 'Main includes GCC once', row['original_CI']-row['expanded_CI'], row['avoided_gcc_production_emissions'])
     return checks
 
 
@@ -448,7 +498,16 @@ def _write_ree_tea_review(out, data):
 
 def write_report(out, data):
     out=Path(out)
+    if 'avoided_emissions' in data:
+        # Opt-in artifacts must never overwrite the original comprehensive report.
+        dedicated = ROOT/'results'/'avoided_emissions'
+        if not out.resolve().is_relative_to(dedicated.resolve()):
+            raise ValueError('Avoided-emission reports must stay in ATT/results/avoided_emissions/')
     all_tables=tables(data)
+    if 'avoided_emissions' in data:
+        from biorefineries.ATT.analyses.avoided_emissions import reference_rows
+        all_tables['main_ci'] = reference_rows(data, 'main')
+        all_tables['potential_decomposition'] = reference_rows(data, 'potential')
     qc=report_qc(data,all_tables)
     failed=[row for row in qc if row['status']!='PASS']
     if failed:
@@ -459,6 +518,9 @@ def write_report(out, data):
     payload=clean(dict(data, tables=all_tables))
     encoded=json.dumps(payload,ensure_ascii=False,allow_nan=False,separators=(',',':')).replace('</','<\\/')
     html=TEMPLATE.read_text(encoding='utf-8').replace('/*__ATT_DATA__*/', 'const ATT_DATA = '+encoded+';')
+    if 'avoided_emissions' in data:
+        from biorefineries.ATT.analyses.avoided_emissions import report_section
+        html = html.replace('</body>', report_section(data) + '</body>')
     (out/'ATT_S1_S2_S3_Comprehensive_Report.html').write_text(html,encoding='utf-8')
     (out/'provenance.json').write_text(json.dumps(data['provenance'],indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     (out/'report_qc.json').write_text(json.dumps(dict(status='PASS',passed=len(qc),failed=0,checks=qc),indent=2)+'\n',encoding='utf-8')
@@ -468,11 +530,11 @@ def write_report(out, data):
            'Uncommitted changes, active input SHA-256 fingerprints and dependency versions are recorded in provenance.json.',
            '',f'Report-generation QC: {len(qc)} PASS, 0 FAIL.',
            f"Full ATT suite: {verification.get('test_result','Not invoked by write_report; use --verify-tests for a release run')}.",
-           '', '| Scenario | REE | MSP (USD/kg H2) | Net GWP (kg CO2e/kg H2) | Net OPEX (USD/year) | WHR (kW) | Residual heat (kW) |',
+           '', '| Scenario | REE | MSP (USD/kg H2) | Main CI incl. GCC (kg CO2e/kg H2) | Net OPEX (USD/year) | WHR (kW) | Residual heat (kW) |',
            '|---|---|---:|---:|---:|---:|---:|']
     for r in all_tables['scenario_comparison']:
         lines.append(f"| {r['scenario']} | {'On' if r['ree_enabled'] else 'Off'} | {r['hydrogen_msp_usd_per_kg']:.8f} | {r['net_gwp_kg_co2e']/r['hydrogen_kg']:.8f} | {r['net_annual_opex_usd']:.2f} | {r['waste_heat_delivered_kW']:.6f} | {r['external_heating_kW']:.6f} |")
-    lines+=['','Baseline net GWP includes the existing permanent-storage assumption. Optional beach decomposition is outside it.',
+    lines+=['','Main CI includes GCC avoided production, separately from the existing storage assumption. Potential beach decomposition is excluded from main CI. Original CI is retained explicitly in the scenario, functional-unit and main-CI CSV tables.',
             'REE economics: all six independent DCF roots agree; REO and CaCO3 revenues are credited once. Annualized cost stacks use screening capital recovery and keep DCF MSP separate. See REE_TEA_VERIFICATION.md for the numeric On/Off reconciliation.',
             'All six balance rows use the common ATT flowsheet; S2/S3 WHR accounting leaves physical boundary streams unchanged.',
             '', 'Remaining scientific limitations: UCLA insoluble-residue/reagent basis and low-concentration recovery; unverified REO saleability and oxide basis; unresolved organics; lime assay/supply/handling; carbon-storage permanence; and host heat surplus, competing users and screening equipment costs.',
@@ -485,11 +547,11 @@ def write_report(out, data):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--out',type=Path,help='output directory (default: results/comprehensive_report)')
+    p.add_argument('--out',type=Path,help='output directory within results/avoided_emissions')
     p.add_argument('--verify-tests',action='store_true',help='Run the full ATT suite and record its output in the release bundle')
     p.add_argument('--reference-report',type=Path,help='Previous HTML used for comparison; recorded by path and SHA-256')
     args=p.parse_args()
-    out=args.out or output_dir('comprehensive_report')
+    out=args.out or output_dir('avoided_emissions', root=ROOT/'results')
     verification={}
     if args.verify_tests:
         print('Running full ATT test suite...',flush=True)
@@ -513,6 +575,8 @@ def main():
         data['provenance']['reference_report']=dict(path=str(ref),sha256=hashlib.sha256(ref.read_bytes()).hexdigest(),six_case_MSPs_unchanged=True)
     data['verification']=verification
     result=write_report(out,data)
+    from biorefineries.ATT.analyses.avoided_emissions import _write_outputs
+    _write_outputs(out, data)
     print('Saved',result.resolve())
 
 if __name__=='__main__': main()

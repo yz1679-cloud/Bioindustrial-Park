@@ -150,6 +150,41 @@ lca:
   scenarios:
     baseline: {lime_source: CaOH2_limestone}
 
+  # Read-only expanded-CI indicators. Never registered in the baseline GWP100.
+  avoided_emissions:
+    avoided_gcc_production_emissions:
+      enabled: true
+      product_streams: [caco3_cake, scrubber_cake]
+      emission_factor: 0.0125
+      unit: kg CO2e/kg pure CaCO3
+      declared_gwp_total: 12.5
+      declared_mass_kg: 1000.0
+      boundary: A1-A3 cradle-to-gate
+      source: "Lafarge Granulats (2026), Ground Calcium Carbonate EPD, EPD-IES-0031144:001, GWP-total"
+      url: https://www.environdec.com/library/epd31144
+      limitation: "Equivalent substitution of conventional GCC is assumed; product-quality equivalence is not established. Both final cakes' contained CaCO3 is used, including carried-in waste-lime carbonate; water and other impurities receive no displacement. Existing storage excludes waste-lime carbonate and is unchanged."
+    avoided_sargassum_decomposition_emissions:
+      enabled: false  # potential additional scenario; never part of main CI
+      reference_raw_moisture_fraction: 0.875
+      ch4_gwp100: 28.0
+      sensitivity_ch4_gwp100: [28.0, 25.3]
+      sensitivity_avoidance_fraction: [0.0, 0.1, 0.5, 1.0]
+      sensitivity_note: "Illustrative 0-100% realization of the theoretical CH4 avoidance, not a measured uncertainty interval. Field CH4 emissions and the beach counterfactual need confirmation."
+      gas_unit: g/kg unprocessed wet Sargassum
+      calculation_basis: "Actual dry Sargassum solids in the ATT presscake feed. Water changes reporting mass, not methane potential of unchanged biodegradable matter."
+      dry_factor_derivation: "Derive kg CH4/t dry from the existing weighted kg CH4/t fresh factor divided by (1 - 0.875); do not recalculate rounded species-specific dry factors."
+      species:
+        S_fluitans: {mass_fraction: 0.50, CH4: 7.02, CO2: 20.4}
+        S_natans_I: {mass_fraction: 0.15, CH4: 4.37, CO2: 12.2}
+        S_natans_VIII: {mass_fraction: 0.35, CH4: 10.1, CO2: 31.7}
+      source: "Bueno et al. (2023), Sustainability 15(7), 6254; Tables 2-3 and section 3.2 Brazilian mixture"
+      url: https://doi.org/10.3390/su15076254
+      reference_gwp_source: "User-requested reference GWP100 = 28; applied to avoided CH4 only, without re-characterizing baseline factors."
+      sensitivity_gwp_source: "IPCC AR6 WGI errata, version 7 October 2025, p. 3, Table 7.15, non-fossil CH4 GWP100 = 25.3."
+      sensitivity_gwp_url: https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Errata.pdf
+      conversion_assumption: "Avoided CH4 = actual presscake dry tonnes times the dry-solids factor derived from the published wet-reference factor, times realization. CO2e = avoided CH4 times GWP100. Moisture is used for functional-unit conversion only. Dry-solids conservation through pressing is assumed; ATT has no validated upstream pressing mass balance or measured organic-matter retention. Fresh-mass equivalence is optional reporting information."
+      limitation: "Literature-based semi-empirical decomposition potential, not a methane measurement from the UCLA feedstock or actual beaches. Methane potential follows biodegradable organic matter, not water itself. Organic losses during pressing, biodegradability differences and actual beach fluxes are uncertain. Biogenic CO2 has no credit; legacy IPCC beach rot is not added. Full realization and no press-liquor emissions remain assumptions requiring validation."
+
   # EMISSION BASIS OF EVERY BOUNDARY STREAM (system.feeds and system.products of ATT S1 and S2) AND OF EACH UTILITY. The factors are in
   # emission_factors above, the process impacts and the unit settings; this register says how each one was decided. A test
   # (test_att_stream_register) fails when a boundary stream of the S1 flowsheet has no entry here or in tea.yaml stream_prices.

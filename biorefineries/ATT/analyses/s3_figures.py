@@ -1,7 +1,8 @@
 """
 The 10-page S3 figure PDF of the advisor meeting (S3 REE On), drawn from the model.
 
-Run:  python -m biorefineries.ATT.analyses.s3_figures [--out DIR]       (default: results/s3_figures/ATT_S3_Figures.pdf)
+Run:  python -m biorefineries.ATT.analyses.s3_figures
+Outputs: results/avoided_emissions/ATT_S3_Figures.pdf and individual charts.
 
 Every number comes from a run of the model in this checkout: the cases of the comprehensive report (comprehensive_report),
 the industrial heat case (s3_industrial), and the four stages P0 (pessimistic disposal) to P3 (S3) of the waterfall.
@@ -11,6 +12,7 @@ figures do not add up to the totals they explain. Nothing is written but the PDF
 import argparse
 import json
 import math
+import re
 import textwrap
 from collections import defaultdict
 from datetime import date
@@ -26,12 +28,14 @@ from matplotlib.patches import Rectangle, Patch
 from biorefineries.ATT.analyses import headline_results as hr
 from biorefineries.ATT.analyses import inventory, scenarios
 from biorefineries.ATT.analyses.paths import output_dir
+from biorefineries.ATT.analyses.paths import ATT_ROOT
+from biorefineries.ATT.analyses import avoided_emissions as avoided
 from biorefineries.ATT.utils import load_assumptions
 
 COL = dict(ink='#233746',muted='#5E6C76',line='#D8E0E5',wash='#F2F5F7',
     materials='#4477AA',heat='#CC7744',electricity='#D3A638',waste='#88949A',
     fixed='#9B83B8',capital='#66558F',tax='#B09BC5',caco3='#228877',ree='#66AA99',
-    whr='#66A8C7',storage='#337766',hxn='#A7C7A3',other='#AA6677',bad='#B5524D')
+    whr='#66A8C7',storage='#337766',hxn='#A7C7A3',other='#AA6677',bad='#B5524D',gcc='#176B50',decomposition='#9467BD')
 INK, MUTED, LINE, WASH = COL['ink'], COL['muted'], COL['line'], COL['wash']
 plt.rcParams.update({'font.family':'DejaVu Sans','font.size':10,'axes.labelsize':10,
     'axes.titlesize':12,'axes.titleweight':'bold','axes.edgecolor':COL['line'],
@@ -75,7 +79,9 @@ def _stages():
         system = scenarios.create(scenarios.ATT_S1, ree_recovery=enabled)
         summary = build_att_breakdown('att_s1', sys=system)['summary']
         streams = inventory._streams(system)
-        stages[stage] = dict(msp=summary['MSP_USD_per_kg_H2'], gwp=summary['GWP_kgCO2e_per_kg_H2'])
+        credits = avoided.calculate_avoided_emissions(system, summary['GWP_kgCO2e_per_kg_H2'], include_gcc=True, include_decomposition=False)['per_kg_h2']
+        stages[stage] = dict(msp=summary['MSP_USD_per_kg_H2'], original_gwp=credits['original_CI'],
+                             gwp=credits['main_CI'], potential_gwp=credits['potential_CI'], gcc_credit=credits['avoided_gcc_production_emissions'])
         if enabled:
             continue
         prices_before = {s.ID: float(s.price) for s in (*system.feeds, *system.products)}
@@ -93,7 +99,9 @@ def _stages():
             gwp = system.get_net_impact(lca.KEY)/system.operating_hours/h2
             cake = sum(float(streams[ID].F_mass) for ID in cake_ids)
             char = float(streams['att_char'].F_mass)
-            stages['P0'] = dict(msp=result['msp'], gwp=gwp, cake_disposal_kgph=cake, char_disposal_kgph=char,
+            stages['P0'] = dict(msp=result['msp'], gwp=gwp, original_gwp=gwp,
+                potential_gwp=gwp-(credits['main_CI']-credits['potential_CI']), gcc_credit=0.,
+                cake_disposal_kgph=cake, char_disposal_kgph=char,
                 cake_disposal_usd_per_year=cake*DISPOSAL_USD_PER_KG*system.operating_hours,
                 char_disposal_usd_per_year=char*DISPOSAL_USD_PER_KG*system.operating_hours)
         finally:
@@ -101,21 +109,26 @@ def _stages():
             for st in (*system.feeds, *system.products):
                 st.price = prices_before[st.ID]
     industrial = s3_run(enable_ree_recovery=True)
-    stages['P3'] = dict(msp=industrial['s3_MSP_usd_per_kg_H2'], gwp=industrial['s3_GWP_kg_per_kg_H2'])
-    assert np.isclose(stages['P0']['gwp'], stages['P1']['gwp'], rtol=1e-10)         # disposal does not change the carbon storage
+    stages['P3'] = dict(msp=industrial['s3_MSP_usd_per_kg_H2'], original_gwp=industrial['s3_GWP_kg_per_kg_H2'])
+    check('P0 and P1 original storage accounting unchanged',stages['P0']['original_gwp'],stages['P1']['original_gwp'])
     return stages, industrial
 
 
-def _load():
+def _load(data=None):
     """Run the model and set the data the pages read."""
     global C, B, S, ECON, DCF, LCA, U, DRY, H2, HOURS, YIELD, ANNUAL_T
     from biorefineries.ATT.analyses.comprehensive_report import clean, collect, tables
-    data = collect()
+    data = collect(include_avoided_emissions=True) if data is None else data
     R = clean(dict(data, tables=tables(data)))
     stages, S = _stages()
-    C = dict(stages=stages)
+    main = next(r for r in avoided.reference_rows(data,'main','per_kg_h2') if r['scenario']=='S3' and r['ree_enabled'])
+    potential = next(r for r in avoided.reference_rows(data,'potential','per_kg_h2') if r['scenario']=='S3' and r['ree_enabled'])
+    stages['P3'].update(gwp=main['expanded_CI'], potential_gwp=potential['expanded_CI'], gcc_credit=main['avoided_gcc_production_emissions'])
+    C = dict(stages=stages, main_ci=main, potential_ci=potential, avoided_emissions=data['avoided_emissions'])
+    C['presscake_moisture_fraction'] = next(r['moisture_fraction'] for r in data['functional']
+                                          if r['scenario']=='S3' and r['ree_enabled'] and r['basis']=='per_kg_h2')
     B = R['details']['True']['base']
-    DRY = float(scenarios.ATT_S1['dry_feed_kgph'])
+    DRY = next(r['dry_feed_kgph'] for r in data['functional'] if r['scenario']=='S3' and r['ree_enabled'])
     H2 = S['h2_kg_per_hour']
     HOURS = S['operating_hours_per_year']
     YIELD = H2/DRY*1000
@@ -143,7 +156,7 @@ def wrap(s, width):
 
 
 class Book:
-    def __init__(self,pdf): self.pdf=pdf; self.page=0; self.pages=[]
+    def __init__(self,pdf,out): self.pdf=pdf; self.page=0; self.pages=[]; self.out=out
     def new(self,title,kicker='S3 · LAND-BASED INDUSTRIAL WHR · REE ON',subtitle=None):
         self.page+=1
         f=plt.figure(figsize=(13,8.5))
@@ -151,12 +164,15 @@ class Book:
         f.text(.047,.910,title,fontsize=20,weight='bold')
         if subtitle: f.text(.047,.872,subtitle,fontsize=10,color=COL['muted'])
         f.add_artist(plt.Line2D([.047,.953],[.071,.071],transform=f.transFigure,color=COL['line'],lw=.8))
-        f.text(.047,.041,f'ATT  |  S3 figures  |  computed from the model on {date.today():%B %d, %Y}',fontsize=7.5,color=COL['muted'])
+        f.text(.047,.041,f'ATT  |  S3 figures  |  computed from the model on {date.today():%B %d, %Y}  |  Dry-feed units: 0 wt% moisture',fontsize=7.5,color=COL['muted'])
         f.text(.953,.041,f'{self.page:02d}',fontsize=8,ha='right',color=COL['muted'])
         self.pages.append(title)
         return f
     def save(self,f):
         self.pdf.savefig(f)
+        name=re.sub(r'[^a-z0-9]+','_',self.pages[-1].lower()).strip('_')
+        f.savefig(self.out/(name+'.png'),dpi=150)
+        f.savefig(self.out/(name+'.pdf'))
         plt.close(f)
 
 
@@ -324,6 +340,8 @@ def dcf_groups():
 def lca_groups():
     g=defaultdict(float)
     for r in LCA:
+        if r['stage']=='GCC avoided production':
+            continue  # added below from the independent actual-component calculator
         n=r['contributor']
         label=('Direct natural gas combustion' if ': combustion' in n else
             'Upstream natural gas' if 'upstream supply' in n else
@@ -346,11 +364,12 @@ def lca_groups():
         ('Biogenic carbon storage','storage'),('Industrial WHR avoided emissions','whr')]
     result=[(k,g.pop(k),COL[c]) for k,c in order]
     assert not g
-    check('Carbon intensity component sum',sum(v for _,v,_ in result),C['stages']['P3']['gwp'])
+    result.append(('Avoided GCC production',-C['main_ci']['avoided_gcc_production_emissions'],COL['gcc']))
+    check('Carbon intensity component sum including GCC',sum(v for _,v,_ in result),C['stages']['P3']['gwp'])
     return result
 
 
-def treatment_components(b):
+def treatment_components(b, include_decomposition=False):
     eco=[('Gross operating costs',ECON['gross_opex_usd_per_year']/ANNUAL_T,COL['heat']),
         ('Annualized capital (FCI × CRF)',ECON['screening_capital_usd_per_year']/ANNUAL_T,COL['capital']),
         ('CaCO3 revenue',-ECON['caco3_revenue_usd_per_year']/ANNUAL_T,COL['caco3']),
@@ -362,10 +381,15 @@ def treatment_components(b):
     storage=sum(v for k,v,_ in base if k=='Biogenic carbon storage')*YIELD
     whr=sum(v for k,v,_ in base if k=='Industrial WHR avoided emissions')*YIELD
     env=[('ATT positive emissions',positive,COL['heat']),('Existing storage credit',storage,COL['storage']),
-        ('Existing WHR utility credit',whr,COL['whr']),('Additional H2 displacement',-YIELD*b['ci'],COL['materials'])]
+        ('Existing WHR utility credit',whr,COL['whr']),
+        ('Avoided GCC production',-YIELD*C['main_ci']['avoided_gcc_production_emissions'],COL['gcc']),
+        ('Additional H2 displacement',-YIELD*b['ci'],COL['materials'])]
+    decomposition = YIELD*C['potential_ci']['avoided_sargassum_decomposition_emissions'] if include_decomposition else 0.
+    if include_decomposition:
+        env.append(('Potential beach decomposition',-decomposition,COL['decomposition']))
     check(b['name']+' treatment cost',sum(v for _,v,_ in eco),
         ECON['net_treatment_cost_usd_per_year']/ANNUAL_T-YIELD*b['price'])
-    check(b['name']+' treatment GWP',sum(v for _,v,_ in env),YIELD*(C['stages']['P3']['gwp']-b['ci']))
+    check(b['name']+' treatment GWP '+str(include_decomposition),sum(v for _,v,_ in env),YIELD*(C['stages']['P3']['gwp']-b['ci'])-decomposition)
     return eco,env
 
 
@@ -411,7 +435,8 @@ def contribution_values():
            ('Purchased electricity', l['Purchased electricity'], '#E6AB02'),
            ('NaOH input', l['NaOH input'], '#0072B2'),
            ('Other emissions', other_emissions, '#717B83'),
-           ('Biogenic carbon storage', l['Biogenic carbon storage'], '#00875A')]
+           ('Biogenic carbon storage', l['Biogenic carbon storage'], '#00875A'),
+           ('Avoided GCC production',l['Avoided GCC production'],COL['gcc'])]
     check('MSP grouping preserves the sum', math.fsum(v for _, v, _ in dcf), math.fsum(d.values()))
     check('GWP grouping preserves the sum', math.fsum(v for _, v, _ in lca), math.fsum(l.values()))
     check('Host heat contributes no burden', l['WHR host heat burden'], 0)
@@ -426,7 +451,7 @@ def cover(book,E):
     f=book.new('ATT advisor meeting figures',kicker='ATT · S3 LAND-BASED INDUSTRIAL WASTE HEAT',
         subtitle='S3 REE On · TEA, LCA, material and energy ledgers of the current model')
     cards=[('Hydrogen MSP',f"${C['stages']['P3']['msp']:.6f}",'per kg H2 · discounted cash flow'),
-        ('Net carbon intensity',f"{C['stages']['P3']['gwp']:.6f}",'kg CO2e/kg H2 · existing storage credit'),
+        ('Main carbon intensity',f"{C['stages']['P3']['gwp']:.6f}",'kg CO2e/kg H2 · storage + GCC; no decomposition'),
         ('External-energy EROI',f"{E['eroi_s3']:.3f}",'H2 LHV / burdened external energy')]
     for i,(name,value,txt) in enumerate(cards):
         x=.047+i*.308
@@ -449,9 +474,12 @@ def energy_figure(book,E):
     fig=book.new('Figure 1 · Heat duty and energy supply',
         subtitle='Process-heat accounting plane: useful heat transferred to the process + delivered electrical energy')
     total=math.fsum(v for _,v,_ in demand)
-    for i,(fac,unit,title) in enumerate([(factor,'MJ/kg H2 produced','A  Hydrogen basis'),
-                                         (1,'MJ/kg dry Sargassum treated','B  Dry-feed basis')]):
-        ax=fig.add_axes([.09+i*.465,.425,.375,.365])
+    bases=[(factor,'MJ/kg H2 produced','A  Hydrogen basis'),
+           (1.,'MJ/kg dry Sargassum\n0 wt% moisture','B  Dry-feed basis'),
+           (.125,'MJ/kg fresh Sargassum equivalent\n87.5 wt% moisture','C  Fresh wet basis\n87.5 wt% moisture'),
+           (.25,'MJ/kg wet-feed equivalent\n75 wt% moisture','D  Wet-feed basis\n75 wt% moisture')]
+    for i,(fac,unit,title) in enumerate(bases):
+        ax=fig.add_axes([.065+i*.235,.425,.18,.355])
         for x,items in enumerate([demand,supply]):
             pos=0
             for name,v,color in items:
@@ -460,24 +488,25 @@ def energy_figure(book,E):
                 if v/total>=.075:
                     rgb=matplotlib.colors.to_rgb(color)
                     lum=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]
-                    ax.text(x,pos+value/2,f'{value:.1f}' if i==0 else f'{value:.2f}',fontsize=12,ha='center',va='center',
+                    ax.text(x,pos+value/2,f'{value:.1f}' if i==0 else f'{value:.2f}',fontsize=9.5,ha='center',va='center',
                             weight='bold',color='white' if lum<.53 else INK)
                 pos+=value
-            ax.text(x,pos+total*fac*.025,f'{pos:.2f}',fontsize=13,ha='center',weight='bold')
+            ax.text(x,pos+total*fac*.025,f'{pos:.2f}',fontsize=10,ha='center',weight='bold')
+        check('Figure 1 demand/supply closure: '+title,sum(v*fac for _,v,_ in demand),sum(v*fac for _,v,_ in supply))
         style(ax,unit)
-        ax.set_ylabel(unit,fontsize=11)
-        ax.set_xticks([0,1],['Demand S3','Supply S3'],fontsize=12)
+        ax.set_ylabel(unit,fontsize=9)
+        ax.set_xticks([0,1],['Demand S3','Supply S3'],fontsize=9)
         ax.set_xlim(-.6,1.6)
         ax.set_ylim(0,total*fac*1.13)
-        ax.tick_params(axis='y',labelsize=11)
-        ax.set_title(title,loc='left',fontsize=13,pad=16)
+        ax.tick_params(axis='y',labelsize=9)
+        ax.set_title(title,loc='left',fontsize=10.5,pad=16)
     # One common legend area, two physically distinct columns shared by both panels.
     fig.add_artist(Rectangle((.047,.183),.906,.171,transform=fig.transFigure,facecolor=WASH,edgecolor='none',zorder=0))
     for x,heading,items in [(.062,'DEMAND',demand),(.51,'SUPPLY',supply)]:
         fig.text(x,.331,heading,fontsize=10,weight='bold',color=MUTED)
         for j,(label,_,color) in enumerate(items):
             leg_entry(fig,x,.306-j*.024,label,color)
-    note(fig,'S3 supply and demand close on both bases. Other demand includes minor gas/REE process heat and unit, gas-processing, cooling and WHR auxiliary power. H1 + H3 are summed as Waste Heat Recovery at the process-heat plane. Internal HXN is counted once; purchased electricity includes WHR auxiliary power once. Fuel input, utility losses and EROI assumptions remain on the next page. Cooling duty is rejected heat.',
+    note(fig,'All four bases use the same simulated dry throughput and energy duties. Hydrogen factor = dry feed / H2 component. Wet-reference factors = 1 - moisture: 0.125 (87.5 wt%) and 0.25 (75 wt%). These are equivalent-mass reporting conversions, not changes to actual presscake moisture or a simulated upstream press balance. Internal HXN and WHR auxiliary power are each counted once. Cooling duty is rejected heat.',
          .05,.157,157,9)
     book.save(fig)
 
@@ -533,7 +562,7 @@ def contribution_page(book, items, kind, original_lca=None):
     unit = 'USD/kg H2' if dcf else 'kg CO2e/kg H2'
     net = C['stages']['P3']['msp' if dcf else 'gwp']
     fig = book.new(title, subtitle='Positive costs and negative economic credits' if dcf
-                   else 'Natural-gas contribution includes the existing WHR adjustment; storage remains a separate credit')
+                   else 'Main result: GCC avoided production included; potential beach decomposition excluded')
     ax = fig.add_axes([.09, .295, .325, .49])
     pos, neg = stacked(ax, items, negative_hatches=True)
     span = pos-neg
@@ -548,7 +577,7 @@ def contribution_page(book, items, kind, original_lca=None):
     ax.plot([.34, .60], [net, net], color=INK, linewidth=1.1, zorder=5)
     ax.plot(.60, net, 'D', color=INK, markersize=7, zorder=5)
     fig.text(.09, .247, f'◆ Net {net:.6f} {unit}', fontsize=13, weight='bold')
-    bottom = contribution_table(fig, items, .035 if dcf else .058)
+    bottom = contribution_table(fig, items, .035 if dcf else .046)
     if dcf:
         f_ = _TEA['financial']
         note(fig, f"DCF: {f_['IRR']:.0%} IRR; {f_['duration'][1]-f_['duration'][0]} operating years; {f_['income_tax']:.0%} income tax; "
@@ -561,7 +590,7 @@ def contribution_page(book, items, kind, original_lca=None):
              .05, .195, 158, 9)
     else:
         l = original_lca
-        note(fig, 'Other emissions combines HCl, oxalic acid, other chemicals / water, waste treatment and WHR auxiliary electricity. Values are aggregated before rounding.',
+        note(fig, 'GCC displacement: pure CaCO3 only, 0.0125 kg CO2e/kg (Lafarge Granulats 2026 EPD, A1-A3), separate from storage. Other emissions combines reagents, water, waste treatment and WHR power. Values aggregate before rounding.',
              .475, bottom-.026, 79, 9.5)
         net_ng = l['Direct natural gas combustion'] + l['Industrial WHR avoided emissions']
         note(fig, 'The existing WHR-related natural-gas emissions savings are incorporated once into the displayed natural-gas contribution: '
@@ -590,21 +619,32 @@ def benchmark_assumptions(book):
 
 def treatment_page(book,b,index):
     eco,env=treatment_components(b)
-    f=book.new(f"Figure 3{index} · {b['name']} H2 reference case",subtitle=f"S3 REE On · assumed H2 selling price ${b['price']:.2f}/kg · avoided H2 intensity {b['ci']:.2f} kg CO2e/kg")
-    for i,(items,ylabel,lim) in enumerate([(eco,'USD/metric tonne dry Sargassum',(-700,390)),
-            (env,'kg CO2e/metric tonne dry Sargassum',(-2200,2200))]):
+    f=book.new(f"Figure 3{index} · {b['name']} H2 reference case",subtitle=f"S3 REE On | H2 price ${b['price']:.2f}/kg | H2 avoided intensity {b['ci']:.2f} kg CO2e/kg | GCC in both versions")
+    all_env=[treatment_components(ref,dec)[1] for ref in BENCHMARKS for dec in (False,True)]
+    low=min(sum(min(v,0.) for _,v,_ in items) for items in all_env)*1.12
+    high=max(sum(max(v,0.) for _,v,_ in items) for items in all_env)*1.13
+    for i,(items,ylabel,lim) in enumerate([(eco,'USD/tonne dry Sargassum (0 wt% moisture)',(-700,390)),
+            (env,'kg CO2e/tonne dry Sargassum (0 wt% moisture)',(low,high))]):
         ax=f.add_axes([.10+i*.47,.37,.37,.42])
-        stack(ax,0,items,label_threshold=25 if i==0 else 100,number_fmt='.1f')
-        net=sum(v for _,v,_ in items)
-        ax.plot(0,net,'D',color=COL['ink'],markersize=7,zorder=5)
-        ax.annotate(f'Net {net:,.2f}',(0,net),xytext=(42,0),textcoords='offset points',va='center',weight='bold',fontsize=10)
-        ax.set_xlim(-.85,1.2); ax.set_ylim(*lim)
-        ax.set_xticks([0],['Treatment economics' if i==0 else 'Avoided-production scenario'])
+        variants=[(0.,items)] if i==0 else [(0.,env),(1.35,treatment_components(b,True)[1])]
+        for x,components in variants:
+            stack(ax,x,components,label_threshold=25 if i==0 else 150,number_fmt='.1f')
+            net=sum(v for _,v,_ in components)
+            ax.plot(x,net,'D',color=COL['ink'],markersize=6,zorder=5)
+            ax.annotate(f'{net:,.2f}',(x,net),xytext=(6,6),textcoords='offset points',va='bottom',weight='bold',fontsize=9)
+        ax.set_xlim(-.8,1.2 if i==0 else 2.4); ax.set_ylim(*lim)
+        labels=['Treatment economics'] if i==0 else ['Without decomposition\nMain + H2 displacement','With decomposition\nPotential additional']
+        ax.set_xticks([0] if i==0 else [0,1.35],labels,fontsize=8.5)
         style(ax,ylabel)
         ax.set_title('Economic credit' if i==0 else 'Environmental substitution',loc='left',pad=15)
-        handles=[Patch(facecolor=c) for _,_,c in items]
-        ax.legend(handles,[k for k,_,_ in items],loc='upper left',bbox_to_anchor=(-.08,-.12),fontsize=8.5,frameon=False,ncol=1)
-    paragraph(f,f"H2 component yield = {YIELD:.5f} kg per dry tonne. Economic result = ${ECON['net_treatment_cost_usd_per_year']/ANNUAL_T:.2f}/t before H2 revenue − {YIELD:.5f} × ${b['price']:.2f}/kg. Environmental result = {C['stages']['P3']['gwp']*YIELD:.2f} kg CO2e/t existing ATT net GWP − {YIELD:.5f} × {b['ci']:.2f}. This is system expansion through avoided production, not an attributional reallocation; existing storage and utility credits are retained once. Axis limits are identical in all three reference cases.",y=.14,width=150,fs=8.5)
+        legend_items=items if i==0 else treatment_components(b,True)[1]
+        ax.legend([Patch(facecolor=c) for _,_,c in legend_items],[k for k,_,_ in legend_items],loc='upper left',bbox_to_anchor=(-.08,-.13),fontsize=8,frameon=False)
+    paragraph(f,f"H2 yield = {YIELD:.5f} kg/t dry (0 wt% moisture). Main includes GCC reduction {C['main_ci']['avoided_gcc_production_emissions']*YIELD:.2f} kg CO2e/t dry, plus H2 displacement, with storage/WHR once. "
+        f"Potential additional scenario subtracts {C['potential_ci']['avoided_sargassum_decomposition_emissions']*YIELD:.2f} kg CO2e/t dry. "
+        f"Natural reference: fresh Sargassum decomposes on beaches. Bueno et al. 2023 dry factor = {avoided.decomposition_emissions_dry(1000.)['ch4_kg_per_t_dry']:g} kg CH4/t dry "
+        "(from 7.7005 kg/t fresh at 87.5 wt% moisture), GWP100=28. ATT uses actual dry solids; moisture only converts units. "
+        "Pressing dry-solids conservation is assumed; organic losses/biodegradability and beach CH4 are uncertain, not UCLA measurements. "
+        "Sensitivity follows; all three cases share environmental axis limits.",y=.14,width=160,fs=8)
     book.save(f)
 
 
@@ -623,7 +663,8 @@ def waterfall(ax,values,ylabel):
         if i in (1,2):
             ax.annotate(f'P{i}: {end:.6f}',(xx,min(start,end)),xytext=(0,-16),textcoords='offset points',ha='center',fontsize=8,color=COL['muted'])
     ax.set_xticks(x,['P0\nPessimistic','P1 change\nCaCO3 + char','P2 change\nREE recovery','P3 change\nIndustrial WHR','P3\nFinal S3'])
-    ax.set_ylim(0,max(values)*1.25)
+    lower=min(0.,min(values)); upper=max(0.,max(values)); span=max(1.,upper-lower)
+    ax.set_ylim(lower-.18*span,upper+.25*span)
     style(ax,ylabel)
 
 
@@ -642,40 +683,159 @@ def waterfall_page(book):
         ['P3 = S3 On','On','On','Retain P2; add existing S3 WHR',fmt(P['P3']['msp'],6),fmt(P['P3']['gwp'],6)]]
     table(f,['Stage','REE','WHR','Cake / char economics','MSP','GWP'],rows,[.15,.07,.07,.43,.14,.14],top=.307,bottom=.13,fs=8.3)
     p0=P['P0']
-    paragraph(f,f"Only P0 adds new disposal assumptions: both full CaCO3 cakes ({p0['cake_disposal_kgph']:,.2f} kg/h) and ATT char ({p0['char_disposal_kgph']:,.2f} kg/h) incur ${DISPOSAL_USD_PER_KG:g}/kg. P0 cake disposal is ${p0['cake_disposal_usd_per_year']:,.2f}/y and char disposal is ${p0['char_disposal_usd_per_year']:,.2f}/y. No new disposal or carbon credit is assigned to att_residue_untracked. Carbon storage treatment is identical across sale/disposal; P0 → P1 GWP change is zero.",y=.126,width=166,fs=8)
+    paragraph(f,f"Only P0 adds disposal assumptions: full CaCO3 cakes ({p0['cake_disposal_kgph']:,.2f} kg/h) and ATT char ({p0['char_disposal_kgph']:,.2f} kg/h) incur ${DISPOSAL_USD_PER_KG:g}/kg. P0 cake disposal is ${p0['cake_disposal_usd_per_year']:,.2f}/y and char disposal ${p0['char_disposal_usd_per_year']:,.2f}/y. Untracked residue has no new credit or disposal charge. Storage is unchanged by sale/disposal. P0 has no GCC substitution; P1 starts commercialization and its GCC credit. Decomposition is excluded.",y=.126,width=166,fs=8)
     book.save(f)
 
 
 # ---------------------------------------------------------------------------
 
+def decomposition_caption():
+    d=avoided.assumptions()['avoided_sargassum_decomposition_emissions']
+    gas=avoided.decomposition_emissions_dry(1000.)
+    return (f"Potential scenario: fresh, unprocessed Sargassum decomposes on beaches (Bueno et al. 2023). "
+        f"Dry factor = {gas['ch4_kg_per_t_dry']:g} kg CH4/t dry, derived from {gas['weighted_ch4_g_per_kg_raw']:g} kg/t fresh "
+        f"at {d['reference_raw_moisture_fraction']*100:.1f} wt% moisture. ATT uses actual presscake dry solids "
+        f"(current moisture {C['presscake_moisture_fraction']*100:.1f} wt%); CH4 GWP100 = {d['ch4_gwp100']:g}. "
+        "Moisture converts units only; methane potential follows biodegradable organic matter. Dry-solids conservation through pressing is assumed. "
+        "Organic losses, biodegradability and beach CH4 are uncertain; not UCLA feedstock or field-flux measurements. Biogenic CO2 has no credit.")
+
+
+def decomposition_comparison_page(book):
+    """Figure 2C: compare the same S3 case as Figure 2B; change CH4 avoidance only."""
+    main, potential = C['main_ci'], C['potential_ci']
+    main_ci, potential_ci = main['expanded_CI'], potential['expanded_CI']
+    reduction = potential['avoided_sargassum_decomposition_emissions']
+    check('Figure 2C main matches Figure 2B',main_ci,C['stages']['P3']['gwp'])
+    check('Figure 2C GCC included equally in both cases',main['avoided_gcc_production_emissions'],potential['avoided_gcc_production_emissions'])
+    check('Figure 2C main excludes decomposition',main['avoided_sargassum_decomposition_emissions'],0.)
+    check('Figure 2C decomposition is the only additional term',main_ci-potential_ci,reduction)
+    f=book.new('Figure 2C · Carbon intensity with and without decomposition',
+        subtitle='Potential additional avoided emissions from Sargassum beach decomposition · S3 REE On')
+    ax=f.add_axes([.10,.405,.54,.375])
+    ax.bar([0.,1.15],[main_ci,potential_ci],.54,color=[COL['gcc'],COL['decomposition']],zorder=3)
+    style(ax,'kg CO2e/kg H2')
+    span=max(1.,abs(main_ci),abs(potential_ci),abs(reduction))
+    ax.set_ylim(min(0.,main_ci,potential_ci)-.15*span,max(0.,main_ci,potential_ci)+.17*span)
+    ax.set_xlim(-.6,2.)
+    ax.set_xticks([0.,1.15],['Without avoided decomposition\nMain result; GCC included',
+                             'With avoided decomposition\nPotential scenario; GCC included'],fontsize=9)
+    for x,value in [(0.,main_ci),(1.15,potential_ci)]:
+        ax.annotate(f'{value:.6f}',(x,value),xytext=(0,9 if value>=0 else -16),
+                    textcoords='offset points',ha='center',fontsize=11,weight='bold')
+    ax.annotate('',xy=(1.73,potential_ci),xytext=(1.73,main_ci),
+                arrowprops=dict(arrowstyle='->',color=COL['decomposition'],lw=1.5))
+    ax.text(1.82,(main_ci+potential_ci)/2.,f'{reduction:.3f} additional reduction',
+            rotation=90,ha='center',va='center',fontsize=9,color=COL['decomposition'])
+    table(f,['CI term','kg CO2e/kg H2'],[
+        ['Main result without decomposition',fmt(main_ci,6)],
+        ['GCC reduction in BOTH cases',fmt(main['avoided_gcc_production_emissions'],6)],
+        ['Additional decomposition reduction',fmt(reduction,6)],
+        ['Expanded potential scenario',fmt(potential_ci,6)]],
+        [.64,.36],x=.69,total_width=.263,top=.79,bottom=.42,fs=9)
+    paragraph(f,'GCC avoided production remains included in both cases. Sargassum beach-decomposition avoidance is '
+        'the only additional term. The expanded potential scenario is separate from the default main result; '
+        'Figure 2B remains the primary CI breakdown with GCC and without decomposition.',y=.315,width=151,fs=9.3)
+    paragraph(f,decomposition_caption(),y=.225,width=156,fs=8.8)
+    f.text(.05,.105,'Assumptions and sensitivity: Bueno et al. (2023), DOI 10.3390/su15076254; GWP100 25.3 and 0–100% realization are separate sensitivities.',
+           fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/su15076254')
+    book.save(f)
+
+
+def decomposition_page(book):
+    f=book.new('Potential additional analysis · Beach decomposition',subtitle='Main = original CI minus GCC; potential = main minus CH4 avoidance. GCC is included in both versions.')
+    rows=[r for r in C['avoided_emissions']['rows'] if r['basis']=='per_kg_h2' and r['reference_gwp'] and r['reference_fraction']]
+    main=[r for r in rows if r['credit_case']=='main']; potential=[r for r in rows if r['credit_case']=='potential']
+    ax=f.add_axes([.09,.40,.84,.36]); x=np.arange(len(main))
+    ax.bar(x-.19,[r['expanded_CI'] for r in main],.38,color=COL['gcc'],label='Without decomposition · main incl. GCC')
+    ax.bar(x+.19,[r['expanded_CI'] for r in potential],.38,color=COL['decomposition'],label='With decomposition · potential additional')
+    ax.set_xticks(x,[f"{r['scenario']} / REE {'On' if r['ree_enabled'] else 'Off'}" for r in main],fontsize=9)
+    style(ax,'kg CO2e/kg H2'); ax.legend(frameon=False,loc='upper right',fontsize=9)
+    for i,(m,p) in enumerate(zip(main,potential)):
+        check('Potential decomposition credited once '+m['scenario']+str(m['ree_enabled']),m['expanded_CI']-p['expanded_CI'],p['avoided_sargassum_decomposition_emissions'])
+        ax.text(i-.19,m['expanded_CI']+.3,f"{m['expanded_CI']:.2f}",ha='center',fontsize=9)
+        ax.text(i+.19,p['expanded_CI']-.7,f"{p['expanded_CI']:.2f}",ha='center',va='top',fontsize=9)
+    paragraph(f,decomposition_caption(),y=.30,width=156,fs=9)
+    paragraph(f,'GCC: 0.0125 kg CO2e/kg pure CaCO3; Lafarge Granulats (2026), EPD-IES-0031144:001, A1-A3. '
+        'GCC quality equivalence and permanent storage remain assumptions. Neither legacy optional IPCC beach-rot credit nor biogenic CO2 is added.',y=.17,width=156,fs=8.5)
+    f.text(.05,.095,'Bueno et al. (2023) · DOI: 10.3390/su15076254',fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/su15076254')
+    book.save(f)
+
+
+def decomposition_sensitivity_page(book):
+    f=book.new('Potential decomposition · GWP and realization sensitivity',subtitle='S3 REE On · GCC remains included at every point; 0% is the main result without decomposition')
+    rows=[r for r in C['avoided_emissions']['rows'] if r['scenario']=='S3' and r['ree_enabled'] and r['basis']=='per_kg_h2' and r['credit_case']=='potential']
+    ax=f.add_axes([.09,.42,.54,.36])
+    for gwp in sorted({r['ch4_gwp100'] for r in rows}):
+        series=sorted((r for r in rows if r['ch4_gwp100']==gwp),key=lambda r:r['decomposition_fraction'])
+        ax.plot([r['decomposition_fraction']*100 for r in series],[r['expanded_CI'] for r in series],marker='o',label=f'CH4 GWP100 = {gwp:g}')
+        for r in series:
+            check(f'Realization sensitivity {gwp} {r["decomposition_fraction"]}',r['expanded_CI'],r['main_CI']-r['avoided_sargassum_decomposition_emissions'])
+    style(ax,'kg CO2e/kg H2'); ax.set_xlabel('Realization of theoretical CH4 avoidance (%)'); ax.legend(frameon=False,fontsize=9)
+    gas=avoided.decomposition_emissions_dry(1000.)
+    notes=[['Derived CH4 factor',f"{gas['ch4_kg_per_t_dry']:g} kg/t dry\n({gas['weighted_ch4_g_per_kg_raw']:g} kg/t fresh)"],
+           ['Reference moisture',f"87.5 wt% fresh; {C['presscake_moisture_fraction']*100:.1f} wt% presscake"],['Reference GWP100','28; prior reference calculation'],
+           ['Optional GWP100','25.3; IPCC AR6 WGI 2025 errata'],['Realization fractions','0%, 10%, 50%, 100%; illustrative'],
+           ['Field uncertainty','Not a measured confidence interval']]
+    table(f,['Input / qualification','Basis'],notes,[.45,.55],x=.67,total_width=.28,top=.79,bottom=.38,fs=8.4)
+    paragraph(f,decomposition_caption(),y=.30,width=156,fs=9)
+    paragraph(f,'The realization sweep explores lower or variable actual methane emissions and incomplete avoidance. It is not a calibrated field model. '
+        'The dry-solids conversion does not establish carbon retention in press liquor. GWP sensitivity re-characterizes only this new CH4 indicator, not the original ATT inventory.',y=.16,width=156,fs=8.5)
+    book.save(f)
+
+
+def potential_waterfall_page(book):
+    f=book.new('Figure 4 · Potential decomposition comparison',subtitle='Main GCC-adjusted CI and potential additional decomposition; each trajectory preserves existing storage once')
+    for i,(key,title) in enumerate([('gwp','Without decomposition · main'),('potential_gwp','With decomposition · potential')]):
+        ax=f.add_axes([.08+i*.47,.43,.40,.35]); values=[C['stages'][p][key] for p in ('P0','P1','P2','P3')]
+        waterfall(ax,values,'kg CO2e/kg H2'); ax.set_title(title,loc='left',fontsize=11)
+        check('Potential waterfall telescopes '+key,values[0]+sum(values[j]-values[j-1] for j in range(1,4)),values[-1])
+    rows=[[p,fmt(s['original_gwp'],6),fmt(s['gcc_credit'],6),fmt(s['gwp'],6),fmt(s['potential_gwp'],6)] for p,s in C['stages'].items()]
+    rows.sort(key=lambda r:r[0])
+    table(f,['Stage','Original CI','GCC reduction','Main without decomposition','Potential with decomposition'],rows,[.1,.2,.2,.25,.25],top=.31,bottom=.13,fs=8.1)
+    paragraph(f,'P0 disposes the cakes and receives no GCC substitution; P1 starts commercialization and its GCC credit. Storage is unchanged by sale/disposal. '
+        'Both scenarios use the same unchanged dry-solids flows. The potential CH4 factor is normalized to dry solids; moisture only converts reporting units. Detailed assumptions are on the preceding pages.',y=.135,width=165,fs=8)
+    book.save(f)
+
+
+def generate(out=None, data=None):
+    dedicated=output_dir('avoided_emissions',root=ATT_ROOT/'results').resolve()
+    out=dedicated if out is None else Path(out).resolve()
+    if not out.is_relative_to(dedicated):
+        raise ValueError('Updated S3 outputs must stay in ATT/results/avoided_emissions/')
+    out.mkdir(parents=True,exist_ok=True)
+    pdf_path=out/'ATT_S3_Figures.pdf'
+    CHECKS.clear()
+    _load(data)
+    E=energy()
+    dcf,lca,lca_all=contribution_values()
+    with PdfPages(pdf_path,metadata={'Title':'ATT S3 figures','Author':'ATT research model',
+            'Subject':'Main GCC-adjusted CI and separate potential beach decomposition'}) as pdf:
+        book=Book(pdf,out)
+        cover(book,E); energy_figure(book,E); energy_accounting(book,E)
+        contribution_page(book,dcf,'dcf'); contribution_page(book,lca,'lca',original_lca=lca_all)
+        decomposition_comparison_page(book)
+        benchmark_assumptions(book)
+        for b,index in zip(BENCHMARKS,['A','B','C']): treatment_page(book,b,index)
+        waterfall_page(book); decomposition_page(book); decomposition_sensitivity_page(book); potential_waterfall_page(book)
+    results=dict(pdf=str(pdf_path),pages=book.pages,checks=CHECKS,stages=C['stages'],energy=E,
+        reporting_basis_factors=dict(hydrogen=DRY/H2,dry_zero_moisture=1.,fresh_wet_87_5_moisture=.125,wet_75_moisture=.25),
+        main_ci=C['main_ci'],potential_ci=C['potential_ci'],credit_assumptions=avoided.assumptions(),
+        benchmark_results=[dict(b,cost=sum(v for _,v,_ in treatment_components(b)[0]),
+            gwp_without_decomposition=sum(v for _,v,_ in treatment_components(b)[1]),
+            gwp_with_decomposition=sum(v for _,v,_ in treatment_components(b,True)[1]),
+            environmental_components_without_decomposition=treatment_components(b)[1],
+            environmental_components_with_decomposition=treatment_components(b,True)[1]) for b in BENCHMARKS])
+    (out/'ATT_S3_Figures_data.json').write_text(json.dumps(results,indent=2,default=float),encoding='utf-8')
+    print(f'Saved {pdf_path} ({book.page} pages, {len(CHECKS)} accounting checks)',flush=True)
+    return pdf_path
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--out', type=Path, help='output directory (default: results/s3_figures)')
+    p.add_argument('--out', type=Path, help='output directory within results/avoided_emissions')
     args = p.parse_args(argv)
-    out = Path(args.out) if args.out else output_dir('s3_figures')
-    out.mkdir(parents=True, exist_ok=True)
-    pdf_path = out/'ATT_S3_Figures.pdf'
     print('Running the model ...', flush=True)
-    _load()
-    E = energy()
-    dcf, lca, lca_all = contribution_values()
-    with PdfPages(pdf_path, metadata={'Title':'ATT S3 figures','Author':'ATT research model',
-            'Subject':'S3 REE On; TEA, LCA, heat recovery and treatment sensitivities'}) as pdf:
-        book = Book(pdf)
-        cover(book, E)
-        energy_figure(book, E)
-        energy_accounting(book, E)
-        contribution_page(book, dcf, 'dcf')
-        contribution_page(book, lca, 'lca', original_lca=lca_all)
-        benchmark_assumptions(book)
-        for b, index in zip(BENCHMARKS, ['A', 'B', 'C']): treatment_page(book, b, index)
-        waterfall_page(book)
-    results = dict(pdf=str(pdf_path), pages=book.pages, checks=CHECKS, stages=C['stages'], energy=E,
-        benchmark_results=[dict(b, cost=sum(v for _, v, _ in treatment_components(b)[0]),
-                                gwp=sum(v for _, v, _ in treatment_components(b)[1])) for b in BENCHMARKS])
-    (out/'ATT_S3_Figures_data.json').write_text(json.dumps(results, indent=2, default=float), encoding='utf-8')
-    print(f'Saved {pdf_path} ({book.page} pages, {len(CHECKS)} checks)')
-    return pdf_path
+    return generate(out=args.out)
 
 
 if __name__ == '__main__':

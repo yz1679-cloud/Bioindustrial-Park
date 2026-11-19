@@ -29,6 +29,7 @@ Layout (keys of ``output_dir``)::
     s3_figures/                s3_figures     the 10-page S3 figure PDF (analyses/s3_figures.py)
     s3_results/                s3_results     S3 industrial heat cases and tables (analyses/s3_results.py)
     comprehensive_report/      comprehensive_report   the S1/S2/S3 HTML report with its CSV tables
+    avoided_emissions/         avoided_emissions      opt-in expanded-CI report, figures and sensitivity
     treatment_report/          treatment_report       treatment-basis screening tables
     validation/                validation     run summary, tests and QC tally
     tables/                    tables         ATT S1/S2 scenario tables (analyses/s2_marine.py and others)
@@ -57,6 +58,7 @@ SUBDIRS = {
     "s3_figures": "s3_figures",
     "s3_results": "s3_results",
     "comprehensive_report": "comprehensive_report",
+    "avoided_emissions": "avoided_emissions",
     "treatment_report": "treatment_report",
     "validation": "validation",
     "tables": "tables",

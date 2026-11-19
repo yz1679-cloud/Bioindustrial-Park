@@ -18,6 +18,18 @@ Standard exports (`python -m biorefineries.ATT.analyses.run`, `tea.export_att_te
 Outputs: `biorefineries/ATT/results/`, or the root in `ATT_PROJECT_RESULTS_DIR` (set by `run all --out`).
 Tests (from the repository root): `python -m unittest discover -s biorefineries/ATT/test -p "test_att_*.py" -t .`
 
+Updated environmental reports: `python -m biorefineries.ATT.analyses.avoided_emissions`.
+This regenerates the comprehensive report, S3 figures, CI tables and CH4 sensitivities in
+`results/avoided_emissions/` only. Main CI includes GCC avoided production; beach decomposition
+is a separate potential analysis. Original CI is retained; process/TEA/LCA calculations are unchanged.
+The standalone comprehensive-report and S3-figures commands also default to this folder.
+Factors and diagnostic enabled switches are in `data/lca.yaml` under `lca.avoided_emissions`.
+Potential methane avoidance uses actual presscake dry solids and a factor derived
+from the published wet reference. Moisture converts reporting units; water alone
+does not change methane potential of unchanged biodegradable matter. Dry-solids
+conservation through pressing remains an assumption.
+See [the method and limitations](scenario_docs/AVOIDED_EMISSIONS.md).
+
 ## Washing, lime, sales and the residue (S1 and S2)
 
 The baseline washes two cakes. F2 (CaCO3): the cake goes to a native MixTank W2 and a RotaryVacuumFilter F2R, and the
