@@ -1,5 +1,5 @@
 """
-The 10-page S3 figure PDF of the advisor meeting (S3 REE On), drawn from the model.
+The S3 technical figure report (S3 REE On), drawn from the model.
 
 Run:  python -m biorefineries.ATT.analyses.s3_figures
 Outputs: results/avoided_emissions/ATT_S3_Figures.pdf and individual charts.
@@ -448,8 +448,8 @@ def contribution_values():
 # ---------------------------------------------------------------------------
 
 def cover(book,E):
-    f=book.new('ATT advisor meeting figures',kicker='ATT · S3 LAND-BASED INDUSTRIAL WASTE HEAT',
-        subtitle='S3 REE On · TEA, LCA, material and energy ledgers of the current model')
+    f=book.new('ATT S3: Industrial Waste Heat Integration',kicker='ATT · S3 LAND-BASED INDUSTRIAL WASTE HEAT',
+        subtitle='Techno-Economic Analysis, Life Cycle Assessment, Material and Energy Balances')
     cards=[('Hydrogen MSP',f"${C['stages']['P3']['msp']:.6f}",'per kg H2 · discounted cash flow'),
         ('Main carbon intensity',f"{C['stages']['P3']['gwp']:.6f}",'kg CO2e/kg H2 · storage + GCC; no decomposition'),
         ('External-energy EROI',f"{E['eroi_s3']:.3f}",'H2 LHV / burdened external energy')]
@@ -808,7 +808,7 @@ def generate(out=None, data=None):
     _load(data)
     E=energy()
     dcf,lca,lca_all=contribution_values()
-    with PdfPages(pdf_path,metadata={'Title':'ATT S3 figures','Author':'ATT research model',
+    with PdfPages(pdf_path,metadata={'Title':'ATT S3: Industrial Waste Heat Integration','Author':'ATT research model',
             'Subject':'Main GCC-adjusted CI and separate potential beach decomposition'}) as pdf:
         book=Book(pdf,out)
         cover(book,E); energy_figure(book,E); energy_accounting(book,E)
