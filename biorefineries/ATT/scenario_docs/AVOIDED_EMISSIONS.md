@@ -82,13 +82,21 @@ Anaerobic BI is the unweighted mean of 0.17, 0.29 and 0.37 from
 [Milledge et al. (2020), Table 11](https://doi.org/10.3390/en13061523), giving
 0.27666666666666667. These are methane-potential-based indices from different
 Sargassum species. Applying the same BI to anaerobic CO2 is an approximation.
-BI is applied once and only within the anaerobic pathway.
+The anaerobic BI parameter is applied once within the anaerobic pathway.
 
-Aerobic mineralization is independently assumed to be 0.40, with screening
-values 0.30 and 0.50. These are provisional choices informed by analogous kelp
-research, [Boldreel et al. (2023), MEPS 709](https://doi.org/10.3354/meps14285),
-not measured Sargassum beach-specific factors or a calibrated uncertainty
-interval. Fully aerobic decomposition produces no methane in this model.
+Aerobic mineralization is assumed to be **0.2766666667**, matching the
+anaerobic-derived mean BI numerically. Transferring this 27.67% BI to aerobic
+mineralization is a modeling assumption, **not an independently validated
+aerobic biodegradability value**. The factors remain separately configurable:
+varying anaerobic BI does not change the aerobic factor. Original organic
+matter is allocated first, then each pathway's factor is applied once.
+Fully aerobic decomposition produces no methane in this model.
+
+The aerobic sensitivity includes the revised reference and retains 0.30, 0.40
+and 0.50 as comparison values. The retained values were initially informed by
+analogous kelp research, [Boldreel et al. (2023), MEPS 709](https://doi.org/10.3354/meps14285);
+they neither validate the new reference nor define a measured Sargassum
+beach-specific range or calibrated uncertainty interval.
 
 Reference methane realization is 1.0. It represents the net fraction of modeled
 CH4 production reaching the atmosphere, aggregating suppression, oxidation or
@@ -128,7 +136,7 @@ One-at-a-time sensitivities vary:
 
 - Anaerobic fraction: 0, 0.2, 0.4, 0.6, 0.8, 1.
 - Anaerobic BI: 0.17, its reference mean, 0.37.
-- Aerobic mineralization: 0.30, 0.40, 0.50.
+- Aerobic mineralization: 0.2766666667 (reference), 0.30, 0.40, 0.50.
 - Atmospheric methane realization: 0, 0.1, 0.5, 1.
 
 Every sweep holds the remaining parameters fixed. Physical biogenic CO2 and

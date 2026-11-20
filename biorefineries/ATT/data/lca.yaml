@@ -172,9 +172,9 @@ lca:
       anaerobic_biodegradability_species: {S_natans_I: 0.17, S_fluitans: 0.29, S_natans_VIII: 0.37}
       anaerobic_biodegradability_source: "Unweighted arithmetic mean of Milledge et al. (2020), Energies 13(6), 1523, Table 11, CHNS-based biodegradability indices. Methane-potential-based; applying the same index to anaerobic CO2 is an approximation."
       anaerobic_biodegradability_url: https://doi.org/10.3390/en13061523
-      aerobic_mineralization: 0.40
-      aerobic_mineralization_source: "Provisional screening assumption informed by analogous kelp research: Boldreel et al. (2023), Marine Ecology Progress Series 709, 1-15. Neither 0.40 nor the 0.30-0.50 sensitivity is a measured Sargassum beach-specific factor."
-      aerobic_mineralization_url: https://doi.org/10.3354/meps14285
+      aerobic_mineralization: 0.2766666667
+      aerobic_mineralization_source: "Modeling assumption: transfer the anaerobic-derived mean BI from Milledge et al. (2020), Table 11, to aerobic mineralization (27.67%). This is not an independently validated aerobic biodegradability value. The two pathway factors remain separately configurable and each is applied once after organic-matter allocation."
+      aerobic_mineralization_url: https://doi.org/10.3390/en13061523
       methane_realization: 1.0
       methane_realization_note: "Net fraction of modeled CH4 production reaching the atmosphere; aggregates unmodeled suppression, oxidation or retention. Full realization is not a verified field emission rate. Unrealized methane is not automatically converted to atmospheric CO2."
       ch4_gwp100: 25.3
@@ -183,7 +183,7 @@ lca:
       sensitivities:
         anaerobic_fraction: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
         anaerobic_biodegradability: [0.17, 0.27666666666666667, 0.37]
-        aerobic_mineralization: [0.30, 0.40, 0.50]
+        aerobic_mineralization: [0.2766666667, 0.30, 0.40, 0.50]
         methane_realization: [0.0, 0.1, 0.5, 1.0]
       sensitivity_note: "One parameter varies at a time; all others remain at reference values. Screening scenarios, not measured confidence intervals."
       calculation_basis: "CHONS kmol from actual organic pseudo-components of the ATT inlet, including protein sulfur; water and inorganic ash species excluded. No raw-Sargassum moisture conversion."

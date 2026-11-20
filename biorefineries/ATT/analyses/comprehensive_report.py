@@ -61,10 +61,10 @@ def _assumptions():
                         walk(v, path + [str(k)], value)
             elif isinstance(value, (int, float, bool)) or value is None:
                 result.append(dict(parameter='.'.join(path), value=value, unit=parent.get('unit', 'see configuration'),
-                                   source=parent.get('source', parent.get('note', 'See configuration and review')),
-                                   source_type='See source / scenario configuration', scenario='See configuration',
+                                   source=parent.get(path[-1] + '_source', parent.get('source', parent.get('note', 'See configuration and review'))),
+                                   source_type=parent.get(path[-1] + '_source_type', 'See source / scenario configuration'), scenario='See configuration',
                                    reference='data/' + filename + ' : ' + '.'.join(path),
-                                   status='Unverified unless explicitly identified in source'))
+                                   status=parent.get(path[-1] + '_status', 'Unverified unless explicitly identified in source')))
         walk(obj, [], {})
     return result
 
@@ -101,7 +101,7 @@ def _scientific_notes():
       ('S3 source scaling', 'Assume the historical 120000 tons/year means U.S. short tons: 120000 × 0.90718474 = 108862.1688 metric t/year. Relative to the paper reference of 120000 metric t/year this gives 0.90718474 at equal 7920 h/year and full utilization. This is host-capacity scaling, not ATT-demand scaling; the ton subtype is not established by the historical source.', 'Explicit unit-conversion and host-transfer assumption', 'analyses/industrial_whr.py industrial_sources; scenario_docs/ATT_S3_DESIGN_BASIS.md'),
       ('S3 H3 discrepancy and host surplus', 'Prior supplied-PDF review records H3 800→40 C in Table 1, Fig. 10 and text (5.17 kW/K × 760 K ≈ 3.93 MW), versus 800→400 C in Table 4. The current 800→40 C interpretation follows the former mutually consistent values. H1/H3 are treated as additive; independence and availability after the host complex uses heat are not site-verified.', 'Documented literature discrepancy and host assumption', 'Wang et al. 2025 DOI 10.1016/j.psep.2025.107306; scenario_docs/ATT_S3_DESIGN_BASIS.md Literature interpretation'),
       ('S3 heat and costing basis', 'Current H1/H3 capacities and intervals are retained. A 20 C approach and 90% effectiveness produce useful steam for D0/EC1 only. The 0.95 steam-to-process ratio is descriptive; avoided fuel uses 80% boiler efficiency once. Installed $500/kW and 1% auxiliary power use useful steam capacity. Heat has zero purchase cost and upstream burden. This is an idealized screen, not site feasibility.', 'Accepted engineering screening assumptions', 'analyses/s3_industrial.py run; analyses/industrial_whr.py generate_steam'),
-      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. The additional beach counterfactual uses active organic CHONS, Boyle anaerobic decomposition and independent aerobic carbon mineralization. Only atmospheric methane times GWP100 is a potential additional credit. Physical biogenic CO2 formation is separate; this indicator does not alter baseline net GWP or reapply storage.', 'Screening allocation, biodegradability, mineralization and atmospheric realization; not measured beach fluxes', 'data/lca.yaml avoided_emissions; analyses/avoided_emissions.py; baseline analyses/lca.py unchanged')]]
+      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. The additional beach counterfactual uses active organic CHONS, Boyle anaerobic decomposition and separately configurable aerobic carbon mineralization. The aerobic reference transfers the anaerobic-derived BI by modeling assumption; it is not an independently validated aerobic biodegradability value. Only atmospheric methane times GWP100 is a potential additional credit. Physical biogenic CO2 formation is separate; this indicator does not alter baseline net GWP or reapply storage.', 'Screening allocation, biodegradability, mineralization and atmospheric realization; not measured beach fluxes', 'data/lca.yaml avoided_emissions; analyses/avoided_emissions.py; baseline analyses/lca.py unchanged')]]
 
 
 def _inactive_reason(row):
@@ -232,7 +232,10 @@ def collect(include_avoided_emissions=True):
     for row in assumptions:
         path = row['parameter']
         source = str(row['source']).lower()
-        if 'gas_yield_mmol_per_g_daf.' in path:
+        if path in ('att.downstream.f1_cake_moisture_wt_frac', 'att.downstream.f2_cake_moisture_wt_frac'):
+            row.update(unit='kg water/kg wet cake', source_type='C: Literature-informed engineering assumption',
+                       status='Analogous filtration literature verified; not an ATT measurement')
+        elif 'gas_yield_mmol_per_g_daf.' in path:
             row.update(unit='mmol/g dry ash-free feed', source='Experimental workbook 261023, 1:1 Ni-CatATT; transfer to presscake is assumed', source_type='Experimental yield; assumed transfer', scenario='S1/S2/S3', status='Workbook values checked; feed-basis transfer requires verification')
         elif 'marine_' in row['reference']:
             row['scenario'] = 'S2'
@@ -507,8 +510,9 @@ def write_report(out, data):
     if 'avoided_emissions' in data:
         # Opt-in artifacts must never overwrite the original comprehensive report.
         dedicated = ROOT/'results'/'avoided_emissions'
-        if not out.resolve().is_relative_to(dedicated.resolve()):
-            raise ValueError('Avoided-emission reports must stay in ATT/results/avoided_emissions/')
+        audit = ROOT/'results'/'result_final check'
+        if not any(out.resolve().is_relative_to(p.resolve()) for p in (dedicated, audit)):
+            raise ValueError('Avoided-emission reports must stay in ATT/results/avoided_emissions/ or results/result_final check/')
     all_tables=tables(data)
     if 'avoided_emissions' in data:
         from biorefineries.ATT.analyses.avoided_emissions import reference_rows

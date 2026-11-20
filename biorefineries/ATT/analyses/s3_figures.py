@@ -642,7 +642,7 @@ def treatment_page(book,b,index):
     paragraph(f,f"H2 yield = {YIELD:.5f} kg/t dry (0 wt% moisture). Main includes GCC reduction {C['main_ci']['avoided_gcc_production_emissions']*YIELD:.2f} kg CO2e/t dry, plus H2 displacement, with storage/WHR once. "
         f"Potential additional scenario subtracts {C['potential_ci']['avoided_sargassum_decomposition_emissions']*YIELD:.2f} kg CO2e/t dry. "
         "Feed-specific Boyle decomposition plus aerobic carbon oxidation uses active component CHONS, including sulfur. "
-        "The reference 40/60 allocation, anaerobic BI and independent aerobic mineralization are screening inputs. "
+        "The reference 40/60 allocation and pathway factors are screening inputs. The aerobic factor transfers the anaerobic-derived BI by assumption. "
         "GWP100 = 25.3 applies to atmospheric methane only. Biogenic CO2 is reported as formation, without a climate credit. "
         "Historical IPCC and Bueno factors are excluded; sensitivity follows.",y=.14,width=160,fs=8)
     book.save(f)
@@ -694,7 +694,7 @@ def decomposition_caption():
     return (f"Hypothetical ATT presscake decomposition; actual moisture {C['presscake_moisture_fraction']*100:.1f} wt%. "
         f"Original organics: {d['anaerobic_fraction']*100:g}% anaerobic, {(1-d['anaerobic_fraction'])*100:g}% aerobic. "
         f"Boyle CH4 and CO2 use BI = {d['anaerobic_biodegradability']:.4f} once (Milledge et al., Table 11). "
-        f"Aerobic carbon oxidation uses independent mineralization = {d['aerobic_mineralization']:g} (kelp-informed assumption). "
+        f"Aerobic mineralization = {d['aerobic_mineralization']:.10f}: an anaerobic-derived BI transfer assumption, not independently validated aerobic biodegradability. "
         f"Atmospheric methane realization = {d['methane_realization']:g}; GWP100 = {d['ch4_gwp100']:g}. "
         "Screening inputs, not measured beach fluxes. Biogenic CO2 formation is not necessarily atmospheric release and has no credit. "
         "Storage remains counted once; historical decomposition indicators are excluded.")
@@ -736,7 +736,7 @@ def decomposition_comparison_page(book):
         'the only additional term. The expanded potential scenario is separate from the default main result; '
         'Figure 2B remains the primary CI breakdown with GCC and without decomposition.',y=.315,width=151,fs=9.3)
     paragraph(f,decomposition_caption(),y=.225,width=156,fs=8.8)
-    f.text(.05,.105,'Boyle + carbon oxidation; BI: Milledge et al. 2020; aerobic analogy: Boldreel et al. 2023; GWP100: IPCC 2025 errata.',
+    f.text(.05,.105,'BI: Milledge et al. 2020; aerobic factor: assumed transfer of anaerobic BI, not independent aerobic validation; GWP100: IPCC 2025 errata.',
         fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/en13061523')
     book.save(f)
 
@@ -757,7 +757,7 @@ def decomposition_page(book):
     paragraph(f,decomposition_caption(),y=.30,width=156,fs=9)
     paragraph(f,'GCC: 0.0125 kg CO2e/kg pure CaCO3; Lafarge Granulats (2026), EPD-IES-0031144:001, A1-A3. '
         'GCC quality equivalence and permanent storage remain assumptions. Neither legacy optional IPCC beach-rot credit nor biogenic CO2 is added.',y=.17,width=156,fs=8.5)
-    f.text(.05,.095,'Anaerobic BI: Milledge et al. (2020), Table 11; aerobic mineralization: provisional kelp-informed screening input.',
+    f.text(.05,.095,'Anaerobic BI: Milledge et al. (2020), Table 11; aerobic factor: assumed BI transfer, not independently validated.',
         fontsize=8,color=COL['materials'],url='https://doi.org/10.3390/en13061523')
     book.save(f)
 
@@ -771,8 +771,8 @@ def decomposition_sensitivity_page(book):
         if r['scenario']=='S3' and r['ree_enabled'] and r['credit_case']=='potential' and r['basis']=='per_kg_h2':
             check(f"Decomposition OAT {r['sensitivity_parameter']} {r['sensitivity_value']}",
                   r['expanded_CI'],r['main_CI']-r['avoided_sargassum_decomposition_emissions'])
-    paragraph(f,'Green: atmospheric methane climate impact. Orange: total physical biogenic CO2 formation, which receives no climate credit. '
-        'All parameters are screening assumptions; these ranges are not measured confidence intervals. Data: avoided_emissions_sensitivity.csv.',
+    paragraph(f,'Green: methane climate impact. Orange: physical biogenic CO2 formation, with no climate credit. '
+        'Aerobic reference: assumed transfer of anaerobic BI, not independent aerobic validation. Data: avoided_emissions_sensitivity.csv.',
         y=.105,width=168,fs=8)
     book.save(f)
 
@@ -794,8 +794,9 @@ def potential_waterfall_page(book):
 def generate(out=None, data=None):
     dedicated=output_dir('avoided_emissions',root=ATT_ROOT/'results').resolve()
     out=dedicated if out is None else Path(out).resolve()
-    if not out.is_relative_to(dedicated):
-        raise ValueError('Updated S3 outputs must stay in ATT/results/avoided_emissions/')
+    audit=(ATT_ROOT/'results'/'result_final check').resolve()
+    if not any(out.is_relative_to(p) for p in (dedicated, audit)):
+        raise ValueError('Updated S3 outputs must stay in ATT/results/avoided_emissions/ or results/result_final check/')
     out.mkdir(parents=True,exist_ok=True)
     pdf_path=out/'ATT_S3_Figures.pdf'
     CHECKS.clear()

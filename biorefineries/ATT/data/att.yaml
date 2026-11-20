@@ -74,7 +74,8 @@ att:
       downstream.dissolution_water_kg_per_kg_Na2CO3, causticization_conversion, lime_equiv: "Workbook 261023, energy-analysis sheet B18 (3), B17 (88 %), B16 (1.1) ('commercial causticizing'). Sheet 2 A25 reports an experimental conversion of 88.3 % (5 g Na2CO3 + 3.49 g Ca(OH)2, i.e. ~1.0 mol/mol, in 20 mL water); the model uses 88 %."
       downstream.recycle_naoh_wt_frac: "Workbook B19 ('water left in recovered NaOH', 50 wt %), applied as NaOH/(NaOH + H2O) by user decision 2026-10-09."
       downstream.whole_liquor_recycle_fraction: "Source reports '95 % NaOH recycling' without defining a separator; interpreted as 95 % whole-liquor recycle (provisional engineering baseline)."
-      downstream.filter cake moistures: "F1 30 wt %: literature-supported engineering baseline. F2 25 wt %: CaCO3/lime-filtration literature review."
+      downstream.f1_cake_moisture_wt_frac: "Kinnarinen, Huhtanen, Penttila and Hakkinen (2013), Waste Management & Research 31(2), 178-186, DOI 10.1177/0734242X12471098 (https://journals.sagepub.com/doi/10.1177/0734242X12471098), publisher Abstract final sentence: residual filter-cake moisture 22-35 wt%. Hazardous-incinerator fly ash leached at ash:water 1:2 and displacement-washed in a vertical filter press. 30 wt% is an engineering selection within that analog range, not a measured ATT ash/char value."
+      downstream.f2_cake_moisture_wt_frac: "Teir, Auvinen, Said, Kotiranta and Peltola (2016), Frontiers in Energy Research 4:6, DOI 10.3389/fenrg.2016.00006 (https://www.frontiersin.org/journals/energy-research/articles/10.3389/fenrg.2016.00006/full), Abstract and Discussions and Conclusion first paragraph: vacuum-filtered PCC residual moisture 25-26 wt%. Table 6 test 10 calcite: 25.0 wt%; all vacuum tests span 21.1-28.4 wt%. PCC from steel-slag carbonation in NH4Cl solution, laboratory Buchner unit; transfer to ATT CaCO3/residual-lime cake and rotary vacuum filtration is an engineering analogy, not ATT validation."
       downstream (EC1 and U2 NaOH data): "ec1_boiling_point_elevation_K from the Olsson et al. 1997 vapor pressure of NaOH(aq); ec1_na2co3_dissolved_fraction from Wu et al. 2020 Na2CO3 solubility near 50 wt% NaOH; naoh_heat_of_solution_kJ_per_kg from NBS (-44.5 kJ/mol), Olsson et al. 1997 and the OxyChem Caustic Soda Handbook Table 11."
       energy_sources: "Kept from 261005, energy-analysis sheet B28-B30 (natural gas IPCC 2006 with burner efficiency 0.90, marine fuel, engine waste heat); not in 261023."
       heat_recovery: "BioSTEAM defaults and engineering assumptions; cooler heat-transfer coefficients and the HXN approach temperature are unverified."
@@ -366,10 +367,14 @@ att:
     # F1: ash + discarded biomass residue. 30 wt% is retained as the
     # current literature-supported engineering baseline.
     f1_cake_moisture_wt_frac: 0.30
+    f1_cake_moisture_wt_frac_source: "Kinnarinen, Huhtanen, Penttila and Hakkinen (2013), Waste Management & Research 31(2), 178-186, DOI 10.1177/0734242X12471098 (https://journals.sagepub.com/doi/10.1177/0734242X12471098), publisher Abstract final sentence: residual filter-cake moisture 22-35 wt%. Hazardous-incinerator fly ash leached at ash:water 1:2 and displacement-washed in a vertical filter press. 30 wt% is an engineering selection within that analog range, not a measured ATT ash/char value."
+    f1_cake_moisture_wt_frac_status: "C: verified analogous literature; engineering assumption for ATT, not experimentally validated"
 
     # F2: CaCO3 + residual Ca(OH)2 mineral cake. 25 wt% is the revised
     # baseline from the CaCO3/lime-filtration literature review.
     f2_cake_moisture_wt_frac: 0.25
+    f2_cake_moisture_wt_frac_source: "Teir, Auvinen, Said, Kotiranta and Peltola (2016), Frontiers in Energy Research 4:6, DOI 10.3389/fenrg.2016.00006 (https://www.frontiersin.org/journals/energy-research/articles/10.3389/fenrg.2016.00006/full), Abstract and Discussions and Conclusion first paragraph: vacuum-filtered PCC residual moisture 25-26 wt%. Table 6 test 10 calcite: 25.0 wt%; all vacuum tests span 21.1-28.4 wt%. PCC from steel-slag carbonation in NH4Cl solution, laboratory Buchner unit; transfer to ATT CaCO3/residual-lime cake and rotary vacuum filtration is an engineering analogy, not ATT validation."
+    f2_cake_moisture_wt_frac_status: "C: verified analogous literature; engineering assumption for ATT, not experimentally validated"
     # Drying of the two CaCO3 cakes before sale (user decision 2026-11-03: the CaCO3 is sold as a filler, so it is dried).
     # ASSUMPTION: the dried cake keeps 1 wt % moisture (no filler specification or buyer); same drum dryer, drum
     # temperature and exhaust humidity as the feed dryer D0 (feed_preparation.dryer). No grinding, no purification.

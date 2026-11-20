@@ -257,7 +257,9 @@ def _method_text():
     return ('Hypothetical ATT presscake left to decompose on a beach. CHONS inventories come from actual organic '
             f'component formulas, including protein sulfur. Original organic matter is allocated {d["anaerobic_fraction"]:.0%} anaerobic and '
             f'{1.-d["anaerobic_fraction"]:.0%} aerobic in the reference screening scenario. Boyle CH4 and CO2 are scaled once by anaerobic '
-            'biodegradability; aerobic carbon oxidation uses an independent mineralization fraction. '
+            'biodegradability; aerobic carbon oxidation uses a separately configurable mineralization fraction. '
+            'Its reference transfers the anaerobic-derived BI to aerobic mineralization by modeling assumption, '
+            'not independent aerobic validation. '
             'Only atmospheric methane times GWP100 enters the additional climate indicator. '
             'Biogenic CO2 is modeled formation, not necessarily direct atmospheric release in waterlogged settings. '
             'Neither historical IPCC beach rot nor the former Bueno factor enters this calculation.')
@@ -339,7 +341,8 @@ def _write_outputs(out, data):
              f'| Non-fossil methane GWP100 | {d["ch4_gwp100"]:g} | {d["reference_gwp_source"]} |', '',
              f'Boyle: [{d["source"]}]({d["url"]}).',
              f'BI: [Milledge et al., Table 11]({d["anaerobic_biodegradability_url"]}).',
-             f'Aerobic analogy: [Boldreel et al.]({d["aerobic_mineralization_url"]}).',
+             f'Aerobic factor: [transfer of the anaerobic-derived BI by modeling assumption]({d["aerobic_mineralization_url"]}); '
+             'not an independently validated aerobic biodegradability value.',
              f'GWP: [IPCC errata]({d["reference_gwp_url"]}).', '',
              f'GCC remains {g["emission_factor"]:g} kg CO2e/kg contained CaCO3: [{g["source"]}]({g["url"]}).', '',
              '## Active organic composition per tonne wet presscake', '',
@@ -387,7 +390,8 @@ def _write_outputs(out, data):
               '## Limitations and carbon-credit accounting', '', d['limitation'], '',
               'The methane-based BI is applied to anaerobic CO2 as a modeling approximation. '
               'No timescale or beach-wide anaerobic fraction has been established. The aerobic screening interval '
-              'is informed by kelp analogies and is not a measured Sargassum range. NH3/H2S stoichiometry is included '
+              'includes the revised BI-transfer reference and retains the earlier comparison values; it is not a measured Sargassum range. '
+              'The reference aerobic factor is an anaerobic-derived BI transfer assumption, not independent aerobic validation. NH3/H2S stoichiometry is included '
               'in Boyle closure but these gases receive no characterization in this methane-only indicator.', '',
               'Existing stored-carbon credit is neither recalculated nor subtracted a second time. Physical biogenic '
               'CO2 is never added to the methane climate credit. Combined storage and avoided-methane claims remain '
@@ -402,7 +406,7 @@ def _write_outputs(out, data):
     fig.suptitle('One-at-a-time decomposition sensitivities | S3 REE On', fontsize=16, y=.96)
     fig.text(.09,.88,'All other inputs fixed. Dotted lines mark reference inputs; gas formation and methane climate impact are distinct.',fontsize=9)
     draw_decomposition_sensitivity(fig, sensitivity)
-    fig.text(.09,.06,'Screening scenarios, not confidence intervals. Biogenic CO2 formation is not automatically atmospheric release and receives no climate credit.',fontsize=8)
+    fig.text(.09,.06,'Aerobic reference assumes transfer of anaerobic BI; no independent aerobic validation. Biogenic CO2 formation receives no climate credit.',fontsize=8)
     fig.savefig(out/'potential_decomposition_sensitivity.png', dpi=180)
     fig.savefig(out/'potential_decomposition_sensitivity.pdf')
     plt.close(fig)
@@ -459,7 +463,7 @@ def _figure(out, rows, potential):
     d = assumptions()['avoided_sargassum_decomposition_emissions']
     fig.text(.07,.06,f'Component-specific Boyle + aerobic carbon oxidation; anaerobic fraction {d["anaerobic_fraction"]:g}, BI {d["anaerobic_biodegradability"]:.4f}.\n'
              f'Aerobic mineralization {d["aerobic_mineralization"]:g}; atmospheric methane realization {d["methane_realization"]:g}; GWP100 {d["ch4_gwp100"]:g}.\n'
-             'Hypothetical ATT presscake decomposition; screening parameters, not measured beach fluxes. Biogenic CO2 has no climate credit.\n'
+             'Aerobic factor assumes transfer of anaerobic BI; no independent aerobic validation. Biogenic CO2 has no climate credit.\n'
              'GCC and existing storage remain unchanged in both versions. Historical IPCC and Bueno indicators are excluded.', fontsize=8.5)
     fig.savefig(out/'avoided_emissions_ci.png', dpi=180)
     fig.savefig(out/'avoided_emissions_ci.pdf')

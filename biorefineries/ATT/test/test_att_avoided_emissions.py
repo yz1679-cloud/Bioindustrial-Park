@@ -20,10 +20,11 @@ class TestAvoidedEmissionReferences(unittest.TestCase):
         cls.feed = make_sargassum_feed(1000., cfg['moisture_frac'], cfg['dry_composition'])
 
     def test_reported_mechanistic_reference(self):
-        # New reported scenario replaces the Bueno factor intentionally.
+        # Aerobic pin revised: transfer the anaerobic-derived BI to aerobic
+        # mineralization by modeling assumption, without changing methane.
         r = avoided.decomposition_emissions(self.feed)
         for key, expected in [('anaerobic_ch4_kg', 5.314), ('anaerobic_co2_kg', 15.56),
-                              ('aerobic_co2_kg', 65.36), ('biogenic_co2_kg', 80.91)]:
+                              ('aerobic_co2_kg', 45.204030), ('biogenic_co2_kg', 60.762259)]:
             self.assertAlmostEqual(r[key], expected, delta=.01, msg=key)
         self.assertAlmostEqual(r['avoided_co2e_kg'], 134.44, delta=.02)
         self.assertAlmostEqual(r['avoided_co2e_kg']/r['inventory']['dry_mass_kg']*1000., 567.3, delta=.1)
