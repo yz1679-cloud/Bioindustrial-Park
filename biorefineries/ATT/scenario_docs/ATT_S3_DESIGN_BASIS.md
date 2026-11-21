@@ -79,3 +79,45 @@ The exporter runs both REE configurations and recomputes S1/S2/S3 in the same ru
 The recovered heat, the economics and the GWP of S3 are in `results/s3_results/` and in the S1, S2 and S3 comparison of
 `python -m biorefineries.ATT.analyses.comprehensive_report` (`scenario_comparison.csv`). They include the inherited S1
 assumptions and are not validated design estimates.
+
+## Figure reporting conventions
+
+The current comprehensive HTML and S3 PDF are regenerated in
+`results/avoided_emissions/` by `analyses.comprehensive_report` and
+`analyses.s3_figures`. Underlying process LCA GWP100 includes existing burdens,
+assumed biogenic carbon storage and applicable WHR adjustments, before GCC/REO
+substitution benefits. Final Net GWP100 subtracts the configured GCC and potential
+contained-REO credits once. The additional beach comparison subtracts the separate
+potential decomposition credit once. Storage permanence, GCC equivalence and
+commercial substitution by low-grade REO remain unverified. REO upgrading
+requirements and environmental burdens are unresolved. GCC means Ground Calcium
+Carbonate, the conventional product assumed displaced, not a classification of
+the recovered CaCO3 production pathway.
+
+Figure 1 converts the same unrounded energy ledger between reporting bases.
+The actual ATT inlet remains presscake at 76.3 wt% moisture: MJ/kg wet presscake =
+MJ/kg dry solids × (1 − 0.763). The `nlr_fresh` dataset specifies 85.7 wt% moisture
+(14.3% solids). The retained 87.5 wt% panel (12.5% solids) is a separate legacy
+illustrative equivalent-mass reference, not that dataset's fresh-feed moisture.
+The source of the legacy choice has not been established; it must not be treated
+as a new measurement. Neither reference conversion simulates upstream pressing
+or changes feed rates, energy duties or process calculations.
+
+The PDF contains thirteen sequential figures after the executive summary:
+energy and EROI (1–2), DCF MSP/GWP100 and decomposition comparison (3–5), H2
+benchmark inputs (6), detailed Gray/Blue/Green balances (7–9), net benchmark
+summary (10), sequential waterfall (11), six-configuration GWP100 comparison
+(12), and potential-decomposition waterfall (13). The net treatment benchmark
+balance includes H2 selling revenue and uses the existing annualized screening
+capital convention, distinct from DCF MSP. Net emissions in benchmark comparisons
+are relative to displaced benchmark H2 production, with and without the separate
+potential beach-decomposition benefit. Figure 10 retains only these net balances.
+Sensitivity accounting and numerical scenario data remain in the model and HTML;
+the PDF omits the sensitivity page.
+
+Figure 3 groups existing discounted WHR heat savings into Heating / Natural Gas
+once, without a separate negative WHR bar. Auxiliary electricity, capital,
+financing and fixed costs keep their existing categories. All H2 benchmarks,
+revenues, credits, financial calculations and numerical results remain unchanged.
+Generated values and component ledgers are in
+`results/avoided_emissions/ATT_S3_Figures_data.json` and the companion PDF.

@@ -116,10 +116,11 @@ class TestAvoidedEmissionAccounting(unittest.TestCase):
                     sys.get_net_impact(lca.KEY), lca.get_att_stored_carbon_credit(sys),
                     lca.get_att_avoided_emission(sys))
         before = snapshot()
-        expanded = avoided.calculate_avoided_emissions(sys, include_decomposition=True)
-        gcc_only = avoided.calculate_avoided_emissions(sys, include_decomposition=False)
-        decomposition_only = avoided.calculate_avoided_emissions(sys, include_gcc=False, include_decomposition=True)
-        off = avoided.calculate_avoided_emissions(sys, include_gcc=False, include_decomposition=False)
+        # Preserve the original GCC/methane subledger independently of REO.
+        expanded = avoided.calculate_avoided_emissions(sys, include_decomposition=True, include_reo=False)
+        gcc_only = avoided.calculate_avoided_emissions(sys, include_decomposition=False, include_reo=False)
+        decomposition_only = avoided.calculate_avoided_emissions(sys, include_gcc=False, include_decomposition=True, include_reo=False)
+        off = avoided.calculate_avoided_emissions(sys, include_gcc=False, include_decomposition=False, include_reo=False)
         self.assertEqual(before, snapshot())
         for basis in ('per_kg_h2', 'per_tonne_wet_presscake'):
             b = expanded[basis]
@@ -170,7 +171,8 @@ class TestAvoidedEmissionAccounting(unittest.TestCase):
         for basis in ('per_kg_h2', 'per_tonne_wet_presscake'):
             m, p = main[basis], potential[basis]
             self.assertEqual(m['avoided_sargassum_decomposition_emissions'], 0.)
-            self.assertAlmostEqual(m['original_CI']-m['expanded_CI'], m['avoided_gcc_production_emissions'])
+            self.assertAlmostEqual(m['original_CI']-m['expanded_CI'], m['avoided_gcc_production_emissions']
+                                   + m['avoided_reo_production_emissions'])
             self.assertAlmostEqual(m['expanded_CI']-p['expanded_CI'], p['avoided_sargassum_decomposition_emissions'])
             self.assertAlmostEqual(none[basis]['expanded_CI'], m['expanded_CI'])
             self.assertAlmostEqual(half[basis]['expanded_CI'], (m['expanded_CI']+p['expanded_CI'])/2.)

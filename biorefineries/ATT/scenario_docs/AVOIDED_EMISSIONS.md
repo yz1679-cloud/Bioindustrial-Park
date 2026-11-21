@@ -3,7 +3,7 @@
 These are read-only environmental accounting extensions. They do not change
 the flowsheet, stream characterization factors, process impacts, original LCA,
 TEA or the existing carbonate/char storage credit. Main reported CI is original
-CI minus GCC displacement. A separate potential CI additionally subtracts
+CI minus GCC and potential REO displacement. A separate potential CI additionally subtracts
 assumption-dependent beach-decomposition avoidance; it is not the default result.
 Credits are positive reductions; the existing storage credit is negative and
 already included in original CI. It must not be subtracted again.
@@ -26,7 +26,7 @@ are retained without being overwritten.
 Generated operating results are in
 [the dedicated report](../results/avoided_emissions/avoided_emissions_report.md) and
 [the comprehensive HTML](../results/avoided_emissions/ATT_S1_S2_S3_Comprehensive_Report.html).
-The tables retain original CI alongside GCC-adjusted main CI and potential CI
+The tables retain original CI alongside GCC/REO-adjusted main CI and potential CI
 for S1/S2/S3 with REE On and Off. S2/S3 retain their existing WHR
 adjustments and share the existing physical ATT production flows.
 
@@ -44,6 +44,52 @@ mixed-product mass, water and other impurities receive no displacement credit.
 Existing storage retains its separate exclusion of waste-lime carbon.
 Equivalent substitution is assumed; product-quality equivalence, treatment to
 achieve that quality, and market displacement are not established.
+
+## Potential conventional mixed REO substitution
+
+The configurable screening factor is **21.08 kg CO2e/kg contained REO**, with
+substitution fraction **1.0** (hypothetical 100% displacement). Source:
+[Wan, C., Zhou, D., and Xue, B. (2022), Processes 10(7), 1354](https://doi.org/10.3390/pr10071354),
+Table 4, reporting a 95% confidence interval of **17.8–24.3 kg CO2e/kg REO**.
+The paper's reference output is 1 kg mixed rare earth oxide product; Section 2.3
+describes a 92% REO product. Its boundary spans ionic-clay mining/in situ ammonium
+salt leaching, carbonate production and oxidation roasting in southern China.
+The authors call the inventory door-to-door (B2B); equipment, infrastructure
+and waste disposal are excluded. This is a regional process proxy, not a
+universal conventional REO burden or a harmonized ATT substitution study.
+
+As explicitly specified for this screening calculation, the published factor
+is applied directly per kg modeled contained REO, without dividing by 0.92.
+That mapping retains a reference-product purity qualification: the paper's
+mixed product and ATT's low-grade mineral/salt residue are not equivalent
+commercial products. No direct commercial substitution has been demonstrated.
+Further separation, upgrading, their yields and environmental burdens remain
+unresolved and are excluded; no upgrading process is invented here.
+
+The calculation reads only `ree_product.imass['REO']` from a boundary product,
+never total product-stream mass. REE Off has no such product and receives zero.
+Both factor and fraction are in `data/lca.yaml`,
+`lca.avoided_emissions.avoided_reo_production_emissions`. The credit is a separate
+positive reduction in the reporting LCA ledger alongside GCC, never a stream
+price, TEA revenue or a second system impact. Main CI subtracts it once;
+potential CI uses the same main result before the separate methane reduction.
+The original uncredited ATT CI remains available for comparisons.
+
+The active recovery is performance-specified. Incoming TREE is assumed enriched
+seaweed loading (737 ppm dry basis), represented from the inlet onward as an
+inert oxide-equivalent component with REO/TREE = 1.169. The recovery target is
+60% of the separate wastewater reference (1.4 mg TREE/L at 2.5 g dry seaweed/L),
+capped by available char REO and oxalate stoichiometry. It is not 60% of the
+incoming enriched-feed TREE. Transfer of that recovery to dilute feed is an
+assumption. The configured 1.31 wt% REO grade is imposed by mineral filler;
+existing documentation flags the experimental TREE versus REO assay basis.
+Element-specific REE composition and oxidation reactions are absent. Oxygen
+is already included in the inlet oxide-equivalent mass carved from Ash; no
+additional oxide oxygen is taken from roaster air. Conservation can therefore
+be verified for the REO pseudo-component and its configured TREE equivalent,
+not for individual rare earth elements or experimentally measured oxidation.
+These process assumptions are preserved. Numerical audit and unit balances are
+in [the generated audit](../results/ree_recovery/ree_mass_balance_report.md).
 
 ## Beach decomposition
 
@@ -120,10 +166,10 @@ does not establish that consequential claim.
 
 ## Configuration, normalization and verification
 
-`data/lca.yaml`, `lca.avoided_emissions`, holds independent GCC/decomposition
+`data/lca.yaml`, `lca.avoided_emissions`, holds independent GCC/REO/decomposition
 switches and decomposition parameters. Decomposition defaults to disabled;
-main reported CI always includes GCC and excludes decomposition. Named potential
-cases explicitly enable the additional methane indicator. Disabling both
+main reported CI includes GCC and configured REO displacement and excludes decomposition. Named potential
+cases explicitly enable the additional methane indicator. Disabling all three
 credits in the diagnostic API returns original CI.
 
 Gas masses and methane climate impact are normalized using actual inlet wet
@@ -145,7 +191,7 @@ figures are in [the sensitivity CSV](../results/avoided_emissions/avoided_emissi
 and [the sensitivity figure](../results/avoided_emissions/potential_decomposition_sensitivity.pdf).
 Operating results belong in these generated artifacts, not this document.
 
-Figure 2B retains the main GCC-adjusted environmental breakdown. Figure 2C and
+Figure 2B retains the main GCC/REO-adjusted environmental breakdown. Figure 2C and
 the additional comparison/waterfall charts use only the mechanistic methane
 indicator. GCC is included consistently in main and potential comparisons;
 existing carbonate/char storage is never subtracted again. Historical IPCC

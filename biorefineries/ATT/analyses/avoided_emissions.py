@@ -32,7 +32,7 @@ def assumptions():
 
 
 def gcc_production_emissions(products, emission_factor=None):
-    """Positive avoided kg CO2e on the supplied streams' mass basis (normally /h)."""
+    """Positive avoided kg CO₂e on the supplied streams' mass basis (normally /h)."""
     if emission_factor is None:
         emission_factor = assumptions()['avoided_gcc_production_emissions']['emission_factor']
     return sum(float(s.imass['CaCO3']) for s in products) * float(emission_factor)
@@ -125,21 +125,25 @@ def decomposition_emissions(feed, *, anaerobic_fraction=None, anaerobic_biodegra
                 avoided_co2e_kg=atmospheric*gwp, ch4_gwp100=gwp)
 
 
-def _check_existing_credits(system, products, gcc, decomposition):
+def _check_existing_credits(system, products, gcc, decomposition, reo_products=(), reo=False):
     if gcc and (lca._LCA['coproduct']['CaCO3_treatment'] == 'substitution'
                 or any(s.characterization_factors.get(lca.KEY, 0.) for s in products)):
-        raise ValueError('GCC displacement is already present in original CI; disable the additional GCC indicator.')
+        raise ValueError('GCC displacement is already present in GWP100 before GCC/REO displacement; disable the additional GCC indicator.')
     items = system.process_impact_items.get(lca.KEY, ())
+    if reo and (any(s.characterization_factors.get(lca.KEY, 0.) for s in reo_products)
+                or any(any(word in item.name.lower() for word in ('reo', 'rare earth')) for item in items)):
+        raise ValueError('REO displacement is already present in GWP100 before GCC/REO displacement; disable the additional REO indicator.')
     if decomposition and any(any(word in item.name.lower() for word in ('beach', 'decompos', 'avoided ch4'))
                              for item in items):
-        raise ValueError('Beach decomposition is already present in original CI; disable the additional decomposition indicator.')
+        raise ValueError('Beach decomposition is already present in GWP100 before GCC/REO displacement; disable the additional decomposition indicator.')
 
 
 def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
-                               include_decomposition=None, ch4_gwp100=None,
+                               include_decomposition=None, include_reo=None,
+                               reo_emission_factor=None, reo_substitution_fraction=None, ch4_gwp100=None,
                                anaerobic_fraction=None, anaerobic_biodegradability=None,
                                aerobic_mineralization=None, methane_realization=None):
-    """Read actual streams; return original and expanded CI on two bases.
+    """Read actual streams; return original and expanded CI on three bases.
 
     ``original_ci`` may supply the existing S2/S3 CI with its WHR adjustment.
     Otherwise read the system's existing GWP100; apply the standard LCA first.
@@ -148,12 +152,19 @@ def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
     cfg = assumptions()
     g = cfg['avoided_gcc_production_emissions']
     d = cfg['avoided_sargassum_decomposition_emissions']
+    r = cfg['avoided_reo_production_emissions']
     gcc = bool(g['enabled'] if include_gcc is None else include_gcc)
     dec = bool(d['enabled'] if include_decomposition is None else include_decomposition)
+    reo = bool(r['enabled'] if include_reo is None else include_reo)
+    reo_factor = float(r['emission_factor'] if reo_emission_factor is None else reo_emission_factor)
+    substitution = float(r['substitution_fraction'] if reo_substitution_fraction is None else reo_substitution_fraction)
+    if not math.isfinite(reo_factor) or reo_factor < 0. or not math.isfinite(substitution) or not 0. <= substitution <= 1.:
+        raise ValueError('REO factor must be finite and nonnegative; substitution fraction must be in [0, 1].')
     streams = inventory._streams(system)
     output_ids = {s.ID for s in system.products}
     products = [streams[ID] for ID in g['product_streams'] if ID in output_ids]
-    _check_existing_credits(system, products, gcc, dec)
+    reo_products = [streams[ID] for ID in r['product_streams'] if ID in output_ids]
+    _check_existing_credits(system, products, gcc, dec, reo_products, reo)
     feed = streams['att_sargassum_feed']
     wet = float(feed.F_mass)
     water = float(feed.imass['Water'])
@@ -170,15 +181,19 @@ def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
                                  methane_realization=methane_realization)
     gcc_potential = gcc_production_emissions(products)
     gcc_credit = gcc_potential if gcc else 0.
+    contained_reo = sum(float(s.imass['REO']) for s in reo_products)
+    reo_potential = contained_reo * reo_factor * substitution
+    reo_credit = reo_potential if reo else 0.
     dec_credit = rot['avoided_co2e_kg'] if dec else 0.
     storage = lca.get_att_stored_carbon_credit(system)
     original = float(original_ci)
     per_h2 = dict(original_CI=original, existing_storage_credit=storage,
                   avoided_gcc_production_emissions=gcc_credit / h2,
+                  avoided_reo_production_emissions=reo_credit / h2,
                   avoided_sargassum_decomposition_emissions=dec_credit / h2,
-                  expanded_CI=original - gcc_credit / h2 - dec_credit / h2,
-                  main_CI=original - gcc_credit / h2,
-                  potential_CI=original - gcc_credit / h2 - rot['avoided_co2e_kg'] / h2)
+                  expanded_CI=original - (gcc_credit + reo_credit + dec_credit) / h2,
+                  main_CI=original - (gcc_credit + reo_credit) / h2,
+                  potential_CI=original - (gcc_credit + reo_credit + rot['avoided_co2e_kg']) / h2)
     return dict(per_kg_h2=per_h2,
                 per_tonne_wet_presscake={k: v * h2 / wet * 1000. for k, v in per_h2.items()},
                 per_tonne_dry={k: v * h2 / dry * 1000. for k, v in per_h2.items()},
@@ -189,13 +204,18 @@ def calculate_avoided_emissions(system, original_ci=None, *, include_gcc=None,
                               cakes=[dict(stream=s.ID, total_kgph=float(s.F_mass),
                                           pure_caco3_kgph=float(s.imass['CaCO3'])) for s in products],
                               potential_gcc_kgCO2eph=gcc_potential,
+                              contained_reo_kgph=contained_reo,
+                              reo_product_kgph=sum(float(s.F_mass) for s in reo_products),
+                              potential_reo_kgCO2eph=reo_potential,
                               potential_decomposition_kgCO2eph=rot['avoided_co2e_kg'],
                               anaerobic_ch4_kgph=rot['anaerobic_ch4_kg'],
                               atmospheric_ch4_kgph=rot['atmospheric_ch4_kg'],
                               anaerobic_co2_kgph=rot['anaerobic_co2_kg'],
                               aerobic_co2_kgph=rot['aerobic_co2_kg'],
                               biogenic_co2_kgph=rot['biogenic_co2_kg']),
-                include_gcc=gcc, include_decomposition=dec, ch4_gwp100=rot['ch4_gwp100'],
+                include_gcc=gcc, include_reo=reo, reo_emission_factor=reo_factor,
+                reo_substitution_fraction=substitution,
+                include_decomposition=dec, ch4_gwp100=rot['ch4_gwp100'],
                 parameters=rot['parameters'], decomposition=rot,
                 decomposition_basis='actual presscake organic component CHONS',
                 conversion_assumption=d['conversion_assumption'],
@@ -214,7 +234,9 @@ def scenario_rows(system, scenario, ree_enabled, original_ci):
                          for key, values in cfg['sensitivities'].items() for value in values]
         for parameter, value, overrides in settings:
             result = calculate_avoided_emissions(system, original_ci, include_gcc=gcc,
-                                                include_decomposition=dec, **overrides)
+                                                include_decomposition=dec,
+                                                include_reo=False if label in ('original_only', 'gcc_only', 'decomposition_only') else None,
+                                                **overrides)
             a = result['activity']
             inv = result['decomposition']['inventory']
             scales = dict(per_kg_h2=1./a['h2_kgph'], per_tonne_wet_presscake=1000./a['presscake_wet_kgph'],
@@ -226,6 +248,10 @@ def scenario_rows(system, scenario, ree_enabled, original_ci):
                                  reference_case=(parameter=='reference'),
                                  decomposition_basis=result['decomposition_basis'],
                                  include_gcc=result['include_gcc'], include_decomposition=result['include_decomposition'],
+                                 include_reo=result['include_reo'], reo_emission_factor=result['reo_emission_factor'],
+                                 reo_substitution_fraction=result['reo_substitution_fraction'],
+                                 contained_reo_kg=a['contained_reo_kgph']*scale,
+                                 reo_product_kg=a['reo_product_kgph']*scale,
                                  anaerobic_ch4_kg=a['anaerobic_ch4_kgph']*scale,
                                  atmospheric_ch4_kg=a['atmospheric_ch4_kgph']*scale,
                                  anaerobic_co2_kg=a['anaerobic_co2_kgph']*scale,
@@ -243,8 +269,8 @@ def scenario_rows(system, scenario, ree_enabled, original_ci):
     return rows
 
 
-BASIS_LABELS = dict(per_kg_h2='kg CO2e/kg H2', per_tonne_dry='kg CO2e/tonne dry Sargassum (0 wt% moisture)',
-                    per_tonne_wet_presscake='kg CO2e/tonne modeled wet presscake (actual model moisture)')
+BASIS_LABELS = dict(per_kg_h2='kg CO₂e/kg H₂', per_tonne_dry='kg CO₂e/tonne dry Sargassum (0 wt% moisture)',
+                    per_tonne_wet_presscake='kg CO₂e/tonne modeled wet presscake (actual model moisture)')
 
 
 def reference_rows(data, credit_case, basis=None):
@@ -265,27 +291,35 @@ def _method_text():
             'Neither historical IPCC beach rot nor the former Bueno factor enters this calculation.')
 
 
+def _reo_method_text():
+    r = assumptions()['avoided_reo_production_emissions']
+    return (f'Potential avoided conventional mixed REO production: {r["emission_factor"]:g} kg CO₂e/kg contained REO, '
+            f'substitution fraction {r["substitution_fraction"]:g}; {r["source"]}. '
+            f'Reference product: {r["reference_product"]}. Boundary: {r["boundary"]}. {r["limitation"]}')
+
+
 def report_section(data):
     """Portable optional-indicator tables, including physical gas accounting."""
     from html import escape
     potential = reference_rows(data, 'potential')
     d = data['avoided_emissions']['assumptions']['avoided_sargassum_decomposition_emissions']
-    parts = ['<section class="card" id="avoided-emissions"><h2>Main CI and additional beach-decomposition scenario</h2>',
-             '<p>Main CI = original CI minus GCC avoided production. Existing storage remains included once in original CI. '
-             'Beach decomposition is excluded from main CI and baseline ATT LCA.</p>',
+    parts = ['<section class="card" id="avoided-emissions"><h2>Net GWP100 and additional beach-decomposition scenario</h2>',
+             '<p>Net GWP100 = GWP100 before GCC/REO displacement minus GCC and potential REO avoided production. Existing storage remains included once in GWP100 before GCC/REO displacement. '
+             'Beach decomposition is excluded from Net GWP100 and baseline ATT LCA.</p>',
              '<p>'+escape(_method_text())+'</p>',
+             '<p>'+escape(_reo_method_text())+'</p>',
              '<p><a href="ATT_S3_Figures.pdf">S3 figures</a> | '
              '<a href="avoided_emissions_report.md">Equations, inputs and limitations</a> | '
              '<a href="avoided_emissions_sensitivity.csv">One-at-a-time sensitivity data</a></p>']
     for basis, unit in BASIS_LABELS.items():
         parts.append('<h3>'+escape(unit)+'</h3><table><thead><tr><th>Scenario</th><th>REE</th>'
-                     '<th>Original CI</th><th>GCC reduction</th><th>Main CI</th>'
-                     '<th>Additional methane reduction</th><th>Potential CI</th></tr></thead><tbody>')
+                     '<th>GWP100 before GCC/REO displacement</th><th>GCC reduction</th><th>Avoided conventional mixed REO production</th><th>Net GWP100</th>'
+                     '<th>Additional methane reduction</th><th>GWP100 with potential beach-decomposition avoidance</th></tr></thead><tbody>')
         for r in potential:
             if r['basis'] != basis:
                 continue
             values = ''.join(f'<td>{r[k]:.6f}</td>' for k in ('original_CI', 'avoided_gcc_production_emissions',
-                             'main_CI', 'avoided_sargassum_decomposition_emissions', 'expanded_CI'))
+                             'avoided_reo_production_emissions', 'main_CI', 'avoided_sargassum_decomposition_emissions', 'expanded_CI'))
             parts.append(f'<tr><td>{r["scenario"]}</td><td>{"On" if r["ree_enabled"] else "Off"}</td>{values}</tr>')
         parts.append('</tbody></table>')
     parts += ['<h3 id="potential-decomposition">Physical gases per tonne wet ATT presscake</h3><p>CH4 production and atmospheric CH4 are distinct. '
@@ -300,7 +334,7 @@ def report_section(data):
     parts += ['</table><p>Independent one-at-a-time sensitivities vary anaerobic allocation, anaerobic biodegradability, '
               'aerobic mineralization and atmospheric methane realization. Each holds the remaining inputs fixed.</p>',
               '<img src="potential_decomposition_sensitivity.png" alt="Four independent decomposition sensitivities: methane climate impact and physical biogenic CO2" style="width:100%">',
-              '<p>'+escape(d['limitation'])+'</p></section>']
+              '<p>'+escape(d['limitation'].replace('original CI', 'GWP100 before GCC/REO displacement'))+'</p></section>']
     return '<div class="wrap">'+'\n'.join(parts)+'</div>'
 
 
@@ -318,8 +352,13 @@ def _write_outputs(out, data):
     d = payload['assumptions']['avoided_sargassum_decomposition_emissions']
     g = payload['assumptions']['avoided_gcc_production_emissions']
     lines = ['# ATT avoided-emission indicators', '', _method_text(), '',
-             'Main CI = original CI - GCC. Potential CI = main CI - atmospheric methane climate impact. '
+             'Net GWP100 = GWP100 before GCC/REO displacement - GCC - potential REO displacement. GWP100 with potential beach-decomposition avoidance = Net GWP100 - atmospheric methane climate impact. '
              'The optional calculation never changes system impacts, TEA or H2 production.', '',
+             '## Avoided conventional mixed REO production', '', _reo_method_text(), '',
+             'Credit (kg CO₂e/h) = actual contained REO (kg/h) * emission factor * substitution fraction. '
+             'Normalize by actual H2 component kg/h, or multiply by 1000 / actual dry or wet feed kg/h. '
+             'REE Off receives exactly zero. The total mineral/salt product mass receives no credit.', '',
+             'See [the REE/REO mass balance audit](../ree_recovery/ree_mass_balance_report.md).', '',
              '## Equations', '',
              'For carbon-normalized organic formula CaHbOcNdSe, with a = 1:', '',
              '- y_CH4 = a/2 + b/8 - c/4 - 3d/8 - e/4',
@@ -331,7 +370,7 @@ def _write_outputs(out, data):
              '- Atmospheric CH4 = CH4 produced * methane realization',
              '- Additional avoided CO2e = atmospheric CH4 * CH4 GWP100',
              '- Unmineralized C = organic C * [f_an * (1 - BI_an) + (1 - f_an) * (1 - MF_aer)]', '',
-             'No legacy GWP-minus-CO2 subtraction and no 87.5% raw-moisture conversion are used. '
+             'No legacy GWP100-minus-CO2 subtraction and no 87.5% raw-moisture conversion are used. '
              'Unrealized methane is tracked separately and is not presumed to become atmospheric CO2.', '',
              '## Inputs, sources and assumptions', '', '| Parameter | Reference | Source / status |', '|---|---:|---|',
              f'| Anaerobic fraction of original organics | {d["anaerobic_fraction"]:g} | {d["allocation_note"]} |',
@@ -343,8 +382,8 @@ def _write_outputs(out, data):
              f'BI: [Milledge et al., Table 11]({d["anaerobic_biodegradability_url"]}).',
              f'Aerobic factor: [transfer of the anaerobic-derived BI by modeling assumption]({d["aerobic_mineralization_url"]}); '
              'not an independently validated aerobic biodegradability value.',
-             f'GWP: [IPCC errata]({d["reference_gwp_url"]}).', '',
-             f'GCC remains {g["emission_factor"]:g} kg CO2e/kg contained CaCO3: [{g["source"]}]({g["url"]}).', '',
+             f'GWP100: [IPCC errata]({d["reference_gwp_url"]}).', '',
+             f'GCC remains {g["emission_factor"]:g} kg CO₂e/kg contained CaCO3: [{g["source"]}]({g["url"]}).', '',
              '## Active organic composition per tonne wet presscake', '',
              '| Scenario | REE | Organics kg | C kg | H kg | O kg | N kg | S kg | Formula units kmol | Formula MW kg/kmol |',
              '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|']
@@ -361,11 +400,11 @@ def _write_outputs(out, data):
               'The older carbon-fate ledger uses rounded AW_C = 12.011; its tiny carbon-mass difference is retained to preserve baseline reporting.', '']
     for basis, unit in BASIS_LABELS.items():
         lines += [f'## Reference results: {unit}', '',
-                  '| Scenario | REE | Original CI | GCC reduction | Main CI | Additional methane reduction | Potential CI |',
-                  '|---|---|---:|---:|---:|---:|---:|']
+                  '| Scenario | REE | GWP100 before GCC/REO displacement | GCC reduction | Avoided conventional mixed REO production | Net GWP100 | Additional methane reduction | GWP100 with potential beach-decomposition avoidance |',
+                  '|---|---|---:|---:|---:|---:|---:|---:|']
         for r in potential:
             if r['basis']==basis:
-                values=' | '.join(f'{r[k]:.9f}' for k in ('original_CI','avoided_gcc_production_emissions','main_CI',
+                values=' | '.join(f'{r[k]:.9f}' for k in ('original_CI','avoided_gcc_production_emissions','avoided_reo_production_emissions','main_CI',
                                  'avoided_sargassum_decomposition_emissions','expanded_CI'))
                 lines.append(f'| {r["scenario"]} | {"On" if r["ree_enabled"] else "Off"} | {values} |')
         lines.append('')
@@ -379,7 +418,7 @@ def _write_outputs(out, data):
     lines += ['', '## Independent one-at-a-time sensitivity', '', d['sensitivity_note'], '',
               'S3 REE On; gas masses and climate impact below are per tonne actual wet presscake. '
               'The full CSV includes all six cases and wet, dry and H2 bases.', '',
-              '| Varied parameter | Value | CH4 produced kg | Atmospheric CH4 kg | Anaerobic CO2 kg | Aerobic CO2 kg | Total biogenic CO2 kg | Methane climate impact kg CO2e |',
+              '| Varied parameter | Value | CH4 produced kg | Atmospheric CH4 kg | Anaerobic CO2 kg | Aerobic CO2 kg | Total biogenic CO2 kg | Methane climate impact kg CO₂e |',
               '|---|---:|---:|---:|---:|---:|---:|---:|']
     for r in sensitivity:
         if r['scenario']=='S3' and r['ree_enabled'] and r['basis']=='per_tonne_wet_presscake':
@@ -430,7 +469,7 @@ def draw_decomposition_sensitivity(fig, rows):
         physical.plot(x, [r['biogenic_co2_kg'] for r in series], 's--', color='#B15F20', label='Biogenic CO2 formation')
         ax.axvline(cfg[parameter], color='#64748B', linewidth=.8, linestyle=':')
         ax.set_xlabel(label, fontsize=9)
-        ax.set_ylabel('kg CO2e / t wet presscake', color='#176B50', fontsize=8)
+        ax.set_ylabel('kg CO₂e / t wet presscake', color='#176B50', fontsize=8)
         physical.set_ylabel('kg biogenic CO2 / t wet presscake', color='#B15F20', fontsize=8)
         ax.tick_params(axis='y', labelcolor='#176B50', labelsize=8)
         physical.tick_params(axis='y', labelcolor='#B15F20', labelsize=8)
@@ -451,12 +490,12 @@ def _figure(out, rows, potential):
     companion = [r for r in potential if r['basis']=='per_kg_h2']
     fig, ax = plt.subplots(figsize=(11, 6.5))
     x = list(range(len(selected)))
-    ax.bar([i-.2 for i in x], [r['expanded_CI'] for r in selected], .4, label='Main: GCC included; without decomposition')
+    ax.bar([i-.2 for i in x], [r['expanded_CI'] for r in selected], .4, label='Net GWP100: GCC + potential REO; without decomposition')
     ax.bar([i+.2 for i in x], [r['expanded_CI'] for r in companion], .4, label='Potential additional beach-decomposition avoidance')
-    ax.scatter(x,[r['original_CI'] for r in selected],marker='D',s=25,color='#233746',label='Original ATT CI',zorder=4)
+    ax.scatter(x,[r['original_CI'] for r in selected],marker='D',s=25,color='#233746',label='GWP100 before GCC/REO displacement',zorder=4)
     ax.set_xticks(x, [f'{r["scenario"]}\nREE {"On" if r["ree_enabled"] else "Off"}' for r in selected])
-    ax.set_ylabel('kg CO2e/kg H2')
-    ax.set_title(f'GCC-adjusted main CI and potential decomposition effect (CH4 GWP100 = {selected[0]["ch4_gwp100"]:g})')
+    ax.set_ylabel('kg CO₂e/kg H₂')
+    ax.set_title(f'GCC/REO-adjusted Net GWP100 and potential decomposition effect (CH4 GWP100 = {selected[0]["ch4_gwp100"]:g})')
     ax.axhline(0, color='black', linewidth=.7)
     ax.legend()
     fig.tight_layout(rect=(0,.20,1,1))
@@ -464,7 +503,8 @@ def _figure(out, rows, potential):
     fig.text(.07,.06,f'Component-specific Boyle + aerobic carbon oxidation; anaerobic fraction {d["anaerobic_fraction"]:g}, BI {d["anaerobic_biodegradability"]:.4f}.\n'
              f'Aerobic mineralization {d["aerobic_mineralization"]:g}; atmospheric methane realization {d["methane_realization"]:g}; GWP100 {d["ch4_gwp100"]:g}.\n'
              'Aerobic factor assumes transfer of anaerobic BI; no independent aerobic validation. Biogenic CO2 has no climate credit.\n'
-             'GCC and existing storage remain unchanged in both versions. Historical IPCC and Bueno indicators are excluded.', fontsize=8.5)
+             'GCC, potential REO displacement and existing storage are included once in both versions. Historical IPCC and Bueno indicators are excluded.\n'
+             f'REO screening: {selected[0]["reo_emission_factor"]:g} kg CO₂e/kg contained REO, substitution {selected[0]["reo_substitution_fraction"]:g} (Wan et al. 2022); upgrading unresolved.', fontsize=8.5)
     fig.savefig(out/'avoided_emissions_ci.png', dpi=180)
     fig.savefig(out/'avoided_emissions_ci.pdf')
     plt.close(fig)

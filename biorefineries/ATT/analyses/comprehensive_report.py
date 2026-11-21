@@ -71,12 +71,12 @@ def _assumptions():
 
 def _limits():
     return [dict(issue=a, model=b, significance=c, direction=d, experiment=e, code=f) for a,b,c,d,e,f in [
-      ('Unresolved organics','ResidueCH / ResidueCHO close elemental balances; baseline fee and LCA impact are zero','Physical identity and fate pending further product-yield information from UCLA; heat of reaction is uncertain','Costs and GWP may be understated; direction of heat bias unknown','yes','after measurement'),
-      ('CaCO3 and char permanence','Sargassum carbon in sold carbonate and char credited','Product fate and counterfactual not established','Net GWP may be too low','end-use and permanence evidence','only after decision'),
+      ('Unresolved organics','ResidueCH / ResidueCHO close elemental balances; baseline fee and LCA impact are zero','Physical identity and fate pending further product-yield information from UCLA; heat of reaction is uncertain','Costs and GWP100 may be understated; direction of heat bias unknown','yes','after measurement'),
+      ('CaCO3 and char permanence','Sargassum carbon in sold carbonate and char credited','Product fate and counterfactual not established','Net GWP100 may be too low','end-use and permanence evidence','only after decision'),
       ('Coproduct marketability','CaCO3 component and REO content sold without purification','Assumed sales of contained CaCO3 and REO at about 1.31% REO product grade lack buyer confirmation','MSP and net treatment cost may be too low','product characterization and buyer evidence','potentially'),
       ('Dry / DAF yield transfer','Lab DAF gas yields applied to pressed feed with different ash','NaOH is confirmed per total dry feed; transfer of gas yields to higher-ash presscake remains uncertain','direction unknown','yes','after validation'),
-      ('Uncertain LCA burdens','REE reagents use provisional HCl and oxalic-acid factors; untracked residue treatment omitted','Reagent geography/form are uncertain and residue inventory incomplete','GWP may be too low','factor and fate data','yes'),
-      ('Waste lime','Waste lime assumed free and burden-free','Availability, transport, composition and burden not established','cost and GWP may be too low','site supply and assay','potentially'),
+      ('Uncertain LCA burdens','REE reagents use provisional HCl and oxalic-acid factors; untracked residue treatment omitted','Reagent geography/form are uncertain and residue inventory incomplete','GWP100 may be too low','factor and fate data','yes'),
+      ('Waste lime','Waste lime assumed free and burden-free','Availability, transport, composition and burden not established','cost and GWP100 may be too low','site supply and assay','potentially'),
       ('S2 marine WHR','Idealized independent host mission; ATT receives incremental WHR only','Competing ship heat demands, exchanger costing and D0 heating-surface compatibility remain assumed; pump efficiency is flow-dependent','heat savings may be optimistic','ship load and utility measurements','after validation'),
       ('S3 industrial WHR','Scaled theoretical additive H1/H3 host heat; zero heat burden and purchase price','Independence and surplus after host heat integration are not site-verified; H3 Table 4 conflicts with Table 1 / Fig. 10 / text','savings may be optimistic','host heat and operating measurements','after validation'),
       ('Internal HXN','Corrected pressurized liquid-water proxy for U3D sensible regeneration heating','A practical installed network remains an engineering assumption','no retained historical 2.8% error assumption','engineering design','only after new evidence'),
@@ -86,6 +86,8 @@ def _limits():
 def _scientific_notes():
     """Agreed qualifications; these notes never change simulation inputs."""
     return [dict(topic=a, finding=b, classification=c, reference=d) for a,b,c,d in [
+      ('Process LCA versus final Net GWP100', 'Underlying process LCA GWP100 contains the existing process/upstream burdens, biogenic storage and applicable WHR adjustment, before GCC/REO avoided-production credits. Final Net GWP100 subtracts conventional GCC displacement and potential contained-REO substitution once. The additional beach comparison subtracts the separate potential decomposition credit once. REO commercial equivalence and upgrading requirements/burdens remain unverified.', 'Reporting boundaries; calculation unchanged', 'analyses/lca.py; analyses/avoided_emissions.py'),
+      ('Fresh-Sargassum moisture references', 'data/feedstock.yaml nlr_fresh specifies 85.7 wt% moisture (14.3% solids); the S3 energy figure retains 87.5 wt% (12.5% solids) solely as a legacy equivalent-mass reporting reference. They are not interchangeable measurements. The modeled ATT inlet is nlr_pressed at 76.3 wt% moisture (23.7% solids). None of these reporting conversions simulates upstream pressing or changes the process.', 'Dataset input versus retained illustrative reporting basis', 'data/feedstock.yaml nlr_fresh/nlr_pressed; analyses/s3_figures.py energy_basis_values'),
       ('LC1 experimental reagent basis', 'UCLA: 5 mL of 0.1 M HCl/g insoluble residue = 0.5 mol/kg; 0.42 mL of 0.1 M oxalic acid/g = 0.042 mol/kg. Insoluble ash is provisionally mapped to the whole water-insoluble ATT residue/char, not independently proven equivalent.', 'Experiment-supported; material-basis qualification', 'User-provided UCLA clarification; data/att.yaml att.downstream.ree_recovery; units/_att.py ATTReeLeach'),
       ('LC1 carbonate compensation and water', 'Additional HCl = 2 mol per mol residual Na2CO3 entering LC1. HCl solution carries water; oxalic solution water excludes the acid solute, and its tank uses the existing liquor once. scale_reagents_with_REE=False; reagent_excess=1.2 does not increase the baseline dose; precipitate_wash_efficiency=0.', 'Confirmed implemented calculation', 'units/_att.py ATTReeLeach._run, water_demand_kgph and _design'),
       ('LC1 recovery validation', 'The 60% target is a transferred performance assumption, not validated for the low-concentration case by a calculated leaching pH. Confirm reagent concentration, insoluble-material basis and updated recovery data with UCLA before manuscript submission.', 'Engineering assumption requiring experiment', 'data/att.yaml att.downstream.ree_recovery.overall_recovery; units/_att.py ATTReeLeach'),
@@ -101,7 +103,7 @@ def _scientific_notes():
       ('S3 source scaling', 'Assume the historical 120000 tons/year means U.S. short tons: 120000 × 0.90718474 = 108862.1688 metric t/year. Relative to the paper reference of 120000 metric t/year this gives 0.90718474 at equal 7920 h/year and full utilization. This is host-capacity scaling, not ATT-demand scaling; the ton subtype is not established by the historical source.', 'Explicit unit-conversion and host-transfer assumption', 'analyses/industrial_whr.py industrial_sources; scenario_docs/ATT_S3_DESIGN_BASIS.md'),
       ('S3 H3 discrepancy and host surplus', 'Prior supplied-PDF review records H3 800→40 C in Table 1, Fig. 10 and text (5.17 kW/K × 760 K ≈ 3.93 MW), versus 800→400 C in Table 4. The current 800→40 C interpretation follows the former mutually consistent values. H1/H3 are treated as additive; independence and availability after the host complex uses heat are not site-verified.', 'Documented literature discrepancy and host assumption', 'Wang et al. 2025 DOI 10.1016/j.psep.2025.107306; scenario_docs/ATT_S3_DESIGN_BASIS.md Literature interpretation'),
       ('S3 heat and costing basis', 'Current H1/H3 capacities and intervals are retained. A 20 C approach and 90% effectiveness produce useful steam for D0/EC1 only. The 0.95 steam-to-process ratio is descriptive; avoided fuel uses 80% boiler efficiency once. Installed $500/kW and 1% auxiliary power use useful steam capacity. Heat has zero purchase cost and upstream burden. This is an idealized screen, not site feasibility.', 'Accepted engineering screening assumptions', 'analyses/s3_industrial.py run; analyses/industrial_whr.py generate_steam'),
-      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. The additional beach counterfactual uses active organic CHONS, Boyle anaerobic decomposition and separately configurable aerobic carbon mineralization. The aerobic reference transfers the anaerobic-derived BI by modeling assumption; it is not an independently validated aerobic biodegradability value. Only atmospheric methane times GWP100 is a potential additional credit. Physical biogenic CO2 formation is separate; this indicator does not alter baseline net GWP or reapply storage.', 'Screening allocation, biodegradability, mineralization and atmospheric realization; not measured beach fluxes', 'data/lca.yaml avoided_emissions; analyses/avoided_emissions.py; baseline analyses/lca.py unchanged')]]
+      ('LCA categories and counterfactual', 'Fossil combustion, upstream material/energy supply, waste management and permanent-storage credits are distinguished. HCl and oxalic-acid production factors are provisional. The additional beach counterfactual uses active organic CHONS, Boyle anaerobic decomposition and separately configurable aerobic carbon mineralization. The aerobic reference transfers the anaerobic-derived BI by modeling assumption; it is not an independently validated aerobic biodegradability value. Only atmospheric methane times GWP100 is a potential additional credit. Physical biogenic CO2 formation is separate; this indicator does not alter baseline net GWP100 or reapply storage.', 'Screening allocation, biodegradability, mineralization and atmospheric realization; not measured beach fluxes', 'data/lca.yaml avoided_emissions; analyses/avoided_emissions.py; baseline analyses/lca.py unchanged')]]
 
 
 def _inactive_reason(row):
@@ -115,7 +117,7 @@ def _inactive_reason(row):
     if 'nd_soak_data' in key:
         return 'High-concentration Nd reference; not the low-concentration baseline'
     if 'beach_rot_counterfactual' in key:
-        return 'Optional counterfactual only; excluded from baseline net GWP'
+        return 'Optional counterfactual only; excluded from baseline net GWP100'
     if key.endswith('pump_efficiency'):
         return 'Hand-check reference only; active WHR pumps use BioSTEAM flow-dependent efficiency'
     if key.endswith(('reagent_excess', 'hcl_mol_per_mol_ree')):
@@ -147,7 +149,7 @@ def carbon_credit_breakdown(system):
 
 def collect(include_avoided_emissions=True):
     """Recompute model cases and collect explicit source ledgers without changing assumptions."""
-    from biorefineries.ATT.analyses import treatment_report, scenarios, inventory, marine_tea, marine_lca, marine_whr, tea
+    from biorefineries.ATT.analyses import treatment_report, scenarios, inventory, marine_tea, marine_lca, marine_whr, tea, headline_results
     from biorefineries.ATT.analyses.s3_industrial import run as s3_run
     from biorefineries.ATT.analyses.breakdown import build_att_breakdown
     fu, balances, carbon, pseudo = treatment_report.run()
@@ -197,6 +199,10 @@ def collect(include_avoided_emissions=True):
         marine, whr = marine_tea.evaluate_case(sys, ref, 'S2', sources=('jacket','scavenge','exhaust'), hours=hours, load=load)
         delta = marine_lca.whr_gwp_change(sys, whr)
         industrial = s3_run(enable_ree_recovery=ree)
+        if ree:
+            # Reuse the published S3 operational energy metric and the cases
+            # already simulated for this report.
+            s3_report_energy = headline_results.s3_energy_and_eroi(industrial=industrial, system=sys)
         details[str(ree)] = dict(base=snap, marine=marine, marine_whr=whr, marine_lca=delta, marine_config=marine_whr.load_whr_config(), industrial=industrial)
         for scenario, msp, gwp in [('S1',snap['summary']['MSP_USD_per_kg_H2'],snap['summary']['GWP_kgCO2e_per_kg_H2']),
                                     ('S2',marine['MSP_USD_per_kg_H2'],marine['GWP_kgCO2e_per_kg_H2']),
@@ -263,7 +269,8 @@ def collect(include_avoided_emissions=True):
             active.append(row)
     result = dict(functional=fu, balances=balances, carbon=carbon, pseudo=pseudo,ree_tea=ree_tea,
                       details=details, assumptions=active, inactive_parameters=inactive,
-                      scientific_notes=_scientific_notes(), limitations=_limits(), provenance=provenance)
+                      scientific_notes=_scientific_notes(), limitations=_limits(), provenance=provenance,
+                      s3_report_energy=s3_report_energy)
     if include_avoided_emissions:
         from biorefineries.ATT.analyses.avoided_emissions import assumptions
         result['avoided_emissions'] = dict(rows=avoided_rows, assumptions=assumptions())
@@ -362,7 +369,7 @@ def tables(data):
             optional_extra_kgCO2e_per_kg_H2=-r['avoided_sargassum_decomposition_emissions'],
             counterfactual_net_kgCO2e_per_kg_H2=r['original_CI']-r['avoided_sargassum_decomposition_emissions'],
             counted_in_baseline=False,
-            basis='Original ATT CI minus mechanistic atmospheric-methane indicator; GCC shown separately in main/potential CI tables')
+            basis='GWP100 before GCC/REO displacement minus mechanistic atmospheric-methane indicator; GCC shown separately in GWP100 boundary tables')
             for r in reference_rows(data, 'potential', 'per_kg_h2')]
         main = {(r['scenario'],r['ree_enabled'],r['basis']):r for r in reference_rows(data,'main')}
         def reported(row):
@@ -370,9 +377,10 @@ def tables(data):
             ci = main[row['scenario'],row['ree_enabled'],basis]
             return dict(row, original_net_gwp_kg_co2e=row['net_gwp_kg_co2e'],
                         gcc_credit=ci['avoided_gcc_production_emissions'],
+                        reo_credit=ci['avoided_reo_production_emissions'],
                         net_gwp_kg_co2e=ci['expanded_CI'], main_CI=ci['expanded_CI'],
-                        total_credit_gwp_kg_co2e=row['credit_gwp_kg_co2e']-ci['avoided_gcc_production_emissions'],
-                        reporting_definition='Main CI includes GCC; excludes potential decomposition')
+                        total_credit_gwp_kg_co2e=row['credit_gwp_kg_co2e']-ci['avoided_gcc_production_emissions']-ci['avoided_reo_production_emissions'],
+                        reporting_definition='Net GWP100 includes GCC and potential REO displacement; excludes potential decomposition')
         result['scenario_comparison'] = [reported(r) for r in comparison]
         result['functional_unit_comparison'] = [reported(r) for r in fu]
         for r in lca:
@@ -382,6 +390,11 @@ def tables(data):
                 record_type='GCC reporting credit',stage='GCC avoided production',
                 contributor='Avoided conventional GCC production',emission_category='GCC avoided production (separate from storage)',
                 kgCO2e_per_kg_H2=-r['avoided_gcc_production_emissions'],counted_in_original_CI=False))
+            lca.append(dict(ree_enabled=str(r['ree_enabled']),scenario=r['scenario'],
+                record_type='REO reporting credit',stage='REO avoided production',
+                contributor='Avoided conventional mixed REO production',
+                emission_category='Potential REO avoided production (hypothetical substitution)',
+                kgCO2e_per_kg_H2=-r['avoided_reo_production_emissions'],counted_in_original_CI=False))
     return result
 
 
@@ -413,8 +426,8 @@ def report_qc(data, all_tables):
             if key.endswith('relative_error'): check(label,key,value,0.,atol=1e-8)
         check(label,'H2 component = wet-basis conversion',row['h2_component_kgph'],row['hydrogen_kg']*row['wet_feed_kgph']/1000.)
         check(label,'Gas contains H2 plus nonnegative other components',max(0.,row['h2_component_kgph']-row['h2_product_gas_kgph']),0.)
-        check(label,'Original LCA sum = original net GWP',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled and x.get('counted_in_original_CI', True)),row['net_gwp_kg_co2e']/row['hydrogen_kg'])
-        check(label,'Reported LCA sum = main CI',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled),displayed['net_gwp_kg_co2e']/row['hydrogen_kg'])
+        check(label,'Original LCA sum = original net GWP100',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled and x.get('counted_in_original_CI', True)),row['net_gwp_kg_co2e']/row['hydrogen_kg'])
+        check(label,'Reported LCA sum = Net GWP100',sum(x['kgCO2e_per_kg_H2'] for x in all_tables['lca_breakdown'] if x['scenario']==scenario and x['ree_enabled']==enabled),displayed['net_gwp_kg_co2e']/row['hydrogen_kg'])
         check(label,'Storage sum = baseline storage credit',sum(b['storage_credits'].values()),row['credit_gwp_kg_co2e']/row['hydrogen_kg'])
         check(label,'Gross emissions + storage = net',row['gross_gwp_kg_co2e']+row['credit_gwp_kg_co2e'],row['net_gwp_kg_co2e'])
         check(label,'Contained CaCO3 + disposed remainder = cake mass',row['caco3_component_kgph']+row['caco3_impurity_disposal_kgph'],row['caco3_cake_total_kgph'])
@@ -440,7 +453,7 @@ def report_qc(data, all_tables):
         for basis in ('per_kg_h2','per_tonne_wet'):
             r=next(x for x in data['functional'] if x['scenario']==scenario and str(x['ree_enabled'])==enabled and x['basis']==basis)
             check(label,basis+' net annual treatment cost',r['annual_operating_cost_usd']+r['annual_capital_charge_usd']-r['annual_coproduct_revenue_usd'],r['annual_net_treatment_cost_usd'])
-            check(label,basis+' GWP basis conversion',r['net_gwp_kg_co2e'],row['net_gwp_kg_co2e']/row['hydrogen_kg']*r['hydrogen_kg'])
+            check(label,basis+' GWP100 basis conversion',r['net_gwp_kg_co2e'],row['net_gwp_kg_co2e']/row['hydrogen_kg']*r['hydrogen_kg'])
             check(label,basis+' gross OPEX basis conversion',r['operating_cost_usd'],r['annual_operating_cost_usd']/(row['h2_component_kgph']*row['operating_hours'])*r['hydrogen_kg'])
     if 'avoided_emissions' in data:
         for row in data['avoided_emissions']['rows']:
@@ -450,12 +463,19 @@ def report_qc(data, all_tables):
             h2 = data['details'][str(row['ree_enabled'])]['base']['products']['h2_component_kgph']
             scale = dict(per_kg_h2=1., per_tonne_wet_presscake=h2/original['wet_feed_kgph']*1000.,
                          per_tonne_dry=h2/original['dry_feed_kgph']*1000.)[row['basis']]
-            check(label, 'Original CI preserved', row['original_CI'], original['net_gwp_kg_co2e'] * scale)
+            check(label, 'GWP100 before GCC/REO displacement preserved', row['original_CI'], original['net_gwp_kg_co2e'] * scale)
             check(label, 'Expanded credit ledger closes', row['expanded_CI']
-                  + row['avoided_gcc_production_emissions'] + row['avoided_sargassum_decomposition_emissions'], row['original_CI'])
+                  + row['avoided_gcc_production_emissions'] + row['avoided_reo_production_emissions']
+                  + row['avoided_sargassum_decomposition_emissions'], row['original_CI'])
+            if not row['ree_enabled']:
+                check(label, 'REE Off has zero REO credit', row['avoided_reo_production_emissions'], 0., atol=0., rtol=0.)
+            reo = data['details'][str(row['ree_enabled'])]['base']['products']['reo_component_kgph']
+            check(label, 'Contained REO and functional-unit credit reconcile', row['avoided_reo_production_emissions'],
+                  reo * row['reo_emission_factor'] * row['reo_substitution_fraction'] / h2 * scale if row['include_reo'] else 0.)
             if row['credit_case']=='main':
                 check(label, 'Main excludes decomposition', row['avoided_sargassum_decomposition_emissions'], 0.)
-                check(label, 'Main includes GCC once', row['original_CI']-row['expanded_CI'], row['avoided_gcc_production_emissions'])
+                check(label, 'Main includes GCC and REO once', row['original_CI']-row['expanded_CI'],
+                      row['avoided_gcc_production_emissions']+row['avoided_reo_production_emissions'])
     return checks
 
 
@@ -530,7 +550,8 @@ def write_report(out, data):
     html=TEMPLATE.read_text(encoding='utf-8').replace('/*__ATT_DATA__*/', 'const ATT_DATA = '+encoded+';')
     if 'avoided_emissions' in data:
         from biorefineries.ATT.analyses.avoided_emissions import report_section
-        html = html.replace('</body>', report_section(data) + '</body>')
+        section = report_section(data)
+        html = html.replace('<!--__ATT_CREDIT_DETAILS__-->', section)
     (out/'ATT_S1_S2_S3_Comprehensive_Report.html').write_text(html,encoding='utf-8')
     (out/'provenance.json').write_text(json.dumps(data['provenance'],indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     (out/'report_qc.json').write_text(json.dumps(dict(status='PASS',passed=len(qc),failed=0,checks=qc),indent=2)+'\n',encoding='utf-8')
@@ -540,11 +561,18 @@ def write_report(out, data):
            'Uncommitted changes, active input SHA-256 fingerprints and dependency versions are recorded in provenance.json.',
            '',f'Report-generation QC: {len(qc)} PASS, 0 FAIL.',
            f"Full ATT suite: {verification.get('test_result','Not invoked by write_report; use --verify-tests for a release run')}.",
-           '', '| Scenario | REE | MSP (USD/kg H2) | Main CI incl. GCC (kg CO2e/kg H2) | Net OPEX (USD/year) | WHR (kW) | Residual heat (kW) |',
+           '', '| Scenario | REE | MSP (USD/kg H2) | Net GWP100 incl. GCC/REO (kg CO₂e/kg H₂) | Net OPEX (USD/year) | WHR (kW) | Residual heat (kW) |',
            '|---|---|---:|---:|---:|---:|---:|']
     for r in all_tables['scenario_comparison']:
         lines.append(f"| {r['scenario']} | {'On' if r['ree_enabled'] else 'Off'} | {r['hydrogen_msp_usd_per_kg']:.8f} | {r['net_gwp_kg_co2e']/r['hydrogen_kg']:.8f} | {r['net_annual_opex_usd']:.2f} | {r['waste_heat_delivered_kW']:.6f} | {r['external_heating_kW']:.6f} |")
-    lines+=['','Main CI includes GCC avoided production, separately from the existing storage assumption. Potential beach decomposition is excluded from main CI. Original CI is retained explicitly in the scenario, functional-unit and main-CI CSV tables.',
+    reo_method = ''
+    if 'avoided_emissions' in data:
+        reo = data['avoided_emissions']['assumptions']['avoided_reo_production_emissions']
+        reo_method = (f' Configured potential REO substitution: {reo["substitution_fraction"]:.0%} on contained REO at '
+                      f'{reo["emission_factor"]:g} kg CO₂e/kg (Wan et al. 2022); enabled={reo["enabled"]}. '
+                      'Upgrading burdens and market equivalence remain unresolved.')
+    lines+=['','Net GWP100 includes GCC and configured potential REO avoided production, separately from the existing storage assumption.'
+            + reo_method + ' Potential beach decomposition is excluded from Net GWP100. GWP100 before GCC/REO displacement is retained explicitly in the scenario, functional-unit and main-CI CSV tables.',
             'REE economics: all six independent DCF roots agree; REO and CaCO3 revenues are credited once. Annualized cost stacks use screening capital recovery and keep DCF MSP separate. See REE_TEA_VERIFICATION.md for the numeric On/Off reconciliation.',
             'All six balance rows use the common ATT flowsheet; S2/S3 WHR accounting leaves physical boundary streams unchanged.',
             '', 'Remaining scientific limitations: UCLA insoluble-residue/reagent basis and low-concentration recovery; unverified REO saleability and oxide basis; unresolved organics; lime assay/supply/handling; carbon-storage permanence; and host heat surplus, competing users and screening equipment costs.',

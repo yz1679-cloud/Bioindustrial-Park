@@ -152,6 +152,18 @@ lca:
 
   # Read-only expanded-CI indicators. Never registered in the baseline GWP100.
   avoided_emissions:
+    avoided_reo_production_emissions:
+      enabled: true
+      product_streams: [ree_product]
+      emission_factor: 21.08
+      confidence_interval_95: [17.8, 24.3]
+      unit: kg CO2e/kg contained REO
+      substitution_fraction: 1.0
+      source: "Wan, C., Zhou, D., and Xue, B. (2022), Processes 10(7), 1354, Table 4"
+      url: https://doi.org/10.3390/pr10071354
+      reference_product: "1 kg mixed rare earth oxide product; Section 2.3 describes 92% REO"
+      boundary: "Ionic-clay mining/in situ ammonium-salt leaching through carbonate production and oxidation roasting in southern China; authors call inventory door-to-door B2B; excludes equipment, infrastructure and waste disposal"
+      limitation: "Potential avoided conventional mixed REO production only: hypothetical 100% substitution of contained REO, not demonstrated commercial displacement. Published factor applied directly on contained-REO basis as a screening proxy, without a 92% purity correction. ATT low-grade mineral/salt product does not establish commercial mixed REO specifications. Further separation/upgrading, yields and environmental burdens unresolved and excluded. Existing oxide-equivalent feed/recovery assumptions and TEA are unchanged."
     avoided_gcc_production_emissions:
       enabled: true
       product_streams: [caco3_cake, scrubber_cake]
@@ -219,7 +231,7 @@ lca:
     h2_product: "Functional unit (1 kg H2); the product gas also holds CH4, CO and CO2, which are not credited."
     caco3_cake: "No substitution credit (coproduct.CaCO3_treatment: none); stored-carbon credit and landfill factor 0 (carbon_storage, inert_landfill)."
     scrubber_cake: "As caco3_cake."
-    ree_product: "No credit and no burden: the REE product is sold, with no avoided-product credit."
+    ree_product: "No baseline stream factor; contained REO receives a separate potential avoided-production credit in the reporting LCA ledger (avoided_emissions.avoided_reo_production_emissions), never total product mass or a second system impact. TEA sales unchanged."
     att_char: "emission_factors.inert_landfill (0, user decision 2026-10-17: landfill burden not counted) and the stored-carbon credit."
     liquor_purge: "emission_factors.wastewater_treatment (Zib et al. 2021) and H2SO4 neutralization."
     excess_condensate: "emission_factors.wastewater_treatment (nearly pure water, charged as wastewater)."
